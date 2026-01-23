@@ -89,3 +89,5 @@ df.to_sql(
 conn.close()
 
 print("Referee stats scraped and stored successfully.")
+
+print(df.head(5))
