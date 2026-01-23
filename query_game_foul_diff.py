@@ -14,4 +14,4 @@ def get_game_foul_diff(home, away):
     return df
 
 # Example usage:
-print(get_game_foul_diff("Detroit", "Houston"))
+print(get_game_foul_diff("DET", "HOU"))
