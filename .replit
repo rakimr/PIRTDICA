@@ -33,11 +33,11 @@ args = "Run Script"
 [[workflows.workflow]]
 name = "Run Script"
 author = "agent"
-mode = "parallel"
+mode = "sequential"
 
 [workflows.workflow.metadata]
 outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python etl_referee_stats_agg.py"
+args = "python query_game_foul_diff.py"
