@@ -34,7 +34,8 @@ conn.commit()
 # ============================
 
 url = "https://official.nba.com/referee-assignments/"
-html = requests.get(url).text
+headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+html = requests.get(url, headers=headers, timeout=30).text
 soup = BeautifulSoup(html, "html.parser")
 
 table = soup.find("table", class_="table")
