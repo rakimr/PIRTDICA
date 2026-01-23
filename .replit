@@ -33,6 +33,7 @@ args = "Run Script"
 [[workflows.workflow]]
 name = "Run Script"
 author = "agent"
+mode = "parallel"
 
 [workflows.workflow.metadata]
 outputType = "console"
