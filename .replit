@@ -40,4 +40,20 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python query_game_foul_diff.py"
+args = "python scrape_referee_stats.py"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python etl_referee_stats_agg.py"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python scrape_referee_assignments.py"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python etl_game_foul_environment.py"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python scrape_player_positions.py"
