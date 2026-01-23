@@ -1,9 +1,11 @@
+import requests
 import pandas as pd
-import sqlite3
+from bs4 import BeautifulSoup
 from datetime import datetime
+import sqlite3
 
 # ============================
-# 1. CREATE / CONNECT DATABASE
+# 1. CONNECT TO DATABASE
 # ============================
 
 conn = sqlite3.connect("dfs_nba.db")
@@ -33,61 +35,73 @@ CREATE TABLE IF NOT EXISTS referee_stats (
 conn.commit()
 
 # ============================
-# 2. SCRAPE REFEREE TABLE
+# 2. SCRAPE HTML
 # ============================
 
 url = "https://www.nbastuffer.com/2025-2026-nba-referee-stats/"
-tables = pd.read_html(url)
-df = tables[0]  # first table on the page
+html = requests.get(url).text
+soup = BeautifulSoup(html, "html.parser")
+
+table = soup.find("tbody", class_="row-striping")
+
+rows = []
+for tr in table.find_all("tr"):
+    cells = [td.text.strip() for td in tr.find_all("td")]
+    if len(cells) == 14:  # expected number of columns
+        rows.append(cells)
 
 # ============================
-# 3. CLEAN + NORMALIZE COLUMNS
+# 3. BUILD DATAFRAME
 # ============================
 
-df = df.rename(columns={
-    "RANK": "rank",
-    "REFEREE": "referee",
-    "ROLE": "role",
-    "GENDER": "gender",
-    "EXPERIENCE (YEARS)": "experience_years",
-    "GAMES OFFICIATED": "games_officiated",
-    "HOME TEAM WIN%": "home_win_pct",
-    "HOME TEAM POINTS DIFFERENTIAL": "home_point_diff",
-    "TOTAL POINTS PER GAME": "total_points_pg",
-    "CALLED FOULS PER GAME": "fouls_pg",
-    "FOUL% AGAINST ROAD TEAMS": "foul_pct_road",
-    "FOUL% AGAINST HOME TEAMS": "foul_pct_home",
-    "FOUL DIFFERENTIAL (Ag.Rd Tm) - (Ag. Hm Tm)": "foul_diff"
-})
+columns = [
+    "rank",
+    "referee",
+    "role",
+    "gender",
+    "experience_years",
+    "games_officiated",
+    "home_win_pct",
+    "home_point_diff",
+    "total_points_pg",
+    "fouls_pg",
+    "foul_pct_road",
+    "foul_pct_home",
+    "foul_diff",
+    "blank"
+]
 
-# Convert percentage strings → decimals
+df = pd.DataFrame(rows, columns=columns)
+df = df.drop(columns=["blank"])
+
+# ============================
+# 4. CLEAN DATA
+# ============================
+
+# Convert numeric columns
+numeric_cols = [
+    "rank", "experience_years", "games_officiated",
+    "home_point_diff", "total_points_pg", "fouls_pg", "foul_diff"
+]
+
+for col in numeric_cols:
+    df[col] = pd.to_numeric(df[col], errors="coerce")
+
+# Convert percentages (already decimals like 0.529)
 pct_cols = ["home_win_pct", "foul_pct_road", "foul_pct_home"]
 
 for col in pct_cols:
-    df[col] = (
-        df[col]
-        .astype(str)
-        .str.replace("%", "", regex=False)
-        .astype(float) / 100
-    )
+    df[col] = pd.to_numeric(df[col], errors="coerce")
 
-# Add metadata
 df["season"] = "2025-2026"
 df["scraped_at"] = datetime.utcnow().isoformat()
 
 # ============================
-# 4. WRITE TO DATABASE
+# 5. WRITE TO DATABASE
 # ============================
 
-df.to_sql(
-    "referee_stats",
-    conn,
-    if_exists="append",
-    index=False
-)
-
+df.to_sql("referee_stats", conn, if_exists="append", index=False)
 conn.close()
 
-print("Referee stats scraped and stored successfully.")
-
-print(df.head(5))
+print("Scrape complete. Sample:")
+print(df.head())
