@@ -40,4 +40,4 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python scrape_referee_assignments.py"
+args = "python etl_referee_stats_agg.py"
