@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 import sqlite3
 from datetime import datetime
 from team_map import TEAM_MAP
+from baseline_minutes import get_baseline_minutes
 
 # ============================
 # 1. CONNECT TO DATABASE
@@ -18,6 +19,7 @@ CREATE TABLE IF NOT EXISTS depth_charts (
     team TEXT,
     position_slot TEXT,
     player_name TEXT,
+    baseline_min REAL,
     scraped_at TEXT
 )
 """)
@@ -91,6 +93,7 @@ for table in team_tables:
             "team": team_abbr,
             "position_slot": position_slot,
             "player_name": full_name,
+            "baseline_min": get_baseline_minutes(position_slot),
             "scraped_at": datetime.utcnow().isoformat()
         })
 
