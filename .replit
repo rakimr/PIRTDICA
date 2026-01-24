@@ -40,4 +40,4 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python scrape_player_positions.py"
+args = "python scrape_player_salaries.py"
