@@ -7,7 +7,7 @@ NBA_TEAM_ABBREV = {
     "Milwaukee": "MIL", "Minnesota": "MIN", "New Orleans": "NO",
     "New York": "NY", "Oklahoma City": "OKC", "Orlando": "ORL",
     "Philadelphia": "PHI", "Phoenix": "PHO", "Portland": "POR",
-    "Sacramento": "SAC", "San Antonio": "SAS", "Toronto": "TOR",
+    "Sacramento": "SAC", "San Antonio": "SA", "Toronto": "TOR",
     "Utah": "UTA", "Washington": "WAS"
 }
 
