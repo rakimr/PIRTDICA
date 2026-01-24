@@ -1,10 +1,9 @@
 import requests
 import pandas as pd
+from bs4 import BeautifulSoup
 import sqlite3
 from datetime import datetime
 from team_map import TEAM_MAP
-
-API_KEY = "fd1e867a3a7f4a5480fa9344140fd201"
 
 # ============================
 # 1. CONNECT TO DATABASE
@@ -16,91 +15,113 @@ cursor = conn.cursor()
 cursor.execute("DROP TABLE IF EXISTS player_salaries")
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS player_salaries (
-    player_id INTEGER,
     player_name TEXT,
     team TEXT,
     position TEXT,
-    salary REAL,
-    slate_id INTEGER,
-    slate_name TEXT,
-    game_date TEXT,
+    salary INTEGER,
+    game TEXT,
     scraped_at TEXT
 )
 """)
-
 conn.commit()
 
 # ============================
-# 2. SCRAPE DFS SLATES
+# 2. SCRAPE ROTOGRINDERS
 # ============================
 
-def scrape_salaries(date_str, operator="FanDuel", slate_type="Main"):
-    url = f"https://api.sportsdata.io/v3/nba/projections/json/DfsSlatesByDate/{date_str}?key={API_KEY}"
-    response = requests.get(url)
+URL = "https://rotogrinders.com/lineups/nba?site=fanduel"
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}
 
-    if response.status_code != 200:
-        print("Error fetching DFS slates:", response.text)
-        return None
+print(f"Fetching FanDuel lineups from RotoGrinders...")
+response = requests.get(URL, headers=headers, timeout=30)
 
-    slates = response.json()
-    rows = []
+if response.status_code != 200:
+    print(f"Error fetching page: {response.status_code}")
+    conn.close()
+    exit(1)
+
+html = response.text
+soup = BeautifulSoup(html, "html.parser")
+
+rows = []
+
+game_cards = soup.find_all("div", class_="game-card")
+print(f"Found {len(game_cards)} games")
+
+for game_card in game_cards:
+    teams_div = game_card.find("div", class_="game-card-teams")
+    team_abbrs = []
+    if teams_div:
+        nameplates = teams_div.find_all("div", class_="team-nameplate")
+        for np in nameplates:
+            title = np.find("span", class_="team-nameplate-title")
+            if title and title.get("data-abbr"):
+                team_abbrs.append(title.get("data-abbr"))
     
-    print(f"Found {len(slates)} total slates")
-    for s in slates:
-        print(f"  - {s.get('Operator')}: {s.get('SlateName')} (ID: {s.get('SlateID')})")
-
-    target_slates = [s for s in slates if s.get("Operator") == operator]
-    if not target_slates:
-        print(f"No {operator} slates available for this date.")
-        return pd.DataFrame()
+    if len(team_abbrs) >= 2:
+        game_title = f"{team_abbrs[0]} @ {team_abbrs[1]}"
+        away_team = team_abbrs[0]
+        home_team = team_abbrs[1]
+    else:
+        game_title = "Unknown"
+        away_team = None
+        home_team = None
     
-    for slate in target_slates:
-        slate_name = slate.get("SlateName", "") or ""
+    lineup_card = game_card.find("div", class_="lineup-card")
+    if not lineup_card:
+        continue
+    
+    players_divs = lineup_card.find_all("div", class_="lineup-card-players")
+    
+    for idx, players_div in enumerate(players_divs):
+        current_team = away_team if idx == 0 else home_team
         
-        if slate_type and slate_type.lower() not in slate_name.lower():
-            continue
-            
-        slate_id = slate.get("SlateID")
-        print(f"Processing slate: {slate_name} (ID: {slate_id})")
-
-        dfs_slate_players = slate.get("DfsSlatePlayers", [])
+        players = players_div.find_all("li", class_="lineup-card-player")
         
-        for player in dfs_slate_players:
-            player_id = player.get("PlayerID")
-            player_name = player.get("OperatorPlayerName")
-            team = player.get("Team")
-            team = TEAM_MAP.get(team, team) if team else None
+        for player in players:
+            nameplate = player.find("span", class_="player-nameplate")
+            if not nameplate:
+                continue
             
-            salary = player.get("OperatorSalary")
-            position = player.get("OperatorPosition")
-
+            name_elem = nameplate.find("a", class_="player-nameplate-name")
+            if not name_elem:
+                continue
+                
+            player_name = name_elem.get_text(strip=True)
+            position = nameplate.get("data-position")
+            
+            salary = nameplate.get("data-salary")
+            if salary:
+                try:
+                    salary = int(salary)
+                except:
+                    salary = None
+            
+            team = TEAM_MAP.get(current_team, current_team) if current_team else None
+            
             rows.append({
-                "player_id": player_id,
                 "player_name": player_name,
                 "team": team,
                 "position": position,
                 "salary": salary,
-                "slate_id": slate_id,
-                "slate_name": slate_name,
-                "game_date": date_str,
+                "game": game_title,
                 "scraped_at": datetime.utcnow().isoformat()
             })
 
-    return pd.DataFrame(rows)
-
 # ============================
-# 3. RUN + SAVE
+# 3. SAVE TO DATABASE
 # ============================
 
-today = "2026-01-23"
-print(f"Fetching FanDuel main slate for {today}...")
-df = scrape_salaries(today, operator="FanDuel", slate_type="Main")
+df = pd.DataFrame(rows)
 
-if df is not None and not df.empty:
+if not df.empty:
+    df = df.drop_duplicates(subset=["player_name"], keep="first")
     df.to_sql("player_salaries", conn, if_exists="append", index=False)
-    print(f"Player salaries scraped successfully. {len(df)} players found.")
+    print(f"FanDuel salaries scraped successfully. {len(df)} players found.")
     print(df.head(10))
 else:
-    print("No salary data found for today's FanDuel main slate.")
+    print("No player salary data found.")
 
 conn.close()
