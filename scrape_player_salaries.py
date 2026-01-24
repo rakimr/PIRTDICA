@@ -49,19 +49,19 @@ def scrape_salaries(date_str, operator="FanDuel", slate_type="Main"):
     for s in slates:
         print(f"  - {s.get('Operator')}: {s.get('SlateName')} (ID: {s.get('SlateID')})")
 
-    fd_slates = [s for s in slates if s.get("Operator") == operator]
-    if not fd_slates:
+    target_slates = [s for s in slates if s.get("Operator") == operator]
+    if not target_slates:
         print(f"No {operator} slates available for this date.")
         return pd.DataFrame()
     
-    for slate in fd_slates:
-        slate_name = slate.get("SlateName", "")
+    for slate in target_slates:
+        slate_name = slate.get("SlateName", "") or ""
         
         if slate_type and slate_type.lower() not in slate_name.lower():
             continue
             
         slate_id = slate.get("SlateID")
-        print(f"Found slate: {slate_name} (ID: {slate_id})")
+        print(f"Processing slate: {slate_name} (ID: {slate_id})")
 
         dfs_slate_players = slate.get("DfsSlatePlayers", [])
         
@@ -73,7 +73,6 @@ def scrape_salaries(date_str, operator="FanDuel", slate_type="Main"):
             
             salary = player.get("OperatorSalary")
             position = player.get("OperatorPosition")
-            game_id = player.get("OperatorGameID")
 
             rows.append({
                 "player_id": player_id,
