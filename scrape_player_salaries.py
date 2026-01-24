@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS player_salaries (
     team TEXT,
     position TEXT,
     salary INTEGER,
+    status TEXT,
     game TEXT,
     scraped_at TEXT
 )
@@ -78,37 +79,51 @@ for game_card in game_cards:
     for idx, players_div in enumerate(players_divs):
         current_team = away_team if idx == 0 else home_team
         
-        players = players_div.find_all("li", class_="lineup-card-player")
-        
-        for player in players:
-            nameplate = player.find("span", class_="player-nameplate")
-            if not nameplate:
+        current_status = None
+        for child in players_div.children:
+            if not hasattr(child, 'name') or not child.name:
                 continue
             
-            name_elem = nameplate.find("a", class_="player-nameplate-name")
-            if not name_elem:
-                continue
+            if child.name == 'span':
+                text = child.get_text(strip=True).lower()
+                if 'starter' in text:
+                    current_status = 'Starter'
+                elif 'bench' in text:
+                    current_status = 'Bench'
+            
+            elif child.name == 'ul':
+                players = child.find_all("li", class_="lineup-card-player")
                 
-            player_name = name_elem.get_text(strip=True)
-            position = nameplate.get("data-position")
-            
-            salary = nameplate.get("data-salary")
-            if salary:
-                try:
-                    salary = int(salary)
-                except:
-                    salary = None
-            
-            team = TEAM_MAP.get(current_team, current_team) if current_team else None
-            
-            rows.append({
-                "player_name": player_name,
-                "team": team,
-                "position": position,
-                "salary": salary,
-                "game": game_title,
-                "scraped_at": datetime.utcnow().isoformat()
-            })
+                for player in players:
+                    nameplate = player.find("span", class_="player-nameplate")
+                    if not nameplate:
+                        continue
+                    
+                    name_elem = nameplate.find("a", class_="player-nameplate-name")
+                    if not name_elem:
+                        continue
+                        
+                    player_name = name_elem.get_text(strip=True)
+                    position = nameplate.get("data-position")
+                    
+                    salary = nameplate.get("data-salary")
+                    if salary:
+                        try:
+                            salary = int(salary)
+                        except:
+                            salary = None
+                    
+                    team = TEAM_MAP.get(current_team, current_team) if current_team else None
+                    
+                    rows.append({
+                        "player_name": player_name,
+                        "team": team,
+                        "position": position,
+                        "salary": salary,
+                        "status": current_status,
+                        "game": game_title,
+                        "scraped_at": datetime.utcnow().isoformat()
+                    })
 
 # ============================
 # 3. SAVE TO DATABASE
