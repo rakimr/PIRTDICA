@@ -93,7 +93,7 @@ def scrape_salaries(date_str, operator="FanDuel", slate_type="Main"):
 # 3. RUN + SAVE
 # ============================
 
-today = datetime.utcnow().date().strftime("%Y-%m-%d")
+today = "2026-01-23"
 print(f"Fetching FanDuel main slate for {today}...")
 df = scrape_salaries(today, operator="FanDuel", slate_type="Main")
 
