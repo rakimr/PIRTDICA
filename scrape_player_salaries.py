@@ -70,14 +70,15 @@ for game_card in game_cards:
         away_team = None
         home_team = None
     
-    lineup_card = game_card.find("div", class_="lineup-card")
-    if not lineup_card:
+    lineup_cards = game_card.find_all("div", class_="lineup-card")
+    if not lineup_cards:
         continue
     
-    players_divs = lineup_card.find_all("div", class_="lineup-card-players")
-    
-    for idx, players_div in enumerate(players_divs):
+    for idx, lineup_card in enumerate(lineup_cards):
         current_team = away_team if idx == 0 else home_team
+        players_div = lineup_card.find("div", class_="lineup-card-players")
+        if not players_div:
+            continue
         
         current_status = None
         for child in players_div.children:
