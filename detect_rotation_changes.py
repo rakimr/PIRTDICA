@@ -65,26 +65,36 @@ for team in teams:
             if new_depth < 1:
                 new_depth = 1
 
+            espn_slot = f"{pos}{i+1}"
             inferred_rank = f"{pos}{new_depth}"
             is_promoted = new_depth < (i + 1)
+            is_bench_to_starter = is_promoted and new_depth == 1
 
-            projection = project_minutes(
-                position_slot=inferred_rank,
-                is_bench_to_starter=is_promoted and new_depth == 1,
-                spread=spread
-            )
+            original_baseline = get_baseline_minutes(espn_slot)
+
+            starter_bump = 10.0 if is_bench_to_starter else 0.0
+
+            game_context = 0.0
+            if spread is not None:
+                abs_spread = abs(spread)
+                if abs_spread < 5.0:
+                    game_context = 2.0
+                elif abs_spread >= 10.0:
+                    game_context = -2.0
+
+            projected_min = max(0, original_baseline + starter_bump + game_context)
 
             rotation_rows.append({
                 "team": team,
                 "player_name": player,
-                "espn_slot": f"{pos}{i+1}",
+                "espn_slot": espn_slot,
                 "new_depth": inferred_rank,
                 "promoted": is_promoted,
                 "demoted": new_depth > (i + 1),
-                "baseline_min": projection["baseline_min"],
-                "starter_bump": projection["starter_bump"],
-                "game_context": projection["game_context"],
-                "projected_min": projection["projected_min"],
+                "baseline_min": original_baseline,
+                "starter_bump": starter_bump,
+                "game_context": game_context,
+                "projected_min": round(projected_min, 2),
                 "spread": spread,
                 "game_type": get_game_context_label(spread)
             })
