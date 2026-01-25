@@ -9,6 +9,8 @@ NBA_TEAM_ABBREV = {
     "Philadelphia": "PHI", "Phoenix": "PHO", "Portland": "POR",
     "Sacramento": "SAC", "San Antonio": "SA", "Toronto": "TOR",
     "Utah": "UTA", "Washington": "WAS",
+    "GSW": "GS", "NOP": "NO", "NYK": "NY", "SAS": "SA", "PHX": "PHO",
+    "OKL": "OKC", "Okla City": "OKC",
     "Hawks": "ATL", "Celtics": "BOS", "Nets": "BKN", "Hornets": "CHA",
     "Bulls": "CHI", "Cavaliers": "CLE", "Mavericks": "DAL", "Nuggets": "DEN",
     "Pistons": "DET", "Warriors": "GS", "Rockets": "HOU", "Pacers": "IND",
