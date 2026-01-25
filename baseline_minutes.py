@@ -90,6 +90,71 @@ def estimate_minutes_by_depth(position: str, depth: int) -> float:
     return get_baseline_minutes(rank)
 
 
+STARTER_BUMP = 10.0
+CLOSE_GAME_BUMP = 2.0
+BLOWOUT_PENALTY = -2.0
+
+CLOSE_GAME_THRESHOLD = 5.0
+BLOWOUT_THRESHOLD = 10.0
+
+
+def project_minutes(
+    position_slot: str,
+    is_bench_to_starter: bool = False,
+    spread: float = None,
+) -> dict:
+    """
+    Project minutes with dynamic adjustments.
+    
+    Args:
+        position_slot: Depth chart slot (e.g., "PG1", "SF2")
+        is_bench_to_starter: True if bench player moved to starter role
+        spread: Vegas spread (absolute value used, negative = favorite)
+        
+    Returns:
+        Dict with baseline, adjustments, and projected minutes
+    """
+    baseline = get_baseline_minutes(position_slot)
+    
+    adjustments = {
+        "starter_bump": 0.0,
+        "game_context": 0.0,
+    }
+    
+    if is_bench_to_starter:
+        adjustments["starter_bump"] = STARTER_BUMP
+    
+    if spread is not None:
+        abs_spread = abs(spread)
+        if abs_spread < CLOSE_GAME_THRESHOLD:
+            adjustments["game_context"] = CLOSE_GAME_BUMP
+        elif abs_spread >= BLOWOUT_THRESHOLD:
+            adjustments["game_context"] = BLOWOUT_PENALTY
+    
+    total_adjustment = sum(adjustments.values())
+    projected = max(0, baseline + total_adjustment)
+    
+    return {
+        "position_slot": position_slot,
+        "baseline_min": baseline,
+        "starter_bump": adjustments["starter_bump"],
+        "game_context": adjustments["game_context"],
+        "projected_min": round(projected, 2),
+    }
+
+
+def get_game_context_label(spread: float) -> str:
+    """Return label for game context based on spread."""
+    if spread is None:
+        return "Unknown"
+    abs_spread = abs(spread)
+    if abs_spread < CLOSE_GAME_THRESHOLD:
+        return "Close"
+    elif abs_spread >= BLOWOUT_THRESHOLD:
+        return "Blowout"
+    return "Normal"
+
+
 if __name__ == "__main__":
     print("=== Baseline Minutes by Inferred Depth Rank ===\n")
     
@@ -100,3 +165,14 @@ if __name__ == "__main__":
             count = SAMPLE_COUNTS.get(rank, 0)
             print(f"  {rank}: {mins:.2f} min (n={count:,})")
         print()
+    
+    print("\n=== Example Minute Projections ===\n")
+    
+    print("PG1 starter, normal game (spread -6):")
+    print(project_minutes("PG1", spread=-6))
+    
+    print("\nSF2 bench player promoted to starter, close game (spread -2):")
+    print(project_minutes("SF2", is_bench_to_starter=True, spread=-2))
+    
+    print("\nPF1 starter in blowout risk game (spread -12):")
+    print(project_minutes("PF1", spread=-12))
