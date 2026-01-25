@@ -54,22 +54,26 @@ if agg.empty:
     exit()
 
 # ============================
-# 4. JOIN ASSIGNMENTS WITH REF TENDENCIES
+# 4. JOIN ASSIGNMENTS WITH REF TENDENCIES (ROLE-MATCHED)
 # ============================
 
-# Merge for each ref role
+# Filter agg by role for role-specific matching
+agg_chief = agg[agg["role"] == "CHIEF"].copy()
+agg_crew = agg[agg["role"] == "CREW"].copy()
+
+# Merge crew_chief with CHIEF role stats
 merged = assignments.merge(
-    agg.add_prefix("chief_"),
+    agg_chief.add_prefix("chief_"),
     left_on="crew_chief",
     right_on="chief_referee",
     how="left"
 ).merge(
-    agg.add_prefix("ref_"),
+    agg_crew.add_prefix("ref_"),
     left_on="referee",
     right_on="ref_referee",
     how="left"
 ).merge(
-    agg.add_prefix("ump_"),
+    agg_crew.add_prefix("ump_"),
     left_on="umpire",
     right_on="ump_referee",
     how="left"

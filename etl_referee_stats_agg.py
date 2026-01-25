@@ -9,16 +9,19 @@ from datetime import datetime
 conn = sqlite3.connect("dfs_nba.db")
 cursor = conn.cursor()
 
-# Create aggregated table if not exists
+# Create aggregated table if not exists (with role-specific stats)
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS referee_stats_agg (
-    referee TEXT PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    referee TEXT,
+    role TEXT,
     true_foul_diff REAL,
     true_foul_pct_road REAL,
     true_foul_pct_home REAL,
     true_fouls_pg REAL,
     true_total_points_pg REAL,
-    updated_at TEXT
+    updated_at TEXT,
+    UNIQUE(referee, role)
 )
 """)
 
@@ -36,10 +39,10 @@ if df.empty:
     exit()
 
 # ============================
-# 3. AGGREGATE DUPLICATES
+# 3. AGGREGATE BY REFEREE + ROLE
 # ============================
 
-agg = df.groupby("referee").agg({
+agg = df.groupby(["referee", "role"]).agg({
     "foul_diff": "mean",
     "foul_pct_road": "mean",
     "foul_pct_home": "mean",
