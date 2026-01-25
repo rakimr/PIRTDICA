@@ -1,0 +1,137 @@
+import requests
+import pandas as pd
+from bs4 import BeautifulSoup
+import sqlite3
+from datetime import datetime
+from team_map import TEAM_MAP
+
+# ============================
+# 1. CONNECT TO DATABASE
+# ============================
+
+conn = sqlite3.connect("dfs_nba.db")
+cursor = conn.cursor()
+
+cursor.execute("DROP TABLE IF EXISTS game_odds")
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS game_odds (
+    away_team TEXT,
+    home_team TEXT,
+    spread REAL,
+    total REAL,
+    moneyline_away INTEGER,
+    moneyline_home INTEGER,
+    game_time TEXT,
+    scraped_at TEXT
+)
+""")
+conn.commit()
+
+# ============================
+# 2. SCRAPE TEAMRANKINGS
+# ============================
+
+URL = "https://www.teamrankings.com/nba/odds/"
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+}
+
+print("Fetching NBA odds from TeamRankings...")
+response = requests.get(URL, headers=headers, timeout=30)
+
+if response.status_code != 200:
+    print(f"Error fetching page: {response.status_code}")
+    conn.close()
+    exit(1)
+
+soup = BeautifulSoup(response.text, "html.parser")
+
+rows = []
+
+modules = soup.find_all("div", class_="module")
+
+for module in modules:
+    # Extract date header (e.g., "Sunday, January 25th, 2026")
+    date_header = module.find("h2")
+    if not date_header:
+        continue
+
+    game_date = date_header.text.strip()
+
+    # Each game is a <table> inside the module
+    tables = module.find_all("table", class_="tr-table")
+
+    for table in tables:
+        # Extract game time from <th>
+        time_th = table.find("th", class_="text-left")
+        game_time = time_th.text.strip() if time_th else None
+
+        tbody = table.find("tbody")
+        if not tbody:
+            continue
+
+        rows_html = tbody.find_all("tr")
+
+        if len(rows_html) < 2:
+            continue
+
+        # First row = away team
+        away_row = rows_html[0].find_all("td")
+        home_row = rows_html[1].find_all("td")
+
+        away_team = away_row[0].get_text(strip=True)
+        home_team = home_row[0].get_text(strip=True)
+
+        # Normalize team names
+        away_team = TEAM_MAP.get(away_team, away_team)
+        home_team = TEAM_MAP.get(home_team, home_team)
+
+        # Spread
+        away_spread = away_row[2].get_text(strip=True)
+        home_spread = home_row[2].get_text(strip=True)
+
+        # Total (only appears on away row)
+        total = away_row[3].get_text(strip=True)
+
+        # Moneyline
+        moneyline_away = away_row[4].get_text(strip=True)
+        moneyline_home = home_row[4].get_text(strip=True)
+
+        # Convert numeric fields
+        def to_float(x):
+            try:
+                return float(x)
+            except:
+                return None
+
+        def to_int(x):
+            try:
+                return int(x)
+            except:
+                return None
+
+        rows.append({
+            "away_team": away_team,
+            "home_team": home_team,
+            "spread": to_float(away_spread),  # away spread is enough
+            "total": to_float(total),
+            "moneyline_away": to_int(moneyline_away),
+            "moneyline_home": to_int(moneyline_home),
+            "game_time": f"{game_date} {game_time}",
+            "scraped_at": datetime.utcnow().isoformat()
+        })
+
+# ============================
+# 3. SAVE TO DATABASE
+# ============================
+
+df = pd.DataFrame(rows)
+
+if not df.empty:
+    df.to_sql("game_odds", conn, if_exists="append", index=False)
+    print(f"Game odds scraped successfully. {len(df)} games found.")
+    print(df.head(10))
+else:
+    print("No game odds found.")
+
+conn.close()
