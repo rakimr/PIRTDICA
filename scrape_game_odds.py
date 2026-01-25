@@ -16,12 +16,10 @@ cursor = conn.cursor()
 cursor.execute("DROP TABLE IF EXISTS game_odds")
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS game_odds (
-    team TEXT,
-    opponent TEXT,
+    away_team TEXT,
+    home_team TEXT,
     spread REAL,
-    location TEXT,
-    game_date TEXT,
-    game_time TEXT,
+    total REAL,
     scraped_at TEXT
 )
 """)
@@ -31,7 +29,7 @@ conn.commit()
 # 2. SCRAPE TEAMRANKINGS
 # ============================
 
-URL = "https://www.teamrankings.com/nba-ats-picks/"
+URL = "https://www.teamrankings.com/nba/odds/"
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 }
@@ -46,74 +44,70 @@ if response.status_code != 200:
 
 soup = BeautifulSoup(response.text, "html.parser")
 
-rows = []
+games = {}
 
-table = soup.find("table", class_="tr-table")
-if not table:
-    print("No odds table found")
-    conn.close()
-    exit(1)
+tables = soup.find_all("table", class_="tr-table")
 
-tbody = table.find("tbody")
-game_rows = tbody.find_all("tr") if tbody else []
-
-print(f"Found {len(game_rows)} games")
-
-for row in game_rows:
-    cells = row.find_all("td")
-    if len(cells) < 6:
+for table in tables:
+    header = table.find_previous_sibling("h2")
+    if not header:
         continue
     
-    day = cells[0].get_text(strip=True)
-    status = cells[1].get_text(strip=True)
-    pick = cells[2].get_text(strip=True)
-    opponent_text = cells[3].get_text(strip=True)
+    header_text = header.get_text(strip=True)
     
-    # Skip games that already happened (status shows result)
-    if status in ["Right", "Wrong", "Push"]:
+    is_spread = "Spread" in header_text
+    is_total = "Total" in header_text
+    
+    if not is_spread and not is_total:
         continue
     
-    # Status contains game time for upcoming games (e.g., "9:30pm")
-    game_time = status if ":" in status or "pm" in status.lower() or "am" in status.lower() else None
-    
-    # Parse team and spread from pick (e.g., "546 Detroit -4.5")
-    match = re.search(r'\d+\s+(.+?)\s+([-+]?\d+\.?\d*)', pick)
-    if not match:
-        continue
-    
-    team_name = match.group(1).strip()
-    spread = float(match.group(2))
-    
-    # Parse opponent and location (e.g., "vs Cleveland" or "at Charlotte")
-    location_match = re.match(r'(vs|at)\s+(.+)', opponent_text)
-    if location_match:
-        location = "Home" if location_match.group(1) == "vs" else "Away"
-        opponent_name = location_match.group(2).strip()
-    else:
-        location = "Unknown"
-        opponent_name = opponent_text
-    
-    # Normalize team names
-    team = TEAM_MAP.get(team_name, team_name)
-    opponent = TEAM_MAP.get(opponent_name, opponent_name)
-    
-    # Parse date (assumes current year)
-    current_year = datetime.now().year
-    game_date = f"{current_year}-{day.replace('/', '-')}"
-    
-    rows.append({
-        "team": team,
-        "opponent": opponent,
-        "spread": spread,
-        "location": location,
-        "game_date": game_date,
-        "game_time": game_time,
-        "scraped_at": datetime.utcnow().isoformat()
-    })
+    for row in table.find_all("tr"):
+        cells = row.find_all("td")
+        if len(cells) < 2:
+            continue
+        
+        matchup = cells[0].get_text(strip=True)
+        value = cells[1].get_text(strip=True)
+        
+        # Parse matchup: "Detroit vs. Sacramento"
+        match = re.match(r'(.+?)\s+vs\.?\s+(.+)', matchup)
+        if not match:
+            continue
+        
+        away_name = match.group(1).strip()
+        home_name = match.group(2).strip()
+        
+        # Normalize team names
+        away_team = TEAM_MAP.get(away_name, away_name)
+        home_team = TEAM_MAP.get(home_name, home_name)
+        
+        game_key = f"{away_team}@{home_team}"
+        
+        if game_key not in games:
+            games[game_key] = {
+                "away_team": away_team,
+                "home_team": home_team,
+                "spread": None,
+                "total": None
+            }
+        
+        try:
+            val = float(value)
+            if is_spread:
+                games[game_key]["spread"] = val
+            elif is_total:
+                games[game_key]["total"] = val
+        except:
+            pass
 
 # ============================
 # 3. SAVE TO DATABASE
 # ============================
+
+rows = []
+for game_key, game in games.items():
+    game["scraped_at"] = datetime.utcnow().isoformat()
+    rows.append(game)
 
 df = pd.DataFrame(rows)
 
@@ -122,6 +116,6 @@ if not df.empty:
     print(f"Game odds scraped successfully. {len(df)} games found.")
     print(df.to_string(index=False))
 else:
-    print("No upcoming game odds found.")
+    print("No game odds found.")
 
 conn.close()
