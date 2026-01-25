@@ -7,6 +7,9 @@ SCRIPTS = [
     ("scrape_game_odds.py", "Game Odds"),
     ("scrape_dvp.py", "DVP Stats"),
     ("scrape_referee_stats.py", "Referee Stats"),
+    ("scrape_referee_assignments.py", "Referee Assignments"),
+    ("etl_referee_stats_agg.py", "Referee Stats Aggregation"),
+    ("etl_game_foul_environment.py", "Game Foul Environment"),
     ("detect_rotation_changes.py", "Rotation Detection"),
     ("dfs_players.py", "DFS Player Projections"),
 ]

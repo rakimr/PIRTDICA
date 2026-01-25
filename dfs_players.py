@@ -8,7 +8,7 @@ salaries = pd.read_sql("SELECT * FROM player_salaries", conn)
 rotation = pd.read_sql("SELECT * FROM rotation_minutes", conn)
 game_odds = pd.read_sql("SELECT * FROM game_odds", conn)
 dvp = pd.read_sql("SELECT * FROM dvp_stats", conn)
-refs = pd.read_sql("SELECT * FROM referee_stats", conn)
+game_foul_env = pd.read_sql("SELECT * FROM game_foul_environment", conn)
 hist_lines = pd.read_sql("SELECT team, AVG(team_line) as avg_team_line FROM historic_lines GROUP BY team", conn)
 
 salaries["player_name"] = salaries["player_name"].str.strip()
@@ -81,18 +81,26 @@ dvp_std = df["dvp_raw"].std()
 df["dvp_weight"] = 1 + ((df["dvp_raw"] - dvp_mean) / dvp_std) * 0.10
 df["dvp_weight"] = df["dvp_weight"].clip(0.85, 1.15)
 
-avg_foul_diff = refs["foul_diff"].mean() if not refs.empty else 0
-
 def get_ref_weight(row):
-    if pd.isna(row["location"]):
+    if pd.isna(row["location"]) or pd.isna(row["team"]):
         return 1.0
     
-    foul_diff = avg_foul_diff
+    match = game_foul_env[
+        (game_foul_env["home_team"] == row["team"]) | 
+        (game_foul_env["away_team"] == row["team"])
+    ]
+    
+    if match.empty:
+        return 1.0
+    
+    crew_foul_diff = match.iloc[0]["avg_foul_diff"]
+    if pd.isna(crew_foul_diff):
+        return 1.0
     
     if row["location"] == "home":
-        return 1 + (foul_diff / 2) * 0.05
+        return 1 + (crew_foul_diff / 2) * 0.05
     else:
-        return 1 - (foul_diff / 2) * 0.05
+        return 1 - (crew_foul_diff / 2) * 0.05
 
 df["ref_weight"] = df.apply(get_ref_weight, axis=1)
 
