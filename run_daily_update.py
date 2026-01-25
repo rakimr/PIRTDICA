@@ -6,6 +6,7 @@ SCRIPTS = [
     ("scrape_depth_charts.py", "Depth Charts"),
     ("scrape_game_odds.py", "Game Odds"),
     ("scrape_dvp.py", "DVP Stats"),
+    ("scrape_per100_stats.py", "Per-100 Possession Stats"),
     ("scrape_referee_stats.py", "Referee Stats"),
     ("scrape_referee_assignments.py", "Referee Assignments"),
     ("etl_referee_stats_agg.py", "Referee Stats Aggregation"),

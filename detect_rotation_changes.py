@@ -101,15 +101,22 @@ for team in teams:
 
 rotation_df = pd.DataFrame(rotation_rows)
 
-def extract_depth_num(slot):
-    import re
-    match = re.search(r'\d+', slot)
-    return int(match.group()) if match else 99
+if rotation_df.empty:
+    print("No rotation data generated (missing salary data for starters)")
+    rotation_df = pd.DataFrame(columns=[
+        "team", "player_name", "espn_slot", "new_depth", "promoted", "demoted",
+        "baseline_min", "starter_bump", "game_context", "projected_min", "spread", "game_type"
+    ])
+else:
+    def extract_depth_num(slot):
+        import re
+        match = re.search(r'\d+', slot)
+        return int(match.group()) if match else 99
 
-rotation_df["depth_num"] = rotation_df["espn_slot"].apply(extract_depth_num)
-rotation_df = rotation_df.sort_values(["team", "player_name", "depth_num"])
-rotation_df = rotation_df.drop_duplicates(subset=["team", "player_name"], keep="first")
-rotation_df = rotation_df.drop(columns=["depth_num"])
+    rotation_df["depth_num"] = rotation_df["espn_slot"].apply(extract_depth_num)
+    rotation_df = rotation_df.sort_values(["team", "player_name", "depth_num"])
+    rotation_df = rotation_df.drop_duplicates(subset=["team", "player_name"], keep="first")
+    rotation_df = rotation_df.drop(columns=["depth_num"])
 
 rotation_df.to_sql("rotation_minutes", conn, if_exists="replace", index=False)
 
