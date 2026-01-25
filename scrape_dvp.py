@@ -1,0 +1,127 @@
+import requests
+import pandas as pd
+from bs4 import BeautifulSoup
+import sqlite3
+from datetime import datetime
+from team_map import TEAM_MAP
+
+conn = sqlite3.connect("dfs_nba.db")
+cursor = conn.cursor()
+
+cursor.execute("DROP TABLE IF EXISTS dvp_stats")
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS dvp_stats (
+    position TEXT,
+    team TEXT,
+    pts REAL,
+    fg_pct REAL,
+    ft_pct REAL,
+    three_pm REAL,
+    reb REAL,
+    ast REAL,
+    stl REAL,
+    blk REAL,
+    tov REAL,
+    dvp_score REAL,
+    scraped_at TEXT
+)
+""")
+conn.commit()
+
+URL = "https://hashtagbasketball.com/nba-defense-vs-position"
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+}
+
+print("Fetching NBA DvP data from HashtagBasketball...")
+response = requests.get(URL, headers=headers, timeout=30)
+
+if response.status_code != 200:
+    print(f"Error fetching page: {response.status_code}")
+    conn.close()
+    exit(1)
+
+soup = BeautifulSoup(response.text, "html.parser")
+
+table = soup.find("table", id="ContentPlaceHolder1_GridView1")
+rows = []
+
+if not table:
+    print("Could not find DvP table.")
+    conn.close()
+    exit(1)
+
+trs = table.find_all("tr")
+
+for tr in trs:
+    tds = tr.find_all("td")
+    if len(tds) != 11:
+        continue
+
+    position = tds[0].get_text(strip=True)
+    team = tds[1].find("span").get_text(strip=True)
+
+    team = TEAM_MAP.get(team, team)
+
+    pts = float(tds[2].find("span").get_text(strip=True))
+    fg_pct = float(tds[3].find("span").get_text(strip=True))
+    ft_pct = float(tds[4].find("span").get_text(strip=True))
+    three_pm = float(tds[5].find("span").get_text(strip=True))
+    reb = float(tds[6].find("span").get_text(strip=True))
+    ast = float(tds[7].find("span").get_text(strip=True))
+    stl = float(tds[8].find("span").get_text(strip=True))
+    blk = float(tds[9].find("span").get_text(strip=True))
+    to = float(tds[10].find("span").get_text(strip=True))
+
+    rows.append({
+        "position": position,
+        "team": team,
+        "pts": pts,
+        "fg_pct": fg_pct,
+        "ft_pct": ft_pct,
+        "three_pm": three_pm,
+        "reb": reb,
+        "ast": ast,
+        "stl": stl,
+        "blk": blk,
+        "tov": to,
+    })
+
+df = pd.DataFrame(rows)
+
+if df.empty:
+    print("No DvP data found.")
+    conn.close()
+    exit(1)
+
+def calculate_dvp_score(row):
+    """
+    Calculate DVP score using DraftKings scoring weights.
+    Higher score = weaker defense = better fantasy matchup.
+    
+    DK Scoring: PTS=1, 3PM=0.5, REB=1.25, AST=1.5, STL=2, BLK=2, TO=-0.5
+    """
+    score = (
+        row["pts"] * 1.0 +
+        row["three_pm"] * 0.5 +
+        row["reb"] * 1.25 +
+        row["ast"] * 1.5 +
+        row["stl"] * 2.0 +
+        row["blk"] * 2.0 -
+        row["tov"] * 0.5
+    )
+    return round(score, 2)
+
+df["dvp_score"] = df.apply(calculate_dvp_score, axis=1)
+df["scraped_at"] = datetime.utcnow().isoformat()
+
+df.to_sql("dvp_stats", conn, if_exists="append", index=False)
+print(f"DvP stats scraped successfully. {len(df)} rows saved.")
+
+print("\n=== DVP Scores by Position (Top 5 easiest matchups) ===")
+for pos in df["position"].unique():
+    pos_df = df[df["position"] == pos].nlargest(5, "dvp_score")
+    print(f"\n{pos}:")
+    print(pos_df[["team", "dvp_score"]].to_string(index=False))
+
+conn.close()
