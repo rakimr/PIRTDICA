@@ -2,6 +2,7 @@ import sqlite3
 import pandas as pd
 import numpy as np
 import re
+import unicodedata
 
 conn = sqlite3.connect("dfs_nba.db")
 
@@ -28,12 +29,19 @@ NAME_ALIASES = {
     "kenneth lofton": "kenneth lofton",
     "nicolas batum": "nic batum",
     "patty mills": "patrick mills",
+    "egor dmin": "egor demin",
 }
 
 def normalize_name(name):
     if pd.isna(name):
         return ""
-    name = str(name).strip().lower()
+    name = str(name).strip()
+    try:
+        name = name.encode('latin-1').decode('utf-8')
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        pass
+    name = name.lower()
+    name = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode('ascii')
     name = re.sub(r'\.', '', name)
     name = re.sub(r'-', ' ', name)
     name = re.sub(r'\s+(jr|sr|ii|iii|iv|v)\.?$', '', name)
