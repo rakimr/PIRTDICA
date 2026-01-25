@@ -19,6 +19,7 @@ game_foul_env = pd.read_sql("SELECT * FROM game_foul_environment", conn)
 hist_lines = pd.read_sql("SELECT team, AVG(team_line) as avg_team_line FROM historic_lines GROUP BY team", conn)
 per100 = pd.read_sql("SELECT * FROM player_per100", conn)
 team_pace = pd.read_sql("SELECT * FROM team_pace", conn)
+player_positions = pd.read_sql("SELECT player_name, true_position FROM player_positions", conn)
 
 NAME_ALIASES = {
     "ryan nembhard": "rj nembhard",
@@ -43,10 +44,12 @@ def normalize_name(name):
 salaries["player_name"] = salaries["player_name"].str.strip()
 rotation["player_name"] = rotation["player_name"].str.strip()
 per100["player_name"] = per100["player_name"].str.strip()
+player_positions["player_name"] = player_positions["player_name"].str.strip()
 
 salaries["norm_name"] = salaries["player_name"].apply(normalize_name)
 rotation["norm_name"] = rotation["player_name"].apply(normalize_name)
 per100["norm_name"] = per100["player_name"].apply(normalize_name)
+player_positions["norm_name"] = player_positions["player_name"].apply(normalize_name)
 
 df = salaries.merge(
     rotation[["team", "norm_name", "espn_slot", "projected_min"]],
@@ -97,18 +100,11 @@ df = df.merge(hist_lines, on="team", how="left")
 df["line_weight"] = df["team_line"] / df["avg_team_line"]
 df["line_weight"] = df["line_weight"].fillna(1.0)
 
-POSITION_MAP = {
-    "PG": "PG", "SG": "SG", "SF": "SF", "PF": "PF", "C": "C",
-    "G": "PG", "F": "SF"
-}
-
-def get_true_position(espn_slot):
-    if pd.isna(espn_slot):
-        return None
-    pos = ''.join([c for c in espn_slot if c.isalpha()])
-    return POSITION_MAP.get(pos, pos)
-
-df["true_position"] = df["espn_slot"].apply(get_true_position)
+df = df.merge(
+    player_positions[["norm_name", "true_position"]],
+    on="norm_name",
+    how="left"
+)
 
 def get_dvp_weight(row):
     if pd.isna(row["opponent"]) or pd.isna(row["true_position"]):
