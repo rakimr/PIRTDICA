@@ -20,6 +20,15 @@ hist_lines = pd.read_sql("SELECT team, AVG(team_line) as avg_team_line FROM hist
 per100 = pd.read_sql("SELECT * FROM player_per100", conn)
 team_pace = pd.read_sql("SELECT * FROM team_pace", conn)
 
+NAME_ALIASES = {
+    "ryan nembhard": "rj nembhard",
+    "nicolas claxton": "nic claxton",
+    "cameron thomas": "cam thomas",
+    "kenneth lofton": "kenneth lofton",
+    "nicolas batum": "nic batum",
+    "patty mills": "patrick mills",
+}
+
 def normalize_name(name):
     if pd.isna(name):
         return ""
@@ -28,7 +37,8 @@ def normalize_name(name):
     name = re.sub(r'-', ' ', name)
     name = re.sub(r'\s+(jr|sr|ii|iii|iv|v)\.?$', '', name)
     name = re.sub(r'\s+', ' ', name)
-    return name.strip()
+    name = name.strip()
+    return NAME_ALIASES.get(name, name)
 
 salaries["player_name"] = salaries["player_name"].str.strip()
 rotation["player_name"] = rotation["player_name"].str.strip()
