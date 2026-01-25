@@ -58,6 +58,11 @@ for team in teams:
     team_salaries = salaries[salaries["team"] == team].copy()
 
     starters = set(team_salaries["player_name"].tolist())
+    
+    bench_players = set()
+    if "status" in team_salaries.columns:
+        bench_salaries = team_salaries[team_salaries["status"] == "Bench"]
+        bench_players = set(bench_salaries["norm_name"].tolist())
 
     spread = None
     if not odds.empty:
@@ -118,6 +123,12 @@ for team in teams:
 
             starter_bump = 10.0 if is_bench_to_starter else 0.0
             injury_bump = minutes_boost if out_at_pos else 0.0
+            
+            bench_penalty = 0.0
+            is_espn_starter = orig_idx == 0
+            is_bench_labeled = norm in bench_players
+            if is_espn_starter and is_bench_labeled:
+                bench_penalty = -8.0
 
             game_context = 0.0
             if spread is not None:
@@ -127,7 +138,7 @@ for team in teams:
                 elif abs_spread >= 10.0:
                     game_context = -2.0
 
-            projected_min = max(0, original_baseline + starter_bump + game_context + injury_bump)
+            projected_min = max(0, original_baseline + starter_bump + game_context + injury_bump + bench_penalty)
 
             rotation_rows.append({
                 "team": team,
@@ -139,6 +150,7 @@ for team in teams:
                 "baseline_min": original_baseline,
                 "starter_bump": starter_bump,
                 "injury_bump": round(injury_bump, 2),
+                "bench_penalty": bench_penalty,
                 "game_context": game_context,
                 "projected_min": round(projected_min, 2),
                 "spread": spread,
@@ -151,7 +163,7 @@ if rotation_df.empty:
     print("No rotation data generated (missing salary data for starters)")
     rotation_df = pd.DataFrame(columns=[
         "team", "player_name", "espn_slot", "new_depth", "promoted", "demoted",
-        "baseline_min", "starter_bump", "injury_bump", "game_context", "projected_min", "spread", "game_type"
+        "baseline_min", "starter_bump", "injury_bump", "bench_penalty", "game_context", "projected_min", "spread", "game_type"
     ])
 else:
     def extract_depth_num(slot):
