@@ -96,19 +96,18 @@ if df.empty:
 
 def calculate_dvp_score(row):
     """
-    Calculate DVP score using DraftKings scoring weights.
+    Calculate DVP score using FanDuel scoring weights.
     Higher score = weaker defense = better fantasy matchup.
     
-    DK Scoring: PTS=1, 3PM=0.5, REB=1.25, AST=1.5, STL=2, BLK=2, TO=-0.5
+    FD Scoring: PTS=1, REB=1.2, AST=1.5, STL=3, BLK=3, TOV=-1
     """
     score = (
         row["pts"] * 1.0 +
-        row["three_pm"] * 0.5 +
-        row["reb"] * 1.25 +
+        row["reb"] * 1.2 +
         row["ast"] * 1.5 +
-        row["stl"] * 2.0 +
-        row["blk"] * 2.0 -
-        row["tov"] * 0.5
+        row["stl"] * 3.0 +
+        row["blk"] * 3.0 -
+        row["tov"] * 1.0
     )
     return round(score, 2)
 
