@@ -14,8 +14,9 @@ CREATE TABLE IF NOT EXISTS historic_lines (
     game_date TEXT,
     team TEXT,
     site TEXT,
-    line REAL,
+    spread REAL,
     total REAL,
+    team_line REAL,
     opponent TEXT,
     season INTEGER,
     scraped_at TEXT
@@ -66,19 +67,22 @@ for season in SEASONS:
             game_date = tds[0].get_text(strip=True)
             team_name = tds[1].get_text(strip=True)
             site = tds[2].get_text(strip=True)
-            line = float(tds[3].get_text(strip=True))
+            spread = float(tds[3].get_text(strip=True))
             total = float(tds[4].get_text(strip=True))
             opponent = tds[5].get_text(strip=True)
             
             team = TEAM_MAP.get(team_name, team_name)
             opponent = TEAM_MAP.get(opponent, opponent)
             
+            team_line = (total / 2) - (spread / 2)
+            
             all_rows.append({
                 "game_date": game_date,
                 "team": team,
                 "site": site,
-                "line": line,
+                "spread": spread,
                 "total": total,
+                "team_line": round(team_line, 2),
                 "opponent": opponent,
                 "season": season,
                 "scraped_at": datetime.utcnow().isoformat()
@@ -95,11 +99,11 @@ if not df.empty:
     df.to_sql("historic_lines", conn, if_exists="append", index=False)
     print(f"\nHistoric lines scraped successfully. {len(df)} total rows saved.")
     
-    print("\n=== Average Lines by Team (Last 3 Seasons) ===")
-    avg_lines = df.groupby("team")["line"].mean().round(2).sort_values()
-    print(avg_lines.head(10))
+    print("\n=== Average Team Line (Implied Score) by Team ===")
+    avg_team_lines = df.groupby("team")["team_line"].mean().round(2).sort_values(ascending=False)
+    print(avg_team_lines.head(10))
     print("...")
-    print(avg_lines.tail(10))
+    print(avg_team_lines.tail(10))
 else:
     print("No historic line data found.")
 
