@@ -1,0 +1,74 @@
+import sqlite3
+import pandas as pd
+from baseline_minutes import get_baseline_minutes
+
+conn = sqlite3.connect("dfs_nba.db")
+
+depth = pd.read_sql("SELECT * FROM depth_charts", conn)
+salaries = pd.read_sql("SELECT * FROM player_salaries", conn)
+
+# Normalize names for joins
+depth["player_name"] = depth["player_name"].str.strip()
+salaries["player_name"] = salaries["player_name"].str.strip()
+
+teams = depth["team"].unique()
+
+rotation_rows = []
+
+for team in teams:
+    team_depth = depth[depth["team"] == team].copy()
+    team_salaries = salaries[salaries["team"] == team].copy()
+
+    starters = set(team_salaries["player_name"].tolist())
+
+    # Build ordered depth lists by position
+    pos_groups = {}
+    for _, row in team_depth.iterrows():
+        pos = row["position_slot"][:2]   # PG, SG, SF, PF, C
+        depth_num = int(row["position_slot"][2:])
+        pos_groups.setdefault(pos, []).append((depth_num, row["player_name"]))
+
+    # Sort each position group by depth number
+    for pos in pos_groups:
+        pos_groups[pos] = sorted(pos_groups[pos], key=lambda x: x[0])
+
+    # Detect promotions/demotions
+    for pos, players in pos_groups.items():
+        espn_order = [p for _, p in players]
+
+        # Find which ESPN depth player is actually starting
+        starting_candidates = [p for p in espn_order if p in starters]
+
+        if not starting_candidates:
+            continue
+
+        actual_starter = starting_candidates[0]
+        espn_starter_index = espn_order.index(actual_starter)
+
+        # Shift depth based on starter index
+        for i, player in enumerate(espn_order):
+            new_depth = i - espn_starter_index + 1
+
+            if new_depth < 1:
+                new_depth = 1
+
+            inferred_rank = f"{pos}{new_depth}"
+            minutes = get_baseline_minutes(inferred_rank)
+
+            rotation_rows.append({
+                "team": team,
+                "player_name": player,
+                "espn_slot": f"{pos}{i+1}",
+                "new_depth": inferred_rank,
+                "promoted": new_depth < (i+1),
+                "demoted": new_depth > (i+1),
+                "expected_minutes": minutes
+            })
+
+rotation_df = pd.DataFrame(rotation_rows)
+rotation_df.to_sql("rotation_minutes", conn, if_exists="replace", index=False)
+
+conn.close()
+
+print("Rotation detection complete.")
+print(rotation_df.head(20))
