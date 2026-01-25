@@ -1,6 +1,7 @@
 import sqlite3
 import pandas as pd
 import numpy as np
+import re
 
 conn = sqlite3.connect("dfs_nba.db")
 
@@ -11,12 +12,25 @@ dvp = pd.read_sql("SELECT * FROM dvp_stats", conn)
 game_foul_env = pd.read_sql("SELECT * FROM game_foul_environment", conn)
 hist_lines = pd.read_sql("SELECT team, AVG(team_line) as avg_team_line FROM historic_lines GROUP BY team", conn)
 
+def normalize_name(name):
+    if pd.isna(name):
+        return ""
+    name = str(name).strip().lower()
+    name = re.sub(r'\.', '', name)
+    name = re.sub(r'-', ' ', name)
+    name = re.sub(r'\s+(jr|sr|ii|iii|iv|v)\.?$', '', name)
+    name = re.sub(r'\s+', ' ', name)
+    return name.strip()
+
 salaries["player_name"] = salaries["player_name"].str.strip()
 rotation["player_name"] = rotation["player_name"].str.strip()
 
+salaries["norm_name"] = salaries["player_name"].apply(normalize_name)
+rotation["norm_name"] = rotation["player_name"].apply(normalize_name)
+
 df = salaries.merge(
-    rotation[["team", "player_name", "espn_slot", "projected_min"]],
-    on=["team", "player_name"],
+    rotation[["team", "norm_name", "espn_slot", "projected_min"]],
+    on=["team", "norm_name"],
     how="left"
 )
 
