@@ -30,6 +30,7 @@ NAME_ALIASES = {
     "nicolas batum": "nic batum",
     "patty mills": "patrick mills",
     "egor dmin": "egor demin",
+    "ronald holland": "ron holland",
 }
 
 def normalize_name(name):
