@@ -128,7 +128,7 @@ for team in teams:
             is_espn_starter = orig_idx == 0
             is_bench_labeled = norm in bench_players
             if is_espn_starter and is_bench_labeled:
-                bench_penalty = -8.0
+                bench_penalty = -6.0
 
             game_context = 0.0
             if spread is not None:
