@@ -180,6 +180,7 @@ df_output = df[output_cols].copy()
 df_output = df_output.rename(columns={"position": "fd_position"})
 
 df_output = df_output.dropna(subset=["projected_min"])
+df_output = df_output.dropna(subset=["opponent"])
 df_output = df_output.sort_values("proj_fp", ascending=False)
 
 df_output.to_sql("dfs_players", conn, if_exists="replace", index=False)
