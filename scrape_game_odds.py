@@ -55,6 +55,7 @@ for table in tables:
     
     header_text = header.get_text(strip=True)
     
+    # Check for spread or total tables (e.g., "Biggest Spreads", "Highest Totals")
     is_spread = "Spread" in header_text
     is_total = "Total" in header_text
     
@@ -67,15 +68,14 @@ for table in tables:
             continue
         
         matchup = cells[0].get_text(strip=True)
-        value = cells[1].get_text(strip=True)
         
-        # Parse matchup: "Detroit vs. Sacramento"
-        match = re.match(r'(.+?)\s+vs\.?\s+(.+)', matchup)
+        # Parse matchup: "Team at Team(Type)" or "Team vs. Team(Type)"
+        match = re.match(r'(.+?)\s+(vs\.?|at)\s+(.+?)(?:\(|$)', matchup)
         if not match:
             continue
         
         away_name = match.group(1).strip()
-        home_name = match.group(2).strip()
+        home_name = match.group(3).strip()
         
         # Normalize team names
         away_team = TEAM_MAP.get(away_name, away_name)
@@ -91,14 +91,19 @@ for table in tables:
                 "total": None
             }
         
-        try:
-            val = float(value)
-            if is_spread:
-                games[game_key]["spread"] = val
-            elif is_total:
-                games[game_key]["total"] = val
-        except:
-            pass
+        # Extract numeric value from cells
+        for cell in cells[1:]:
+            text = cell.get_text(strip=True)
+            try:
+                val = float(text.replace("+", ""))
+                if is_spread and -25 < val < 25:
+                    games[game_key]["spread"] = val
+                    break
+                elif is_total and 180 < val < 270:
+                    games[game_key]["total"] = val
+                    break
+            except:
+                pass
 
 # ============================
 # 3. SAVE TO DATABASE
