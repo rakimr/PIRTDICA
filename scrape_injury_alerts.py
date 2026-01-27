@@ -2,11 +2,12 @@ import requests
 from bs4 import BeautifulSoup
 import sqlite3
 import re
-from datetime import datetime
+from datetime import datetime, date
 
 conn = sqlite3.connect("dfs_nba.db")
 cursor = conn.cursor()
 
+cursor.execute("DROP TABLE IF EXISTS injury_alerts")
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS injury_alerts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -20,12 +21,14 @@ CREATE TABLE IF NOT EXISTS injury_alerts (
 """)
 conn.commit()
 
+today = date.today().strftime("%Y-%m-%d")
+
 URL = "https://rotogrinders.com/news/nba"
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
-print("Fetching injury alerts from RotoGrinders...")
+print(f"Fetching injury alerts from RotoGrinders for {today}...")
 response = requests.get(URL, headers=headers, timeout=30)
 
 if response.status_code != 200:

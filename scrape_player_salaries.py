@@ -2,7 +2,7 @@ import requests
 import pandas as pd
 from bs4 import BeautifulSoup
 import sqlite3
-from datetime import datetime
+from datetime import datetime, date
 from team_map import TEAM_MAP
 
 # ============================
@@ -30,12 +30,13 @@ conn.commit()
 # 2. SCRAPE ROTOGRINDERS
 # ============================
 
-URL = "https://rotogrinders.com/lineups/nba?site=fanduel"
+today = date.today().strftime("%Y-%m-%d")
+URL = f"https://rotogrinders.com/lineups/nba?site=fanduel&date={today}"
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
-print(f"Fetching FanDuel lineups from RotoGrinders...")
+print(f"Fetching FanDuel lineups from RotoGrinders for {today}...")
 response = requests.get(URL, headers=headers, timeout=30)
 
 if response.status_code != 200:
