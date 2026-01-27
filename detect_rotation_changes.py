@@ -21,6 +21,43 @@ if not injury_exists.empty:
 else:
     injuries = pd.DataFrame()
 
+per100_exists = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='player_per100'", conn)
+if not per100_exists.empty:
+    per100 = pd.read_sql("SELECT player_name, mpg, games_played FROM player_per100", conn)
+    per100["norm_name"] = per100["player_name"].apply(lambda x: x.strip().lower() if pd.notna(x) else "")
+else:
+    per100 = pd.DataFrame()
+
+def get_player_mpg(norm_name):
+    """Get player's trailing average MPG."""
+    if per100.empty:
+        return None
+    match = per100[per100["norm_name"].str.contains(norm_name.split()[0] if norm_name else "", case=False, na=False)]
+    if not match.empty:
+        return match.iloc[0]["mpg"]
+    return None
+
+def get_omega(depth_rank, mpg, games_played=None):
+    """
+    Calculate omega (player trust weight) based on role and consistency.
+    Higher omega = more trust in player's actual minutes vs role baseline.
+    """
+    if mpg is None:
+        return 0.3
+    
+    depth_num = int(re.search(r'\d+', depth_rank).group()) if re.search(r'\d+', depth_rank) else 1
+    
+    if depth_num == 1 and mpg >= 34:
+        return 0.7
+    elif depth_num == 1 and mpg >= 30:
+        return 0.6
+    elif depth_num <= 2:
+        return 0.5
+    elif depth_num <= 3:
+        return 0.35
+    else:
+        return 0.2
+
 def normalize_name(name):
     if pd.isna(name):
         return ""
@@ -119,7 +156,15 @@ for team in teams:
             is_promoted = new_depth < (orig_idx + 1)
             is_bench_to_starter = is_promoted and new_depth == 1
 
-            original_baseline = get_baseline_minutes(espn_slot)
+            role_baseline = get_baseline_minutes(inferred_rank)
+
+            player_mpg = get_player_mpg(norm)
+            omega = get_omega(inferred_rank, player_mpg)
+            
+            if player_mpg is not None:
+                weighted_base = (1 - omega) * role_baseline + omega * player_mpg
+            else:
+                weighted_base = role_baseline
 
             starter_bump = 10.0 if is_bench_to_starter else 0.0
             injury_bump = minutes_boost if out_at_pos else 0.0
@@ -138,7 +183,8 @@ for team in teams:
                 elif abs_spread >= 10.0:
                     game_context = -2.0
 
-            raw_projected = original_baseline + starter_bump + game_context + injury_bump + bench_penalty
+            total_adjustments = starter_bump + game_context + injury_bump + bench_penalty
+            raw_projected = weighted_base + total_adjustments
             min_floor, max_ceiling = get_minutes_bounds(inferred_rank)
             projected_min = clip_minutes(raw_projected, inferred_rank)
 
@@ -149,7 +195,10 @@ for team in teams:
                 "new_depth": inferred_rank,
                 "promoted": is_promoted,
                 "demoted": new_depth > (orig_idx + 1),
-                "baseline_min": original_baseline,
+                "role_baseline": round(role_baseline, 2),
+                "player_mpg": round(player_mpg, 1) if player_mpg else None,
+                "omega": omega,
+                "weighted_base": round(weighted_base, 2),
                 "starter_bump": starter_bump,
                 "injury_bump": round(injury_bump, 2),
                 "bench_penalty": bench_penalty,
@@ -167,7 +216,8 @@ if rotation_df.empty:
     print("No rotation data generated (missing salary data for starters)")
     rotation_df = pd.DataFrame(columns=[
         "team", "player_name", "espn_slot", "new_depth", "promoted", "demoted",
-        "baseline_min", "starter_bump", "injury_bump", "bench_penalty", "game_context", 
+        "role_baseline", "player_mpg", "omega", "weighted_base",
+        "starter_bump", "injury_bump", "bench_penalty", "game_context", 
         "min_floor", "max_ceiling", "projected_min", "spread", "game_type"
     ])
 else:

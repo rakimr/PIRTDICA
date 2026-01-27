@@ -18,15 +18,24 @@ df = tables[0]
 df = df[df["Player"] != "Player"]
 df = df[df["Player"].notna()]
 
-keep_cols = ["Player", "Team", "PTS", "TRB", "AST", "STL", "BLK", "TOV"]
-df = df[keep_cols].copy()
+keep_cols = ["Player", "Team", "G", "MP", "PTS", "TRB", "AST", "STL", "BLK", "TOV"]
+available_cols = [c for c in keep_cols if c in df.columns]
+df = df[available_cols].copy()
 
-for col in ["PTS", "TRB", "AST", "STL", "BLK", "TOV"]:
-    df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+for col in ["G", "MP", "PTS", "TRB", "AST", "STL", "BLK", "TOV"]:
+    if col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+
+if "G" in df.columns and "MP" in df.columns:
+    df["mpg"] = (df["MP"] / df["G"]).round(1)
+else:
+    df["mpg"] = 0.0
 
 df = df.rename(columns={
     "Player": "player_name",
     "Team": "team",
+    "G": "games_played",
+    "MP": "total_minutes",
     "TRB": "reb_per100"
 })
 df = df.rename(columns={
