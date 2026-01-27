@@ -59,6 +59,13 @@ def get_omega(depth_rank, mpg, games_played=None):
     else:
         return 0.2
 
+NAME_ALIASES = {
+    "alex sarr": "alexandre sarr",
+    "nicolas claxton": "nic claxton",
+    "cameron thomas": "cam thomas",
+    "nicolas batum": "nic batum",
+}
+
 def normalize_name(name):
     if pd.isna(name):
         return ""
@@ -73,7 +80,8 @@ def normalize_name(name):
     name = re.sub(r'-', ' ', name)
     name = re.sub(r'\s+(jr|sr|ii|iii|iv|v)\.?$', '', name)
     name = re.sub(r'\s+', ' ', name)
-    return name.strip()
+    name = name.strip()
+    return NAME_ALIASES.get(name, name)
 
 out_players = set()
 if not injuries.empty:
@@ -95,7 +103,7 @@ for team in teams:
     team_depth = depth[depth["team"] == team].copy()
     team_salaries = salaries[salaries["team"] == team].copy()
 
-    starters = set(team_salaries["player_name"].tolist())
+    starters = set(team_salaries["norm_name"].tolist())
     
     bench_players = set()
     if "status" in team_salaries.columns:
@@ -137,7 +145,7 @@ for team in teams:
             orig_idx = [n for _, n in espn_order].index(norm)
             out_minutes_pool += get_baseline_minutes(f"{pos}{orig_idx+1}")
 
-        starting_candidates = [p for p, norm in active_order if p in starters]
+        starting_candidates = [p for p, norm in active_order if norm in starters]
 
         if not starting_candidates and active_order:
             actual_starter = active_order[0][0]
@@ -182,7 +190,17 @@ for team in teams:
             else:
                 weighted_base = role_baseline
 
-            starter_bump = 10.0 if is_bench_to_starter else 0.0
+            slots_promoted = (orig_idx + 1) - new_depth
+            if slots_promoted > 0 and new_depth == 1:
+                starter_bump = 10.0
+            elif slots_promoted > 0 and new_depth == 2:
+                starter_bump = 4.0
+            elif slots_promoted > 0 and new_depth == 3:
+                starter_bump = 2.0
+            elif slots_promoted > 0:
+                starter_bump = 1.0
+            else:
+                starter_bump = 0.0
             injury_bump = minutes_boost if out_at_pos else 0.0
             
             bench_penalty = 0.0
