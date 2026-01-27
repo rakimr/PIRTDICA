@@ -187,6 +187,8 @@ df_output.to_sql("dfs_players", conn, if_exists="replace", index=False)
 
 conn.close()
 
+df_output.to_csv("dfs_players.csv", index=False)
+
 print(f"DFS Players table created with {len(df_output)} players.\n")
 print("=== Top 20 Projected Players ===")
 print(df_output.head(20).to_string(index=False))
@@ -195,3 +197,4 @@ print("\n=== Weight Summary ===")
 print(f"Line Weight Range: {df_output['line_weight'].min():.3f} - {df_output['line_weight'].max():.3f}")
 print(f"DVP Weight Range: {df_output['dvp_weight'].min():.3f} - {df_output['dvp_weight'].max():.3f}")
 print(f"Ref Weight Range: {df_output['ref_weight'].min():.3f} - {df_output['ref_weight'].max():.3f}")
+print(f"\nExported to dfs_players.csv")
