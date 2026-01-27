@@ -140,9 +140,68 @@ TEAM_CENTERS = {
     "SAS": ("Victor Wembanyama", 0.75),
 }
 
+TEAM_POWER_FORWARDS = {
+    "MIL": ("Giannis Antetokounmpo", 1.5),
+    "LAL": ("Anthony Davis", 1.5),
+    "NOP": ("Zion Williamson", 1.5),
+    "MIN": ("Julius Randle", 1.25),
+    "IND": ("Pascal Siakam", 1.0),
+    "ORL": ("Paolo Banchero", 1.0),
+    "TOR": ("Scottie Barnes", 1.0),
+    "GSW": ("Draymond Green", 1.0),
+    "CLE": ("Evan Mobley", 0.75),
+    "HOU": ("Jabari Smith Jr", 0.75),
+    "UTA": ("John Collins", 0.75),
+}
+
+TEAM_SMALL_FORWARDS = {
+    "LAL": ("LeBron James", 1.0),
+    "MIA": ("Jimmy Butler", 1.25),
+    "LAC": ("Kawhi Leonard", 0.75),
+    "NY": ("OG Anunoby", 0.75),
+}
+
+TEAM_GUARDS = {
+    "DAL": ("Luka Doncic", 1.0),
+    "LAC": ("James Harden", 1.25),
+    "OKC": ("Shai Gilgeous-Alexander", 1.0),
+    "MEM": ("Ja Morant", 0.75),
+    "IND": ("Tyrese Haliburton", 0.5),
+}
+
+TEAM_POSITION_MAP = {
+    "C": TEAM_CENTERS,
+    "PF": TEAM_POWER_FORWARDS,
+    "SF": TEAM_SMALL_FORWARDS,
+    "SG": TEAM_GUARDS,
+    "PG": TEAM_GUARDS,
+}
+
+def get_opposing_physical_modifier(opponent_team, position):
+    """
+    Get the physical modifier for the opposing team's player at a position.
+    
+    Args:
+        opponent_team: Team abbreviation (e.g., "SAC")
+        position: Position (C, PF, SF, SG, PG)
+    
+    Returns:
+        tuple: (player_name, modifier) or (None, 0.0)
+    """
+    pos = position.upper().replace("1", "").replace("2", "").replace("3", "")
+    
+    if pos in TEAM_POSITION_MAP:
+        team_lookup = TEAM_POSITION_MAP[pos]
+        if opponent_team in team_lookup:
+            return team_lookup[opponent_team]
+    
+    return (None, 0.0)
+
+
 def get_opposing_center_modifier(opponent_team):
     """
     Get the physical modifier for the opposing team's center.
+    (Legacy function - use get_opposing_physical_modifier instead)
     
     Args:
         opponent_team: Team abbreviation (e.g., "SAC")

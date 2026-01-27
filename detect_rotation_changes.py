@@ -3,7 +3,7 @@ import pandas as pd
 import re
 import unicodedata
 from baseline_minutes import get_baseline_minutes, project_minutes, get_game_context_label, clip_minutes, get_minutes_bounds
-from physical_matchups import get_opposing_center_modifier
+from physical_matchups import get_opposing_physical_modifier
 
 conn = sqlite3.connect("dfs_nba.db")
 
@@ -113,8 +113,6 @@ for team in teams:
             else:
                 opponent = team_odds.iloc[0]["away_team"]
 
-    opp_center_name, opp_center_physical = get_opposing_center_modifier(opponent) if opponent else (None, 0.0)
-
     pos_groups = {}
     for _, row in team_depth.iterrows():
         slot = row["position_slot"]
@@ -153,11 +151,13 @@ for team in teams:
 
         minutes_boost = out_minutes_pool / len(active_order) if active_order else 0
 
+        opp_physical_name, opp_physical_mod = get_opposing_physical_modifier(opponent, pos) if opponent else (None, 0.0)
+        
         foul_risk = 0.0
         foul_mins_lost = 0.0
-        if pos == "C" and opp_center_physical > 0:
+        if opp_physical_mod > 0:
             base_foul_rate = 4.0
-            foul_risk = min(1.0, (base_foul_rate + opp_center_physical) / 7.0)
+            foul_risk = min(1.0, (base_foul_rate + opp_physical_mod) / 7.0)
             starter_baseline = get_baseline_minutes(f"{pos}1")
             foul_mins_lost = foul_risk * starter_baseline * 0.25
 
@@ -200,7 +200,7 @@ for team in teams:
                     game_context = -2.0
 
             foul_boost = 0.0
-            if pos == "C" and foul_mins_lost > 0:
+            if foul_mins_lost > 0:
                 if new_depth == 1:
                     foul_boost = -foul_mins_lost
                 elif new_depth == 2:
@@ -227,8 +227,8 @@ for team in teams:
                 "bench_penalty": bench_penalty,
                 "game_context": game_context,
                 "foul_boost": round(foul_boost, 2),
-                "foul_risk": round(foul_risk, 2) if pos == "C" else 0.0,
-                "opp_physical": opp_center_name if pos == "C" else None,
+                "foul_risk": round(foul_risk, 2),
+                "opp_physical": opp_physical_name,
                 "min_floor": min_floor,
                 "max_ceiling": max_ceiling,
                 "projected_min": projected_min,
