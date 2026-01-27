@@ -3,6 +3,7 @@ import pandas as pd
 import re
 import unicodedata
 from baseline_minutes import get_baseline_minutes, project_minutes, get_game_context_label, clip_minutes, get_minutes_bounds
+from physical_matchups import get_opposing_center_modifier
 
 conn = sqlite3.connect("dfs_nba.db")
 
@@ -102,10 +103,17 @@ for team in teams:
         bench_players = set(bench_salaries["norm_name"].tolist())
 
     spread = None
+    opponent = None
     if not odds.empty:
         team_odds = odds[(odds["away_team"] == team) | (odds["home_team"] == team)]
         if not team_odds.empty:
             spread = team_odds.iloc[0]["spread"]
+            if team_odds.iloc[0]["away_team"] == team:
+                opponent = team_odds.iloc[0]["home_team"]
+            else:
+                opponent = team_odds.iloc[0]["away_team"]
+
+    opp_center_name, opp_center_physical = get_opposing_center_modifier(opponent) if opponent else (None, 0.0)
 
     pos_groups = {}
     for _, row in team_depth.iterrows():
@@ -145,6 +153,14 @@ for team in teams:
 
         minutes_boost = out_minutes_pool / len(active_order) if active_order else 0
 
+        foul_risk = 0.0
+        foul_mins_lost = 0.0
+        if pos == "C" and opp_center_physical > 0:
+            base_foul_rate = 4.0
+            foul_risk = min(1.0, (base_foul_rate + opp_center_physical) / 7.0)
+            starter_baseline = get_baseline_minutes(f"{pos}1")
+            foul_mins_lost = foul_risk * starter_baseline * 0.25
+
         for i, (player, norm) in enumerate(active_order):
             new_depth = i - espn_starter_index + 1
             if new_depth < 1:
@@ -183,7 +199,14 @@ for team in teams:
                 elif abs_spread >= 10.0:
                     game_context = -2.0
 
-            total_adjustments = starter_bump + game_context + injury_bump + bench_penalty
+            foul_boost = 0.0
+            if pos == "C" and foul_mins_lost > 0:
+                if new_depth == 1:
+                    foul_boost = -foul_mins_lost
+                elif new_depth == 2:
+                    foul_boost = foul_mins_lost * 0.85
+
+            total_adjustments = starter_bump + game_context + injury_bump + bench_penalty + foul_boost
             raw_projected = weighted_base + total_adjustments
             min_floor, max_ceiling = get_minutes_bounds(inferred_rank)
             projected_min = clip_minutes(raw_projected, inferred_rank)
@@ -203,11 +226,15 @@ for team in teams:
                 "injury_bump": round(injury_bump, 2),
                 "bench_penalty": bench_penalty,
                 "game_context": game_context,
+                "foul_boost": round(foul_boost, 2),
+                "foul_risk": round(foul_risk, 2) if pos == "C" else 0.0,
+                "opp_physical": opp_center_name if pos == "C" else None,
                 "min_floor": min_floor,
                 "max_ceiling": max_ceiling,
                 "projected_min": projected_min,
                 "spread": spread,
-                "game_type": get_game_context_label(spread)
+                "game_type": get_game_context_label(spread),
+                "opponent": opponent
             })
 
 rotation_df = pd.DataFrame(rotation_rows)
@@ -217,8 +244,9 @@ if rotation_df.empty:
     rotation_df = pd.DataFrame(columns=[
         "team", "player_name", "espn_slot", "new_depth", "promoted", "demoted",
         "role_baseline", "player_mpg", "omega", "weighted_base",
-        "starter_bump", "injury_bump", "bench_penalty", "game_context", 
-        "min_floor", "max_ceiling", "projected_min", "spread", "game_type"
+        "starter_bump", "injury_bump", "bench_penalty", "game_context",
+        "foul_boost", "foul_risk", "opp_physical",
+        "min_floor", "max_ceiling", "projected_min", "spread", "game_type", "opponent"
     ])
 else:
     def extract_depth_num(slot):
