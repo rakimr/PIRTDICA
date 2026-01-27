@@ -269,4 +269,4 @@ print(f"\nFound {len(rotation_df)} player rotations across {len(teams)} teams")
 promoted = rotation_df[rotation_df["promoted"] == True]
 if not promoted.empty:
     print(f"\n=== Promoted Players ({len(promoted)}) ===")
-    print(promoted[["team", "player_name", "espn_slot", "new_depth", "baseline_min", "starter_bump", "game_context", "projected_min"]].to_string(index=False))
+    print(promoted[["team", "player_name", "espn_slot", "new_depth", "role_baseline", "starter_bump", "game_context", "projected_min"]].to_string(index=False))
