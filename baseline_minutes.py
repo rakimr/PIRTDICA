@@ -97,6 +97,45 @@ BLOWOUT_PENALTY = -2.0
 CLOSE_GAME_THRESHOLD = 5.0
 BLOWOUT_THRESHOLD = 10.0
 
+MINUTES_FLOOR_PCT = 0.65
+MINUTES_CEILING_PCT = 1.35
+MINUTES_HARD_CAP = 40.0
+MINUTES_HARD_FLOOR = 0.0
+
+def get_minutes_bounds(position_slot: str) -> tuple:
+    """
+    Get role-based min/max minutes bounds for a position slot.
+    
+    Args:
+        position_slot: Depth chart slot (e.g., "PG1", "SF2")
+        
+    Returns:
+        Tuple of (min_minutes, max_minutes)
+    """
+    baseline = get_baseline_minutes(position_slot)
+    
+    if baseline <= 0:
+        return (MINUTES_HARD_FLOOR, MINUTES_HARD_CAP)
+    
+    floor = max(MINUTES_HARD_FLOOR, baseline * MINUTES_FLOOR_PCT)
+    ceiling = min(MINUTES_HARD_CAP, baseline * MINUTES_CEILING_PCT)
+    
+    return (round(floor, 2), round(ceiling, 2))
+
+def clip_minutes(minutes: float, position_slot: str) -> float:
+    """
+    Clip projected minutes to role-based bounds.
+    
+    Args:
+        minutes: Raw projected minutes
+        position_slot: Depth chart slot for bounds lookup
+        
+    Returns:
+        Minutes clipped to [M_min, M_max] for that role
+    """
+    floor, ceiling = get_minutes_bounds(position_slot)
+    return round(max(floor, min(ceiling, minutes)), 2)
+
 
 def project_minutes(
     position_slot: str,

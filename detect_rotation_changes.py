@@ -2,7 +2,7 @@ import sqlite3
 import pandas as pd
 import re
 import unicodedata
-from baseline_minutes import get_baseline_minutes, project_minutes, get_game_context_label
+from baseline_minutes import get_baseline_minutes, project_minutes, get_game_context_label, clip_minutes, get_minutes_bounds
 
 conn = sqlite3.connect("dfs_nba.db")
 
@@ -138,7 +138,9 @@ for team in teams:
                 elif abs_spread >= 10.0:
                     game_context = -2.0
 
-            projected_min = max(0, original_baseline + starter_bump + game_context + injury_bump + bench_penalty)
+            raw_projected = original_baseline + starter_bump + game_context + injury_bump + bench_penalty
+            min_floor, max_ceiling = get_minutes_bounds(inferred_rank)
+            projected_min = clip_minutes(raw_projected, inferred_rank)
 
             rotation_rows.append({
                 "team": team,
@@ -152,7 +154,9 @@ for team in teams:
                 "injury_bump": round(injury_bump, 2),
                 "bench_penalty": bench_penalty,
                 "game_context": game_context,
-                "projected_min": round(projected_min, 2),
+                "min_floor": min_floor,
+                "max_ceiling": max_ceiling,
+                "projected_min": projected_min,
                 "spread": spread,
                 "game_type": get_game_context_label(spread)
             })
@@ -163,7 +167,8 @@ if rotation_df.empty:
     print("No rotation data generated (missing salary data for starters)")
     rotation_df = pd.DataFrame(columns=[
         "team", "player_name", "espn_slot", "new_depth", "promoted", "demoted",
-        "baseline_min", "starter_bump", "injury_bump", "bench_penalty", "game_context", "projected_min", "spread", "game_type"
+        "baseline_min", "starter_bump", "injury_bump", "bench_penalty", "game_context", 
+        "min_floor", "max_ceiling", "projected_min", "spread", "game_type"
     ])
 else:
     def extract_depth_num(slot):
