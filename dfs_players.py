@@ -67,10 +67,30 @@ df = salaries.merge(
 )
 
 df = df.merge(
-    per100[["norm_name", "fp_per100"]],
+    per100[["norm_name", "fp_per100", "games_played"]],
     on="norm_name",
     how="left"
 )
+
+TEAM_GAMES_PLAYED = 48
+
+df["games_pct"] = (df["games_played"] / TEAM_GAMES_PLAYED * 100).round(1)
+df["games_pct"] = df["games_pct"].fillna(0)
+
+GP_THRESHOLD = 60
+df["low_gp_flag"] = df["games_pct"] < GP_THRESHOLD
+
+def get_gp_penalty(games_pct):
+    if pd.isna(games_pct) or games_pct >= GP_THRESHOLD:
+        return 1.0
+    elif games_pct >= 50:
+        return 0.95
+    elif games_pct >= 40:
+        return 0.90
+    else:
+        return 0.85
+
+df["gp_weight"] = df["games_pct"].apply(get_gp_penalty)
 
 df = df.merge(
     team_pace,
@@ -167,13 +187,13 @@ df["fp_per_min"] = df["fp_per_poss"] * df["poss_per_min"]
 
 df["base_fp"] = df["fp_per_min"] * df["projected_min"].fillna(0)
 
-df["proj_fp"] = df["base_fp"] * df["line_weight"] * df["dvp_weight"] * df["ref_weight"]
+df["proj_fp"] = df["base_fp"] * df["line_weight"] * df["dvp_weight"] * df["ref_weight"] * df["gp_weight"]
 df["proj_fp"] = df["proj_fp"].round(2)
 
 output_cols = [
     "player_name", "position", "true_position", "projected_min", "salary",
     "team", "opponent", "location", "fp_per100", "fp_per_min", 
-    "ref_weight", "dvp_weight", "line_weight", "proj_fp"
+    "ref_weight", "dvp_weight", "line_weight", "games_pct", "gp_weight", "low_gp_flag", "proj_fp"
 ]
 
 df_output = df[output_cols].copy()
