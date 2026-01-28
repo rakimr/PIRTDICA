@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS player_salaries (
     position TEXT,
     salary INTEGER,
     status TEXT,
+    roster_order INTEGER,
     game TEXT,
     scraped_at TEXT
 )
@@ -82,6 +83,7 @@ for game_card in game_cards:
             continue
         
         current_status = None
+        team_order = 0
         for child in players_div.children:
             if not hasattr(child, 'name') or not child.name:
                 continue
@@ -116,6 +118,7 @@ for game_card in game_cards:
                             salary = None
                     
                     team = TEAM_MAP.get(current_team, current_team) if current_team else None
+                    team_order += 1
                     
                     rows.append({
                         "player_name": player_name,
@@ -123,6 +126,7 @@ for game_card in game_cards:
                         "position": position,
                         "salary": salary,
                         "status": current_status,
+                        "roster_order": team_order,
                         "game": game_title,
                         "scraped_at": datetime.utcnow().isoformat()
                     })

@@ -105,6 +105,11 @@ for team in teams:
 
     starters = set(team_salaries["norm_name"].tolist())
     
+    fd_roster_order = {}
+    if "roster_order" in team_salaries.columns:
+        for _, sal_row in team_salaries.iterrows():
+            fd_roster_order[sal_row["norm_name"]] = sal_row["roster_order"]
+    
     bench_players = set()
     if "status" in team_salaries.columns:
         bench_salaries = team_salaries[team_salaries["status"] == "Bench"]
@@ -154,10 +159,18 @@ for team in teams:
         else:
             continue
 
-        active_names = [p for p, _ in active_order]
+        if fd_roster_order:
+            active_order_sorted = sorted(
+                active_order,
+                key=lambda x: fd_roster_order.get(x[1], 999)
+            )
+        else:
+            active_order_sorted = active_order
+
+        active_names = [p for p, _ in active_order_sorted]
         espn_starter_index = active_names.index(actual_starter) if actual_starter in active_names else 0
 
-        minutes_boost = out_minutes_pool / len(active_order) if active_order else 0
+        minutes_boost = out_minutes_pool / len(active_order_sorted) if active_order_sorted else 0
 
         opp_physical_name, opp_physical_mod = get_opposing_physical_modifier(opponent, pos) if opponent else (None, 0.0)
         
@@ -169,8 +182,12 @@ for team in teams:
             starter_baseline = get_baseline_minutes(f"{pos}1")
             foul_mins_lost = foul_risk * starter_baseline * 0.25
 
-        for i, (player, norm) in enumerate(active_order):
-            new_depth = i - espn_starter_index + 1
+        for i, (player, norm) in enumerate(active_order_sorted):
+            fd_order = fd_roster_order.get(norm, 999)
+            is_fd_starter = fd_order <= 5
+            is_fd_bench = fd_order > 5
+            
+            new_depth = i + 1
             if new_depth < 1:
                 new_depth = 1
 
@@ -191,7 +208,9 @@ for team in teams:
                 weighted_base = role_baseline
 
             slots_promoted = (orig_idx + 1) - new_depth
-            if slots_promoted > 0 and new_depth == 1:
+            if is_fd_bench:
+                starter_bump = 0.0
+            elif slots_promoted > 0 and new_depth == 1:
                 starter_bump = 10.0
             elif slots_promoted > 0 and new_depth == 2:
                 starter_bump = 4.0
