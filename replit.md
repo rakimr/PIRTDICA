@@ -27,6 +27,21 @@ The core projection logic uses empirical baseline minutes from 2012-2018 NBA box
 - Historical minutes per game (MPG)
 - Game context (pace, spread, total)
 
+### Usage-Based FPPM Adjustment
+When teammates are injured (OUT), their usage is redistributed to remaining players, boosting per-minute production:
+
+**Formula:**
+```
+FPPM_adj = FPPM_base × (1 + β × (Usage_adj - Usage_base) / Usage_base)
+```
+
+Where:
+- **β = 0.7** (diminishing returns factor)
+- **Usage_adj = Usage_base + (Injured Usage × Player's Usage Share × 0.6)**
+- Usage rates come from Basketball Reference advanced stats (USG%)
+
+This captures how players like RJ Barrett get more touches/shots when a star teammate is out.
+
 ### Position Handling
 The system tracks five positions (PG, SG, SF, PF, C) plus hybrid positions (G, F). Position data comes from Basketball Reference play-by-play data showing percentage of time at each position.
 

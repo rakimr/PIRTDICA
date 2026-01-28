@@ -66,7 +66,16 @@ df = salaries.merge(
 )
 
 df = df.merge(
-    player_stats[["norm_name", "fp_pg", "fp_per_min", "games_played", "mpg"]],
+    player_stats[["norm_name", "fp_pg", "fp_per_min", "games_played", "mpg", "usg_pct"]],
+    on="norm_name",
+    how="left"
+)
+
+injury_alerts = pd.read_sql("SELECT * FROM injury_alerts WHERE status = 'OUT'", conn)
+injury_alerts["norm_name"] = injury_alerts["player_name"].apply(normalize_name)
+
+injury_alerts = injury_alerts.merge(
+    player_stats[["norm_name", "team", "usg_pct"]].drop_duplicates(subset=["norm_name"]),
     on="norm_name",
     how="left"
 )
@@ -90,6 +99,66 @@ def get_gp_penalty(games_pct):
         return 0.85
 
 df["gp_weight"] = df["games_pct"].apply(get_gp_penalty)
+
+USAGE_BETA = 0.7
+
+def calculate_usage_adjustment(row):
+    """
+    Calculate usage-based FPPM adjustment when teammates are injured.
+    
+    Formula: FPPM_adj = FPPM_base × (1 + β × (Usage_adj - Usage_base) / Usage_base)
+    
+    Usage redistribution: When a player is OUT, their usage is redistributed
+    proportionally to remaining teammates based on their baseline usage.
+    """
+    team = row["team"]
+    player_norm = row["norm_name"]
+    base_usage = row.get("usg_pct", 20.0)
+    base_fppm = row.get("fp_per_min", 1.0)
+    
+    if pd.isna(base_usage) or base_usage <= 0:
+        base_usage = 20.0
+    if pd.isna(base_fppm) or base_fppm <= 0:
+        base_fppm = 1.0
+    
+    team_injuries = injury_alerts[(injury_alerts["team"] == team) & (injury_alerts["team"].notna())]
+    if team_injuries.empty:
+        return base_fppm, base_usage, 0.0
+    
+    injured_usage = 0.0
+    for _, inj in team_injuries.iterrows():
+        inj_norm = inj["norm_name"]
+        if inj_norm == player_norm:
+            continue
+        inj_usg = inj.get("usg_pct", 0)
+        if pd.notna(inj_usg) and inj_usg > 0:
+            injured_usage += inj_usg
+    
+    if injured_usage <= 0:
+        return base_fppm, base_usage, 0.0
+    
+    team_active = df[(df["team"] == team) & (~df["norm_name"].isin(team_injuries["norm_name"]))]
+    team_total_usage = team_active["usg_pct"].fillna(20.0).sum()
+    
+    if team_total_usage <= 0:
+        team_total_usage = 100.0
+    
+    usage_share = base_usage / team_total_usage
+    usage_boost = injured_usage * usage_share * 0.6
+    
+    adj_usage = base_usage + usage_boost
+    
+    usage_delta_pct = (adj_usage - base_usage) / base_usage
+    fppm_adj = base_fppm * (1 + USAGE_BETA * usage_delta_pct)
+    
+    return fppm_adj, adj_usage, usage_boost
+
+usage_results = df.apply(calculate_usage_adjustment, axis=1, result_type='expand')
+df["fppm_adj"] = usage_results[0]
+df["usg_adj"] = usage_results[1]
+df["usg_boost"] = usage_results[2]
+
+df["usg_pct"] = df["usg_pct"].fillna(20.0)
 
 def get_opponent_and_location(row):
     team = row["team"]
@@ -171,16 +240,17 @@ df["ref_weight"] = df.apply(get_ref_weight, axis=1)
 DEFAULT_FP_PER_MIN = 1.0
 
 df["fp_per_min"] = df["fp_per_min"].fillna(DEFAULT_FP_PER_MIN)
+df["fppm_adj"] = df["fppm_adj"].fillna(df["fp_per_min"])
 df["fp_pg"] = df["fp_pg"].fillna(0)
 
-df["base_fp"] = df["fp_per_min"] * df["projected_min"].fillna(0)
+df["base_fp"] = df["fppm_adj"] * df["projected_min"].fillna(0)
 
 df["proj_fp"] = df["base_fp"] * df["line_weight"] * df["dvp_weight"] * df["ref_weight"] * df["gp_weight"]
 df["proj_fp"] = df["proj_fp"].round(2)
 
 output_cols = [
     "player_name", "position", "true_position", "projected_min", "salary",
-    "team", "opponent", "location", "fp_pg", "fp_per_min", 
+    "team", "opponent", "location", "fp_pg", "fp_per_min", "usg_pct", "usg_boost", "fppm_adj",
     "ref_weight", "dvp_weight", "line_weight", "games_pct", "gp_weight", "low_gp_flag", "proj_fp"
 ]
 

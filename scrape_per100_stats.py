@@ -53,8 +53,31 @@ df["fp_per_min"] = df["fp_per_min"].replace([float('inf'), -float('inf')], 0).fi
 
 df = df.drop_duplicates(subset=["player_name"], keep="first")
 
+time.sleep(3)
+
+print("\nScraping advanced stats (usage rates)...")
+adv_url = "https://www.basketball-reference.com/leagues/NBA_2026_advanced.html"
+resp = requests.get(adv_url, headers=headers)
+with open("/tmp/advanced.html", "w") as f:
+    f.write(resp.text)
+adv_tables = pd.read_html("/tmp/advanced.html")
+adv_df = adv_tables[0]
+
+adv_df = adv_df[adv_df["Player"] != "Player"]
+adv_df = adv_df[adv_df["Player"].notna()]
+
+adv_keep = ["Player", "USG%"]
+adv_available = [c for c in adv_keep if c in adv_df.columns]
+adv_df = adv_df[adv_available].copy()
+adv_df = adv_df.rename(columns={"Player": "player_name", "USG%": "usg_pct"})
+adv_df["usg_pct"] = pd.to_numeric(adv_df["usg_pct"], errors="coerce").fillna(20.0)
+adv_df = adv_df.drop_duplicates(subset=["player_name"], keep="first")
+
+df = df.merge(adv_df, on="player_name", how="left")
+df["usg_pct"] = df["usg_pct"].fillna(20.0)
+
 df.to_sql("player_stats", conn, if_exists="replace", index=False)
-print(f"Saved {len(df)} players with per-game stats")
+print(f"Saved {len(df)} players with per-game stats and usage rates")
 
 time.sleep(3)
 
@@ -94,8 +117,8 @@ pace_df = pace_df.dropna()
 pace_df.to_sql("team_pace", conn, if_exists="replace", index=False)
 print(f"Saved {len(pace_df)} teams with pace data")
 
-print("\nTop 10 FP/100 players:")
-top = df.nlargest(10, "fp_per100")[["player_name", "team", "fp_per100"]]
+print("\nTop 10 FP/game players:")
+top = df.nlargest(10, "fp_pg")[["player_name", "team", "fp_pg", "usg_pct"]]
 print(top.to_string(index=False))
 
 conn.close()
