@@ -22,18 +22,18 @@ if not injury_exists.empty:
 else:
     injuries = pd.DataFrame()
 
-per100_exists = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='player_per100'", conn)
-if not per100_exists.empty:
-    per100 = pd.read_sql("SELECT player_name, mpg, games_played FROM player_per100", conn)
-    per100["norm_name"] = per100["player_name"].apply(lambda x: x.strip().lower() if pd.notna(x) else "")
+stats_exists = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='player_stats'", conn)
+if not stats_exists.empty:
+    player_stats = pd.read_sql("SELECT player_name, mpg, games_played FROM player_stats", conn)
+    player_stats["norm_name"] = player_stats["player_name"].apply(lambda x: x.strip().lower() if pd.notna(x) else "")
 else:
-    per100 = pd.DataFrame()
+    player_stats = pd.DataFrame()
 
 def get_player_mpg(norm_name):
     """Get player's trailing average MPG."""
-    if per100.empty:
+    if player_stats.empty:
         return None
-    match = per100[per100["norm_name"].str.contains(norm_name.split()[0] if norm_name else "", case=False, na=False)]
+    match = player_stats[player_stats["norm_name"].str.contains(norm_name.split()[0] if norm_name else "", case=False, na=False)]
     if not match.empty:
         return match.iloc[0]["mpg"]
     return None

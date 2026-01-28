@@ -18,8 +18,7 @@ game_odds = pd.read_sql("SELECT * FROM game_odds", conn)
 dvp = pd.read_sql("SELECT * FROM dvp_stats", conn)
 game_foul_env = pd.read_sql("SELECT * FROM game_foul_environment", conn)
 hist_lines = pd.read_sql("SELECT team, AVG(team_line) as avg_team_line FROM historic_lines GROUP BY team", conn)
-per100 = pd.read_sql("SELECT * FROM player_per100", conn)
-team_pace = pd.read_sql("SELECT * FROM team_pace", conn)
+player_stats = pd.read_sql("SELECT * FROM player_stats", conn)
 player_positions = pd.read_sql("SELECT player_name, true_position FROM player_positions", conn)
 
 NAME_ALIASES = {
@@ -52,12 +51,12 @@ def normalize_name(name):
 
 salaries["player_name"] = salaries["player_name"].str.strip()
 rotation["player_name"] = rotation["player_name"].str.strip()
-per100["player_name"] = per100["player_name"].str.strip()
+player_stats["player_name"] = player_stats["player_name"].str.strip()
 player_positions["player_name"] = player_positions["player_name"].str.strip()
 
 salaries["norm_name"] = salaries["player_name"].apply(normalize_name)
 rotation["norm_name"] = rotation["player_name"].apply(normalize_name)
-per100["norm_name"] = per100["player_name"].apply(normalize_name)
+player_stats["norm_name"] = player_stats["player_name"].apply(normalize_name)
 player_positions["norm_name"] = player_positions["player_name"].apply(normalize_name)
 
 df = salaries.merge(
@@ -67,7 +66,7 @@ df = salaries.merge(
 )
 
 df = df.merge(
-    per100[["norm_name", "fp_per100", "games_played"]],
+    player_stats[["norm_name", "fp_pg", "fp_per_min", "games_played", "mpg"]],
     on="norm_name",
     how="left"
 )
@@ -91,12 +90,6 @@ def get_gp_penalty(games_pct):
         return 0.85
 
 df["gp_weight"] = df["games_pct"].apply(get_gp_penalty)
-
-df = df.merge(
-    team_pace,
-    on="team",
-    how="left"
-)
 
 def get_opponent_and_location(row):
     team = row["team"]
@@ -175,15 +168,10 @@ def get_ref_weight(row):
 
 df["ref_weight"] = df.apply(get_ref_weight, axis=1)
 
-DEFAULT_FP_PER100 = 30.0
-DEFAULT_PACE = 100.0
+DEFAULT_FP_PER_MIN = 1.0
 
-df["fp_per100"] = df["fp_per100"].fillna(DEFAULT_FP_PER100)
-df["pace"] = df["pace"].fillna(DEFAULT_PACE)
-
-df["fp_per_poss"] = df["fp_per100"] / 100
-df["poss_per_min"] = df["pace"] / 48
-df["fp_per_min"] = df["fp_per_poss"] * df["poss_per_min"]
+df["fp_per_min"] = df["fp_per_min"].fillna(DEFAULT_FP_PER_MIN)
+df["fp_pg"] = df["fp_pg"].fillna(0)
 
 df["base_fp"] = df["fp_per_min"] * df["projected_min"].fillna(0)
 
@@ -192,7 +180,7 @@ df["proj_fp"] = df["proj_fp"].round(2)
 
 output_cols = [
     "player_name", "position", "true_position", "projected_min", "salary",
-    "team", "opponent", "location", "fp_per100", "fp_per_min", 
+    "team", "opponent", "location", "fp_pg", "fp_per_min", 
     "ref_weight", "dvp_weight", "line_weight", "games_pct", "gp_weight", "low_gp_flag", "proj_fp"
 ]
 

@@ -7,12 +7,12 @@ conn = sqlite3.connect("dfs_nba.db")
 
 headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
-print("Scraping per-100 possession stats...")
-url = "https://www.basketball-reference.com/leagues/NBA_2026_per_poss.html"
+print("Scraping per-game stats...")
+url = "https://www.basketball-reference.com/leagues/NBA_2026_per_game.html"
 resp = requests.get(url, headers=headers)
-with open("/tmp/per100.html", "w") as f:
+with open("/tmp/pergame.html", "w") as f:
     f.write(resp.text)
-tables = pd.read_html("/tmp/per100.html")
+tables = pd.read_html("/tmp/pergame.html")
 df = tables[0]
 
 df = df[df["Player"] != "Player"]
@@ -26,39 +26,35 @@ for col in ["G", "MP", "PTS", "TRB", "AST", "STL", "BLK", "TOV"]:
     if col in df.columns:
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
-if "G" in df.columns and "MP" in df.columns:
-    df["mpg"] = (df["MP"] / df["G"]).round(1)
-else:
-    df["mpg"] = 0.0
-
 df = df.rename(columns={
     "Player": "player_name",
     "Team": "team",
     "G": "games_played",
-    "MP": "total_minutes",
-    "TRB": "reb_per100"
-})
-df = df.rename(columns={
-    "PTS": "pts_per100",
-    "AST": "ast_per100",
-    "STL": "stl_per100",
-    "BLK": "blk_per100",
-    "TOV": "tov_per100"
+    "MP": "mpg",
+    "PTS": "pts_pg",
+    "TRB": "reb_pg",
+    "AST": "ast_pg",
+    "STL": "stl_pg",
+    "BLK": "blk_pg",
+    "TOV": "tov_pg"
 })
 
-df["fp_per100"] = (
-    df["pts_per100"] * 1.0 +
-    df["reb_per100"] * 1.2 +
-    df["ast_per100"] * 1.5 +
-    df["stl_per100"] * 3.0 +
-    df["blk_per100"] * 3.0 +
-    df["tov_per100"] * -1.0
-)
+df["fp_pg"] = (
+    df["pts_pg"] * 1.0 +
+    df["reb_pg"] * 1.2 +
+    df["ast_pg"] * 1.5 +
+    df["stl_pg"] * 3.0 +
+    df["blk_pg"] * 3.0 +
+    df["tov_pg"] * -1.0
+).round(2)
+
+df["fp_per_min"] = (df["fp_pg"] / df["mpg"]).round(4)
+df["fp_per_min"] = df["fp_per_min"].replace([float('inf'), -float('inf')], 0).fillna(0)
 
 df = df.drop_duplicates(subset=["player_name"], keep="first")
 
-df.to_sql("player_per100", conn, if_exists="replace", index=False)
-print(f"Saved {len(df)} players with per-100 stats")
+df.to_sql("player_stats", conn, if_exists="replace", index=False)
+print(f"Saved {len(df)} players with per-game stats")
 
 time.sleep(3)
 
