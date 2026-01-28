@@ -184,11 +184,11 @@ def get_opponent_and_location(row):
 game_info = df.apply(get_opponent_and_location, axis=1)
 df = pd.concat([df, game_info], axis=1)
 
-df["team_line"] = (df["total"] / 2) - (df["spread"] / 2)
+df["implied_total"] = (df["total"] / 2) - (df["spread"] / 2)
 
 df = df.merge(hist_lines, on="team", how="left")
 
-df["line_weight"] = df["team_line"] / df["avg_team_line"]
+df["line_weight"] = df["implied_total"] / df["avg_team_line"]
 df["line_weight"] = df["line_weight"].fillna(1.0)
 
 df = df.merge(
@@ -250,7 +250,7 @@ df["proj_fp"] = df["proj_fp"].round(2)
 
 output_cols = [
     "player_name", "position", "true_position", "projected_min", "salary",
-    "team", "opponent", "location", "fp_pg", "fp_per_min", "usg_pct", "usg_boost", "fppm_adj",
+    "team", "opponent", "location", "implied_total", "fp_pg", "fp_per_min", "usg_pct", "usg_boost", "fppm_adj",
     "ref_weight", "dvp_weight", "line_weight", "games_pct", "gp_weight", "low_gp_flag", "proj_fp"
 ]
 
