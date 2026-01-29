@@ -245,9 +245,6 @@ df["fp_pg"] = df["fp_pg"].fillna(0)
 
 df["base_fp"] = df["fppm_adj"] * df["projected_min"].fillna(0)
 
-df["proj_fp"] = df["base_fp"] * df["line_weight"] * df["dvp_weight"] * df["ref_weight"] * df["gp_weight"]
-df["proj_fp"] = df["proj_fp"].round(2)
-
 vol_df = pd.read_sql("SELECT player_name, min_sd FROM player_volatility", conn)
 df = df.merge(vol_df, on='player_name', how='left')
 
@@ -260,11 +257,15 @@ def calc_omega(row):
     return round(max(0.10, min(0.90, (gp * 0.5) + (sd_factor * 0.5))), 3)
 
 df['omega'] = df.apply(calc_omega, axis=1)
+df['omega_weight'] = 0.95 + df['omega'] * 0.10
+
+df["proj_fp"] = df["base_fp"] * df["line_weight"] * df["dvp_weight"] * df["ref_weight"] * df["gp_weight"] * df["omega_weight"]
+df["proj_fp"] = df["proj_fp"].round(2)
 
 output_cols = [
     "player_name", "position", "true_position", "projected_min", "salary",
     "team", "opponent", "location", "implied_total", "fp_pg", "fp_per_min", "usg_pct", "usg_boost", "fppm_adj",
-    "ref_weight", "dvp_weight", "line_weight", "games_pct", "gp_weight", "low_gp_flag", "min_sd", "omega", "proj_fp"
+    "ref_weight", "dvp_weight", "line_weight", "games_pct", "gp_weight", "low_gp_flag", "min_sd", "omega", "omega_weight", "proj_fp"
 ]
 
 df_output = df[output_cols].copy()
