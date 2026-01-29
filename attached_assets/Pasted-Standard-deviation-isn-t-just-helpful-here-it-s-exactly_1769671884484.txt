@@ -1,0 +1,119 @@
+Standard deviation isn’t just helpful here, it’s exactly the right statistical lens.
+
+What you just did is connect the intuition of “leash” to a measurable quantity. That’s the right move.
+
+Let’s make it concrete.
+
+⸻
+
+Why standard deviation is the right signal
+
+Think about what you’re trying to measure with the “star weight” \omega_i:
+
+“How stable are this player’s minutes, game to game?”
+
+That is literally what standard deviation measures.
+	•	Low SD → coach plays them no matter what → high trust
+	•	High SD → situational / fragile role → low trust
+
+So yes, SD is the cleanest empirical proxy.
+
+⸻
+
+How SD plugs directly into the model
+
+Step 1: Compute per-player minutes volatility
+
+From historical games (ideally last 20–40):
+
+\sigma_i = \operatorname{SD}(\text{Min}_{i,g})
+
+⸻
+
+Step 2: Normalize it against role volatility
+
+We don’t want to punish players just because their role is volatile.
+
+\sigma_{r_i} = \operatorname{SD}(\text{Min} \mid r_i)
+
+⸻
+
+Step 3: Convert SD → star weight
+
+One simple, effective mapping:
+
+\boxed{
+\omega_i
+=
+\operatorname{clip}
+\Big(
+1 - \frac{\sigma_i}{\sigma_{r_i}},
+\;\omega_{\min},\;\omega_{\max}
+\Big)
+}
+
+Typical bounds:
+	•	\omega_{\min} = 0.05
+	•	\omega_{\max} = 0.80
+
+⸻
+
+Intuition check with real examples
+
+Tyrese Maxey
+	•	σᵢ ≈ 2.5
+	•	σ_role ≈ 5.5
+
+\omega \approx 1 - 2.5/5.5 \approx 0.55
+
+(then bumped slightly for closing role)
+
+⸻
+
+Volatile bench guard
+	•	σᵢ ≈ 8.0
+	•	σ_role ≈ 6.0
+
+\omega \approx 1 - 8/6 \approx -0.33 \rightarrow 0.05
+
+Which is exactly what you want.
+
+⸻
+
+Why SD beats usage here
+
+Usage can be:
+	•	High but volatile (Jordan Clarkson)
+	•	Low but stable (Mikal Bridges)
+
+SD directly measures coach behavior, not player skill.
+
+⸻
+
+Optional refinement (very pro, very clean)
+
+Use coefficient of variation instead:
+
+\text{CV}_i = \frac{\sigma_i}{\bar{M}_i}
+
+Then:
+
+\omega_i = 1 - \frac{\text{CV}_i}{\text{CV}_{r_i}}
+
+This makes the metric scale-free.
+
+⸻
+
+One more bonus: SD gives you distributions for free
+
+Once you have σ:
+
+\text{Min}_i \sim \mathcal{N}(\hat{M}_i, \sigma_i^2)
+
+That’s:
+	•	Ceiling
+	•	Floor
+	•	Volatility
+	•	GPP leverage
+
+All from one number.
