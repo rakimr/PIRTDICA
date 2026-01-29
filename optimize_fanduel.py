@@ -10,22 +10,27 @@ from pulp import LpMaximize, LpProblem, LpVariable, lpSum, PULP_CBC_CMD
 import argparse
 
 def calculate_star_weight(row):
-    """Calculate reliability weight based on games_pct and salary."""
-    games_pct = row.get('games_pct', 50) / 100
-    salary = row.get('salary', 5000)
+    """
+    Calculate reliability weight combining:
+    - games_pct: availability (50% weight)
+    - min_sd: minutes stability (50% weight)
     
-    omega = np.clip(games_pct * 0.85, 0.05, 0.80)
+    Formula: ω = (games_pct_factor * 0.5) + (sd_factor * 0.5)
+    """
+    gp = row.get('games_pct', 50) / 100  # 0-1 scale
+    sd = row.get('min_sd', None)
     
-    if salary >= 10000:
-        omega = min(0.85, omega + 0.20)
-    elif salary >= 8000:
-        omega = min(0.80, omega + 0.12)
-    elif salary >= 6000:
-        omega = min(0.75, omega + 0.05)
-    elif salary < 4500:
-        omega = max(0.10, omega - 0.25)
+    # If no SD data, assume moderate-high volatility
+    if pd.isna(sd) or sd is None:
+        sd = 7.0
     
-    return round(omega, 3)
+    # SD factor: SD of 3 = 1.0 (perfect), SD of 10+ = 0.0 (volatile)
+    sd_factor = np.clip(1 - (sd - 3) / 7, 0, 1)
+    
+    # Combined: 50% availability, 50% stability
+    omega = (gp * 0.5) + (sd_factor * 0.5)
+    
+    return round(np.clip(omega, 0.10, 0.90), 3)
 
 def can_play(fd_pos, slot):
     """Check if player can fill a position slot (handles dual eligibility)."""
@@ -35,11 +40,21 @@ def can_play(fd_pos, slot):
 
 def optimize_lineup(csv_path='dfs_players.csv', min_minutes=20, use_reliability=False, salary_cap=60000):
     """Run the optimizer and return optimal lineup."""
+    import sqlite3
     
     df = pd.read_csv(csv_path)
     df = df.dropna(subset=['proj_fp', 'salary'])
     df = df[df['salary'] > 0]
     df = df[df['projected_min'] >= min_minutes].reset_index(drop=True)
+    
+    # Load volatility data if available
+    try:
+        conn = sqlite3.connect('dfs_nba.db')
+        vol = pd.read_sql("SELECT player_name, min_sd FROM player_volatility", conn)
+        conn.close()
+        df = df.merge(vol, on='player_name', how='left')
+    except:
+        df['min_sd'] = None
     
     print(f"Players after {min_minutes}-min filter: {len(df)}")
     
