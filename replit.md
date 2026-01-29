@@ -54,6 +54,31 @@ Player names are aggressively normalized to handle inconsistencies across data s
 ### Physical Matchup Modifiers
 `physical_matchups.py` contains lookup tables for players who cause above-average foul trouble for opponents. This affects projected minutes for opposing centers/forwards.
 
+### FanDuel Roster Order
+The system captures FanDuel's `roster_order` (1-5 = starters, 6+ = bench) to override ESPN depth charts when conflicts arise. This prevents false promotions when ESPN starters aren't DFS-eligible.
+
+### Lineup Optimizer
+`optimize_fanduel.py` uses PuLP linear programming to find the optimal 9-player lineup:
+- **Constraints:** $60,000 cap, 2 PG, 2 SG, 2 SF, 2 PF, 1 C
+- **Dual Eligibility:** Correctly handles players like C/PF, SG/PG who can fill either slot
+- **Filters:** Excludes players with <20 projected minutes
+- **Star Weight (ω):** Optional reliability adjustment based on games played percentage and salary tier
+
+Usage:
+```bash
+python optimize_fanduel.py                    # Raw projections
+python optimize_fanduel.py --reliability      # With reliability adjustment
+python optimize_fanduel.py --min-minutes 25   # Higher minutes threshold
+```
+
+### Volatility Model (In Progress)
+`scrape_game_logs.py` collects historical minutes data to calculate:
+- **σᵢ** - Player's minutes standard deviation
+- **CV** - Coefficient of variation (σ/mean)
+- **ω** - Star weight = clip(1 - σᵢ/σ_role, 0.05, 0.80)
+
+Low volatility = coach trust = higher ω = more reliable projection.
+
 ## External Dependencies
 
 ### Web Scraping Targets
