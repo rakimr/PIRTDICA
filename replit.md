@@ -71,13 +71,23 @@ python optimize_fanduel.py --reliability      # With reliability adjustment
 python optimize_fanduel.py --min-minutes 25   # Higher minutes threshold
 ```
 
-### Volatility Model (In Progress)
-`scrape_game_logs.py` collects historical minutes data to calculate:
-- **σᵢ** - Player's minutes standard deviation
-- **CV** - Coefficient of variation (σ/mean)
-- **ω** - Star weight = clip(1 - σᵢ/σ_role, 0.05, 0.80)
+### Volatility Model
+`scrape_nba_gamelogs.py` pulls all player game logs from NBA.com's stats API to calculate:
+- **min_sd** - Player's minutes standard deviation (lower = more consistent)
+- **omega (ω)** - Combined reliability score (0.10-0.90)
 
-Low volatility = coach trust = higher ω = more reliable projection.
+**Formula:**
+```
+ω = (games_pct × 0.5) + (sd_factor × 0.5)
+sd_factor = clip(1 - (SD - 3) / 7, 0, 1)
+```
+
+Where:
+- **games_pct** = games played / ~50 games (availability)
+- **sd_factor** = penalizes high SD (volatility)
+- SD of 3 = perfect stability, SD of 10+ = high volatility
+
+Low ω players (e.g., Sengun at 0.60) have higher projection risk than high ω players (e.g., Bam at 0.74).
 
 ## External Dependencies
 
@@ -87,6 +97,7 @@ Low volatility = coach trust = higher ω = more reliable projection.
 - **TeamRankings** - Game odds/spreads (`teamrankings.com/nba/odds`)
 - **HashtagBasketball** - Defense vs Position stats (`hashtagbasketball.com`)
 - **Basketball Reference** - Per-100 possession stats, player positions, foul rates
+- **NBA.com Stats API** - Player game logs, minutes volatility (`stats.nba.com`)
 - **NBA Official** - Referee assignments (`official.nba.com`)
 - **NBAStuffer** - Historical referee statistics
 - **SportsDatabase** - Historic betting lines
