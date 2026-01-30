@@ -1,0 +1,350 @@
+Big picture (one sentence)
+
+Minutes + rates give you the expected fantasy points.
+Historical fantasy points tell you how wrong you can be.
+
+That’s the division of labor.
+
+What historical FP should not be used for
+
+❌ As a straight average replacement for your projection
+❌ As a shortcut around minutes + usage modeling
+❌ As a black-box predictor
+
+You already have a structural expectation. Don’t throw it away.
+
+What historical FP is extremely good for
+1️⃣ Estimating margin of error / variance
+
+This is the biggest value.
+
+You model the mean as:
+
+𝜇
+𝑖
+=
+𝑀
+^
+𝑖
+×
+FPPM
+𝑖
+μ
+i
+	​
+
+=
+M
+^
+i
+	​
+
+×FPPM
+i
+	​
+
+
+Historical fantasy points give you:
+
+𝜎
+FP
+,
+𝑖
+=
+SD
+⁡
+(
+FP
+𝑖
+,
+𝑔
+)
+σ
+FP,i
+	​
+
+=SD(FP
+i,g
+	​
+
+)
+
+Now you have a distribution, not just a point.
+
+FP
+𝑖
+∼
+𝑁
+(
+𝜇
+𝑖
+,
+𝜎
+FP
+,
+𝑖
+2
+)
+FP
+i
+	​
+
+∼N(μ
+i
+	​
+
+,σ
+FP,i
+2
+	​
+
+)
+
+That unlocks:
+
+Ceilings
+
+Floors
+
+GPP leverage
+
+Bust probability
+
+2️⃣ Decomposing where volatility comes from
+
+Fantasy-point variance comes from three sources:
+
+Var
+⁡
+(
+FP
+)
+=
+Var
+⁡
+(
+Minutes
+)
++
+Var
+⁡
+(
+Rates
+)
++
+Cov
+⁡
+Var(FP)=Var(Minutes)+Var(Rates)+Cov
+
+You already modeled:
+
+Minutes SD
+
+Usage-driven rate changes
+
+Historical FP captures everything you didn’t explicitly model:
+
+Shooting variance
+
+Assist chain randomness
+
+Stock volatility
+
+Scorekeeper noise
+
+That’s real signal.
+
+3️⃣ Calibrating player archetypes (this is sneaky powerful)
+
+From historical FP distributions, you can learn:
+
+Player type	FP SD
+High-usage guard	Very high
+3&D wing	Low
+Rebound-only big	Medium
+Stocks-dependent big	Extremely high
+
+This helps you:
+
+Scale variance by archetype
+
+Not overtrust high-mean players with wild outcomes
+
+How to use historical FP correctly (important)
+Step 1: De-mean the fantasy points
+
+You don’t want raw SD — you want residual SD.
+
+𝜀
+𝑖
+,
+𝑔
+=
+FP
+𝑖
+,
+𝑔
+−
+(
+Min
+𝑖
+,
+𝑔
+×
+FPPM
+𝑖
+,
+𝑔
+)
+ε
+i,g
+	​
+
+=FP
+i,g
+	​
+
+−(Min
+i,g
+	​
+
+×FPPM
+i,g
+	​
+
+)
+
+Then:
+
+𝜎
+𝜀
+,
+𝑖
+=
+SD
+⁡
+(
+𝜀
+𝑖
+,
+𝑔
+)
+σ
+ε,i
+	​
+
+=SD(ε
+i,g
+	​
+
+)
+
+This isolates noise, not role changes.
+
+Step 2: Rebuild total variance
+𝜎
+FP
+,
+𝑖
+2
+=
+(
+FPPM
+𝑖
+2
+⋅
+𝜎
+Min
+,
+𝑖
+2
+)
++
+(
+𝑀
+^
+𝑖
+2
+⋅
+𝜎
+Rate
+,
+𝑖
+2
+)
++
+𝜎
+𝜀
+,
+𝑖
+2
+σ
+FP,i
+2
+	​
+
+=(FPPM
+i
+2
+	​
+
+⋅σ
+Min,i
+2
+	​
+
+)+(
+M
+^
+i
+2
+	​
+
+⋅σ
+Rate,i
+2
+	​
+
+)+σ
+ε,i
+2
+	​
+
+
+This is very close to how pros do it.
+
+Using this in practice (DFS relevance)
+Cash games
+
+Prefer low σ / high μ
+
+Historical FP SD is huge here
+
+GPPs
+
+Prefer high σ relative to salary
+
+FP volatility > mean in tournaments
+
+Why RG (and others) still show historical FP
+
+Because it answers:
+
+“How weird can this guy get?”
+
+That’s not something projections alone can tell you.
+
+One intuition to lock in
+
+Projections are about being right on average.
+Historical fantasy points are about surviving variance.
+
+Direct answer to your question
+
+Yes:
+
+Historical fantasy points absolutely help compute margin of error
+
+They should be used for variance, not the mean
+
+They complete the model by turning point estimates into distributions
