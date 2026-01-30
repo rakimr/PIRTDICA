@@ -75,8 +75,11 @@ python optimize_fanduel.py --min-minutes 25   # Higher minutes threshold
 `scrape_nba_gamelogs.py` pulls all player game logs from NBA.com's stats API to calculate:
 - **min_sd** - Player's minutes standard deviation (lower = more consistent)
 - **omega (ω)** - Combined reliability score (0.10-0.90)
+- **fp_sd** - Fantasy point standard deviation (historical volatility)
+- **avg_fp** - Historical average fantasy points per game
+- **max_fp / min_fp** - Season high/low fantasy point games
 
-**Formula:**
+**Omega Formula:**
 ```
 ω = (games_pct × 0.5) + (sd_factor × 0.5)
 sd_factor = clip(1 - (SD - 3) / 7, 0, 1)
@@ -88,6 +91,26 @@ Where:
 - SD of 3 = perfect stability, SD of 10+ = high volatility
 
 Low ω players (e.g., Sengun at 0.60) have higher projection risk than high ω players (e.g., Bam at 0.74).
+
+### Ceiling/Floor Model
+Turns point projections into full distributions for GPP/cash decision-making:
+
+**Formulas:**
+```
+ceiling = proj_fp + (1.5 × fp_sd)
+floor = proj_fp - (1.0 × fp_sd)
+upside_ratio = (ceiling - proj_fp) / proj_fp
+```
+
+**Usage:**
+- **Cash games**: Prefer low fp_sd players (consistent producers, high floor)
+- **GPPs**: Target high upside_ratio players (boom-or-bust leverage)
+- **Bust probability**: Use floor to assess downside risk vs salary
+
+**FanDuel FP Calculation:**
+```
+FP = PTS + (REB × 1.2) + (AST × 1.5) + (STL × 3) + (BLK × 3) - TO
+```
 
 ## External Dependencies
 
