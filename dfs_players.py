@@ -245,8 +245,12 @@ df["fp_pg"] = df["fp_pg"].fillna(0)
 
 df["base_fp"] = df["fppm_adj"] * df["projected_min"].fillna(0)
 
-vol_df = pd.read_sql("SELECT player_name, min_sd FROM player_volatility", conn)
+vol_df = pd.read_sql("SELECT player_name, min_sd, fp_sd, avg_fp, max_fp, min_fp, avg_fppm, fppm_sd FROM player_volatility", conn)
 df = df.merge(vol_df, on='player_name', how='left')
+df['fp_sd'] = df['fp_sd'].fillna(15.0)
+df['hist_avg_fp'] = df['avg_fp']
+df['hist_max_fp'] = df['max_fp']
+df['hist_min_fp'] = df['min_fp']
 
 def calc_omega(row):
     gp = row.get('games_pct', 50) / 100
@@ -262,10 +266,16 @@ df['omega_weight'] = 0.95 + df['omega'] * 0.10
 df["proj_fp"] = df["base_fp"] * df["line_weight"] * df["dvp_weight"] * df["ref_weight"] * df["gp_weight"] * df["omega_weight"]
 df["proj_fp"] = df["proj_fp"].round(2)
 
+df["ceiling"] = (df["proj_fp"] + 1.5 * df["fp_sd"]).round(1)
+df["floor"] = (df["proj_fp"] - 1.0 * df["fp_sd"]).clip(lower=0).round(1)
+df["fp_range"] = df["ceiling"] - df["floor"]
+df["upside_ratio"] = ((df["ceiling"] - df["proj_fp"]) / df["proj_fp"]).round(3)
+
 output_cols = [
     "player_name", "position", "true_position", "projected_min", "salary",
     "team", "opponent", "location", "implied_total", "fp_pg", "fp_per_min", "usg_pct", "usg_boost", "fppm_adj",
-    "ref_weight", "dvp_weight", "line_weight", "games_pct", "gp_weight", "low_gp_flag", "min_sd", "omega", "omega_weight", "proj_fp"
+    "ref_weight", "dvp_weight", "line_weight", "games_pct", "gp_weight", "low_gp_flag", "min_sd", "omega", "omega_weight",
+    "proj_fp", "fp_sd", "ceiling", "floor", "fp_range", "upside_ratio", "hist_max_fp", "hist_min_fp"
 ]
 
 df_output = df[output_cols].copy()

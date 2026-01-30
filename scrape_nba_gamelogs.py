@@ -1,6 +1,6 @@
 """
 Scrape all player game logs from NBA.com stats API.
-Calculates minutes standard deviation for volatility analysis.
+Calculates minutes SD, fantasy point SD, and volatility metrics.
 """
 
 from nba_api.stats.endpoints import leaguegamelog
@@ -8,6 +8,18 @@ import pandas as pd
 import numpy as np
 import sqlite3
 from datetime import datetime
+
+
+def calc_fanduel_fp(row):
+    """Calculate FanDuel fantasy points from box score stats."""
+    pts = row.get('PTS', 0) or 0
+    reb = row.get('REB', 0) or 0
+    ast = row.get('AST', 0) or 0
+    stl = row.get('STL', 0) or 0
+    blk = row.get('BLK', 0) or 0
+    tov = row.get('TOV', 0) or 0
+    return pts + (reb * 1.2) + (ast * 1.5) + (stl * 3) + (blk * 3) - tov
+
 
 def scrape_gamelogs():
     print("Fetching all player game logs from NBA.com...")
@@ -23,16 +35,30 @@ def scrape_gamelogs():
     df = df[df['MIN'] > 0]
     print(f"After filtering DNPs: {len(df)} entries")
     
+    df['FP'] = df.apply(calc_fanduel_fp, axis=1)
+    df['FPPM'] = df['FP'] / df['MIN']
+    
     stats = df.groupby('PLAYER_NAME').agg(
         games_played=('MIN', 'count'),
         avg_min=('MIN', 'mean'),
-        min_sd=('MIN', 'std')
+        min_sd=('MIN', 'std'),
+        avg_fp=('FP', 'mean'),
+        fp_sd=('FP', 'std'),
+        avg_fppm=('FPPM', 'mean'),
+        fppm_sd=('FPPM', 'std'),
+        max_fp=('FP', 'max'),
+        min_fp=('FP', 'min')
     ).reset_index()
     
     stats = stats.rename(columns={'PLAYER_NAME': 'player_name'})
-    stats['min_sd'] = stats['min_sd'].fillna(10.0)
-    stats['min_sd'] = stats['min_sd'].round(2)
+    stats['min_sd'] = stats['min_sd'].fillna(10.0).round(2)
     stats['avg_min'] = stats['avg_min'].round(2)
+    stats['fp_sd'] = stats['fp_sd'].fillna(15.0).round(2)
+    stats['avg_fp'] = stats['avg_fp'].round(2)
+    stats['avg_fppm'] = stats['avg_fppm'].round(3)
+    stats['fppm_sd'] = stats['fppm_sd'].fillna(0.5).round(3)
+    stats['max_fp'] = stats['max_fp'].round(1)
+    stats['min_fp'] = stats['min_fp'].round(1)
     
     max_games = 50
     def calc_omega(row):
@@ -49,6 +75,7 @@ def scrape_gamelogs():
     conn.close()
     
     print(f"Saved volatility data for {len(stats)} players.")
+    print(f"New columns: avg_fp, fp_sd, avg_fppm, fppm_sd, max_fp, min_fp")
     return stats
 
 if __name__ == "__main__":
