@@ -1,0 +1,188 @@
+slate size should change how you build lineups. A lot.
+This is one of the biggest strategic edges in DFS, and it’s not about projections — it’s about variance management.
+
+I’ll break this down cleanly by slate size and why the strategy changes.
+
+First principle (anchor this)
+
+As slate size increases, variance dominates.
+As slate size shrinks, accuracy dominates.
+
+Why?
+
+More games → more independent outcomes → more chaos
+
+Fewer games → projections concentrate → chalk becomes stronger
+
+1️⃣ Small slates (1–3 games)
+What matters most
+
+Raw minutes
+
+Raw usage
+
+Avoiding landmines
+
+Strategy
+
+Eat chalk
+
+Play stars even at high ownership
+
+Correlation > leverage
+
+Why
+
+Everyone sees the same plays
+
+There aren’t enough alternatives for leverage to matter
+
+One missed minute swing decides the slate
+
+Practical rules
+
+Max 1 “thin” play
+
+Prioritize stable minutes + low SD
+
+Late swap aggressively
+
+2️⃣ Medium slates (4–7 games)
+This is the “balanced” slate
+What matters
+
+Ownership-aware leverage
+
+Conditional pivots
+
+Game environments
+
+Strategy
+
+Play some chalk, not all
+
+Look for second-order plays
+
+Teammate benefits
+
+Usage shifts
+
+Rotation thinness
+
+Practical rules
+
+60–70% chalk exposure
+
+Target 1–2 correlated game stacks
+
+Embrace controlled variance
+
+3️⃣ Large slates (8–12+ games)
+Chaos zone
+What matters
+
+Ceiling
+
+Correlation
+
+Volatility
+
+Strategy
+
+Fade popular median plays
+
+Chase ceiling over floor
+
+Stack aggressively
+
+Why
+
+You don’t need to beat projections
+
+You need to beat other lineups
+
+Practical rules
+
+Lower total chalk exposure
+
+Prefer high-σ players
+
+Stack games with:
+
+High totals
+
+Close spreads
+
+Condensed usage
+
+4️⃣ How your model plugs into this (this is the edge)
+
+You now have:
+
+Mean 
+𝜇
+μ
+
+Variance 
+𝜎
+σ
+
+So you can compute:
+
+Ceiling Score
+≈
+𝜇
++
+1.5
+𝜎
+Ceiling Score≈μ+1.5σ
+Use:
+
+Cash → maximize 
+𝜇
+−
+𝜎
+μ−σ
+
+GPP → maximize 
+𝜇
++
+𝜆
+𝜎
+μ+λσ
+
+Where 
+𝜆
+λ grows with slate size.
+
+5️⃣ Ownership leverage vs slate size
+Slate	Ownership penalty
+Small	High
+Medium	Medium
+Large	Low
+
+On a 2-game slate:
+
+60% owned player is necessary
+
+On a 12-game slate:
+
+25% owned player can be a mistake
+
+6️⃣ One counterintuitive truth (important)
+
+On large slates, bad projections don’t kill you —
+low ceiling does.
+
+That’s why historical FP variance suddenly matters a lot.
+
+7️⃣ Quick cheat sheet
+Slate	Focus	Avoid
+1–3	Floor	Leverage
+4–7	Balance	One-offs
+8+	Ceiling	Median
+Final intuition to lock in
+
+Slate size determines whether DFS is a math test or a poker game.
+
+You now have the tools (mean + variance) to adapt, not guess.
