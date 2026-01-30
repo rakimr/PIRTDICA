@@ -271,6 +271,16 @@ df["floor"] = (df["proj_fp"] - 1.0 * df["fp_sd"]).clip(lower=0).round(1)
 df["fp_range"] = df["ceiling"] - df["floor"]
 df["upside_ratio"] = ((df["ceiling"] - df["proj_fp"]) / df["proj_fp"]).round(3)
 
+def clean_display_name(name):
+    """Remove Jr., Sr., II, III suffixes for cleaner display."""
+    if pd.isna(name):
+        return name
+    name = str(name).strip()
+    name = re.sub(r'\s+(Jr\.?|Sr\.?|II|III|IV|V)$', '', name, flags=re.IGNORECASE)
+    return name.strip()
+
+df["player_name"] = df["player_name"].apply(clean_display_name)
+
 output_cols = [
     "player_name", "position", "true_position", "projected_min", "salary",
     "team", "opponent", "location", "implied_total", "fp_pg", "fp_per_min", "usg_pct", "usg_boost", "fppm_adj",
