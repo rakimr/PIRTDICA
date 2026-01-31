@@ -5,7 +5,7 @@
 {% block content %}
 <div class="hero">
     <h1>Can You Beat This Lineup?</h1>
-    <p>Our AI builds the optimal DFS lineup using Monte Carlo simulation. Think you can do better?</p>
+    <p>Every day, our AI builds what it thinks is the winning lineup. Think you know better?</p>
     {% if not user %}
         <div class="hero-buttons">
             <a href="/register" class="btn btn-primary btn-large">Start Playing Free</a>
@@ -18,51 +18,37 @@
 
 {% if contest %}
 <section class="house-lineup-section">
-    <h2>Today's House Lineup to Beat</h2>
+    <h2>Today's House Lineup</h2>
     <p class="subtitle">{{ contest.slate_date.strftime('%B %d, %Y') }}</p>
     
     {% if house_players %}
-    <div class="lineup-card house-lineup">
-        <table class="lineup-table">
-            <thead>
-                <tr>
-                    <th>Pos</th>
-                    <th>Player</th>
-                    <th>Team</th>
-                    <th>Salary</th>
-                    <th>Proj FP</th>
-                    {% if contest.status == 'completed' %}
-                    <th>Actual FP</th>
-                    {% endif %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for player in house_players %}
-                <tr>
-                    <td class="pos">{{ player.position }}</td>
-                    <td class="name">{{ player.player_name }}</td>
-                    <td class="team">{{ player.team }}</td>
-                    <td class="salary">${{ "{:,}".format(player.salary) }}</td>
-                    <td class="proj">{{ "%.1f"|format(player.proj_fp) }}</td>
-                    {% if contest.status == 'completed' %}
-                    <td class="actual {% if player.actual_fp > player.proj_fp %}positive{% else %}negative{% endif %}">
-                        {{ "%.1f"|format(player.actual_fp) }}
-                    </td>
-                    {% endif %}
-                </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr class="totals">
-                    <td colspan="3">Total</td>
-                    <td>${{ "{:,}".format(house_players|sum(attribute='salary')) }}</td>
-                    <td>{{ "%.1f"|format(house_players|sum(attribute='proj_fp')) }}</td>
-                    {% if contest.status == 'completed' %}
-                    <td>{{ "%.1f"|format(house_players|sum(attribute='actual_fp')) }}</td>
-                    {% endif %}
-                </tr>
-            </tfoot>
-        </table>
+    <div class="lineup-horizontal">
+        {% for player in house_players %}
+        <div class="player-card">
+            <div class="player-image">
+                <img src="https://ui-avatars.com/api/?name={{ player.player_name|urlencode }}&background=6366f1&color=fff&size=80&font-size=0.35&bold=true" alt="{{ player.player_name }}">
+            </div>
+            <div class="player-position">{{ player.position }}</div>
+            <div class="player-name">{{ player.player_name.split(' ')[-1] }}</div>
+            <div class="player-team">{{ player.team }}</div>
+            <div class="player-salary">${{ "{:,}".format(player.salary) }}</div>
+            {% if contest.status == 'completed' %}
+            <div class="player-fp {% if player.actual_fp > player.proj_fp %}positive{% else %}negative{% endif %}">
+                {{ "%.1f"|format(player.actual_fp) }} FP
+            </div>
+            {% else %}
+            <div class="player-fp">{{ "%.1f"|format(player.proj_fp) }} FP</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="lineup-totals">
+        <span class="total-salary">Total Salary: ${{ "{:,}".format(house_players|sum(attribute='salary')) }}</span>
+        <span class="total-proj">Projected: {{ "%.1f"|format(house_players|sum(attribute='proj_fp')) }} FP</span>
+        {% if contest.status == 'completed' %}
+        <span class="total-actual">Actual: {{ "%.1f"|format(house_players|sum(attribute='actual_fp')) }} FP</span>
+        {% endif %}
     </div>
     {% else %}
     <p class="no-data">House lineup will be generated soon...</p>
@@ -96,8 +82,8 @@
     <div class="feature-grid">
         <div class="feature-card">
             <div class="feature-icon">1</div>
-            <h3>We Build a Lineup</h3>
-            <p>Our Monte Carlo AI runs 10,000+ simulations to find the lineup with the highest win probability.</p>
+            <h3>The House Sets a Lineup</h3>
+            <p>Every day, our AI analyzes matchups, injuries, and trends to build its best 9-player lineup.</p>
         </div>
         <div class="feature-card">
             <div class="feature-icon">2</div>
