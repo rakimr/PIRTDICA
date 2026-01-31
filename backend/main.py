@@ -282,10 +282,54 @@ async def play(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url=f"/entry/{existing_entry.id}", status_code=303)
     
     import pandas as pd
+    import sqlite3
+    from datetime import datetime
+    
     try:
         players_df = pd.read_csv("dfs_players.csv")
+        
+        conn = sqlite3.connect("dfs_nba.db")
+        game_times_df = pd.read_sql_query(
+            "SELECT DISTINCT game, game_time FROM player_salaries WHERE game_time IS NOT NULL", 
+            conn
+        )
+        conn.close()
+        game_times = dict(zip(game_times_df['game'], game_times_df['game_time']))
+        
+        now = datetime.now()
+        
+        def is_game_locked(game_str):
+            game_time_str = game_times.get(game_str)
+            if not game_time_str:
+                return False
+            try:
+                game_dt = datetime.strptime(game_time_str, "%I:%M%p")
+                game_dt = game_dt.replace(year=now.year, month=now.month, day=now.day)
+                return now >= game_dt
+            except:
+                return False
+        
+        players_df['game'] = players_df['team'] + " vs " + players_df['opponent']
+        
+        for game_key in game_times.keys():
+            away, home = game_key.split(" @ ")
+            game_times[f"{away} vs {home}"] = game_times[game_key]
+            game_times[f"{home} vs {away}"] = game_times[game_key]
+        
+        players_df['is_locked'] = players_df.apply(
+            lambda row: is_game_locked(f"{row['team']} vs {row['opponent']}") or 
+                       is_game_locked(f"{row['opponent']} vs {row['team']}"),
+            axis=1
+        )
+        players_df['game_time'] = players_df.apply(
+            lambda row: game_times.get(f"{row['team']} vs {row['opponent']}") or 
+                       game_times.get(f"{row['opponent']} vs {row['team']}") or "",
+            axis=1
+        )
+        
         players = players_df.to_dict("records")
-    except:
+    except Exception as e:
+        print(f"Error loading players: {e}")
         players = []
     
     house_players = db.query(models.HouseLineupPlayer).filter(

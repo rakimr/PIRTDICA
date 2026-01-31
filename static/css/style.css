@@ -915,6 +915,27 @@ a:hover {
     opacity: 0.5;
 }
 
+.player-table tbody tr.locked {
+    opacity: 0.4;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.player-table tbody tr.locked:hover {
+    background: rgba(239, 68, 68, 0.15);
+}
+
+.lock-icon {
+    display: inline-block;
+    font-size: 1rem;
+    opacity: 0.7;
+}
+
+.game-time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-left: 0.25rem;
+}
+
 .add-btn {
     background: var(--accent);
     color: white;

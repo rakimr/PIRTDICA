@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS player_salaries (
     status TEXT,
     roster_order INTEGER,
     game TEXT,
+    game_time TEXT,
     scraped_at TEXT
 )
 """)
@@ -48,6 +49,8 @@ if response.status_code != 200:
 html = response.text
 soup = BeautifulSoup(html, "html.parser")
 
+import re
+
 rows = []
 
 game_cards = soup.find_all("div", class_="game-card")
@@ -71,6 +74,10 @@ for game_card in game_cards:
         game_title = "Unknown"
         away_team = None
         home_team = None
+    
+    card_text = game_card.get_text()
+    time_matches = re.findall(r'(\d{1,2}:\d{2}\s*(?:AM|PM))', card_text, re.IGNORECASE)
+    game_time = time_matches[0].upper().replace(' ', '') if time_matches else None
     
     lineup_cards = game_card.find_all("div", class_="lineup-card")
     if not lineup_cards:
@@ -128,6 +135,7 @@ for game_card in game_cards:
                         "status": current_status,
                         "roster_order": team_order,
                         "game": game_title,
+                        "game_time": game_time,
                         "scraped_at": datetime.utcnow().isoformat()
                     })
 

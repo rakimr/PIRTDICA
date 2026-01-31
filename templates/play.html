@@ -67,13 +67,18 @@
                             {% for p in players %}
                             <tr data-name="{{ p.player_name }}" data-pos="{{ p.position }}" 
                                 data-salary="{{ p.salary }}" data-proj="{{ p.proj_fp }}"
-                                data-team="{{ p.team }}">
+                                data-team="{{ p.team }}" data-locked="{{ p.is_locked|default(false)|lower }}"
+                                class="{% if p.is_locked %}locked{% endif %}">
                                 <td>
+                                    {% if p.is_locked %}
+                                    <span class="lock-icon" title="Game started">🔒</span>
+                                    {% else %}
                                     <button type="button" class="add-btn" onclick="addPlayer(this)">+</button>
+                                    {% endif %}
                                 </td>
                                 <td class="name">{{ p.player_name }}</td>
                                 <td>{{ p.position }}</td>
-                                <td>{{ p.team }}</td>
+                                <td>{{ p.team }} <span class="game-time">{{ p.game_time|default('') }}</span></td>
                                 <td>${{ "{:,}".format(p.salary|int) }}</td>
                                 <td>{{ "%.1f"|format(p.proj_fp) }}</td>
                                 <td>{{ "%.2f"|format(p.proj_fp / (p.salary / 1000)) }}</td>
