@@ -19,10 +19,19 @@ templates = Jinja2Templates(directory="templates")
 def get_current_user(request: Request, db: Session = Depends(get_db)):
     token = request.cookies.get("session_token")
     if token:
-        user_id = auth.get_session_user(token)
+        user_id = auth.get_session_user(db, token)
         if user_id:
             return db.query(models.User).filter(models.User.id == user_id).first()
     return None
+
+def set_session_cookie(response: Response, token: str):
+    response.set_cookie(
+        "session_token", 
+        token, 
+        max_age=604800,
+        httponly=True,
+        samesite="lax"
+    )
 
 @app.get("/")
 async def home(request: Request, db: Session = Depends(get_db)):
@@ -90,9 +99,9 @@ async def register(
     ))
     db.commit()
     
-    token = auth.create_session(user.id)
+    token = auth.create_session(db, user.id)
     response = RedirectResponse(url="/", status_code=303)
-    response.set_cookie("session_token", token, max_age=604800)
+    set_session_cookie(response, token)
     return response
 
 @app.get("/login")
@@ -113,16 +122,16 @@ async def login(
             "error": "Invalid username or password"
         })
     
-    token = auth.create_session(user.id)
+    token = auth.create_session(db, user.id)
     response = RedirectResponse(url="/", status_code=303)
-    response.set_cookie("session_token", token, max_age=604800)
+    set_session_cookie(response, token)
     return response
 
 @app.get("/logout")
-async def logout(request: Request):
+async def logout(request: Request, db: Session = Depends(get_db)):
     token = request.cookies.get("session_token")
     if token:
-        auth.delete_session(token)
+        auth.delete_session(db, token)
     response = RedirectResponse(url="/", status_code=303)
     response.delete_cookie("session_token")
     return response
@@ -291,37 +300,59 @@ async def submit_lineup(request: Request, db: Session = Depends(get_db)):
     if contest.status != "open":
         raise HTTPException(status_code=400, detail="Contest is locked")
     
+    if datetime.now() >= contest.lock_time:
+        raise HTTPException(status_code=400, detail="Contest is locked - games have started")
+    
+    existing = db.query(models.ContestEntry).filter(
+        models.ContestEntry.contest_id == contest.id,
+        models.ContestEntry.user_id == user.id
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="You already have an entry for this contest")
+    
+    if len(player_ids) != 9:
+        raise HTTPException(status_code=400, detail="Lineup must have exactly 9 players")
+    
     import pandas as pd
     players_df = pd.read_csv("dfs_players.csv")
+    
+    total_salary = 0
+    total_proj = 0
+    player_entries = []
+    
+    for player_name in player_ids:
+        matches = players_df[players_df["player_name"] == player_name]
+        if len(matches) == 0:
+            raise HTTPException(status_code=400, detail=f"Player not found: {player_name}")
+        player_data = matches.iloc[0]
+        total_salary += int(player_data.get("salary", 0))
+        total_proj += float(player_data.get("proj_fp", 0))
+        player_entries.append(player_data)
+    
+    SALARY_CAP = 60000
+    if total_salary > SALARY_CAP:
+        raise HTTPException(status_code=400, detail=f"Lineup exceeds salary cap: ${total_salary:,} > ${SALARY_CAP:,}")
     
     entry = models.ContestEntry(
         user_id=user.id,
         contest_id=contest.id,
-        total_salary=0,
-        proj_score=0
+        total_salary=total_salary,
+        proj_score=total_proj
     )
     db.add(entry)
     db.flush()
     
-    total_salary = 0
-    total_proj = 0
-    
-    for player_name in player_ids:
-        player_data = players_df[players_df["player_name"] == player_name].iloc[0]
+    for player_data in player_entries:
         ep = models.EntryPlayer(
             entry_id=entry.id,
-            player_name=player_name,
-            position=player_data.get("position", ""),
-            team=player_data.get("team", ""),
+            player_name=str(player_data.get("player_name", "")),
+            position=str(player_data.get("fd_position", "")),
+            team=str(player_data.get("team", "")),
             salary=int(player_data.get("salary", 0)),
             proj_fp=float(player_data.get("proj_fp", 0))
         )
         db.add(ep)
-        total_salary += int(player_data.get("salary", 0))
-        total_proj += float(player_data.get("proj_fp", 0))
     
-    entry.total_salary = total_salary
-    entry.proj_score = total_proj
     db.commit()
     
     return RedirectResponse(url=f"/entry/{entry.id}", status_code=303)

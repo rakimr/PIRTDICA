@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Text, Date
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Text, Date, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from backend.database import Base
@@ -49,6 +49,7 @@ class HouseLineupPlayer(Base):
 
 class ContestEntry(Base):
     __tablename__ = "contest_entries"
+    __table_args__ = (UniqueConstraint('user_id', 'contest_id', name='unique_user_contest_entry'),)
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)

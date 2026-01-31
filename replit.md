@@ -1,8 +1,15 @@
-# NBA DFS Projection System
+# NBA DFS Projection System - "Beat This Lineup"
 
 ## Overview
 
-This is an NBA Daily Fantasy Sports (DFS) projection system that scrapes, processes, and analyzes basketball data to generate player projections for fantasy contests. The system collects data from multiple sources including player salaries, depth charts, game odds, referee statistics, injury reports, and advanced per-possession stats, then combines them to project player minutes and fantasy points.
+This is an NBA Daily Fantasy Sports (DFS) projection and gaming platform. The core engine scrapes, processes, and analyzes basketball data to generate player projections. The platform now features a "Beat This Lineup" game where players compete against an AI-generated house lineup using Monte Carlo simulation.
+
+## Recent Changes (January 2026)
+
+- **Beat This Lineup Web Platform** - Full-stack FastAPI application with user accounts, leaderboards, and gamification
+- **Monte Carlo Optimizer** - Stochastic simulation finds lineups with highest win probability, not just expected value
+- **In-Game Currency System** - Coins for participation, wins, and achievements; shop for cosmetics
+- **Coach Rankings** - Leaderboard with Coach of Day/Week/Month/Year awards
 
 ## User Preferences
 
@@ -145,3 +152,54 @@ SQLite database (`dfs_nba.db`) stores all scraped and processed data. Tables are
 | Referee Assignments | NBA.com | `referee_assignments` |
 | Injury Alerts | RotoGrinders | `injury_alerts` |
 | Player Positions | Basketball Reference | `player_positions` |
+
+## Web Platform Architecture
+
+### Beat This Lineup Game
+The platform runs a daily "Beat the House" contest:
+1. **House Lineup Generation** - `generate_house_lineup.py` runs Monte Carlo simulation (10k sims) to create the house lineup
+2. **User Submissions** - Players build their own 9-player lineups within $60k salary cap
+3. **Scoring** - After games complete, actual FP are calculated and compared
+4. **Leaderboard** - Rankings by wins, winrate, and total score
+
+### Tech Stack
+- **Backend:** FastAPI (Python) with SQLAlchemy ORM
+- **Database:** PostgreSQL for user data, contests, entries
+- **Frontend:** Jinja2 templates with custom CSS
+- **Auth:** Session-based with bcrypt password hashing
+
+### Key Files
+- `backend/main.py` - FastAPI routes and endpoints
+- `backend/models.py` - SQLAlchemy database models
+- `backend/auth.py` - Authentication utilities
+- `generate_house_lineup.py` - Daily contest creation
+- `seed_data.py` - Initial achievements and shop items
+- `templates/` - HTML templates for all pages
+- `static/css/style.css` - Dark theme styling
+
+### Database Tables (PostgreSQL)
+| Table | Purpose |
+|-------|---------|
+| users | User accounts with coins balance |
+| contests | Daily contest records |
+| house_lineup_players | AI-generated house lineup |
+| contest_entries | User lineup submissions |
+| entry_players | Players in user lineups |
+| achievements | Available achievements |
+| user_achievements | Earned achievements |
+| shop_items | Purchasable cosmetics |
+| user_items | Owned items |
+| currency_transactions | Coin transaction history |
+| leaderboard_cache | Precomputed rankings |
+
+### Running the Platform
+```bash
+# Start web server
+python -m uvicorn backend.main:app --host 0.0.0.0 --port 5000
+
+# Generate daily contest
+python generate_house_lineup.py
+
+# Seed initial data
+python seed_data.py
+```
