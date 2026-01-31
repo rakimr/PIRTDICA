@@ -51,14 +51,16 @@ def generate_house_lineup():
         conn.close()
         game_times = dict(zip(game_times_df['game'], game_times_df['game_time']))
         
-        now = datetime.now()
+        from zoneinfo import ZoneInfo
+        eastern = ZoneInfo("America/New_York")
+        now = datetime.now(eastern)
         
         def is_game_locked(team, opponent):
             for game_key, game_time_str in game_times.items():
                 if team in game_key and opponent in game_key:
                     try:
                         game_dt = datetime.strptime(game_time_str, "%I:%M%p")
-                        game_dt = game_dt.replace(year=now.year, month=now.month, day=now.day)
+                        game_dt = game_dt.replace(year=now.year, month=now.month, day=now.day, tzinfo=eastern)
                         return now >= game_dt
                     except:
                         pass

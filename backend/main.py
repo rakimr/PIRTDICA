@@ -296,7 +296,9 @@ async def play(request: Request, db: Session = Depends(get_db)):
         conn.close()
         game_times = dict(zip(game_times_df['game'], game_times_df['game_time']))
         
-        now = datetime.now()
+        from zoneinfo import ZoneInfo
+        eastern = ZoneInfo("America/New_York")
+        now = datetime.now(eastern)
         
         def is_game_locked(game_str):
             game_time_str = game_times.get(game_str)
@@ -304,7 +306,7 @@ async def play(request: Request, db: Session = Depends(get_db)):
                 return False
             try:
                 game_dt = datetime.strptime(game_time_str, "%I:%M%p")
-                game_dt = game_dt.replace(year=now.year, month=now.month, day=now.day)
+                game_dt = game_dt.replace(year=now.year, month=now.month, day=now.day, tzinfo=eastern)
                 return now >= game_dt
             except:
                 return False
