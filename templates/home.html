@@ -27,9 +27,9 @@
         <div class="player-card">
             <div class="player-image">
                 {% if headshots.get(player.player_name) %}
-                <img src="{{ headshots.get(player.player_name) }}" alt="{{ player.player_name }}" onerror="this.src='https://ui-avatars.com/api/?name={{ player.player_name|urlencode }}&background=6366f1&color=fff&size=80&font-size=0.35&bold=true'">
+                <img src="{{ headshots.get(player.player_name) }}" alt="{{ player.player_name }}" onerror="this.src='https://ui-avatars.com/api/?name={{ player.player_name|urlencode }}&background=1a1a1a&color=fff&size=80&font-size=0.35&bold=true'">
                 {% else %}
-                <img src="https://ui-avatars.com/api/?name={{ player.player_name|urlencode }}&background=6366f1&color=fff&size=80&font-size=0.35&bold=true" alt="{{ player.player_name }}">
+                <img src="https://ui-avatars.com/api/?name={{ player.player_name|urlencode }}&background=1a1a1a&color=fff&size=80&font-size=0.35&bold=true" alt="{{ player.player_name }}">
                 {% endif %}
             </div>
             <div class="player-position">{{ player.position }}</div>
