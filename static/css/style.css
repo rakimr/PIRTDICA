@@ -1,19 +1,19 @@
 :root {
-    --primary: #6366f1;
-    --primary-dark: #4f46e5;
-    --secondary: #64748b;
-    --accent: #22c55e;
-    --warning: #f59e0b;
-    --danger: #ef4444;
+    --primary: #1a1a1a;
+    --primary-dark: #000000;
+    --secondary: #6b7280;
+    --accent: #374151;
+    --warning: #6b7280;
+    --danger: #4b5563;
     --bg: #ffffff;
-    --bg-card: #f8fafc;
-    --bg-input: #f1f5f9;
-    --text: #1e293b;
-    --text-muted: #64748b;
-    --border: #e2e8f0;
-    --gold: #d97706;
+    --bg-card: #f9fafb;
+    --bg-input: #f3f4f6;
+    --text: #111827;
+    --text-muted: #6b7280;
+    --border: #e5e7eb;
+    --gold: #1a1a1a;
     --silver: #6b7280;
-    --bronze: #b45309;
+    --bronze: #9ca3af;
 }
 
 * {
@@ -96,7 +96,7 @@ a:hover {
 }
 
 .btn-register {
-    background: var(--accent);
+    background: var(--primary);
     color: white !important;
     padding: 0.5rem 1.25rem;
     border-radius: 8px;
