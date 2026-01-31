@@ -294,7 +294,8 @@ a:hover {
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 1rem;
-    min-width: 120px;
+    min-width: 130px;
+    max-width: 130px;
     text-align: center;
     transition: transform 0.2s, border-color 0.2s;
     flex-shrink: 0;
@@ -310,10 +311,11 @@ a:hover {
 }
 
 .player-image img {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
+    width: 72px;
+    height: 72px;
+    border-radius: 8px;
     border: 2px solid var(--primary);
+    object-fit: cover;
 }
 
 .player-position {
@@ -329,12 +331,12 @@ a:hover {
 
 .player-name {
     font-weight: 600;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     color: var(--text);
     margin-bottom: 0.2rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.2;
+    max-width: 100px;
+    word-wrap: break-word;
 }
 
 .player-team {

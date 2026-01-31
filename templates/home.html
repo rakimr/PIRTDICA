@@ -33,7 +33,7 @@
                 {% endif %}
             </div>
             <div class="player-position">{{ player.position }}</div>
-            <div class="player-name">{{ player.player_name.split(' ')[-1] }}</div>
+            <div class="player-name">{{ player.player_name }}</div>
             <div class="player-team">{{ player.team }}</div>
             <div class="player-salary">${{ "{:,}".format(player.salary) }}</div>
             {% if contest.status == 'completed' %}
