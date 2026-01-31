@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}No Contest Today - Beat This Lineup{% endblock %}
+
+{% block content %}
+<div class="no-contest-page">
+    <div class="no-contest-card">
+        <h1>No Contest Today</h1>
+        <p>There are no NBA games scheduled for today, so there's no contest to play.</p>
+        <p>Check back tomorrow when games are on the slate!</p>
+        
+        <div class="no-contest-actions">
+            <a href="/leaderboard" class="btn btn-primary">View Leaderboard</a>
+            <a href="/" class="btn btn-secondary">Go Home</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

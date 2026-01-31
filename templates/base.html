@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Beat This Lineup{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="logo">Beat This Lineup</a>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="/leaderboard">Leaderboard</a>
+                {% if user %}
+                    <a href="/play" class="btn-play">Play Now</a>
+                    <a href="/shop">Shop</a>
+                    <div class="user-menu">
+                        <span class="coins">{{ user.coins }} coins</span>
+                        <a href="/profile/{{ user.username }}">{{ user.display_name }}</a>
+                        <a href="/logout">Logout</a>
+                    </div>
+                {% else %}
+                    <a href="/login">Login</a>
+                    <a href="/register" class="btn-register">Sign Up</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+    
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <footer class="footer">
+        <p>Beat This Lineup - Free to Play NBA DFS Challenge</p>
+    </footer>
+    
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

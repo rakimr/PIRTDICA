@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Play - Beat This Lineup{% endblock %}
+
+{% block content %}
+<div class="play-page">
+    <div class="play-header">
+        <h1>Build Your Lineup</h1>
+        <p>Pick 9 players to beat the house. Stay under $60,000.</p>
+    </div>
+    
+    <div class="play-container">
+        <div class="house-preview">
+            <h3>House Lineup to Beat</h3>
+            <div class="house-score">
+                <span class="proj">{{ "%.1f"|format(house_players|sum(attribute='proj_fp')) }} FP</span>
+            </div>
+            <ul class="house-list">
+                {% for p in house_players %}
+                <li>{{ p.position }}: {{ p.player_name }} ({{ "%.1f"|format(p.proj_fp) }})</li>
+                {% endfor %}
+            </ul>
+        </div>
+        
+        <div class="lineup-builder">
+            <form method="POST" action="/submit-lineup" id="lineup-form">
+                <div class="your-lineup">
+                    <h3>Your Lineup</h3>
+                    <div class="salary-tracker">
+                        <span id="total-salary">$0</span> / $60,000
+                        <span id="total-proj">0.0 FP</span>
+                    </div>
+                    <div id="selected-players" class="selected-players">
+                        <p class="empty-state">Select 9 players below</p>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full" id="submit-btn" disabled>
+                        Submit Lineup (0/9)
+                    </button>
+                </div>
+                
+                <div class="player-pool">
+                    <h3>Available Players</h3>
+                    <div class="filters">
+                        <input type="text" id="search" placeholder="Search players...">
+                        <select id="pos-filter">
+                            <option value="">All Positions</option>
+                            <option value="PG">PG</option>
+                            <option value="SG">SG</option>
+                            <option value="SF">SF</option>
+                            <option value="PF">PF</option>
+                            <option value="C">C</option>
+                        </select>
+                    </div>
+                    <table class="player-table" id="player-table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Player</th>
+                                <th>Pos</th>
+                                <th>Team</th>
+                                <th>Salary</th>
+                                <th>Proj</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in players %}
+                            <tr data-name="{{ p.player_name }}" data-pos="{{ p.position }}" 
+                                data-salary="{{ p.salary }}" data-proj="{{ p.proj_fp }}"
+                                data-team="{{ p.team }}">
+                                <td>
+                                    <button type="button" class="add-btn" onclick="addPlayer(this)">+</button>
+                                </td>
+                                <td class="name">{{ p.player_name }}</td>
+                                <td>{{ p.position }}</td>
+                                <td>{{ p.team }}</td>
+                                <td>${{ "{:,}".format(p.salary|int) }}</td>
+                                <td>{{ "%.1f"|format(p.proj_fp) }}</td>
+                                <td>{{ "%.2f"|format(p.proj_fp / (p.salary / 1000)) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedPlayers = [];
+const MAX_PLAYERS = 9;
+const SALARY_CAP = 60000;
+
+function addPlayer(btn) {
+    const row = btn.closest('tr');
+    const player = {
+        name: row.dataset.name,
+        pos: row.dataset.pos,
+        team: row.dataset.team,
+        salary: parseInt(row.dataset.salary),
+        proj: parseFloat(row.dataset.proj)
+    };
+    
+    if (selectedPlayers.length >= MAX_PLAYERS) {
+        alert('Lineup full! Remove a player first.');
+        return;
+    }
+    
+    const newSalary = getTotalSalary() + player.salary;
+    if (newSalary > SALARY_CAP) {
+        alert('Over salary cap!');
+        return;
+    }
+    
+    if (selectedPlayers.find(p => p.name === player.name)) {
+        alert('Player already selected');
+        return;
+    }
+    
+    selectedPlayers.push(player);
+    row.classList.add('selected');
+    btn.disabled = true;
+    updateDisplay();
+}
+
+function removePlayer(name) {
+    selectedPlayers = selectedPlayers.filter(p => p.name !== name);
+    const row = document.querySelector(`tr[data-name="${name}"]`);
+    if (row) {
+        row.classList.remove('selected');
+        row.querySelector('.add-btn').disabled = false;
+    }
+    updateDisplay();
+}
+
+function getTotalSalary() {
+    return selectedPlayers.reduce((sum, p) => sum + p.salary, 0);
+}
+
+function getTotalProj() {
+    return selectedPlayers.reduce((sum, p) => sum + p.proj, 0);
+}
+
+function updateDisplay() {
+    const container = document.getElementById('selected-players');
+    const submitBtn = document.getElementById('submit-btn');
+    
+    if (selectedPlayers.length === 0) {
+        container.innerHTML = '<p class="empty-state">Select 9 players below</p>';
+    } else {
+        container.innerHTML = selectedPlayers.map(p => `
+            <div class="selected-player">
+                <input type="hidden" name="players" value="${p.name}">
+                <span class="info">${p.pos} - ${p.name} ($${p.salary.toLocaleString()})</span>
+                <span class="proj">${p.proj.toFixed(1)}</span>
+                <button type="button" class="remove-btn" onclick="removePlayer('${p.name}')">x</button>
+            </div>
+        `).join('');
+    }
+    
+    document.getElementById('total-salary').textContent = '$' + getTotalSalary().toLocaleString();
+    document.getElementById('total-proj').textContent = getTotalProj().toFixed(1) + ' FP';
+    
+    submitBtn.textContent = `Submit Lineup (${selectedPlayers.length}/${MAX_PLAYERS})`;
+    submitBtn.disabled = selectedPlayers.length !== MAX_PLAYERS;
+}
+
+document.getElementById('search').addEventListener('input', filterPlayers);
+document.getElementById('pos-filter').addEventListener('change', filterPlayers);
+
+function filterPlayers() {
+    const search = document.getElementById('search').value.toLowerCase();
+    const pos = document.getElementById('pos-filter').value;
+    
+    document.querySelectorAll('#player-table tbody tr').forEach(row => {
+        const name = row.dataset.name.toLowerCase();
+        const playerPos = row.dataset.pos;
+        const matchSearch = name.includes(search);
+        const matchPos = !pos || playerPos.includes(pos);
+        row.style.display = (matchSearch && matchPos) ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

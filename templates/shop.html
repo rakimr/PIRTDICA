@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Shop - Beat This Lineup{% endblock %}
+
+{% block content %}
+<div class="shop-page">
+    <div class="shop-header">
+        <h1>Coach Shop</h1>
+        <p class="balance">Your balance: <strong>{{ user.coins }} coins</strong></p>
+    </div>
+    
+    <div class="shop-categories">
+        <div class="category">
+            <h2>Avatars</h2>
+            <div class="items-grid">
+                {% for item in items if item.category == 'avatar' %}
+                <div class="shop-item {% if item.id in owned_ids %}owned{% endif %}">
+                    <div class="item-preview">
+                        <img src="{{ item.item_data }}" alt="{{ item.name }}">
+                    </div>
+                    <h3>{{ item.name }}</h3>
+                    <p class="price">{{ item.price }} coins</p>
+                    {% if item.id in owned_ids %}
+                        <span class="owned-badge">Owned</span>
+                    {% elif user.coins >= item.price %}
+                        <form method="POST" action="/shop/buy/{{ item.id }}">
+                            <button type="submit" class="btn btn-primary btn-small">Buy</button>
+                        </form>
+                    {% else %}
+                        <span class="insufficient">Not enough coins</span>
+                    {% endif %}
+                </div>
+                {% else %}
+                <p class="no-items">Coming soon!</p>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="category">
+            <h2>Themes</h2>
+            <div class="items-grid">
+                {% for item in items if item.category == 'theme' %}
+                <div class="shop-item {% if item.id in owned_ids %}owned{% endif %}">
+                    <div class="item-preview theme-preview" style="background: {{ item.item_data }}"></div>
+                    <h3>{{ item.name }}</h3>
+                    <p class="price">{{ item.price }} coins</p>
+                    {% if item.id in owned_ids %}
+                        <span class="owned-badge">Owned</span>
+                    {% elif user.coins >= item.price %}
+                        <form method="POST" action="/shop/buy/{{ item.id }}">
+                            <button type="submit" class="btn btn-primary btn-small">Buy</button>
+                        </form>
+                    {% else %}
+                        <span class="insufficient">Not enough coins</span>
+                    {% endif %}
+                </div>
+                {% else %}
+                <p class="no-items">Coming soon!</p>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="category">
+            <h2>Badges</h2>
+            <div class="items-grid">
+                {% for item in items if item.category == 'badge' %}
+                <div class="shop-item {% if item.id in owned_ids %}owned{% endif %}">
+                    <div class="item-preview badge-preview">{{ item.item_data }}</div>
+                    <h3>{{ item.name }}</h3>
+                    <p class="description">{{ item.description }}</p>
+                    <p class="price">{{ item.price }} coins</p>
+                    {% if item.id in owned_ids %}
+                        <span class="owned-badge">Owned</span>
+                    {% elif user.coins >= item.price %}
+                        <form method="POST" action="/shop/buy/{{ item.id }}">
+                            <button type="submit" class="btn btn-primary btn-small">Buy</button>
+                        </form>
+                    {% else %}
+                        <span class="insufficient">Not enough coins</span>
+                    {% endif %}
+                </div>
+                {% else %}
+                <p class="no-items">Coming soon!</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Your Entry - Beat This Lineup{% endblock %}
+
+{% block content %}
+<div class="entry-page">
+    <h1>Your Entry</h1>
+    
+    <div class="entry-comparison">
+        <div class="lineup-side your-side">
+            <h2>Your Lineup</h2>
+            <div class="score-summary">
+                <span class="proj">Projected: {{ "%.1f"|format(entry.proj_score) }} FP</span>
+                {% if entry.contest.status == 'completed' %}
+                <span class="actual">Actual: {{ "%.1f"|format(entry.actual_score) }} FP</span>
+                {% endif %}
+            </div>
+            <table class="lineup-table">
+                <thead>
+                    <tr>
+                        <th>Pos</th>
+                        <th>Player</th>
+                        <th>Salary</th>
+                        <th>Proj</th>
+                        {% if entry.contest.status == 'completed' %}
+                        <th>Actual</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in players %}
+                    <tr>
+                        <td>{{ p.position }}</td>
+                        <td>{{ p.player_name }}</td>
+                        <td>${{ "{:,}".format(p.salary) }}</td>
+                        <td>{{ "%.1f"|format(p.proj_fp) }}</td>
+                        {% if entry.contest.status == 'completed' %}
+                        <td class="{% if p.actual_fp > p.proj_fp %}positive{% else %}negative{% endif %}">
+                            {{ "%.1f"|format(p.actual_fp) }}
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="vs-divider">
+            <span>VS</span>
+        </div>
+        
+        <div class="lineup-side house-side">
+            <h2>House Lineup</h2>
+            <div class="score-summary">
+                <span class="proj">Projected: {{ "%.1f"|format(house_players|sum(attribute='proj_fp')) }} FP</span>
+                {% if entry.contest.status == 'completed' %}
+                <span class="actual">Actual: {{ "%.1f"|format(house_players|sum(attribute='actual_fp')) }} FP</span>
+                {% endif %}
+            </div>
+            <table class="lineup-table">
+                <thead>
+                    <tr>
+                        <th>Pos</th>
+                        <th>Player</th>
+                        <th>Salary</th>
+                        <th>Proj</th>
+                        {% if entry.contest.status == 'completed' %}
+                        <th>Actual</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in house_players %}
+                    <tr>
+                        <td>{{ p.position }}</td>
+                        <td>{{ p.player_name }}</td>
+                        <td>${{ "{:,}".format(p.salary) }}</td>
+                        <td>{{ "%.1f"|format(p.proj_fp) }}</td>
+                        {% if entry.contest.status == 'completed' %}
+                        <td class="{% if p.actual_fp > p.proj_fp %}positive{% else %}negative{% endif %}">
+                            {{ "%.1f"|format(p.actual_fp) }}
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    {% if entry.contest.status == 'completed' %}
+    <div class="result-banner {% if entry.beat_house %}win{% else %}loss{% endif %}">
+        {% if entry.beat_house %}
+            <h2>You Beat the House!</h2>
+            <p>You earned {{ entry.coins_earned }} coins!</p>
+        {% else %}
+            <h2>House Wins</h2>
+            <p>Better luck next time!</p>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="pending-banner">
+        <h2>Games In Progress</h2>
+        <p>Check back after games complete for results!</p>
+    </div>
+    {% endif %}
+    
+    <div class="entry-actions">
+        <a href="/" class="btn btn-secondary">Back to Home</a>
+        <a href="/leaderboard" class="btn btn-secondary">View Leaderboard</a>
+    </div>
+</div>
+{% endblock %}

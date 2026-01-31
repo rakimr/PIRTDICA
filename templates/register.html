@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Sign Up - Beat This Lineup{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <h1>Join the Game</h1>
+        <p>Create your free account and get 100 coins to start!</p>
+        
+        {% if error %}
+        <div class="error-message">{{ error }}</div>
+        {% endif %}
+        
+        <form method="POST" action="/register" class="auth-form">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required autofocus 
+                       pattern="[a-zA-Z0-9_]{3,20}" title="3-20 characters, letters, numbers, underscore">
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required minlength="6">
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-full">Create Account</button>
+        </form>
+        
+        <p class="auth-switch">Already have an account? <a href="/login">Login</a></p>
+    </div>
+</div>
+{% endblock %}

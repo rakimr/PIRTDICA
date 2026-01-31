@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}{{ profile.display_name or profile.username }} - Beat This Lineup{% endblock %}
+
+{% block content %}
+<div class="profile-page">
+    <div class="profile-header">
+        <div class="avatar">
+            <img src="{{ profile.avatar_url }}" alt="{{ profile.username }}">
+        </div>
+        <div class="profile-info">
+            <h1>{{ profile.display_name or profile.username }}</h1>
+            <p class="username">@{{ profile.username }}</p>
+            <p class="member-since">Member since {{ profile.created_at.strftime('%B %Y') }}</p>
+        </div>
+        <div class="profile-stats-summary">
+            <div class="stat">
+                <span class="value">{{ stats.total_entries or 0 }}</span>
+                <span class="label">Entries</span>
+            </div>
+            <div class="stat">
+                <span class="value">{{ stats.wins or 0 }}</span>
+                <span class="label">Wins</span>
+            </div>
+            <div class="stat">
+                <span class="value">
+                    {% if stats.total_entries and stats.total_entries > 0 %}
+                        {{ "%.1f"|format((stats.wins or 0) / stats.total_entries * 100) }}%
+                    {% else %}
+                        0%
+                    {% endif %}
+                </span>
+                <span class="label">Win Rate</span>
+            </div>
+        </div>
+    </div>
+    
+    {% if user and user.id == profile.id %}
+    <div class="profile-wallet">
+        <h3>Your Wallet</h3>
+        <p class="coin-balance">{{ profile.coins }} coins</p>
+        <a href="/shop" class="btn btn-secondary">Visit Shop</a>
+    </div>
+    {% endif %}
+    
+    <div class="achievements-section">
+        <h2>Achievements</h2>
+        {% if achievements %}
+        <div class="achievements-grid">
+            {% for ua in achievements %}
+            <div class="achievement-badge">
+                <span class="icon">{{ ua.achievement.icon }}</span>
+                <span class="name">{{ ua.achievement.name }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="no-data">No achievements yet. Keep playing!</p>
+        {% endif %}
+    </div>
+    
+    <div class="history-section">
+        <h2>Recent Entries</h2>
+        {% if entries %}
+        <table class="entries-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Projected</th>
+                    <th>Actual</th>
+                    <th>Result</th>
+                    <th>Coins</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in entries %}
+                <tr>
+                    <td>{{ entry.created_at.strftime('%m/%d/%Y') }}</td>
+                    <td>{{ "%.1f"|format(entry.proj_score) }}</td>
+                    <td>{{ "%.1f"|format(entry.actual_score) }}</td>
+                    <td class="{% if entry.beat_house %}win{% else %}loss{% endif %}">
+                        {% if entry.beat_house %}Win{% else %}Loss{% endif %}
+                    </td>
+                    <td>+{{ entry.coins_earned }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="no-data">No entries yet. <a href="/play">Play your first contest!</a></p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

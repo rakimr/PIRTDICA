@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Beat This Lineup - NBA DFS Challenge{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>Can You Beat This Lineup?</h1>
+    <p>Our AI builds the optimal DFS lineup using Monte Carlo simulation. Think you can do better?</p>
+    {% if not user %}
+        <div class="hero-buttons">
+            <a href="/register" class="btn btn-primary btn-large">Start Playing Free</a>
+            <a href="/leaderboard" class="btn btn-secondary btn-large">View Leaderboard</a>
+        </div>
+    {% else %}
+        <a href="/play" class="btn btn-primary btn-large">Play Today's Contest</a>
+    {% endif %}
+</div>
+
+{% if contest %}
+<section class="house-lineup-section">
+    <h2>Today's House Lineup to Beat</h2>
+    <p class="subtitle">{{ contest.slate_date.strftime('%B %d, %Y') }}</p>
+    
+    {% if house_players %}
+    <div class="lineup-card house-lineup">
+        <table class="lineup-table">
+            <thead>
+                <tr>
+                    <th>Pos</th>
+                    <th>Player</th>
+                    <th>Team</th>
+                    <th>Salary</th>
+                    <th>Proj FP</th>
+                    {% if contest.status == 'completed' %}
+                    <th>Actual FP</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for player in house_players %}
+                <tr>
+                    <td class="pos">{{ player.position }}</td>
+                    <td class="name">{{ player.player_name }}</td>
+                    <td class="team">{{ player.team }}</td>
+                    <td class="salary">${{ "{:,}".format(player.salary) }}</td>
+                    <td class="proj">{{ "%.1f"|format(player.proj_fp) }}</td>
+                    {% if contest.status == 'completed' %}
+                    <td class="actual {% if player.actual_fp > player.proj_fp %}positive{% else %}negative{% endif %}">
+                        {{ "%.1f"|format(player.actual_fp) }}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="totals">
+                    <td colspan="3">Total</td>
+                    <td>${{ "{:,}".format(house_players|sum(attribute='salary')) }}</td>
+                    <td>{{ "%.1f"|format(house_players|sum(attribute='proj_fp')) }}</td>
+                    {% if contest.status == 'completed' %}
+                    <td>{{ "%.1f"|format(house_players|sum(attribute='actual_fp')) }}</td>
+                    {% endif %}
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {% else %}
+    <p class="no-data">House lineup will be generated soon...</p>
+    {% endif %}
+    
+    {% if user and user_entry %}
+    <div class="your-entry">
+        <h3>Your Entry</h3>
+        <p>Projected: {{ "%.1f"|format(user_entry.proj_score) }} FP</p>
+        {% if contest.status == 'completed' %}
+        <p>Actual: {{ "%.1f"|format(user_entry.actual_score) }} FP</p>
+        <p class="result {% if user_entry.beat_house %}win{% else %}loss{% endif %}">
+            {% if user_entry.beat_house %}You Beat the House!{% else %}House Wins{% endif %}
+        </p>
+        {% endif %}
+        <a href="/entry/{{ user_entry.id }}" class="btn btn-secondary">View Your Lineup</a>
+    </div>
+    {% elif user %}
+    <a href="/play" class="btn btn-primary">Submit Your Lineup</a>
+    {% endif %}
+</section>
+{% else %}
+<section class="no-contest">
+    <h2>No Contest Today</h2>
+    <p>Check back when games are scheduled!</p>
+</section>
+{% endif %}
+
+<section class="features">
+    <h2>How It Works</h2>
+    <div class="feature-grid">
+        <div class="feature-card">
+            <div class="feature-icon">1</div>
+            <h3>We Build a Lineup</h3>
+            <p>Our Monte Carlo AI runs 10,000+ simulations to find the lineup with the highest win probability.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">2</div>
+            <h3>You Build Yours</h3>
+            <p>Pick 9 players within the $60,000 salary cap. Use our projections or go with your gut.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">3</div>
+            <h3>Games Play Out</h3>
+            <p>Watch the NBA games and see how your lineup performs vs the house.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">4</div>
+            <h3>Climb the Ranks</h3>
+            <p>Beat the house to earn coins, achievements, and climb the Coach leaderboard!</p>
+        </div>
+    </div>
+</section>
+{% endblock %}

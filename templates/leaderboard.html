@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Leaderboard - Beat This Lineup{% endblock %}
+
+{% block content %}
+<div class="leaderboard-page">
+    <h1>Coach Leaderboard</h1>
+    
+    <div class="period-tabs">
+        <a href="/leaderboard?period=daily" class="tab {% if period == 'daily' %}active{% endif %}">Today</a>
+        <a href="/leaderboard?period=weekly" class="tab {% if period == 'weekly' %}active{% endif %}">This Week</a>
+        <a href="/leaderboard?period=monthly" class="tab {% if period == 'monthly' %}active{% endif %}">This Month</a>
+        <a href="/leaderboard?period=yearly" class="tab {% if period == 'yearly' %}active{% endif %}">This Year</a>
+        <a href="/leaderboard?period=alltime" class="tab {% if period == 'alltime' %}active{% endif %}">All Time</a>
+    </div>
+    
+    <div class="leaderboard-card">
+        {% if leaderboard %}
+        <table class="leaderboard-table">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Coach</th>
+                    <th>Wins</th>
+                    <th>Entries</th>
+                    <th>Win Rate</th>
+                    <th>Avg Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in leaderboard %}
+                <tr class="{% if loop.index <= 3 %}top-three rank-{{ loop.index }}{% endif %}">
+                    <td class="rank">
+                        {% if loop.index == 1 %}
+                            <span class="medal gold">1</span>
+                        {% elif loop.index == 2 %}
+                            <span class="medal silver">2</span>
+                        {% elif loop.index == 3 %}
+                            <span class="medal bronze">3</span>
+                        {% else %}
+                            {{ loop.index }}
+                        {% endif %}
+                    </td>
+                    <td class="coach">
+                        <a href="/profile/{{ entry.username }}">
+                            {{ entry.display_name or entry.username }}
+                        </a>
+                    </td>
+                    <td class="wins">{{ entry.wins or 0 }}</td>
+                    <td class="entries">{{ entry.entries or 0 }}</td>
+                    <td class="winrate">
+                        {% if entry.entries and entry.entries > 0 %}
+                            {{ "%.1f"|format((entry.wins or 0) / entry.entries * 100) }}%
+                        {% else %}
+                            0%
+                        {% endif %}
+                    </td>
+                    <td class="avg-score">{{ "%.1f"|format(entry.avg_score or 0) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="no-data">No entries yet. Be the first to play!</p>
+        {% endif %}
+    </div>
+    
+    <div class="coach-awards">
+        <h2>Coach of the...</h2>
+        <div class="awards-grid">
+            <div class="award-card">
+                <h3>Day</h3>
+                <p class="award-name">-</p>
+            </div>
+            <div class="award-card">
+                <h3>Week</h3>
+                <p class="award-name">-</p>
+            </div>
+            <div class="award-card">
+                <h3>Month</h3>
+                <p class="award-name">-</p>
+            </div>
+            <div class="award-card">
+                <h3>Year</h3>
+                <p class="award-name">-</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
