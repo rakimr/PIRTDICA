@@ -12,7 +12,7 @@ from backend import models, auth
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Beat This Lineup")
+app = FastAPI(title="PIRTDICA")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 

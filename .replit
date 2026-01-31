@@ -32,7 +32,7 @@ args = "Daily DFS Update"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Beat This Lineup"
+args = "PIRTDICA"
 
 [[workflows.workflow]]
 name = "Daily DFS Update"
@@ -46,7 +46,7 @@ args = "python run_daily_update.py"
 outputType = "console"
 
 [[workflows.workflow]]
-name = "Beat This Lineup"
+name = "PIRTDICA"
 author = "agent"
 
 [[workflows.workflow.tasks]]

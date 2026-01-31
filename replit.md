@@ -1,12 +1,12 @@
-# NBA DFS Projection System - "Beat This Lineup"
+# PIRTDICA SPORTS CO. - NBA DFS Platform
 
 ## Overview
 
-This is an NBA Daily Fantasy Sports (DFS) projection and gaming platform. The core engine scrapes, processes, and analyzes basketball data to generate player projections. The platform now features a "Beat This Lineup" game where players compete against an AI-generated house lineup using Monte Carlo simulation.
+This is an NBA Daily Fantasy Sports (DFS) projection and gaming platform operated by PIRTDICA SPORTS CO. The core engine scrapes, processes, and analyzes basketball data to generate player projections. The platform features a "Beat the House" game where players compete against an AI-generated house lineup using Monte Carlo simulation.
 
 ## Recent Changes (January 2026)
 
-- **Beat This Lineup Web Platform** - Full-stack FastAPI application with user accounts, leaderboards, and gamification
+- **PIRTDICA Web Platform** - Full-stack FastAPI application with user accounts, leaderboards, and gamification
 - **Monte Carlo Optimizer** - Stochastic simulation finds lineups with highest win probability, not just expected value
 - **In-Game Currency System** - Coins for participation, wins, and achievements; shop for cosmetics
 - **Coach Rankings** - Leaderboard with Coach of Day/Week/Month/Year awards
