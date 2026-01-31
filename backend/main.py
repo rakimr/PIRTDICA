@@ -45,6 +45,13 @@ def set_session_cookie(response: Response, token: str):
         samesite="lax"
     )
 
+def normalize_name(name):
+    import unicodedata
+    import re
+    name = unicodedata.normalize('NFKD', name).encode('ASCII', 'ignore').decode('ASCII')
+    name = re.sub(r'\s+(Jr\.?|Sr\.?|II|III|IV)$', '', name, flags=re.IGNORECASE)
+    return name.strip()
+
 def get_player_headshots():
     import sqlite3
     headshots = {}
@@ -53,7 +60,12 @@ def get_player_headshots():
         cursor = conn.cursor()
         cursor.execute("SELECT player_name, headshot_url FROM player_headshots")
         for row in cursor.fetchall():
-            headshots[row[0]] = row[1]
+            original_name = row[0]
+            url = row[1]
+            headshots[original_name] = url
+            normalized = normalize_name(original_name)
+            if normalized != original_name:
+                headshots[normalized] = url
         conn.close()
     except:
         pass
