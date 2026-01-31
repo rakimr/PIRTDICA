@@ -33,6 +33,20 @@ def set_session_cookie(response: Response, token: str):
         samesite="lax"
     )
 
+def get_player_headshots():
+    import sqlite3
+    headshots = {}
+    try:
+        conn = sqlite3.connect("dfs_nba.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT player_name, headshot_url FROM player_headshots")
+        for row in cursor.fetchall():
+            headshots[row[0]] = row[1]
+        conn.close()
+    except:
+        pass
+    return headshots
+
 @app.get("/")
 async def home(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
@@ -41,6 +55,8 @@ async def home(request: Request, db: Session = Depends(get_db)):
     
     house_players = []
     user_entry = None
+    headshots = get_player_headshots()
+    
     if contest:
         house_players = db.query(models.HouseLineupPlayer).filter(
             models.HouseLineupPlayer.contest_id == contest.id
@@ -56,7 +72,8 @@ async def home(request: Request, db: Session = Depends(get_db)):
         "user": user,
         "contest": contest,
         "house_players": house_players,
-        "user_entry": user_entry
+        "user_entry": user_entry,
+        "headshots": headshots
     })
 
 @app.get("/register")
