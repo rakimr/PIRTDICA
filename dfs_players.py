@@ -71,7 +71,7 @@ df = df.merge(
     how="left"
 )
 
-injury_alerts = pd.read_sql("SELECT * FROM injury_alerts WHERE status = 'OUT'", conn)
+injury_alerts = pd.read_sql("SELECT * FROM injury_alerts WHERE status IN ('OUT', 'Doubtful')", conn)
 injury_alerts["norm_name"] = injury_alerts["player_name"].apply(normalize_name)
 
 injury_alerts = injury_alerts.merge(
