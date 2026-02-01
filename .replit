@@ -3,7 +3,7 @@ modules = ["python-3.11", "postgresql-16"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["cargo", "glibcLocales", "libiconv", "rustc", "xcodebuild", "zlib"]
+packages = ["cairo", "cargo", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "gobject-introspection", "gtk3", "libiconv", "pkg-config", "qhull", "rustc", "tcl", "tk", "xcodebuild", "zlib"]
 
 [unitTest]
 language = "python3"
