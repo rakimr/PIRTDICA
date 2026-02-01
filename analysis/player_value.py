@@ -180,43 +180,69 @@ def generate_value_chart(players_df, output_path='static/images/value_chart.png'
     return output_path
 
 def generate_upside_chart(players_df, output_path='static/images/upside_chart.png'):
-    """Generate floor vs upside ratio chart showing boom potential vs safety."""
+    """Generate μ vs σ scatter plot - the core risk-reward frontier chart."""
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     
     df = players_df.copy()
-    df = df[df['upside_ratio'].notna() & df['floor'].notna()]
+    df = df[df['proj_fp'].notna() & df['fp_sd'].notna() & (df['proj_fp'] > 5)]
+    
+    position_colors = {
+        'PG': '#1a1a1a',
+        'SG': '#4a4a4a',
+        'SF': '#7a7a7a',
+        'PF': '#9a9a9a',
+        'C': '#bababa'
+    }
     
     fig, ax = plt.subplots(figsize=(12, 8))
     fig.patch.set_facecolor('white')
     ax.set_facecolor('white')
     
-    ax.scatter(df['floor'], df['upside_ratio'] * 100, c='#333333', alpha=0.6, s=80, edgecolors='black', linewidths=1)
+    for pos in ['PG', 'SG', 'SF', 'PF', 'C']:
+        pos_df = df[df['true_position'] == pos]
+        if len(pos_df) == 0:
+            continue
+        
+        sizes = (pos_df['salary'] / 1000) * 8
+        ax.scatter(pos_df['proj_fp'], pos_df['fp_sd'], 
+                  c=position_colors.get(pos, '#333'),
+                  s=sizes, alpha=0.7, edgecolors='black', linewidths=0.5,
+                  label=pos)
     
-    median_upside = df['upside_ratio'].median() * 100
-    ax.axhline(y=median_upside, color='black', linestyle='--', linewidth=2, alpha=0.5, label=f'Median ({median_upside:.0f}%)')
-    
-    ax.fill_between([df['floor'].min() - 5, df['floor'].max() + 5], median_upside, df['upside_ratio'].max() * 100 + 10,
-                    alpha=0.1, color='gray', label='Boom Zone')
-    ax.fill_between([df['floor'].min() - 5, df['floor'].max() + 5], 0, median_upside,
-                    alpha=0.05, color='black', label='Safe Zone')
-    
-    high_upside = df.nlargest(5, 'upside_ratio')
-    for _, player in high_upside.iterrows():
+    cash_plays = df[(df['proj_fp'] > df['proj_fp'].quantile(0.7)) & (df['fp_sd'] < df['fp_sd'].quantile(0.3))]
+    for _, player in cash_plays.head(3).iterrows():
         ax.annotate(player['player_name'],
-                   (player['floor'], player['upside_ratio'] * 100),
+                   (player['proj_fp'], player['fp_sd']),
+                   xytext=(5, -8), textcoords='offset points',
+                   fontsize=8, fontweight='bold', color='black')
+    
+    gpp_darts = df[(df['proj_fp'] < df['proj_fp'].quantile(0.4)) & (df['fp_sd'] > df['fp_sd'].quantile(0.7))]
+    for _, player in gpp_darts.head(3).iterrows():
+        ax.annotate(player['player_name'],
+                   (player['proj_fp'], player['fp_sd']),
                    xytext=(5, 5), textcoords='offset points',
-                   fontsize=9, fontweight='bold', color='black')
+                   fontsize=8, color='#666')
     
-    high_floor = df.nlargest(3, 'floor')
-    for _, player in high_floor.iterrows():
-        if player['player_name'] not in high_upside['player_name'].values:
-            ax.annotate(player['player_name'],
-                       (player['floor'], player['upside_ratio'] * 100),
-                       xytext=(5, -10), textcoords='offset points',
-                       fontsize=9, fontweight='bold', color='#666')
+    slate_breakers = df[(df['proj_fp'] > df['proj_fp'].quantile(0.8)) & (df['fp_sd'] > df['fp_sd'].quantile(0.7))]
+    for _, player in slate_breakers.head(3).iterrows():
+        ax.annotate(player['player_name'],
+                   (player['proj_fp'], player['fp_sd']),
+                   xytext=(5, 5), textcoords='offset points',
+                   fontsize=8, fontweight='bold', color='black')
     
-    apply_chart_style(ax, 'Player Risk Profile (Floor vs Upside)', 'Floor (FP)', 'Upside Ratio (%)')
-    ax.legend(loc='upper right', frameon=True, edgecolor='black', facecolor='white')
+    mu_median = df['proj_fp'].median()
+    sigma_median = df['fp_sd'].median()
+    ax.axvline(x=mu_median, color='black', linestyle=':', linewidth=1, alpha=0.3)
+    ax.axhline(y=sigma_median, color='black', linestyle=':', linewidth=1, alpha=0.3)
+    
+    ax.text(ax.get_xlim()[1] * 0.95, ax.get_ylim()[0] + 1, 'CASH', ha='right', fontsize=10, color='#333', style='italic')
+    ax.text(ax.get_xlim()[0] + 1, ax.get_ylim()[1] * 0.95, 'GPP DARTS', ha='left', fontsize=10, color='#666', style='italic')
+    ax.text(ax.get_xlim()[1] * 0.95, ax.get_ylim()[1] * 0.95, 'SLATE BREAKERS', ha='right', fontsize=10, color='black', fontweight='bold')
+    
+    apply_chart_style(ax, 'Risk-Reward Frontier (μ vs σ)', 'Projected FP (μ)', 'Volatility / Std Dev (σ)')
+    
+    legend = ax.legend(loc='upper left', frameon=True, edgecolor='black', facecolor='white', title='Position')
+    legend.get_title().set_fontweight('bold')
     
     plt.tight_layout()
     plt.savefig(output_path, dpi=150, facecolor='white', edgecolor='black')
