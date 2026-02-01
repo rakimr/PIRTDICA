@@ -131,9 +131,9 @@
                         <td>{{ prop.opponent }}</td>
                         <td>{{ prop.stat }}</td>
                         <td>{{ prop.player_avg }}</td>
-                        <td>{{ prop.boosted_avg }}</td>
-                        <td class="edge-cell">+{{ prop.extra_fp }}</td>
-                        <td class="over-cell">{{ prop.recommendation }}</td>
+                        <td>{{ prop.adjusted_avg }}</td>
+                        <td class="edge-cell">{{ prop.extra_fp }}</td>
+                        <td class="{% if prop.recommendation == 'OVER' %}over-cell{% else %}under-cell{% endif %}">{{ prop.recommendation }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

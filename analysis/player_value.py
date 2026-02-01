@@ -259,7 +259,7 @@ def generate_dvp_heatmap(dvp_df, output_path='static/images/dvp_heatmap.png'):
     
     return output_path
 
-def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n=30):
+def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n=50):
     """Generate prop bet recommendations based on player averages + DVP matchups."""
     
     valued_df = calculate_value_metrics(players_df)
@@ -269,11 +269,11 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n
     stats_norm['team_norm'] = stats_norm['team'].apply(normalize_team)
     
     stat_config = {
-        'pts': ('pts_pg', 'PTS', 1.0, 10.0),
-        'reb': ('reb_pg', 'REB', 1.2, 4.0),
-        'ast': ('ast_pg', 'AST', 1.5, 3.0),
-        'stl': ('stl_pg', 'STL', 3.0, 1.0),
-        'blk': ('blk_pg', 'BLK', 3.0, 0.8)
+        'pts': ('pts_pg', 'PTS', 1.0, 8.0, 18.0),
+        'reb': ('reb_pg', 'REB', 1.2, 3.0, 8.0),
+        'ast': ('ast_pg', 'AST', 1.5, 2.0, 6.0),
+        'stl': ('stl_pg', 'STL', 3.0, 0.5, 1.5),
+        'blk': ('blk_pg', 'BLK', 3.0, 0.5, 1.2)
     }
     
     props = []
@@ -298,9 +298,9 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n
             continue
         opp_dvp = opp_dvp.iloc[0]
         
-        for stat_key, (col, label, fp_mult, min_avg) in stat_config.items():
+        for stat_key, (col, label, fp_mult, min_under, min_over) in stat_config.items():
             player_avg = player_stats.get(col, 0)
-            if pd.isna(player_avg) or player_avg < min_avg:
+            if pd.isna(player_avg):
                 continue
             
             opp_allows = opp_dvp.get(stat_key, 0)
@@ -309,10 +309,10 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n
                 continue
             
             league_avg = all_pos_dvp[stat_key].mean()
-            extra_stat = opp_allows - league_avg
-            extra_fp = extra_stat * fp_mult
+            diff_stat = opp_allows - league_avg
+            diff_fp = abs(diff_stat) * fp_mult
             
-            if extra_fp >= 0.3:
+            if diff_stat > 0 and player_avg >= min_over and diff_fp >= 0.3:
                 props.append({
                     'player': player_name,
                     'team': team,
@@ -321,10 +321,24 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n
                     'value': round(player['value'], 2),
                     'stat': label,
                     'player_avg': round(player_avg, 1),
-                    'boosted_avg': round(player_avg + extra_stat, 1),
-                    'extra_fp': round(extra_fp, 1),
-                    'edge_pct': round((extra_stat / league_avg * 100) if league_avg > 0 else 0, 1),
+                    'adjusted_avg': round(player_avg + diff_stat, 1),
+                    'extra_fp': round(diff_fp, 1),
+                    'edge_pct': round((diff_stat / league_avg * 100) if league_avg > 0 else 0, 1),
                     'recommendation': 'OVER'
+                })
+            elif diff_stat < 0 and player_avg <= min_under and diff_fp >= 0.3:
+                props.append({
+                    'player': player_name,
+                    'team': team,
+                    'opponent': opponent,
+                    'salary': player['salary'],
+                    'value': round(player['value'], 2),
+                    'stat': label,
+                    'player_avg': round(player_avg, 1),
+                    'adjusted_avg': round(player_avg + diff_stat, 1),
+                    'extra_fp': round(diff_fp, 1),
+                    'edge_pct': round((diff_stat / league_avg * 100) if league_avg > 0 else 0, 1),
+                    'recommendation': 'UNDER'
                 })
     
     props_df = pd.DataFrame(props)
