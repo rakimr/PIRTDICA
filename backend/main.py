@@ -235,6 +235,27 @@ async def trends(request: Request, db: Session = Depends(get_db)):
         "cache_bust": int(time.time())
     })
 
+@app.post("/trends/refresh")
+async def refresh_trends(request: Request):
+    """Re-run scrapers and analysis to get fresh data."""
+    import subprocess
+    import os
+    
+    os.chdir("/home/runner/workspace")
+    
+    try:
+        subprocess.run(["python", "scrape_player_salaries.py"], timeout=60, capture_output=True)
+        subprocess.run(["python", "scrape_game_odds.py"], timeout=60, capture_output=True)
+        subprocess.run(["python", "scrape_dvp.py"], timeout=60, capture_output=True)
+        subprocess.run(["python", "scrape_per100.py"], timeout=60, capture_output=True)
+        subprocess.run(["python", "dfs_players.py"], timeout=60, capture_output=True)
+        subprocess.run(["python", "analysis/player_value.py"], timeout=60, capture_output=True)
+    except Exception as e:
+        print(f"Refresh error: {e}")
+    
+    from starlette.responses import RedirectResponse
+    return RedirectResponse(url="/trends", status_code=303)
+
 @app.get("/leaderboard")
 async def leaderboard(request: Request, period: str = "daily", db: Session = Depends(get_db)):
     user = get_current_user(request, db)

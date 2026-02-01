@@ -4,8 +4,17 @@
 
 {% block content %}
 <div class="trends-page">
-    <h1 class="page-title">PIRTDICA TRENDS</h1>
-    <p class="page-subtitle">Data-driven analysis for today's slate</p>
+    <div class="trends-header">
+        <div>
+            <h1 class="page-title">PIRTDICA TRENDS</h1>
+            <p class="page-subtitle">Data-driven analysis for today's slate</p>
+        </div>
+        <form action="/trends/refresh" method="post" class="refresh-form">
+            <button type="submit" class="btn btn-secondary refresh-btn">
+                Refresh Data
+            </button>
+        </form>
+    </div>
     
     <div class="trends-section">
         <h2>Player Value Analysis</h2>
