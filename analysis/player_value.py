@@ -180,29 +180,43 @@ def generate_value_chart(players_df, output_path='static/images/value_chart.png'
     return output_path
 
 def generate_upside_chart(players_df, output_path='static/images/upside_chart.png'):
-    """Generate ceiling vs floor chart showing upside potential."""
+    """Generate floor vs upside ratio chart showing boom potential vs safety."""
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     
     df = players_df.copy()
+    df = df[df['upside_ratio'].notna() & df['floor'].notna()]
     
     fig, ax = plt.subplots(figsize=(12, 8))
     fig.patch.set_facecolor('white')
     ax.set_facecolor('white')
     
-    ax.scatter(df['floor'], df['ceiling'], c='#333333', alpha=0.6, s=80, edgecolors='black', linewidths=1)
+    ax.scatter(df['floor'], df['upside_ratio'] * 100, c='#333333', alpha=0.6, s=80, edgecolors='black', linewidths=1)
     
-    min_val = min(df['floor'].min(), 0)
-    max_val = df['ceiling'].max()
-    ax.plot([min_val, max_val], [min_val, max_val], 'k--', alpha=0.5, linewidth=2, label='Equal Line')
+    median_upside = df['upside_ratio'].median() * 100
+    ax.axhline(y=median_upside, color='black', linestyle='--', linewidth=2, alpha=0.5, label=f'Median ({median_upside:.0f}%)')
+    
+    ax.fill_between([df['floor'].min() - 5, df['floor'].max() + 5], median_upside, df['upside_ratio'].max() * 100 + 10,
+                    alpha=0.1, color='gray', label='Boom Zone')
+    ax.fill_between([df['floor'].min() - 5, df['floor'].max() + 5], 0, median_upside,
+                    alpha=0.05, color='black', label='Safe Zone')
     
     high_upside = df.nlargest(5, 'upside_ratio')
     for _, player in high_upside.iterrows():
         ax.annotate(player['player_name'],
-                   (player['floor'], player['ceiling']),
+                   (player['floor'], player['upside_ratio'] * 100),
                    xytext=(5, 5), textcoords='offset points',
                    fontsize=9, fontweight='bold', color='black')
     
-    apply_chart_style(ax, 'Player Upside Analysis (Ceiling vs Floor)', 'Floor (FP)', 'Ceiling (FP)')
+    high_floor = df.nlargest(3, 'floor')
+    for _, player in high_floor.iterrows():
+        if player['player_name'] not in high_upside['player_name'].values:
+            ax.annotate(player['player_name'],
+                       (player['floor'], player['upside_ratio'] * 100),
+                       xytext=(5, -10), textcoords='offset points',
+                       fontsize=9, fontweight='bold', color='#666')
+    
+    apply_chart_style(ax, 'Player Risk Profile (Floor vs Upside)', 'Floor (FP)', 'Upside Ratio (%)')
+    ax.legend(loc='upper right', frameon=True, edgecolor='black', facecolor='white')
     
     plt.tight_layout()
     plt.savefig(output_path, dpi=150, facecolor='white', edgecolor='black')
