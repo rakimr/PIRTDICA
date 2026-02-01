@@ -75,7 +75,7 @@
     {% if targeted %}
     <div class="trends-section">
         <h2>Targeted Stat Plays</h2>
-        <p class="chart-description">High-usage players facing teams that give up specific stats. Format: "OPP gives up X% more STAT to POSITION"</p>
+        <p class="chart-description">Players facing teams that give up extra fantasy points in specific stats. Sorted by FP impact.</p>
         <div class="targeted-table">
             <table>
                 <thead>
@@ -85,7 +85,7 @@
                         <th>vs</th>
                         <th>Stat</th>
                         <th>Avg</th>
-                        <th>Edge</th>
+                        <th>+FP</th>
                         <th>Matchup Note</th>
                     </tr>
                 </thead>
@@ -97,7 +97,7 @@
                         <td>{{ play.opponent }}</td>
                         <td>{{ play.stat }}</td>
                         <td>{{ play.player_avg }}</td>
-                        <td class="edge-cell">+{{ play.edge_pct }}%</td>
+                        <td class="edge-cell">+{{ play.extra_fp }}</td>
                         <td class="matchup-note">{{ play.recommendation }}</td>
                     </tr>
                     {% endfor %}

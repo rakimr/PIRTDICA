@@ -339,11 +339,11 @@ def get_targeted_plays(players_df, stats_df, dvp_df):
     )
     
     stat_mapping = {
-        'pts': ('pts_pg', 'Points'),
-        'reb': ('reb_pg', 'Rebounds'),
-        'ast': ('ast_pg', 'Assists'),
-        'stl': ('stl_pg', 'Steals'),
-        'blk': ('blk_pg', 'Blocks')
+        'pts': ('pts_pg', 'Points', 1.0),
+        'reb': ('reb_pg', 'Rebounds', 1.2),
+        'ast': ('ast_pg', 'Assists', 1.5),
+        'stl': ('stl_pg', 'Steals', 3.0),
+        'blk': ('blk_pg', 'Blocks', 3.0)
     }
     
     targeted = []
@@ -360,7 +360,7 @@ def get_targeted_plays(players_df, stats_df, dvp_df):
             continue
         opp_dvp = opp_dvp.iloc[0]
         
-        for stat_key, (player_col, stat_name) in stat_mapping.items():
+        for stat_key, (player_col, stat_name, fp_mult) in stat_mapping.items():
             player_avg = player.get(player_col, 0)
             opp_allows = opp_dvp.get(stat_key, 0)
             
@@ -372,9 +372,11 @@ def get_targeted_plays(players_df, stats_df, dvp_df):
                 continue
             
             league_avg = all_pos_dvp[stat_key].mean()
+            extra_stat = opp_allows - league_avg
+            extra_fp = extra_stat * fp_mult
             pct_above_avg = ((opp_allows - league_avg) / league_avg * 100) if league_avg > 0 else 0
             
-            if pct_above_avg >= 5:
+            if extra_fp >= 0.5:
                 targeted.append({
                     'player_name': player['player_name'],
                     'team': player['team'],
@@ -385,13 +387,14 @@ def get_targeted_plays(players_df, stats_df, dvp_df):
                     'player_avg': round(player_avg, 1),
                     'opp_allows': round(opp_allows, 1),
                     'league_avg': round(league_avg, 1),
+                    'extra_fp': round(extra_fp, 1),
                     'edge_pct': round(pct_above_avg, 1),
-                    'recommendation': f"{opponent} gives up {round(pct_above_avg)}% more {stat_name} to {position}s"
+                    'recommendation': f"{opponent} gives up +{round(extra_fp, 1)} FP in {stat_name} to {position}s"
                 })
     
     targeted_df = pd.DataFrame(targeted)
     if len(targeted_df) > 0:
-        targeted_df = targeted_df.sort_values('edge_pct', ascending=False)
+        targeted_df = targeted_df.sort_values('extra_fp', ascending=False)
     
     return targeted_df
 
