@@ -12,6 +12,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from backend.database import Base, engine
 from backend import models
+from utils.timezone import get_eastern_today, get_eastern_now
 
 def generate_house_lineup():
     """Generate today's house lineup using Monte Carlo and save to DB."""
@@ -20,7 +21,7 @@ def generate_house_lineup():
     Session = sessionmaker(bind=engine)
     db = Session()
     
-    today = date.today()
+    today = get_eastern_today()
     
     existing = db.query(models.Contest).filter(models.Contest.slate_date == today).first()
     if existing:

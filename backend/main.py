@@ -7,6 +7,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from datetime import datetime, date
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.timezone import get_eastern_today, get_eastern_now
 
 from backend.database import engine, get_db, Base
 from backend import models, auth
@@ -74,7 +78,7 @@ def get_player_headshots():
 @app.get("/")
 async def home(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
-    today = date.today()
+    today = get_eastern_today()
     
     contest = db.query(models.Contest).filter(models.Contest.slate_date == today).first()
     
@@ -305,7 +309,7 @@ async def play(request: Request, db: Session = Depends(get_db)):
     if not user:
         return RedirectResponse(url="/login", status_code=303)
     
-    today = date.today()
+    today = get_eastern_today()
     contest = db.query(models.Contest).filter(models.Contest.slate_date == today).first()
     
     if not contest:
@@ -396,7 +400,7 @@ async def submit_lineup(request: Request, db: Session = Depends(get_db)):
     form = await request.form()
     player_ids = form.getlist("players")
     
-    today = date.today()
+    today = get_eastern_today()
     contest = db.query(models.Contest).filter(models.Contest.slate_date == today).first()
     if not contest:
         raise HTTPException(status_code=400, detail="No active contest")
@@ -404,7 +408,7 @@ async def submit_lineup(request: Request, db: Session = Depends(get_db)):
     if contest.status != "open":
         raise HTTPException(status_code=400, detail="Contest is locked")
     
-    if datetime.now() >= contest.lock_time:
+    if get_eastern_now().replace(tzinfo=None) >= contest.lock_time:
         raise HTTPException(status_code=400, detail="Contest is locked - games have started")
     
     existing = db.query(models.ContestEntry).filter(

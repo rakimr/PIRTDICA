@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import sqlite3
 import re
 from datetime import datetime, date
+from utils.timezone import get_eastern_date_str
 
 conn = sqlite3.connect("dfs_nba.db")
 cursor = conn.cursor()
@@ -21,7 +22,7 @@ CREATE TABLE IF NOT EXISTS injury_alerts (
 """)
 conn.commit()
 
-today = date.today().strftime("%Y-%m-%d")
+today = get_eastern_date_str()
 
 URL = "https://rotogrinders.com/news/nba"
 headers = {

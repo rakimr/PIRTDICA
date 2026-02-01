@@ -5,6 +5,7 @@ from datetime import datetime
 import sqlite3
 import re
 from team_map import to_abbrev
+from utils.timezone import get_eastern_date_str, get_eastern_now
 
 # ============================
 # 1. CONNECT TO DATABASE
@@ -90,8 +91,8 @@ df = pd.DataFrame(rows, columns=[
 df["home_team"] = df["home_team"].apply(to_abbrev)
 df["away_team"] = df["away_team"].apply(to_abbrev)
 
-df["game_date"] = datetime.utcnow().date().isoformat()
-df["scraped_at"] = datetime.utcnow().isoformat()
+df["game_date"] = get_eastern_date_str()
+df["scraped_at"] = get_eastern_now().isoformat()
 
 # ============================
 # 4. WRITE TO DATABASE

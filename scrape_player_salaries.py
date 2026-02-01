@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 import sqlite3
 from datetime import datetime, date
 from team_map import TEAM_MAP
+from utils.timezone import get_eastern_date_str
 
 # ============================
 # 1. CONNECT TO DATABASE
@@ -32,7 +33,7 @@ conn.commit()
 # 2. SCRAPE ROTOGRINDERS
 # ============================
 
-today = date.today().strftime("%Y-%m-%d")
+today = get_eastern_date_str()
 URL = f"https://rotogrinders.com/lineups/nba?site=fanduel&date={today}"
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
