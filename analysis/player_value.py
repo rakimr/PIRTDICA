@@ -235,13 +235,13 @@ def generate_upside_chart(players_df, output_path='static/images/upside_chart.pn
     ax.axvline(x=mu_median, color='black', linestyle=':', linewidth=1, alpha=0.3)
     ax.axhline(y=sigma_median, color='black', linestyle=':', linewidth=1, alpha=0.3)
     
-    ax.text(ax.get_xlim()[1] * 0.95, ax.get_ylim()[0] + 1, 'CASH', ha='right', fontsize=10, color='#333', style='italic')
-    ax.text(ax.get_xlim()[0] + 1, ax.get_ylim()[1] * 0.95, 'GPP DARTS', ha='left', fontsize=10, color='#666', style='italic')
-    ax.text(ax.get_xlim()[1] * 0.95, ax.get_ylim()[1] * 0.95, 'SLATE BREAKERS', ha='right', fontsize=10, color='black', fontweight='bold')
+    ax.text(ax.get_xlim()[1] * 0.95, ax.get_ylim()[0] + 0.5, 'CASH', ha='right', fontsize=7, color='#666', alpha=0.7)
+    ax.text(ax.get_xlim()[0] + 1, ax.get_ylim()[1] * 0.95, 'GPP DARTS', ha='left', fontsize=7, color='#666', alpha=0.7)
+    ax.text(ax.get_xlim()[1] * 0.95, ax.get_ylim()[1] * 0.95, 'SLATE BREAKERS', ha='right', fontsize=7, color='#666', alpha=0.7)
     
     apply_chart_style(ax, 'Risk-Reward Frontier (μ vs σ)', 'Projected FP (μ)', 'Volatility / Std Dev (σ)')
     
-    legend = ax.legend(loc='upper left', frameon=True, edgecolor='black', facecolor='white', title='Position')
+    legend = ax.legend(loc='lower left', frameon=True, edgecolor='black', facecolor='white', title='Position')
     legend.get_title().set_fontweight('bold')
     
     plt.tight_layout()
