@@ -75,11 +75,16 @@ def get_player_headshots():
 async def home(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     today = date.today()
+    
     contest = db.query(models.Contest).filter(models.Contest.slate_date == today).first()
+    
+    if not contest:
+        contest = db.query(models.Contest).order_by(models.Contest.slate_date.desc()).first()
     
     house_players = []
     user_entry = None
     headshots = get_player_headshots()
+    no_games_today = False
     
     if contest:
         house_players = db.query(models.HouseLineupPlayer).filter(
@@ -90,6 +95,17 @@ async def home(request: Request, db: Session = Depends(get_db)):
                 models.ContestEntry.contest_id == contest.id,
                 models.ContestEntry.user_id == user.id
             ).first()
+    else:
+        import sqlite3
+        try:
+            conn = sqlite3.connect("dfs_nba.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM player_salaries")
+            count = cursor.fetchone()[0]
+            conn.close()
+            no_games_today = (count == 0)
+        except:
+            no_games_today = True
     
     return templates.TemplateResponse("home.html", {
         "request": request,
@@ -97,7 +113,8 @@ async def home(request: Request, db: Session = Depends(get_db)):
         "contest": contest,
         "house_players": house_players,
         "user_entry": user_entry,
-        "headshots": headshots
+        "headshots": headshots,
+        "no_games_today": no_games_today
     })
 
 @app.get("/register")
