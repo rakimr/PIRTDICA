@@ -241,7 +241,7 @@ def generate_upside_chart(players_df, output_path='static/images/upside_chart.pn
     
     apply_chart_style(ax, 'Risk-Reward Frontier (μ vs σ)', 'Projected FP (μ)', 'Volatility / Std Dev (σ)')
     
-    legend = ax.legend(loc='lower left', frameon=True, edgecolor='black', facecolor='white', title='Position')
+    legend = ax.legend(loc='lower right', frameon=True, edgecolor='black', facecolor='white', title='Position')
     legend.get_title().set_fontweight('bold')
     
     plt.tight_layout()
