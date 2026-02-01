@@ -382,11 +382,11 @@ def get_targeted_plays(players_df, stats_df, dvp_df):
     )
     
     stat_mapping = {
-        'pts': ('pts_pg', 'Points', 1.0),
-        'reb': ('reb_pg', 'Rebounds', 1.2),
-        'ast': ('ast_pg', 'Assists', 1.5),
-        'stl': ('stl_pg', 'Steals', 3.0),
-        'blk': ('blk_pg', 'Blocks', 3.0)
+        'pts': ('pts_pg', 'Points', 1.0, 10.0),
+        'reb': ('reb_pg', 'Rebounds', 1.2, 4.0),
+        'ast': ('ast_pg', 'Assists', 1.5, 3.0),
+        'stl': ('stl_pg', 'Steals', 3.0, 1.0),
+        'blk': ('blk_pg', 'Blocks', 3.0, 0.8)
     }
     
     targeted = []
@@ -403,13 +403,13 @@ def get_targeted_plays(players_df, stats_df, dvp_df):
             continue
         opp_dvp = opp_dvp.iloc[0]
         
-        for stat_key, (player_col, stat_name, fp_mult) in stat_mapping.items():
+        for stat_key, (player_col, stat_name, fp_mult, min_avg) in stat_mapping.items():
             player_avg = player.get(player_col, 0)
-            opp_allows = opp_dvp.get(stat_key, 0)
             
-            if pd.isna(player_avg) or player_avg == 0:
+            if pd.isna(player_avg) or player_avg < min_avg:
                 continue
             
+            opp_allows = opp_dvp.get(stat_key, 0)
             all_pos_dvp = dvp_df[dvp_df['position'] == position]
             if len(all_pos_dvp) == 0:
                 continue
