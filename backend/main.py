@@ -250,6 +250,7 @@ async def refresh_trends(request: Request):
         subprocess.run(["python", "scrape_per100.py"], timeout=60, capture_output=True)
         subprocess.run(["python", "dfs_players.py"], timeout=60, capture_output=True)
         subprocess.run(["python", "analysis/player_value.py"], timeout=60, capture_output=True)
+        subprocess.run(["python", "generate_house_lineup.py"], timeout=120, capture_output=True)
     except Exception as e:
         print(f"Refresh error: {e}")
     
