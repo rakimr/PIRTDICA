@@ -259,34 +259,77 @@ def generate_dvp_heatmap(dvp_df, output_path='static/images/dvp_heatmap.png'):
     
     return output_path
 
-def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=5.0, top_n=10):
-    """Generate prop bet recommendations for high-value players."""
+def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n=30):
+    """Generate prop bet recommendations based on player averages + DVP matchups."""
     
     valued_df = calculate_value_metrics(players_df)
     high_value = valued_df[valued_df['value'] >= min_value].nlargest(top_n, 'value')
     
-    advantages = get_dvp_advantages(high_value, dvp_df, per100_df)
+    stats_norm = per100_df.copy()
+    stats_norm['team_norm'] = stats_norm['team'].apply(normalize_team)
+    
+    stat_config = {
+        'pts': ('pts_pg', 'PTS', 1.0, 10.0),
+        'reb': ('reb_pg', 'REB', 1.2, 4.0),
+        'ast': ('ast_pg', 'AST', 1.5, 3.0),
+        'stl': ('stl_pg', 'STL', 3.0, 1.0),
+        'blk': ('blk_pg', 'BLK', 3.0, 0.8)
+    }
     
     props = []
-    for player_data in advantages:
-        for adv in player_data['advantages']:
-            props.append({
-                'player': player_data['player_name'],
-                'team': player_data['team'],
-                'opponent': player_data['opponent'],
-                'salary': player_data['salary'],
-                'value': player_data['value'],
-                'stat': adv['stat'].upper(),
-                'player_avg': round(adv['player_avg'], 1),
-                'boosted_avg': round(adv['boosted_avg'], 1),
-                'dvp_score': round(adv['dvp_score'], 1),
-                'edge_pct': round(adv['edge_pct'], 1),
-                'recommendation': 'OVER'
-            })
+    
+    for _, player in high_value.iterrows():
+        player_name = player['player_name']
+        opponent = player.get('opponent')
+        position = player.get('true_position')
+        team = player['team']
+        
+        if pd.isna(opponent) or pd.isna(position):
+            continue
+        
+        team_norm = normalize_team(team)
+        player_stats = stats_norm[(stats_norm['player_name'] == player_name) & (stats_norm['team_norm'] == team_norm)]
+        if len(player_stats) == 0:
+            continue
+        player_stats = player_stats.iloc[0]
+        
+        opp_dvp = dvp_df[(dvp_df['team'] == opponent) & (dvp_df['position'] == position)]
+        if len(opp_dvp) == 0:
+            continue
+        opp_dvp = opp_dvp.iloc[0]
+        
+        for stat_key, (col, label, fp_mult, min_avg) in stat_config.items():
+            player_avg = player_stats.get(col, 0)
+            if pd.isna(player_avg) or player_avg < min_avg:
+                continue
+            
+            opp_allows = opp_dvp.get(stat_key, 0)
+            all_pos_dvp = dvp_df[dvp_df['position'] == position]
+            if len(all_pos_dvp) == 0:
+                continue
+            
+            league_avg = all_pos_dvp[stat_key].mean()
+            extra_stat = opp_allows - league_avg
+            extra_fp = extra_stat * fp_mult
+            
+            if extra_fp >= 0.3:
+                props.append({
+                    'player': player_name,
+                    'team': team,
+                    'opponent': opponent,
+                    'salary': player['salary'],
+                    'value': round(player['value'], 2),
+                    'stat': label,
+                    'player_avg': round(player_avg, 1),
+                    'boosted_avg': round(player_avg + extra_stat, 1),
+                    'extra_fp': round(extra_fp, 1),
+                    'edge_pct': round((extra_stat / league_avg * 100) if league_avg > 0 else 0, 1),
+                    'recommendation': 'OVER'
+                })
     
     props_df = pd.DataFrame(props)
     if len(props_df) > 0:
-        props_df = props_df.sort_values('edge_pct', ascending=False)
+        props_df = props_df.sort_values('extra_fp', ascending=False)
     
     return props_df
 

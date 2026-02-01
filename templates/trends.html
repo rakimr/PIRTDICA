@@ -110,7 +110,7 @@
     {% if props %}
     <div class="trends-section">
         <h2>Prop Recommendations</h2>
-        <p class="chart-description">DVP-based edges on player props. Look for 3%+ edges.</p>
+        <p class="chart-description">High-volume players with favorable DVP matchups. Only shows stats where player has meaningful averages.</p>
         <div class="props-table">
             <table>
                 <thead>
@@ -120,7 +120,7 @@
                         <th>Stat</th>
                         <th>Avg</th>
                         <th>Boosted</th>
-                        <th>Edge</th>
+                        <th>+FP</th>
                         <th>Call</th>
                     </tr>
                 </thead>
@@ -132,7 +132,7 @@
                         <td>{{ prop.stat }}</td>
                         <td>{{ prop.player_avg }}</td>
                         <td>{{ prop.boosted_avg }}</td>
-                        <td class="edge-cell">+{{ prop.edge_pct }}%</td>
+                        <td class="edge-cell">+{{ prop.extra_fp }}</td>
                         <td class="over-cell">{{ prop.recommendation }}</td>
                     </tr>
                     {% endfor %}
