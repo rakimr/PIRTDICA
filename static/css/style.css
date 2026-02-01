@@ -1334,3 +1334,39 @@ a:hover {
     color: #666;
     font-weight: bold;
 }
+
+/* Mobile fixes for trends page */
+@media (max-width: 768px) {
+    .value-table,
+    .props-table,
+    .targeted-table {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .value-table table,
+    .props-table table,
+    .targeted-table table {
+        min-width: 600px;
+        font-size: 12px;
+    }
+    
+    .value-table th,
+    .value-table td,
+    .props-table th,
+    .props-table td,
+    .targeted-table th,
+    .targeted-table td {
+        padding: 6px 8px;
+        white-space: nowrap;
+    }
+    
+    .chart-container img {
+        max-width: 100%;
+        height: auto;
+    }
+    
+    .trends-section h2 {
+        font-size: 1.3rem;
+    }
+}
