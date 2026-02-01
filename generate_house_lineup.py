@@ -14,8 +14,13 @@ from backend.database import Base, engine
 from backend import models
 from utils.timezone import get_eastern_today, get_eastern_now
 
-def generate_house_lineup(force=False):
-    """Generate today's house lineup using Monte Carlo and save to DB."""
+def generate_house_lineup(force=False, exclude_teams=None):
+    """Generate today's house lineup using Monte Carlo and save to DB.
+    
+    Args:
+        force: Force regenerate even if contest exists
+        exclude_teams: List of team abbreviations to exclude (e.g. ['SA', 'DEN'])
+    """
     
     Base.metadata.create_all(bind=engine)
     Session = sessionmaker(bind=engine)
@@ -53,6 +58,12 @@ def generate_house_lineup(force=False):
         return
     
     print(f"Loaded {len(players_df)} players")
+    
+    # Filter out excluded teams
+    if exclude_teams:
+        before_count = len(players_df)
+        players_df = players_df[~players_df['team'].isin(exclude_teams)]
+        print(f"Excluded teams {exclude_teams}: filtered {before_count - len(players_df)} players")
     
     import sqlite3
     try:
@@ -157,5 +168,6 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--force', action='store_true', help='Force regenerate even if contest exists')
+    parser.add_argument('--exclude', nargs='+', help='Team abbreviations to exclude (e.g. SA DEN)')
     args = parser.parse_args()
-    generate_house_lineup(force=args.force)
+    generate_house_lineup(force=args.force, exclude_teams=args.exclude)
