@@ -134,6 +134,17 @@ def get_dvp_advantages(players_df, dvp_df, stats_df):
     
     return results
 
+def apply_chart_style(ax, title, xlabel, ylabel):
+    """Apply consistent black border styling to charts."""
+    ax.set_xlabel(xlabel, fontsize=12, color='black', fontweight='bold')
+    ax.set_ylabel(ylabel, fontsize=12, color='black', fontweight='bold')
+    ax.set_title(title, fontsize=14, fontweight='bold', color='black')
+    ax.tick_params(colors='black')
+    for spine in ax.spines.values():
+        spine.set_color('black')
+        spine.set_linewidth(2)
+    ax.grid(True, alpha=0.3, color='gray')
+
 def generate_value_chart(players_df, output_path='static/images/value_chart.png'):
     """Generate a value vs salary scatter plot."""
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
@@ -141,29 +152,29 @@ def generate_value_chart(players_df, output_path='static/images/value_chart.png'
     df = players_df.copy()
     
     fig, ax = plt.subplots(figsize=(12, 8))
+    fig.patch.set_facecolor('white')
+    ax.set_facecolor('white')
     
     colors = {'Punt': '#888888', 'Mid': '#555555', 'High': '#333333', 'Star': '#000000'}
     
     for tier in ['Punt', 'Mid', 'High', 'Star']:
         tier_df = df[df['salary_tier'] == tier]
         ax.scatter(tier_df['salary'], tier_df['value'], 
-                  c=colors[tier], label=tier, alpha=0.7, s=80)
+                  c=colors[tier], label=tier, alpha=0.7, s=80, edgecolors='black', linewidths=1)
     
     top_value = df.nlargest(5, 'value')
     for _, player in top_value.iterrows():
         ax.annotate(player['player_name'], 
                    (player['salary'], player['value']),
                    xytext=(5, 5), textcoords='offset points',
-                   fontsize=9, fontweight='bold')
+                   fontsize=9, fontweight='bold', color='black')
     
-    ax.set_xlabel('Salary ($)', fontsize=12)
-    ax.set_ylabel('Value (Proj FP per $1K)', fontsize=12)
-    ax.set_title('Player Value Analysis', fontsize=14, fontweight='bold')
-    ax.legend(title='Salary Tier')
-    ax.grid(True, alpha=0.3)
+    apply_chart_style(ax, 'Player Value Analysis', 'Salary ($)', 'Value (Proj FP per $1K)')
+    legend = ax.legend(title='Salary Tier', frameon=True, edgecolor='black')
+    legend.get_frame().set_linewidth(2)
     
     plt.tight_layout()
-    plt.savefig(output_path, dpi=150, facecolor='white')
+    plt.savefig(output_path, dpi=150, facecolor='white', edgecolor='black')
     plt.close()
     
     return output_path
@@ -175,27 +186,26 @@ def generate_upside_chart(players_df, output_path='static/images/upside_chart.pn
     df = players_df.copy()
     
     fig, ax = plt.subplots(figsize=(12, 8))
+    fig.patch.set_facecolor('white')
+    ax.set_facecolor('white')
     
-    ax.scatter(df['floor'], df['ceiling'], c='#333333', alpha=0.6, s=80)
+    ax.scatter(df['floor'], df['ceiling'], c='#333333', alpha=0.6, s=80, edgecolors='black', linewidths=1)
     
     min_val = min(df['floor'].min(), 0)
     max_val = df['ceiling'].max()
-    ax.plot([min_val, max_val], [min_val, max_val], 'k--', alpha=0.3, label='Equal Line')
+    ax.plot([min_val, max_val], [min_val, max_val], 'k--', alpha=0.5, linewidth=2, label='Equal Line')
     
     high_upside = df.nlargest(5, 'upside_ratio')
     for _, player in high_upside.iterrows():
         ax.annotate(player['player_name'],
                    (player['floor'], player['ceiling']),
                    xytext=(5, 5), textcoords='offset points',
-                   fontsize=9, fontweight='bold', color='#000000')
+                   fontsize=9, fontweight='bold', color='black')
     
-    ax.set_xlabel('Floor (FP)', fontsize=12)
-    ax.set_ylabel('Ceiling (FP)', fontsize=12)
-    ax.set_title('Player Upside Analysis (Ceiling vs Floor)', fontsize=14, fontweight='bold')
-    ax.grid(True, alpha=0.3)
+    apply_chart_style(ax, 'Player Upside Analysis (Ceiling vs Floor)', 'Floor (FP)', 'Ceiling (FP)')
     
     plt.tight_layout()
-    plt.savefig(output_path, dpi=150, facecolor='white')
+    plt.savefig(output_path, dpi=150, facecolor='white', edgecolor='black')
     plt.close()
     
     return output_path
@@ -215,28 +225,36 @@ def generate_dvp_heatmap(dvp_df, output_path='static/images/dvp_heatmap.png'):
         return None
     
     fig, ax = plt.subplots(figsize=(10, 14))
+    fig.patch.set_facecolor('white')
+    ax.set_facecolor('white')
     
     im = ax.imshow(pivot.values, cmap='RdYlGn', aspect='auto', vmin=40, vmax=60)
     
     ax.set_xticks(range(len(pivot.columns)))
-    ax.set_xticklabels(pivot.columns, rotation=45, ha='right')
+    ax.set_xticklabels(pivot.columns, rotation=45, ha='right', fontweight='bold', color='black')
     ax.set_yticks(range(len(pivot.index)))
-    ax.set_yticklabels(pivot.index)
+    ax.set_yticklabels(pivot.index, fontweight='bold', color='black')
     
     for i in range(len(pivot.index)):
         for j in range(len(pivot.columns)):
             val = pivot.iloc[i, j]
             if pd.notna(val):
                 ax.text(j, i, f'{val:.1f}', ha='center', va='center', 
-                       fontsize=8, color='black' if 45 < val < 55 else 'white')
+                       fontsize=8, fontweight='bold', color='black' if 45 < val < 55 else 'white')
+    
+    for spine in ax.spines.values():
+        spine.set_color('black')
+        spine.set_linewidth(2)
     
     cbar = plt.colorbar(im, ax=ax)
-    cbar.set_label('DVP Score (Higher = Easier Matchup)')
+    cbar.set_label('DVP Score (Higher = Easier Matchup)', fontweight='bold', color='black')
+    cbar.outline.set_color('black')
+    cbar.outline.set_linewidth(2)
     
-    ax.set_title('Defense vs Position - Stat Category Heatmap', fontsize=14, fontweight='bold')
+    ax.set_title('Defense vs Position - Matchup Heatmap', fontsize=14, fontweight='bold', color='black')
     
     plt.tight_layout()
-    plt.savefig(output_path, dpi=150, facecolor='white')
+    plt.savefig(output_path, dpi=150, facecolor='white', edgecolor='black')
     plt.close()
     
     return output_path

@@ -1184,3 +1184,104 @@ a:hover {
         margin-left: 0;
     }
 }
+
+/* Trends Page */
+.trends-page {
+    padding: 2rem 0;
+}
+
+.trends-page .page-title {
+    font-family: 'Righteous', cursive;
+    font-size: 2.5rem;
+    text-align: center;
+    margin-bottom: 0.5rem;
+}
+
+.trends-page .page-subtitle {
+    text-align: center;
+    color: var(--text-muted);
+    margin-bottom: 3rem;
+}
+
+.trends-section {
+    background: var(--bg-card);
+    border: 2px solid var(--primary);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.trends-section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 0.5rem;
+}
+
+.chart-description {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.chart-container {
+    text-align: center;
+    overflow-x: auto;
+}
+
+.trend-chart {
+    max-width: 100%;
+    height: auto;
+    border: 2px solid #000;
+    border-radius: 4px;
+}
+
+.trend-chart.dvp-heatmap {
+    max-width: 600px;
+}
+
+.value-table table,
+.props-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.value-table th,
+.value-table td,
+.props-table th,
+.props-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.value-table th,
+.props-table th {
+    background: var(--primary);
+    color: white;
+    font-weight: bold;
+}
+
+.value-table tr:hover,
+.props-table tr:hover {
+    background: var(--bg-input);
+}
+
+.value-cell {
+    font-weight: bold;
+    color: var(--primary);
+}
+
+.edge-cell {
+    font-weight: bold;
+    color: #166534;
+}
+
+.over-cell {
+    font-weight: bold;
+    background: #000;
+    color: #fff;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    display: inline-block;
+}

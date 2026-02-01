@@ -198,6 +198,35 @@ async def logout(request: Request, db: Session = Depends(get_db)):
     response.delete_cookie("session_token")
     return response
 
+@app.get("/trends")
+async def trends(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    import pandas as pd
+    import time
+    
+    top_value = []
+    props = []
+    
+    try:
+        valued_df = pd.read_csv("dfs_players_valued.csv")
+        top_value = valued_df.nlargest(10, 'value')[['player_name', 'team', 'salary', 'proj_fp', 'value', 'salary_tier']].to_dict('records')
+    except:
+        pass
+    
+    try:
+        props_df = pd.read_csv("prop_recommendations.csv")
+        props = props_df.head(15).to_dict('records')
+    except:
+        pass
+    
+    return templates.TemplateResponse("trends.html", {
+        "request": request,
+        "user": user,
+        "top_value": top_value,
+        "props": props,
+        "cache_bust": int(time.time())
+    })
+
 @app.get("/leaderboard")
 async def leaderboard(request: Request, period: str = "daily", db: Session = Depends(get_db)):
     user = get_current_user(request, db)

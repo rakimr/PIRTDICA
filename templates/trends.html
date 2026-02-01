@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Trends - PIRTDICA{% endblock %}
+
+{% block content %}
+<div class="trends-page">
+    <h1 class="page-title">PIRTDICA TRENDS</h1>
+    <p class="page-subtitle">Data-driven analysis for today's slate</p>
+    
+    <div class="trends-section">
+        <h2>Player Value Analysis</h2>
+        <p class="chart-description">Projected fantasy points per $1K salary. Higher value = better bang for your buck.</p>
+        <div class="chart-container">
+            <img src="/static/images/value_chart.png?v={{ cache_bust }}" alt="Player Value Analysis" class="trend-chart">
+        </div>
+    </div>
+    
+    <div class="trends-section">
+        <h2>Upside vs Floor</h2>
+        <p class="chart-description">Ceiling potential vs floor safety. Players above the line have boom potential.</p>
+        <div class="chart-container">
+            <img src="/static/images/upside_chart.png?v={{ cache_bust }}" alt="Upside Analysis" class="trend-chart">
+        </div>
+    </div>
+    
+    <div class="trends-section">
+        <h2>Defense vs Position Matchups</h2>
+        <p class="chart-description">Green = soft matchup (target). Red = tough matchup (avoid).</p>
+        <div class="chart-container">
+            <img src="/static/images/dvp_heatmap.png?v={{ cache_bust }}" alt="DVP Heatmap" class="trend-chart dvp-heatmap">
+        </div>
+    </div>
+    
+    {% if top_value %}
+    <div class="trends-section">
+        <h2>Top Value Plays</h2>
+        <div class="value-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        <th>Team</th>
+                        <th>Salary</th>
+                        <th>Proj FP</th>
+                        <th>Value</th>
+                        <th>Tier</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for player in top_value %}
+                    <tr>
+                        <td>{{ player.player_name }}</td>
+                        <td>{{ player.team }}</td>
+                        <td>${{ "{:,}".format(player.salary|int) }}</td>
+                        <td>{{ "%.1f"|format(player.proj_fp) }}</td>
+                        <td class="value-cell">{{ "%.2f"|format(player.value) }}</td>
+                        <td>{{ player.salary_tier }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if props %}
+    <div class="trends-section">
+        <h2>Prop Recommendations</h2>
+        <p class="chart-description">DVP-based edges on player props. Look for 3%+ edges.</p>
+        <div class="props-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        <th>vs</th>
+                        <th>Stat</th>
+                        <th>Avg</th>
+                        <th>Boosted</th>
+                        <th>Edge</th>
+                        <th>Call</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for prop in props %}
+                    <tr>
+                        <td>{{ prop.player }}</td>
+                        <td>{{ prop.opponent }}</td>
+                        <td>{{ prop.stat }}</td>
+                        <td>{{ prop.player_avg }}</td>
+                        <td>{{ prop.boosted_avg }}</td>
+                        <td class="edge-cell">+{{ prop.edge_pct }}%</td>
+                        <td class="over-cell">{{ prop.recommendation }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
