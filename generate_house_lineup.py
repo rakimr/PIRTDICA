@@ -14,7 +14,7 @@ from backend.database import Base, engine
 from backend import models
 from utils.timezone import get_eastern_today, get_eastern_now
 
-def generate_house_lineup():
+def generate_house_lineup(force=False):
     """Generate today's house lineup using Monte Carlo and save to DB."""
     
     Base.metadata.create_all(bind=engine)
@@ -25,9 +25,21 @@ def generate_house_lineup():
     
     existing = db.query(models.Contest).filter(models.Contest.slate_date == today).first()
     if existing:
-        print(f"Contest already exists for {today}")
-        db.close()
-        return
+        if force:
+            print(f"Force refresh: deleting existing contest for {today}")
+            db.query(models.HouseLineupPlayer).filter(models.HouseLineupPlayer.contest_id == existing.id).delete()
+            db.query(models.EntryPlayer).filter(
+                models.EntryPlayer.entry_id.in_(
+                    db.query(models.ContestEntry.id).filter(models.ContestEntry.contest_id == existing.id)
+                )
+            ).delete(synchronize_session=False)
+            db.query(models.ContestEntry).filter(models.ContestEntry.contest_id == existing.id).delete()
+            db.query(models.Contest).filter(models.Contest.id == existing.id).delete()
+            db.commit()
+        else:
+            print(f"Contest already exists for {today}")
+            db.close()
+            return
     
     try:
         players_df = pd.read_csv("dfs_players.csv")
@@ -142,4 +154,8 @@ def generate_house_lineup():
     db.close()
 
 if __name__ == "__main__":
-    generate_house_lineup()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--force', action='store_true', help='Force regenerate even if contest exists')
+    args = parser.parse_args()
+    generate_house_lineup(force=args.force)
