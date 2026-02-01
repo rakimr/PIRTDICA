@@ -59,6 +59,18 @@ def normalize_name(name):
 def get_player_headshots():
     import sqlite3
     headshots = {}
+    name_aliases = {
+        "Luka Doncic": "doncilu01",
+        "Nikola Jokic": "jokicni01",
+        "Bogdan Bogdanovic": "bogdabo01",
+        "Bojan Bogdanovic": "bogdabo02",
+        "Nikola Vucevic": "vlovenucevo01",
+        "Jonas Valanciunas": "valanjo01",
+        "Domantas Sabonis": "sabondo01",
+        "Kristaps Porzingis": "paborni01",
+    }
+    for name, bbref_id in name_aliases.items():
+        headshots[name] = f"https://www.basketball-reference.com/req/202106291/images/headshots/{bbref_id}.jpg"
     try:
         conn = sqlite3.connect("dfs_nba.db")
         cursor = conn.cursor()
@@ -70,6 +82,9 @@ def get_player_headshots():
             normalized = normalize_name(original_name)
             if normalized != original_name:
                 headshots[normalized] = url
+            base_name = original_name.replace(" Jr.", "").replace(" Sr.", "").replace(" III", "").replace(" II", "").replace(" IV", "").strip()
+            if base_name != original_name:
+                headshots[base_name] = url
         conn.close()
     except:
         pass
