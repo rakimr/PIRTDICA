@@ -219,11 +219,19 @@ async def trends(request: Request, db: Session = Depends(get_db)):
     except:
         pass
     
+    targeted = []
+    try:
+        targeted_df = pd.read_csv("targeted_plays.csv")
+        targeted = targeted_df.head(20).to_dict('records')
+    except:
+        pass
+    
     return templates.TemplateResponse("trends.html", {
         "request": request,
         "user": user,
         "top_value": top_value,
         "props": props,
+        "targeted": targeted,
         "cache_bust": int(time.time())
     })
 

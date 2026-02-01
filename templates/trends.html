@@ -63,6 +63,41 @@
     </div>
     {% endif %}
     
+    {% if targeted %}
+    <div class="trends-section">
+        <h2>Targeted Stat Plays</h2>
+        <p class="chart-description">High-usage players facing teams that give up specific stats. Format: "OPP gives up X% more STAT to POSITION"</p>
+        <div class="targeted-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        <th>Pos</th>
+                        <th>vs</th>
+                        <th>Stat</th>
+                        <th>Avg</th>
+                        <th>Edge</th>
+                        <th>Matchup Note</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for play in targeted %}
+                    <tr>
+                        <td>{{ play.player_name }}</td>
+                        <td>{{ play.position }}</td>
+                        <td>{{ play.opponent }}</td>
+                        <td>{{ play.stat }}</td>
+                        <td>{{ play.player_avg }}</td>
+                        <td class="edge-cell">+{{ play.edge_pct }}%</td>
+                        <td class="matchup-note">{{ play.recommendation }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    
     {% if props %}
     <div class="trends-section">
         <h2>Prop Recommendations</h2>

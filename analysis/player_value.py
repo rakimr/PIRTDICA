@@ -290,6 +290,111 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=5.0, top_n
     
     return props_df
 
+def get_stat_matchups(dvp_df, players_df, stats_df):
+    """Find best stat matchups: which teams give up most of each stat by position."""
+    
+    stat_cols = ['pts', 'reb', 'ast', 'stl', 'blk', 'three_pm']
+    stat_names = {'pts': 'Points', 'reb': 'Rebounds', 'ast': 'Assists', 
+                  'stl': 'Steals', 'blk': 'Blocks', 'three_pm': '3-Pointers'}
+    
+    matchups = []
+    
+    for position in ['PG', 'SG', 'SF', 'PF', 'C']:
+        pos_dvp = dvp_df[dvp_df['position'] == position].copy()
+        if len(pos_dvp) == 0:
+            continue
+            
+        for stat in stat_cols:
+            if stat not in pos_dvp.columns:
+                continue
+            top_givers = pos_dvp.nlargest(5, stat)
+            
+            for _, row in top_givers.iterrows():
+                matchups.append({
+                    'position': position,
+                    'stat': stat_names.get(stat, stat),
+                    'stat_key': stat,
+                    'opponent': row['team'],
+                    'allowed': round(row[stat], 1),
+                    'dvp_score': round(row.get('dvp_score', 50), 1)
+                })
+    
+    matchups_df = pd.DataFrame(matchups)
+    return matchups_df
+
+def get_targeted_plays(players_df, stats_df, dvp_df):
+    """Link high-usage players to favorable stat matchups."""
+    
+    players_norm = players_df.copy()
+    stats_norm = stats_df.copy()
+    players_norm['team_norm'] = players_norm['team'].apply(normalize_team)
+    stats_norm['team_norm'] = stats_norm['team'].apply(normalize_team)
+    
+    merged = players_norm.merge(
+        stats_norm,
+        left_on=['player_name', 'team_norm'],
+        right_on=['player_name', 'team_norm'],
+        how='left',
+        suffixes=('', '_stats')
+    )
+    
+    stat_mapping = {
+        'pts': ('pts_pg', 'Points'),
+        'reb': ('reb_pg', 'Rebounds'),
+        'ast': ('ast_pg', 'Assists'),
+        'stl': ('stl_pg', 'Steals'),
+        'blk': ('blk_pg', 'Blocks')
+    }
+    
+    targeted = []
+    
+    for _, player in merged.iterrows():
+        opponent = player.get('opponent')
+        position = player.get('true_position')
+        
+        if pd.isna(opponent) or pd.isna(position):
+            continue
+        
+        opp_dvp = dvp_df[(dvp_df['team'] == opponent) & (dvp_df['position'] == position)]
+        if len(opp_dvp) == 0:
+            continue
+        opp_dvp = opp_dvp.iloc[0]
+        
+        for stat_key, (player_col, stat_name) in stat_mapping.items():
+            player_avg = player.get(player_col, 0)
+            opp_allows = opp_dvp.get(stat_key, 0)
+            
+            if pd.isna(player_avg) or player_avg == 0:
+                continue
+            
+            all_pos_dvp = dvp_df[dvp_df['position'] == position]
+            if len(all_pos_dvp) == 0:
+                continue
+            
+            league_avg = all_pos_dvp[stat_key].mean()
+            pct_above_avg = ((opp_allows - league_avg) / league_avg * 100) if league_avg > 0 else 0
+            
+            if pct_above_avg >= 5:
+                targeted.append({
+                    'player_name': player['player_name'],
+                    'team': player['team'],
+                    'opponent': opponent,
+                    'position': position,
+                    'salary': player['salary'],
+                    'stat': stat_name,
+                    'player_avg': round(player_avg, 1),
+                    'opp_allows': round(opp_allows, 1),
+                    'league_avg': round(league_avg, 1),
+                    'edge_pct': round(pct_above_avg, 1),
+                    'recommendation': f"{opponent} gives up {round(pct_above_avg)}% more {stat_name} to {position}s"
+                })
+    
+    targeted_df = pd.DataFrame(targeted)
+    if len(targeted_df) > 0:
+        targeted_df = targeted_df.sort_values('edge_pct', ascending=False)
+    
+    return targeted_df
+
 def run_analysis():
     """Run full analysis and generate all outputs."""
     print("Loading data...")
@@ -321,6 +426,17 @@ def run_analysis():
         print("\nSaved prop recommendations to prop_recommendations.csv")
     else:
         print("No prop recommendations available (need opponent data)")
+    
+    print("\nGenerating targeted stat plays...")
+    targeted_df = get_targeted_plays(valued_df, per100_df, dvp_df)
+    
+    if len(targeted_df) > 0:
+        print("\n=== TARGETED STAT PLAYS ===")
+        print(targeted_df.head(15)[['player_name', 'position', 'stat', 'player_avg', 'edge_pct', 'recommendation']].to_string(index=False))
+        targeted_df.to_csv("targeted_plays.csv", index=False)
+        print("\nSaved targeted plays to targeted_plays.csv")
+    else:
+        print("No targeted plays available")
     
     print("\nGenerating charts...")
     try:

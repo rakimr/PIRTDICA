@@ -1285,3 +1285,31 @@ a:hover {
     border-radius: 4px;
     display: inline-block;
 }
+
+.targeted-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.targeted-table th,
+.targeted-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.targeted-table th {
+    background: var(--primary);
+    color: white;
+    font-weight: bold;
+}
+
+.targeted-table tr:hover {
+    background: var(--bg-input);
+}
+
+.matchup-note {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-style: italic;
+}

@@ -1,0 +1,16 @@
+player_name,team,opponent,position,salary,stat,player_avg,opp_allows,league_avg,edge_pct,recommendation
+Victor Wembanyama,SA,ORL,C,11700,Blocks,2.7,2.4,2.0,22.2,ORL gives up 22% more Blocks to Cs
+Bismack Biyombo,SA,ORL,C,3500,Blocks,0.1,2.4,2.0,22.2,ORL gives up 22% more Blocks to Cs
+Luke Kornet,SA,ORL,C,4700,Blocks,1.3,2.4,2.0,22.2,ORL gives up 22% more Blocks to Cs
+Harrison Barnes,SA,ORL,PF,3900,Blocks,0.1,1.5,1.3,19.4,ORL gives up 19% more Blocks to PFs
+Carter Bryant,SA,ORL,PF,3600,Blocks,0.1,1.5,1.3,19.4,ORL gives up 19% more Blocks to PFs
+Dylan Harper,SA,ORL,SG,4400,Blocks,0.3,0.7,0.6,14.8,ORL gives up 15% more Blocks to SGs
+Devin Vassell,SA,ORL,SG,4600,Blocks,0.4,0.7,0.6,14.8,ORL gives up 15% more Blocks to SGs
+Julian Champagnie,SA,ORL,SF,5200,Blocks,0.4,0.9,0.8,14.4,ORL gives up 14% more Blocks to SFs
+Keldon Johnson,SA,ORL,SF,5100,Blocks,0.1,0.9,0.8,14.4,ORL gives up 14% more Blocks to SFs
+De'Aaron Fox,SA,ORL,PG,7500,Points,20.2,27.1,24.1,12.6,ORL gives up 13% more Points to PGs
+Stephon Castle,SA,ORL,PG,7400,Points,16.6,27.1,24.1,12.6,ORL gives up 13% more Points to PGs
+Jordan McLaughlin,SA,ORL,PG,3500,Points,2.1,27.1,24.1,12.6,ORL gives up 13% more Points to PGs
+De'Aaron Fox,SA,ORL,PG,7500,Assists,6.0,8.8,8.4,5.4,ORL gives up 5% more Assists to PGs
+Stephon Castle,SA,ORL,PG,7400,Assists,7.0,8.8,8.4,5.4,ORL gives up 5% more Assists to PGs
+Jordan McLaughlin,SA,ORL,PG,3500,Assists,0.8,8.8,8.4,5.4,ORL gives up 5% more Assists to PGs
