@@ -350,7 +350,7 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n
             
             league_avg = all_pos_dvp[stat_key].mean()
             diff_stat = opp_allows - league_avg
-            diff_fp = abs(diff_stat) * fp_mult
+            diff_fp = diff_stat * fp_mult
             
             if diff_stat > 0 and player_avg >= min_over and diff_fp >= 0.3:
                 props.append({
@@ -366,7 +366,7 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n
                     'edge_pct': round((diff_stat / league_avg * 100) if league_avg > 0 else 0, 1),
                     'recommendation': 'OVER'
                 })
-            elif diff_stat < 0 and player_avg <= min_under and diff_fp >= 0.3:
+            elif diff_stat < 0 and player_avg <= min_under and diff_fp <= -0.3:
                 props.append({
                     'player': player_name,
                     'team': team,
@@ -383,7 +383,7 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n
     
     props_df = pd.DataFrame(props)
     if len(props_df) > 0:
-        props_df = props_df.sort_values('extra_fp', ascending=False)
+        props_df = props_df.sort_values('extra_fp', key=abs, ascending=False)
     
     return props_df
 
