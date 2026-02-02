@@ -1278,6 +1278,21 @@ a:hover {
     color: #000;
 }
 
+.fp-positive {
+    font-weight: bold;
+    color: #166534;
+}
+
+.fp-negative {
+    font-weight: bold;
+    color: #dc2626;
+}
+
+.fp-neutral {
+    font-weight: bold;
+    color: #000;
+}
+
 .over-cell {
     font-weight: bold;
     background: #000;
