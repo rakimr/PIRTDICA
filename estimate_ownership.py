@@ -175,7 +175,7 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description='Estimate projected ownership')
-    parser.add_argument('--iterations', type=int, default=100, help='Number of optimizer runs')
+    parser.add_argument('--iterations', type=int, default=1000, help='Number of optimizer runs (1000 = stable, 10000 = very good)')
     parser.add_argument('--min-minutes', type=int, default=15, help='Minimum projected minutes')
     parser.add_argument('--output', type=str, default='ownership_projections.csv', help='Output file')
     args = parser.parse_args()
