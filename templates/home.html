@@ -18,7 +18,11 @@
 
 {% if contest %}
 <section class="house-lineup-section">
+    {% if is_todays_contest %}
     <h2>Today's House Lineup</h2>
+    {% else %}
+    <h2>Latest House Lineup</h2>
+    {% endif %}
     <p class="subtitle">{{ contest.slate_date.strftime('%B %d, %Y') }}</p>
     
     {% if house_players %}

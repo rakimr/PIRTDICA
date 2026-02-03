@@ -96,6 +96,7 @@ async def home(request: Request, db: Session = Depends(get_db)):
     today = get_eastern_today()
     
     contest = db.query(models.Contest).filter(models.Contest.slate_date == today).first()
+    is_todays_contest = contest is not None
     
     if not contest:
         contest = db.query(models.Contest).order_by(models.Contest.slate_date.desc()).first()
@@ -133,7 +134,8 @@ async def home(request: Request, db: Session = Depends(get_db)):
         "house_players": house_players,
         "user_entry": user_entry,
         "headshots": headshots,
-        "no_games_today": no_games_today
+        "no_games_today": no_games_today,
+        "is_todays_contest": is_todays_contest
     })
 
 @app.get("/register")
