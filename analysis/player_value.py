@@ -146,11 +146,11 @@ def apply_chart_style(ax, title, xlabel, ylabel):
     ax.grid(True, alpha=0.3, color='gray')
 
 def generate_value_chart(players_df, output_path='static/images/value_chart.png'):
-    """Generate minutes vs projected FP scatter plot with value-based sizing."""
+    """Generate usage vs projected FP scatter plot with value-based sizing."""
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     
     df = players_df.copy()
-    df = df[df['projected_min'].notna() & df['proj_fp'].notna() & (df['projected_min'] > 10)]
+    df = df[df['usg_pct'].notna() & df['proj_fp'].notna() & (df['usg_pct'] > 10)]
     
     fig, ax = plt.subplots(figsize=(12, 8))
     fig.patch.set_facecolor('white')
@@ -163,14 +163,14 @@ def generate_value_chart(players_df, output_path='static/images/value_chart.png'
         if len(tier_df) == 0:
             continue
         sizes = tier_df['value'].clip(3, 10) * 15
-        ax.scatter(tier_df['projected_min'], tier_df['proj_fp'], 
+        ax.scatter(tier_df['usg_pct'], tier_df['proj_fp'], 
                   c=colors[tier], label=tier, alpha=0.7, s=sizes, 
                   edgecolors='black', linewidths=0.5)
     
     top_value = df.nlargest(5, 'value')
     for _, player in top_value.iterrows():
         ax.annotate(player['player_name'], 
-                   (player['projected_min'], player['proj_fp']),
+                   (player['usg_pct'], player['proj_fp']),
                    xytext=(5, 5), textcoords='offset points',
                    fontsize=9, fontweight='bold', color='black')
     
@@ -178,11 +178,11 @@ def generate_value_chart(players_df, output_path='static/images/value_chart.png'
     for _, player in top_fp.iterrows():
         if player['player_name'] not in top_value['player_name'].values:
             ax.annotate(player['player_name'], 
-                       (player['projected_min'], player['proj_fp']),
+                       (player['usg_pct'], player['proj_fp']),
                        xytext=(5, -8), textcoords='offset points',
                        fontsize=8, color='#444')
     
-    apply_chart_style(ax, 'Minutes vs Projected FP (size = value)', 'Projected Minutes', 'Projected Fantasy Points')
+    apply_chart_style(ax, 'Usage % vs Projected FP (size = value)', 'Usage Rate (%)', 'Projected Fantasy Points')
     legend = ax.legend(title='Salary Tier', frameon=True, edgecolor='black', loc='lower right')
     legend.get_frame().set_linewidth(2)
     
