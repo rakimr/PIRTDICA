@@ -264,6 +264,30 @@ df['omega'] = df.apply(calc_omega, axis=1)
 df['omega_weight'] = 0.95 + df['omega'] * 0.10
 
 df["proj_fp"] = df["base_fp"] * df["line_weight"] * df["dvp_weight"] * df["ref_weight"] * df["gp_weight"] * df["omega_weight"]
+
+try:
+    from sqlalchemy import create_engine
+    from utils.name_normalize import normalize_player_name
+    import os
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url:
+        pg_engine = create_engine(database_url)
+        adj_factors = pd.read_sql_query(
+            "SELECT player_name_normalized, adjustment_factor, sample_size FROM player_adjustment_factors WHERE sample_size >= 3",
+            pg_engine
+        )
+        if len(adj_factors) > 0:
+            adj_dict = dict(zip(adj_factors['player_name_normalized'], adj_factors['adjustment_factor']))
+            df['player_name_normalized'] = df['player_name'].apply(normalize_player_name)
+            df['ml_adjustment'] = df['player_name_normalized'].map(adj_dict).fillna(1.0)
+            df["proj_fp"] = df["proj_fp"] * df["ml_adjustment"]
+            adjusted_count = (df['ml_adjustment'] != 1.0).sum()
+            print(f"Applied ML adjustments to {adjusted_count} players based on historical performance")
+        else:
+            df['ml_adjustment'] = 1.0
+except Exception as e:
+    df['ml_adjustment'] = 1.0
+
 df["proj_fp"] = df["proj_fp"].round(2)
 
 df["ceiling"] = (df["proj_fp"] + 1.5 * df["fp_sd"]).round(1)

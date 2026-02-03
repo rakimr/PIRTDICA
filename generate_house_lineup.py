@@ -163,11 +163,15 @@ def generate_house_lineup(force=False, exclude_teams=None):
     
     contest.house_lineup_score = total_proj
     
+    from utils.name_normalize import normalize_player_name
+    
     snapshot_count = 0
     for _, player_data in players_df.iterrows():
+        raw_name = str(player_data.get('player_name', ''))
         snapshot = models.ProjectionSnapshot(
             contest_id=contest.id,
-            player_name=str(player_data.get('player_name', '')),
+            player_name=raw_name,
+            player_name_normalized=normalize_player_name(raw_name),
             team=str(player_data.get('team', '')),
             position=str(player_data.get('fd_position', player_data.get('position', ''))),
             salary=int(player_data.get('salary', 0)) if pd.notna(player_data.get('salary')) else None,

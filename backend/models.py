@@ -147,10 +147,12 @@ class LeaderboardCache(Base):
 class ProjectionSnapshot(Base):
     """Store historical player projections for ML training."""
     __tablename__ = "projection_snapshots"
+    __table_args__ = (UniqueConstraint('contest_id', 'player_name_normalized', name='unique_contest_player_snapshot'),)
     
     id = Column(Integer, primary_key=True, index=True)
     contest_id = Column(Integer, ForeignKey("contests.id"), nullable=False)
     player_name = Column(String(100), nullable=False, index=True)
+    player_name_normalized = Column(String(100), nullable=False, index=True)
     team = Column(String(10))
     position = Column(String(20))
     salary = Column(Integer)
@@ -173,7 +175,8 @@ class PlayerAdjustmentFactor(Base):
     __tablename__ = "player_adjustment_factors"
     
     id = Column(Integer, primary_key=True, index=True)
-    player_name = Column(String(100), unique=True, nullable=False, index=True)
+    player_name = Column(String(100), nullable=False)
+    player_name_normalized = Column(String(100), unique=True, nullable=False, index=True)
     sample_size = Column(Integer, default=0)
     avg_prediction_error = Column(Float, default=0)
     adjustment_factor = Column(Float, default=1.0)

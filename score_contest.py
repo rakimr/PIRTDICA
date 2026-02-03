@@ -70,17 +70,7 @@ def fetch_actual_stats(game_date: date) -> pd.DataFrame:
         print(f"Error fetching stats: {e}")
         return pd.DataFrame()
 
-def normalize_name(name: str) -> str:
-    """Normalize player name for matching."""
-    import unicodedata
-    name = unicodedata.normalize('NFKD', name)
-    name = name.encode('ASCII', 'ignore').decode('ASCII')
-    name = name.lower().strip()
-    suffixes = [' jr', ' jr.', ' sr', ' sr.', ' ii', ' iii', ' iv']
-    for suffix in suffixes:
-        if name.endswith(suffix):
-            name = name[:-len(suffix)]
-    return name
+from utils.name_normalize import normalize_player_name as normalize_name
 
 def score_contest(contest_date: date = None, force: bool = False):
     """Score a contest by updating actual FP values."""
@@ -118,7 +108,10 @@ def score_contest(contest_date: date = None, force: bool = False):
     name_to_fp = {}
     for _, row in actual_stats.iterrows():
         normalized = normalize_name(row['player_name'])
-        name_to_fp[normalized] = row['FP']
+        if normalized in name_to_fp:
+            name_to_fp[normalized] += row['FP']
+        else:
+            name_to_fp[normalized] = row['FP']
     
     house_players = db.query(models.HouseLineupPlayer).filter(
         models.HouseLineupPlayer.contest_id == contest.id
@@ -144,7 +137,7 @@ def score_contest(contest_date: date = None, force: bool = False):
     
     snapshot_matched = 0
     for snapshot in snapshots:
-        normalized = normalize_name(snapshot.player_name)
+        normalized = snapshot.player_name_normalized or normalize_name(snapshot.player_name)
         if normalized in name_to_fp:
             snapshot.actual_fp = name_to_fp[normalized]
             if snapshot.proj_fp and snapshot.proj_fp > 0:
@@ -198,16 +191,20 @@ def update_adjustment_factors():
     ).all()
     
     player_errors = {}
+    player_display_names = {}
     for snap in snapshots:
-        name = snap.player_name
-        if name not in player_errors:
-            player_errors[name] = []
+        normalized = snap.player_name_normalized or normalize_name(snap.player_name)
+        if normalized not in player_errors:
+            player_errors[normalized] = []
+            player_display_names[normalized] = snap.player_name
         error_pct = (snap.actual_fp - snap.proj_fp) / snap.proj_fp
-        player_errors[name].append(error_pct)
+        player_errors[normalized].append(error_pct)
     
     print(f"\nUpdating adjustment factors for {len(player_errors)} players...")
     
-    for player_name, errors in player_errors.items():
+    import statistics
+    
+    for normalized_name, errors in player_errors.items():
         if len(errors) < 3:
             continue
         
@@ -216,21 +213,24 @@ def update_adjustment_factors():
         adjustment = 1.0 + (avg_error * 0.5)
         adjustment = max(0.7, min(1.3, adjustment))
         
-        import statistics
         consistency = 1.0 / (1.0 + statistics.stdev(errors)) if len(errors) > 1 else 0.5
         
         existing = db.query(models.PlayerAdjustmentFactor).filter(
-            models.PlayerAdjustmentFactor.player_name == player_name
+            models.PlayerAdjustmentFactor.player_name_normalized == normalized_name
         ).first()
         
+        display_name = player_display_names.get(normalized_name, normalized_name)
+        
         if existing:
+            existing.player_name = display_name
             existing.sample_size = len(errors)
             existing.avg_prediction_error = avg_error
             existing.adjustment_factor = adjustment
             existing.consistency_score = consistency
         else:
             factor = models.PlayerAdjustmentFactor(
-                player_name=player_name,
+                player_name=display_name,
+                player_name_normalized=normalized_name,
                 sample_size=len(errors),
                 avg_prediction_error=avg_error,
                 adjustment_factor=adjustment,

@@ -6,6 +6,9 @@ This is an NBA Daily Fantasy Sports (DFS) projection and gaming platform operate
 
 ## Recent Changes (February 2026)
 
+- **ML Adjustment System** - Historical performance tracking adjusts projections based on actual vs predicted FP
+- **Projection Snapshots** - All player projections saved with each contest for training data
+- **Player Adjustment Factors** - Learned multipliers (0.7-1.3) correct systematic over/under-projection
 - **Blended DVP System** - Adaptive weighting combines full season and 30-day DvP data (60/40 base, volatility-adjusted)
 - **Prop Recommendations +/-FP** - Renamed columns and color-coded positive (green) / negative (red) FP values
 
