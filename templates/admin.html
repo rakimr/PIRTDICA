@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - PIRTDICA{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <h1>Data Control Panel</h1>
+    
+    <div class="admin-card">
+        <h2>Refresh All Data</h2>
+        <p>Run the complete daily update process to refresh player projections, injuries, odds, and all other data sources.</p>
+        
+        <div class="refresh-controls">
+            <button id="refreshBtn" class="btn-refresh" onclick="startRefresh()">
+                Refresh Data
+            </button>
+            
+            <div id="refreshStatus" class="refresh-status">
+                {% if refresh_status.running %}
+                    <span class="status-running">Running...</span>
+                {% elif refresh_status.success == true %}
+                    <span class="status-success">Last run completed successfully</span>
+                {% elif refresh_status.success == false %}
+                    <span class="status-error">Last run failed</span>
+                {% endif %}
+                
+                {% if refresh_status.last_run %}
+                    <span class="last-run">Last updated: {{ refresh_status.last_run[:19] }}</span>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div id="logContainer" class="log-container" style="display: {% if refresh_status.running or refresh_status.log %}block{% else %}none{% endif %};">
+            <h3>Update Log</h3>
+            <div id="logOutput" class="log-output">
+                {% for line in refresh_status.log[-50:] %}
+                <div>{{ line }}</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="admin-card">
+        <h2>Manual Injury Overrides</h2>
+        <p>Add players that are OUT but not showing in automated scrapers.</p>
+        
+        <form id="injuryForm" class="injury-form" onsubmit="addInjury(event)">
+            <input type="text" id="playerName" placeholder="Player Name (e.g. Pascal Siakam)" required>
+            <input type="text" id="injuryReason" placeholder="Reason (optional)" value="Manual override">
+            <button type="submit" class="btn-add">Add as OUT</button>
+        </form>
+        
+        <div id="injuryResult" class="injury-result"></div>
+    </div>
+    
+    <div class="admin-card">
+        <h2>Quick Links</h2>
+        <div class="quick-links">
+            <a href="/trends" class="quick-link">View Trends</a>
+            <a href="/" class="quick-link">View House Lineup</a>
+            <a href="/leaderboard" class="quick-link">View Leaderboard</a>
+        </div>
+    </div>
+</div>
+
+<style>
+.admin-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.admin-container h1 {
+    font-family: 'Righteous', cursive;
+    font-size: 2.5rem;
+    margin-bottom: 2rem;
+    color: #222;
+}
+
+.admin-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 1.5rem;
+}
+
+.admin-card h2 {
+    font-family: 'Marvel', sans-serif;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+.admin-card p {
+    color: #666;
+    margin-bottom: 1rem;
+}
+
+.refresh-controls {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.btn-refresh {
+    background: #222;
+    color: #fff;
+    border: none;
+    padding: 0.75rem 2rem;
+    font-size: 1.1rem;
+    font-family: 'Marvel', sans-serif;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-refresh:hover {
+    background: #444;
+}
+
+.btn-refresh:disabled {
+    background: #888;
+    cursor: not-allowed;
+}
+
+.btn-refresh.running {
+    background: #666;
+}
+
+.refresh-status {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.status-running {
+    color: #f59e0b;
+    font-weight: bold;
+}
+
+.status-success {
+    color: #10b981;
+}
+
+.status-error {
+    color: #ef4444;
+}
+
+.last-run {
+    color: #888;
+    font-size: 0.9rem;
+}
+
+.log-container {
+    margin-top: 1.5rem;
+    border-top: 1px solid #e0e0e0;
+    padding-top: 1rem;
+}
+
+.log-container h3 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    color: #555;
+}
+
+.log-output {
+    background: #1a1a1a;
+    color: #0f0;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    padding: 1rem;
+    border-radius: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.log-output div {
+    margin-bottom: 2px;
+}
+
+.injury-form {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.injury-form input {
+    flex: 1;
+    padding: 0.5rem 1rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-family: 'Marvel', sans-serif;
+}
+
+.btn-add {
+    background: #dc2626;
+    color: #fff;
+    border: none;
+    padding: 0.5rem 1.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Marvel', sans-serif;
+}
+
+.btn-add:hover {
+    background: #b91c1c;
+}
+
+.injury-result {
+    padding: 0.5rem;
+    border-radius: 6px;
+}
+
+.injury-result.success {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.injury-result.error {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.quick-links {
+    display: flex;
+    gap: 1rem;
+}
+
+.quick-link {
+    padding: 0.75rem 1.5rem;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    color: #333;
+    text-decoration: none;
+    font-family: 'Marvel', sans-serif;
+}
+
+.quick-link:hover {
+    background: #eee;
+}
+</style>
+
+<script>
+let pollInterval = null;
+
+function startRefresh() {
+    const btn = document.getElementById('refreshBtn');
+    const logContainer = document.getElementById('logContainer');
+    const logOutput = document.getElementById('logOutput');
+    const statusDiv = document.getElementById('refreshStatus');
+    
+    btn.disabled = true;
+    btn.textContent = 'Running...';
+    btn.classList.add('running');
+    logContainer.style.display = 'block';
+    logOutput.innerHTML = '<div>Starting data refresh...</div>';
+    statusDiv.innerHTML = '<span class="status-running">Running...</span>';
+    
+    fetch('/admin/refresh', {method: 'POST'})
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'already_running') {
+                logOutput.innerHTML += '<div>Refresh already in progress...</div>';
+            }
+            pollInterval = setInterval(pollStatus, 2000);
+        })
+        .catch(err => {
+            logOutput.innerHTML += '<div>Error: ' + err + '</div>';
+            btn.disabled = false;
+            btn.textContent = 'Refresh Data';
+            btn.classList.remove('running');
+        });
+}
+
+function pollStatus() {
+    fetch('/admin/refresh-status')
+        .then(r => r.json())
+        .then(data => {
+            const logOutput = document.getElementById('logOutput');
+            const btn = document.getElementById('refreshBtn');
+            const statusDiv = document.getElementById('refreshStatus');
+            
+            logOutput.innerHTML = data.log.map(line => '<div>' + escapeHtml(line) + '</div>').join('');
+            logOutput.scrollTop = logOutput.scrollHeight;
+            
+            if (!data.running) {
+                clearInterval(pollInterval);
+                btn.disabled = false;
+                btn.textContent = 'Refresh Data';
+                btn.classList.remove('running');
+                
+                if (data.success) {
+                    statusDiv.innerHTML = '<span class="status-success">Completed successfully!</span><span class="last-run">Last updated: ' + data.last_run.substring(0, 19) + '</span>';
+                } else {
+                    statusDiv.innerHTML = '<span class="status-error">Update failed - check log</span>';
+                }
+            }
+        });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function addInjury(event) {
+    event.preventDefault();
+    const playerName = document.getElementById('playerName').value;
+    const reason = document.getElementById('injuryReason').value || 'Manual override';
+    const resultDiv = document.getElementById('injuryResult');
+    
+    fetch('/admin/add-injury', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `player_name=${encodeURIComponent(playerName)}&reason=${encodeURIComponent(reason)}`
+    })
+    .then(r => r.json())
+    .then(data => {
+        resultDiv.className = 'injury-result ' + (data.success ? 'success' : 'error');
+        resultDiv.textContent = data.message;
+        if (data.success) {
+            document.getElementById('playerName').value = '';
+        }
+    })
+    .catch(err => {
+        resultDiv.className = 'injury-result error';
+        resultDiv.textContent = 'Error: ' + err;
+    });
+}
+
+if ({{ 'true' if refresh_status.running else 'false' }}) {
+    pollInterval = setInterval(pollStatus, 2000);
+}
+</script>
+{% endblock %}

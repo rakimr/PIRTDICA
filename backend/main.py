@@ -575,6 +575,107 @@ async def view_entry(request: Request, entry_id: int, db: Session = Depends(get_
     })
 
 from sqlalchemy import Integer
+import subprocess
+import threading
+
+refresh_status = {"running": False, "log": [], "last_run": None, "success": None}
+
+def run_daily_update():
+    global refresh_status
+    refresh_status["running"] = True
+    refresh_status["log"] = []
+    refresh_status["success"] = None
+    
+    try:
+        process = subprocess.Popen(
+            [sys.executable, "run_daily_update.py"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+        
+        for line in process.stdout:
+            refresh_status["log"].append(line.rstrip())
+            if len(refresh_status["log"]) > 200:
+                refresh_status["log"] = refresh_status["log"][-200:]
+        
+        process.wait()
+        refresh_status["success"] = process.returncode == 0
+        refresh_status["last_run"] = datetime.now().isoformat()
+    except Exception as e:
+        refresh_status["log"].append(f"Error: {str(e)}")
+        refresh_status["success"] = False
+    finally:
+        refresh_status["running"] = False
+
+@app.get("/admin")
+async def admin_page(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    return templates.TemplateResponse("admin.html", {
+        "request": request,
+        "user": user,
+        "refresh_status": refresh_status
+    })
+
+@app.post("/admin/refresh")
+async def trigger_refresh(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    
+    if refresh_status["running"]:
+        return {"status": "already_running", "message": "Refresh already in progress"}
+    
+    thread = threading.Thread(target=run_daily_update)
+    thread.start()
+    
+    return {"status": "started", "message": "Data refresh started"}
+
+@app.get("/admin/refresh-status")
+async def get_refresh_status(request: Request):
+    return {
+        "running": refresh_status["running"],
+        "log": refresh_status["log"][-50:],
+        "last_run": refresh_status["last_run"],
+        "success": refresh_status["success"]
+    }
+
+@app.post("/admin/add-injury")
+async def add_injury(request: Request, player_name: str = Form(...), reason: str = Form("Manual override")):
+    import sqlite3
+    from utils.name_normalize import normalize_player_name
+    
+    try:
+        normalized = normalize_player_name(player_name)
+        now = datetime.now().isoformat()
+        
+        conn = sqlite3.connect('dfs_nba.db')
+        
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS manual_injuries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                player_name TEXT UNIQUE,
+                status TEXT DEFAULT 'OUT',
+                reason TEXT,
+                added_at TEXT
+            )
+        """)
+        
+        conn.execute("""
+            INSERT OR REPLACE INTO manual_injuries (player_name, status, reason, added_at)
+            VALUES (?, 'OUT', ?, ?)
+        """, (normalized, reason, now))
+        
+        conn.execute("""
+            INSERT OR REPLACE INTO injury_alerts (player_name, status, reason, alert_title, scraped_at)
+            VALUES (?, 'OUT', ?, ?, ?)
+        """, (normalized, reason, f"MANUAL: {normalized} OUT", now))
+        
+        conn.commit()
+        conn.close()
+        
+        return {"success": True, "message": f"Added {normalized} as OUT ({reason})"}
+    except Exception as e:
+        return {"success": False, "message": f"Error: {str(e)}"}
 
 if __name__ == "__main__":
     import uvicorn

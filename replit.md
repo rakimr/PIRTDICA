@@ -6,6 +6,7 @@ This is an NBA Daily Fantasy Sports (DFS) projection and gaming platform operate
 
 ## Recent Changes (February 2026)
 
+- **Admin Control Panel** - Web-based data refresh button and manual injury override form at /admin
 - **Team Incentive Score** - Standings-based variance adjustment (must-win teams = lower σ, tanking teams = higher σ)
 - **Projected Ownership (pOwn%)** - Monte Carlo simulation (500+ iterations) estimates public ownership from optimizer frequency
 - **Excel-style Table Filtering** - Sortable columns and player search on Trends page tables
