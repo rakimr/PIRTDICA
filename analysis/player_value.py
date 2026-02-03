@@ -17,7 +17,7 @@ def load_data():
     players_df = pd.read_csv("dfs_players.csv")
     
     conn = sqlite3.connect("dfs_nba.db")
-    dvp_df = pd.read_sql_query("SELECT * FROM dvp_stats", conn)
+    dvp_df = pd.read_sql_query("SELECT * FROM dvp_blended", conn)
     stats_df = pd.read_sql_query("""
         SELECT player_name, team, pts_pg, reb_pg, ast_pg, stl_pg, blk_pg 
         FROM player_stats

@@ -15,7 +15,7 @@ if salaries.empty:
 
 rotation = pd.read_sql("SELECT * FROM rotation_minutes", conn)
 game_odds = pd.read_sql("SELECT * FROM game_odds", conn)
-dvp = pd.read_sql("SELECT * FROM dvp_stats", conn)
+dvp = pd.read_sql("SELECT * FROM dvp_blended", conn)
 game_foul_env = pd.read_sql("SELECT * FROM game_foul_environment", conn)
 hist_lines = pd.read_sql("SELECT team, AVG(team_line) as avg_team_line FROM historic_lines GROUP BY team", conn)
 player_stats = pd.read_sql("SELECT * FROM player_stats", conn)
