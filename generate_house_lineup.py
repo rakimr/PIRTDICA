@@ -135,7 +135,34 @@ def generate_house_lineup(force=False, exclude_teams=None):
     except Exception as e:
         print(f"Warning: Could not check game locks: {e}")
     
-    players_df['score'] = players_df['proj_fp']
+    try:
+        injury_df = pd.read_sql_query(
+            "SELECT player_name, status FROM injury_alerts WHERE status IN ('QUESTIONABLE', 'DOUBTFUL')",
+            sqlite3.connect("dfs_nba.db")
+        )
+        questionable_players = set(injury_df[injury_df['status'] == 'QUESTIONABLE']['player_name'].str.lower())
+        doubtful_players = set(injury_df[injury_df['status'] == 'DOUBTFUL']['player_name'].str.lower())
+        
+        QUESTIONABLE_PENALTY = 0.90  # 10% reduction
+        DOUBTFUL_PENALTY = 0.75      # 25% reduction
+        
+        def apply_injury_penalty(row):
+            name_lower = row['player_name'].lower()
+            if name_lower in doubtful_players:
+                return row['proj_fp'] * DOUBTFUL_PENALTY
+            elif name_lower in questionable_players:
+                return row['proj_fp'] * QUESTIONABLE_PENALTY
+            return row['proj_fp']
+        
+        players_df['score'] = players_df.apply(apply_injury_penalty, axis=1)
+        
+        q_count = sum(1 for name in players_df['player_name'].str.lower() if name in questionable_players)
+        d_count = sum(1 for name in players_df['player_name'].str.lower() if name in doubtful_players)
+        if q_count > 0 or d_count > 0:
+            print(f"Applied injury penalties: {q_count} Questionable (-10%), {d_count} Doubtful (-25%)")
+    except Exception as e:
+        print(f"Warning: Could not apply injury penalties: {e}")
+        players_df['score'] = players_df['proj_fp']
     
     try:
         from monte_carlo_optimizer import generate_diverse_lineups, simulate_outcomes, evaluate_lineups

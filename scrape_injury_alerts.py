@@ -42,14 +42,22 @@ soup = BeautifulSoup(response.text, "html.parser")
 alert_titles = soup.find_all("h3", class_="alert-title")
 print(f"Found {len(alert_titles)} alerts")
 
-out_players = []
+injury_players = []
 new_alerts = 0
 
 for alert in alert_titles:
     title = alert.get_text(strip=True)
     title_lower = title.lower()
     
+    status = None
     if " out " in title_lower or title_lower.endswith(" out") or title_lower.endswith(" out."):
+        status = "OUT"
+    elif "questionable" in title_lower or "gtd" in title_lower or "game-time" in title_lower:
+        status = "QUESTIONABLE"
+    elif "doubtful" in title_lower:
+        status = "DOUBTFUL"
+    
+    if status:
         match = re.match(r'^([A-Za-z\'\-\. ]+?)\s*\(', title)
         if match:
             player_name = match.group(1).strip()
@@ -64,15 +72,15 @@ for alert in alert_titles:
             cursor.execute("""
                 INSERT OR IGNORE INTO injury_alerts (player_name, status, reason, alert_title, scraped_at)
                 VALUES (?, ?, ?, ?, ?)
-            """, (player_name, "OUT", reason, title, datetime.utcnow().isoformat()))
+            """, (player_name, status, reason, title, datetime.utcnow().isoformat()))
             
             if cursor.rowcount > 0:
                 new_alerts += 1
-                print(f"  NEW: {player_name} - OUT ({reason})")
+                print(f"  NEW: {player_name} - {status} ({reason})")
             
-            out_players.append({
+            injury_players.append({
                 "player_name": player_name,
-                "status": "OUT",
+                "status": status,
                 "reason": reason,
                 "title": title
             })
@@ -81,11 +89,18 @@ for alert in alert_titles:
 
 conn.commit()
 
-print(f"\nInjury alerts scraped. {len(out_players)} players marked OUT, {new_alerts} new alerts.")
+out_count = sum(1 for p in injury_players if p['status'] == 'OUT')
+questionable_count = sum(1 for p in injury_players if p['status'] == 'QUESTIONABLE')
+doubtful_count = sum(1 for p in injury_players if p['status'] == 'DOUBTFUL')
 
-if out_players:
-    print("\n=== Players OUT Today ===")
-    for p in out_players:
-        print(f"  {p['player_name']}: {p['reason']}")
+print(f"\nInjury alerts scraped: {out_count} OUT, {questionable_count} QUESTIONABLE, {doubtful_count} DOUBTFUL ({new_alerts} new)")
+
+if injury_players:
+    for status_type in ['OUT', 'DOUBTFUL', 'QUESTIONABLE']:
+        status_players = [p for p in injury_players if p['status'] == status_type]
+        if status_players:
+            print(f"\n=== Players {status_type} Today ===")
+            for p in status_players:
+                print(f"  {p['player_name']}: {p['reason']}")
 
 conn.close()
