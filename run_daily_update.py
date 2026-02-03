@@ -20,6 +20,7 @@ SCRIPTS = [
     ("dfs_players.py", "DFS Player Projections"),
     ("analysis/player_value.py", "Player Value Analysis"),
     ("estimate_ownership.py --iterations 500", "Ownership Estimation"),
+    ("generate_house_lineup.py --force", "House Lineup Generation"),
 ]
 
 def run_script(script_name, description):
