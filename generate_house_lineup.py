@@ -97,14 +97,35 @@ def generate_house_lineup(force=False, exclude_teams=None):
                         pass
             return False
         
+        def is_late_game(team, opponent):
+            """Check if game starts at 10 PM or 11 PM ET"""
+            for game_key, game_time_str in game_times.items():
+                if team in game_key and opponent in game_key:
+                    try:
+                        game_dt = datetime.strptime(game_time_str, "%I:%M%p")
+                        if game_dt.hour >= 22:  # 10 PM or later
+                            return True
+                    except:
+                        pass
+            return False
+        
         players_df['is_locked'] = players_df.apply(
             lambda row: is_game_locked(row['team'], row['opponent']), axis=1
+        )
+        
+        players_df['is_late_game'] = players_df.apply(
+            lambda row: is_late_game(row['team'], row['opponent']), axis=1
         )
         
         locked_count = players_df['is_locked'].sum()
         if locked_count > 0:
             print(f"Filtering out {locked_count} players from locked games")
             players_df = players_df[~players_df['is_locked']]
+        
+        late_count = players_df['is_late_game'].sum()
+        if late_count > 0:
+            print(f"Filtering out {late_count} players from late games (10PM+ ET)")
+            players_df = players_df[~players_df['is_late_game']]
         
         if len(players_df) == 0:
             print("No unlocked players available")
