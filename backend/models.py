@@ -143,3 +143,39 @@ class LeaderboardCache(Base):
     winrate = Column(Float, default=0)
     total_score = Column(Float, default=0)
     rank = Column(Integer, default=0)
+
+class ProjectionSnapshot(Base):
+    """Store historical player projections for ML training."""
+    __tablename__ = "projection_snapshots"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    contest_id = Column(Integer, ForeignKey("contests.id"), nullable=False)
+    player_name = Column(String(100), nullable=False, index=True)
+    team = Column(String(10))
+    position = Column(String(20))
+    salary = Column(Integer)
+    proj_min = Column(Float)
+    proj_fp = Column(Float)
+    actual_fp = Column(Float)
+    fp_sd = Column(Float)
+    usg_pct = Column(Float)
+    dvp_weight = Column(Float)
+    ref_weight = Column(Float)
+    line_weight = Column(Float)
+    omega = Column(Float)
+    prediction_error = Column(Float)
+    created_at = Column(DateTime, server_default=func.now())
+    
+    contest = relationship("Contest")
+
+class PlayerAdjustmentFactor(Base):
+    """Store learned adjustment factors per player based on historical performance."""
+    __tablename__ = "player_adjustment_factors"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    player_name = Column(String(100), unique=True, nullable=False, index=True)
+    sample_size = Column(Integer, default=0)
+    avg_prediction_error = Column(Float, default=0)
+    adjustment_factor = Column(Float, default=1.0)
+    consistency_score = Column(Float, default=0)
+    last_updated = Column(DateTime, server_default=func.now(), onupdate=func.now())
