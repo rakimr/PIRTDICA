@@ -59,6 +59,12 @@ def generate_house_lineup(force=False, exclude_teams=None):
     
     print(f"Loaded {len(players_df)} players")
     
+    # Filter out players with missing salary
+    before_count = len(players_df)
+    players_df = players_df[players_df['salary'].notna() & (players_df['salary'] > 0)]
+    if before_count > len(players_df):
+        print(f"Filtered {before_count - len(players_df)} players with missing salary")
+    
     # Filter out excluded teams
     if exclude_teams:
         before_count = len(players_df)
