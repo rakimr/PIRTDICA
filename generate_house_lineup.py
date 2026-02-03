@@ -39,6 +39,7 @@ def generate_house_lineup(force=False, exclude_teams=None):
                 )
             ).delete(synchronize_session=False)
             db.query(models.ContestEntry).filter(models.ContestEntry.contest_id == existing.id).delete()
+            db.query(models.ProjectionSnapshot).filter(models.ProjectionSnapshot.contest_id == existing.id).delete()
             db.query(models.Contest).filter(models.Contest.id == existing.id).delete()
             db.commit()
         else:
