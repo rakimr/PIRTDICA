@@ -162,11 +162,33 @@ def generate_house_lineup(force=False, exclude_teams=None):
         total_proj += float(player_data.get('proj_fp', 0))
     
     contest.house_lineup_score = total_proj
+    
+    snapshot_count = 0
+    for _, player_data in players_df.iterrows():
+        snapshot = models.ProjectionSnapshot(
+            contest_id=contest.id,
+            player_name=str(player_data.get('player_name', '')),
+            team=str(player_data.get('team', '')),
+            position=str(player_data.get('fd_position', player_data.get('position', ''))),
+            salary=int(player_data.get('salary', 0)) if pd.notna(player_data.get('salary')) else None,
+            proj_min=float(player_data.get('projected_min', 0)) if pd.notna(player_data.get('projected_min')) else None,
+            proj_fp=float(player_data.get('proj_fp', 0)) if pd.notna(player_data.get('proj_fp')) else None,
+            fp_sd=float(player_data.get('fp_sd', 0)) if pd.notna(player_data.get('fp_sd')) else None,
+            usg_pct=float(player_data.get('usg_pct', 0)) if pd.notna(player_data.get('usg_pct')) else None,
+            dvp_weight=float(player_data.get('dvp_weight', 1.0)) if pd.notna(player_data.get('dvp_weight')) else None,
+            ref_weight=float(player_data.get('ref_weight', 1.0)) if pd.notna(player_data.get('ref_weight')) else None,
+            line_weight=float(player_data.get('line_weight', 1.0)) if pd.notna(player_data.get('line_weight')) else None,
+            omega=float(player_data.get('omega', 0)) if pd.notna(player_data.get('omega')) else None
+        )
+        db.add(snapshot)
+        snapshot_count += 1
+    
     db.commit()
     
     print(f"\nCreated contest for {today}")
     print(f"House lineup: {', '.join(best_lineup)}")
     print(f"Projected score: {total_proj:.1f} FP")
+    print(f"Saved {snapshot_count} player projection snapshots for ML training")
     
     db.close()
 
