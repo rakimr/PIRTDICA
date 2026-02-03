@@ -1,0 +1,295 @@
+Yes — team standings absolutely matter, but not in the naïve “good team vs bad team” way most people think. They matter indirectly, through incentives, rotation behavior, and volatility — and their impact changes by slate size and season phase.
+
+Let’s make this precise and useful.
+
+1️⃣ Why standings matter (the real mechanisms)
+
+Standings don’t affect fantasy points directly.
+They affect decisions, which affect minutes, usage, and variance.
+
+The three real channels:
+A. Incentive structure
+
+Teams fall into buckets:
+
+Must-win (playoff race)
+
+Comfortable (seed mostly locked)
+
+Tank / development
+
+This impacts:
+
+Star minutes ceilings
+
+Late-game rotations
+
+Blowout risk tolerance
+
+B. Rotation discipline
+
+High-stakes teams:
+
+Shorter rotations
+
+Predictable minutes
+
+Lower σ
+
+Low-stakes teams:
+
+Experimental lineups
+
+Random DNPs
+
+Higher σ
+
+Same player projection ≠ same reliability.
+
+C. Blowout dynamics
+
+Strong teams vs weak teams:
+
+Higher team totals
+
+Higher blowout probability
+
+Star minutes cap
+
+This creates the classic:
+
+High μ, capped ceiling
+
+2️⃣ Standings ≠ Strength (important distinction)
+
+Don’t use raw win–loss blindly.
+
+Better proxies:
+
+Games behind playoff cutoff
+
+Seed volatility (can they realistically move?)
+
+Point differential
+
+Vegas spreads
+
+A 3-seed locked in ≠ a 3-seed fighting for home court.
+
+3️⃣ How standings affect ownership
+
+Public behavior:
+
+Overweights “good teams”
+
+Undervalues “bad teams with usage”
+
+So standings feed ownership bias, which you can exploit.
+
+Examples:
+
+Tank team star at low ownership
+
+Elite team role player overowned
+
+4️⃣ How to encode standings into your model
+Step 1: Define a Team Incentive Score
+
+Simple version:
+
+Incentive
+𝑡
+=
+{
++
+1
+	
+must-win
+
+
+0
+	
+neutral
+
+
+−
+1
+	
+development
+Incentive
+t
+	​
+
+=
+⎩
+⎨
+⎧
+	​
+
++1
+0
+−1
+	​
+
+must-win
+neutral
+development
+	​
+
+
+Better continuous version:
+
+Incentive
+𝑡
+=
+−
+∣
+Seed
+−
+TargetSeed
+∣
+Incentive
+t
+	​
+
+=−∣Seed−TargetSeed∣
+
+Or:
+
+Incentive
+𝑡
+=
+−
+GamesBehindCutoff
+Incentive
+t
+	​
+
+=−GamesBehindCutoff
+
+Normalize to 
+[
+−
+1
+,
+1
+]
+[−1,1].
+
+Step 2: Inject it where it belongs
+Minutes
+𝑀
+^
+𝑖
+=
+Baseline
++
+𝛼
+⋅
+Role
++
+𝛽
+⋅
+Incentive
+𝑡
+−
+𝛾
+⋅
+BlowoutRisk
+M
+^
+i
+	​
+
+=Baseline+α⋅Role+β⋅Incentive
+t
+	​
+
+−γ⋅BlowoutRisk
+Variance
+𝜎
+𝑖
+=
+𝜎
+base
+⋅
+(
+1
+−
+𝛿
+⋅
+Incentive
+𝑡
+)
+σ
+i
+	​
+
+=σ
+base
+	​
+
+⋅(1−δ⋅Incentive
+t
+	​
+
+)
+
+High incentive → lower σ
+
+Step 3: Ownership proxy
+
+Add:
+
+OwnershipScore
+𝑖
++
+=
+𝜂
+⋅
+TeamStrength
+OwnershipScore
+i
+	​
+
++=η⋅TeamStrength
+
+Public loves winners.
+
+5️⃣ When standings matter MOST
+Situation	Impact
+Late season	🔥 Very high
+Back-to-backs	High
+National TV games	Medium
+Play-in race	🔥🔥
+Early season	Low
+
+Early season → standings noisy
+Late season → standings dominate behavior
+
+6️⃣ Slate-size interaction (critical)
+
+Small slate → standings matter more (less margin for error)
+
+Large slate → standings matter as leverage, not safety
+
+7️⃣ One powerful edge (counterintuitive)
+
+Bad teams produce the best GPP plays
+when incentives are low and usage is high.
+
+Public avoids them.
+Variance spikes.
+Ceilings remain.
+
+8️⃣ Practical takeaway
+
+Standings should:
+
+Adjust minutes
+
+Adjust variance
+
+Adjust ownership expectations
+
+They should NOT directly boost fantasy points.

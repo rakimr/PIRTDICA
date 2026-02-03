@@ -11,10 +11,13 @@ SCRIPTS = [
     ("scrape_referee_assignments.py", "Referee Assignments"),
     ("scrape_injury_alerts.py", "Injury Alerts"),
     ("scrape_nba_gamelogs.py", "NBA Game Logs (Volatility)"),
+    ("scrape_standings.py", "Team Standings"),
     ("etl_referee_stats_agg.py", "Referee Stats Aggregation"),
     ("etl_game_foul_environment.py", "Game Foul Environment"),
     ("detect_rotation_changes.py", "Rotation Detection"),
     ("dfs_players.py", "DFS Player Projections"),
+    ("analysis/player_value.py", "Player Value Analysis"),
+    ("estimate_ownership.py --iterations 500", "Ownership Estimation"),
 ]
 
 def run_script(script_name, description):
@@ -22,8 +25,11 @@ def run_script(script_name, description):
     print(f"Running: {description}")
     print(f"{'='*50}")
     
+    parts = script_name.split()
+    cmd = [sys.executable] + parts
+    
     result = subprocess.run(
-        [sys.executable, script_name],
+        cmd,
         capture_output=True,
         text=True
     )

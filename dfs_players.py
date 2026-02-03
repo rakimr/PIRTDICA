@@ -263,6 +263,17 @@ def calc_omega(row):
 df['omega'] = df.apply(calc_omega, axis=1)
 df['omega_weight'] = 0.95 + df['omega'] * 0.10
 
+try:
+    standings_df = pd.read_sql("SELECT team, incentive_score, variance_multiplier FROM team_standings", conn)
+    df = df.merge(standings_df, on='team', how='left')
+    df['incentive_score'] = df['incentive_score'].fillna(0.0)
+    df['variance_multiplier'] = df['variance_multiplier'].fillna(1.0)
+    df['fp_sd'] = df['fp_sd'] * df['variance_multiplier']
+    print(f"Applied incentive-based variance adjustments to {(df['variance_multiplier'] != 1.0).sum()} players")
+except Exception as e:
+    df['incentive_score'] = 0.0
+    df['variance_multiplier'] = 1.0
+
 df["proj_fp"] = df["base_fp"] * df["line_weight"] * df["dvp_weight"] * df["ref_weight"] * df["gp_weight"] * df["omega_weight"]
 
 try:

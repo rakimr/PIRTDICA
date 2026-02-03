@@ -6,6 +6,9 @@ This is an NBA Daily Fantasy Sports (DFS) projection and gaming platform operate
 
 ## Recent Changes (February 2026)
 
+- **Team Incentive Score** - Standings-based variance adjustment (must-win teams = lower σ, tanking teams = higher σ)
+- **Projected Ownership (pOwn%)** - Monte Carlo simulation (500+ iterations) estimates public ownership from optimizer frequency
+- **Excel-style Table Filtering** - Sortable columns and player search on Trends page tables
 - **ML Adjustment System** - Historical performance tracking adjusts projections based on actual vs predicted FP
 - **Projection Snapshots** - All player projections saved with each contest for training data
 - **Player Adjustment Factors** - Learned multipliers (0.7-1.3) correct systematic over/under-projection
@@ -160,6 +163,8 @@ SQLite database (`dfs_nba.db`) stores all scraped and processed data. Tables are
 | Referee Assignments | NBA.com | `referee_assignments` |
 | Injury Alerts | RotoGrinders | `injury_alerts` |
 | Player Positions | Basketball Reference | `player_positions` |
+| Team Standings | ESPN (fallback data) | `team_standings` |
+| Projected Ownership | Monte Carlo Sim | `player_ownership_estimates` |
 
 ## Web Platform Architecture
 
