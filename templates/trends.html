@@ -111,17 +111,20 @@
     <div class="trends-section">
         <h2>Prop Recommendations</h2>
         <p class="chart-description">High-volume players with favorable DVP matchups. Only shows stats where player has meaningful averages.</p>
+        <div class="table-controls">
+            <input type="text" class="table-search" data-table="props-table" placeholder="Search player...">
+        </div>
         <div class="props-table">
-            <table>
+            <table id="props-table">
                 <thead>
                     <tr>
-                        <th>Player</th>
-                        <th>vs</th>
-                        <th>Stat</th>
-                        <th>Avg</th>
-                        <th>Projected</th>
-                        <th>+/-FP</th>
-                        <th>Call</th>
+                        <th data-sortable="text">Player</th>
+                        <th data-sortable="text">vs</th>
+                        <th data-sortable="text">Stat</th>
+                        <th data-sortable="number">Avg</th>
+                        <th data-sortable="number">Projected</th>
+                        <th data-sortable="number">+/-FP</th>
+                        <th data-sortable="text">Call</th>
                     </tr>
                 </thead>
                 <tbody>

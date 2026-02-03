@@ -1241,7 +1241,61 @@ a:hover {
     max-width: 600px;
 }
 
-.value-table table,
+.value-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table-controls {
+    margin-bottom: 1rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.table-search {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    width: 250px;
+    font-family: 'Marvel', sans-serif;
+}
+
+.table-search:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+th[data-sortable] {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 1.5rem !important;
+}
+
+th[data-sortable]:hover {
+    background: #333 !important;
+}
+
+th[data-sortable]::after {
+    content: '⇅';
+    position: absolute;
+    right: 0.5rem;
+    opacity: 0.5;
+    font-size: 12px;
+}
+
+th[data-sortable].sort-asc::after {
+    content: '↑';
+    opacity: 1;
+}
+
+th[data-sortable].sort-desc::after {
+    content: '↓';
+    opacity: 1;
+}
+
 .props-table table {
     width: 100%;
     border-collapse: collapse;
