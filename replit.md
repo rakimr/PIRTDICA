@@ -4,7 +4,12 @@
 
 This is an NBA Daily Fantasy Sports (DFS) projection and gaming platform operated by PIRTDICA SPORTS CO. The core engine scrapes, processes, and analyzes basketball data to generate player projections. The platform features a "Beat the House" game where players compete against an AI-generated house lineup using Monte Carlo simulation.
 
-## Recent Changes (January 2026)
+## Recent Changes (February 2026)
+
+- **Blended DVP System** - Adaptive weighting combines full season and 30-day DvP data (60/40 base, volatility-adjusted)
+- **Prop Recommendations +/-FP** - Renamed columns and color-coded positive (green) / negative (red) FP values
+
+## Previous Changes (January 2026)
 
 - **PIRTDICA Web Platform** - Full-stack FastAPI application with user accounts, leaderboards, and gamification
 - **Monte Carlo Optimizer** - Stochastic simulation finds lineups with highest win probability, not just expected value

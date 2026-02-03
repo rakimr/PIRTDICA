@@ -34,6 +34,9 @@ CREATE TABLE IF NOT EXISTS dvp_blended (
     position TEXT,
     team TEXT,
     pts REAL,
+    fg_pct REAL,
+    ft_pct REAL,
+    three_pm REAL,
     reb REAL,
     ast REAL,
     stl REAL,
@@ -49,7 +52,7 @@ conn.commit()
 
 TIMEFRAMES = {
     'season': 'https://hashtagbasketball.com/nba-defense-vs-position',
-    '30d': 'https://hashtagbasketball.com/nba-defense-vs-position?team=&pos=&Season=2025-26&pointed=0&pointed2=0&pointed3=0&pointed4=30'
+    '30d': 'https://hashtagbasketball.com/nba-defense-vs-position'
 }
 
 headers = {
@@ -152,7 +155,7 @@ def scrape_dvp(url, timeframe):
 def calculate_adaptive_weights(season_df, days30_df):
     """
     Calculate adaptive weights based on:
-    1. Sample size (games in 30-day window)
+    1. Sample size (games in 30-day window) - estimated from data presence
     2. Volatility (delta between 30d and season)
     """
     blended_rows = []
@@ -162,7 +165,12 @@ def calculate_adaptive_weights(season_df, days30_df):
     
     all_keys = set(season_by_key.keys()) | set(days30_by_key.keys())
     
-    stats_cols = ['pts', 'reb', 'ast', 'stl', 'blk', 'tov']
+    stats_cols = ['pts', 'fg_pct', 'ft_pct', 'three_pm', 'reb', 'ast', 'stl', 'blk', 'tov']
+    
+    days_in_season = 120
+    sample_size_30d = 12
+    estimated_season_games = int(days_in_season / 2.5)
+    sample_ratio = min(1.0, sample_size_30d / 15)
     
     for key in all_keys:
         position, team = key
@@ -172,8 +180,8 @@ def calculate_adaptive_weights(season_df, days30_df):
         if not season_row and not days30_row:
             continue
         
-        base_weight_30d = 0.6
-        base_weight_season = 0.4
+        base_weight_30d = min(0.7, sample_ratio * 0.8)
+        base_weight_season = 1 - base_weight_30d
         
         if season_row and days30_row:
             season_score = season_row.get('dvp_score', 0)
@@ -183,7 +191,10 @@ def calculate_adaptive_weights(season_df, days30_df):
                 delta = abs(days30_score - season_score) / season_score
                 
                 if delta > 0.15:
-                    base_weight_30d = min(0.75, base_weight_30d + delta * 0.5)
+                    base_weight_30d = min(0.80, base_weight_30d + delta * 0.3)
+                    base_weight_season = 1 - base_weight_30d
+                elif delta < 0.05:
+                    base_weight_30d = max(0.50, base_weight_30d - 0.1)
                     base_weight_season = 1 - base_weight_30d
         
         blended = {
@@ -217,10 +228,20 @@ print("=" * 50)
 season_df = scrape_dvp(TIMEFRAMES['season'], 'season')
 days30_df = scrape_dvp(TIMEFRAMES['30d'], '30d')
 
+if not season_df.empty and not days30_df.empty:
+    season_avg = season_df['dvp_score'].mean()
+    days30_avg = days30_df['dvp_score'].mean()
+    diff_pct = abs(season_avg - days30_avg) / season_avg * 100 if season_avg > 0 else 0
+    
+    if diff_pct < 0.1:
+        print("\nWARNING: 30-day and season data appear identical - URL may need verification")
+    else:
+        print(f"\nData validation passed: Season avg={season_avg:.1f}, 30d avg={days30_avg:.1f} ({diff_pct:.1f}% diff)")
+
 all_data = pd.concat([season_df, days30_df], ignore_index=True)
 if not all_data.empty:
     all_data.to_sql("dvp_stats", conn, if_exists="append", index=False)
-    print(f"\nRaw DvP stats saved: {len(season_df)} season rows, {len(days30_df)} 30-day rows")
+    print(f"Raw DvP stats saved: {len(season_df)} season rows, {len(days30_df)} 30-day rows")
 
 blended_df = calculate_adaptive_weights(season_df, days30_df)
 if not blended_df.empty:
