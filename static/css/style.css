@@ -1337,6 +1337,44 @@ th[data-sortable].sort-desc::after {
     color: #166534;
 }
 
+.ownership-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.ownership-table th,
+.ownership-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.ownership-table th {
+    background: var(--primary);
+    color: white;
+    font-weight: bold;
+}
+
+.ownership-table tr:hover {
+    background: var(--bg-input);
+}
+
+.chalk-high {
+    font-weight: bold;
+    color: #991b1b;
+    background: #fef2f2;
+}
+
+.chalk-med {
+    font-weight: bold;
+    color: #92400e;
+    background: #fffbeb;
+}
+
+.chalk-low {
+    color: #166534;
+}
+
 .fp-negative {
     font-weight: bold;
     color: #dc2626;

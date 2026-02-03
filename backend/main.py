@@ -243,12 +243,21 @@ async def trends(request: Request, db: Session = Depends(get_db)):
     except:
         pass
     
+    ownership = []
+    try:
+        own_df = pd.read_csv("ownership_projections.csv")
+        own_df = own_df[own_df['pown_pct'] > 0].head(20)
+        ownership = own_df[['player_name', 'team', 'salary', 'proj_fp', 'pown_pct']].to_dict('records')
+    except:
+        pass
+    
     return templates.TemplateResponse("trends.html", {
         "request": request,
         "user": user,
         "top_value": top_value,
         "props": props,
         "targeted": targeted,
+        "ownership": ownership,
         "cache_bust": int(time.time())
     })
 
