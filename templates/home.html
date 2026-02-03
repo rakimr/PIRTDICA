@@ -45,7 +45,7 @@
                 {{ "%.1f"|format(player.actual_fp) }} FP
             </div>
             {% else %}
-            <div class="player-fp">{{ "%.1f"|format(player.proj_fp) }} FP</div>
+            <div class="player-fp">{{ "%.1f"|format(player.proj_fp or 0) }} FP</div>
             {% endif %}
         </div>
         {% endfor %}
