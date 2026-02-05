@@ -16,7 +16,9 @@
             <div class="nav-links">
                 <a href="/trends">Chart Gallery</a>
                 <a href="/leaderboard">Leaderboard</a>
+                {% if user and user.username == "data" %}
                 <a href="/admin">Admin</a>
+                {% endif %}
                 {% if user %}
                     <a href="/play" class="btn-play">Play Now</a>
                     <a href="/shop">Shop</a>

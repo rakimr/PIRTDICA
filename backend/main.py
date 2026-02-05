@@ -609,9 +609,19 @@ def run_daily_update():
     finally:
         refresh_status["running"] = False
 
+ADMIN_USERNAME = "data"
+
+def require_admin(user):
+    """Check if user is authorized for admin access"""
+    if not user or user.username != ADMIN_USERNAME:
+        return False
+    return True
+
 @app.get("/admin")
 async def admin_page(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
+    if not require_admin(user):
+        return RedirectResponse(url="/", status_code=302)
     return templates.TemplateResponse("admin.html", {
         "request": request,
         "user": user,
@@ -621,6 +631,8 @@ async def admin_page(request: Request, db: Session = Depends(get_db)):
 @app.post("/admin/refresh")
 async def trigger_refresh(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
+    if not require_admin(user):
+        return {"status": "error", "message": "Unauthorized"}
     
     if refresh_status["running"]:
         return {"status": "already_running", "message": "Refresh already in progress"}
@@ -631,7 +643,10 @@ async def trigger_refresh(request: Request, db: Session = Depends(get_db)):
     return {"status": "started", "message": "Data refresh started"}
 
 @app.get("/admin/refresh-status")
-async def get_refresh_status(request: Request):
+async def get_refresh_status(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not require_admin(user):
+        return {"status": "error", "message": "Unauthorized"}
     return {
         "running": refresh_status["running"],
         "log": refresh_status["log"][-50:],
@@ -640,7 +655,11 @@ async def get_refresh_status(request: Request):
     }
 
 @app.post("/admin/add-injury")
-async def add_injury(request: Request, player_name: str = Form(...), reason: str = Form("Manual override")):
+async def add_injury(request: Request, db: Session = Depends(get_db), player_name: str = Form(...), reason: str = Form("Manual override")):
+    user = get_current_user(request, db)
+    if not require_admin(user):
+        return {"success": False, "message": "Unauthorized"}
+    
     import sqlite3
     from utils.name_normalize import normalize_player_name
     
