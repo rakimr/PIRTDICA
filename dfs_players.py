@@ -214,6 +214,8 @@ dvp_std = df["dvp_raw"].std()
 df["dvp_weight"] = 1 + ((df["dvp_raw"] - dvp_mean) / dvp_std) * 0.10
 df["dvp_weight"] = df["dvp_weight"].clip(0.85, 1.15)
 
+LEAGUE_AVG_FOULS_PG = 40.3
+
 def get_ref_weight(row):
     if pd.isna(row["location"]) or pd.isna(row["team"]):
         return 1.0
@@ -227,13 +229,23 @@ def get_ref_weight(row):
         return 1.0
     
     crew_foul_diff = match.iloc[0]["avg_foul_diff"]
+    crew_fouls_pg = match.iloc[0].get("avg_fouls_pg", LEAGUE_AVG_FOULS_PG)
+    
     if pd.isna(crew_foul_diff):
         return 1.0
+    if pd.isna(crew_fouls_pg):
+        crew_fouls_pg = LEAGUE_AVG_FOULS_PG
+    
+    volume_factor = crew_fouls_pg / LEAGUE_AVG_FOULS_PG
+    
+    bias_direction = crew_foul_diff / 2.0
+    
+    impact = bias_direction * volume_factor * 0.05
     
     if row["location"] == "home":
-        return 1 + (crew_foul_diff / 2) * 0.05
+        return max(0.92, min(1.08, 1.0 + impact))
     else:
-        return 1 - (crew_foul_diff / 2) * 0.05
+        return max(0.92, min(1.08, 1.0 - impact))
 
 df["ref_weight"] = df.apply(get_ref_weight, axis=1)
 
