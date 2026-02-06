@@ -16,55 +16,65 @@ from backend import models
 from utils.timezone import get_eastern_today
 
 def fetch_actual_stats(game_date: date) -> pd.DataFrame:
-    """Fetch actual player stats from NBA.com for a given date."""
-    date_str = game_date.strftime("%m/%d/%Y")
+    """Fetch actual player stats from Basketball Reference for a given date."""
+    from bs4 import BeautifulSoup
     
+    url = f"https://www.basketball-reference.com/friv/dailyleaders.fcgi?month={game_date.month}&day={game_date.day}&year={game_date.year}"
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json',
-        'Referer': 'https://www.nba.com/',
-        'Origin': 'https://www.nba.com'
-    }
-    
-    url = "https://stats.nba.com/stats/leaguegamelog"
-    params = {
-        "Counter": 0,
-        "DateFrom": date_str,
-        "DateTo": date_str,
-        "Direction": "DESC",
-        "LeagueID": "00",
-        "PlayerOrTeam": "P",
-        "Season": "2025-26",
-        "SeasonType": "Regular Season",
-        "Sorter": "FGM"
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     }
     
     try:
-        response = requests.get(url, headers=headers, params=params, timeout=30)
+        response = requests.get(url, headers=headers, timeout=30)
         response.raise_for_status()
-        data = response.json()
+        soup = BeautifulSoup(response.text, 'html.parser')
         
-        headers_list = data['resultSets'][0]['headers']
-        rows = data['resultSets'][0]['rowSet']
-        
-        if not rows:
-            print(f"No game data found for {game_date}")
+        table = soup.find('table', {'id': 'stats'})
+        if not table:
+            print(f"No stats table found for {game_date}")
             return pd.DataFrame()
         
-        df = pd.DataFrame(rows, columns=headers_list)
+        rows = table.find('tbody').find_all('tr', class_=lambda x: x != 'thead')
         
-        df['FP'] = (
-            df['PTS'] + 
-            df['REB'] * 1.2 + 
-            df['AST'] * 1.5 + 
-            df['STL'] * 3 + 
-            df['BLK'] * 3 - 
-            df['TOV']
-        )
+        players = []
+        for row in rows:
+            cells = {td.get('data-stat'): td for td in row.find_all('td')}
+            if not cells or 'player' not in cells:
+                continue
+            
+            try:
+                name = cells['player'].get_text(strip=True)
+                pts = float(cells.get('pts', {}).get_text(strip=True) or 0) if cells.get('pts') else 0
+                trb = float(cells.get('trb', {}).get_text(strip=True) or 0) if cells.get('trb') else 0
+                ast = float(cells.get('ast', {}).get_text(strip=True) or 0) if cells.get('ast') else 0
+                stl = float(cells.get('stl', {}).get_text(strip=True) or 0) if cells.get('stl') else 0
+                blk = float(cells.get('blk', {}).get_text(strip=True) or 0) if cells.get('blk') else 0
+                tov = float(cells.get('tov', {}).get_text(strip=True) or 0) if cells.get('tov') else 0
+                mins = cells.get('mp', {}).get_text(strip=True) if cells.get('mp') else '0'
+                
+                fp = pts + (trb * 1.2) + (ast * 1.5) + (stl * 3) + (blk * 3) - tov
+                
+                players.append({
+                    'player_name': name,
+                    'FP': round(fp, 1),
+                    'MIN': mins,
+                    'PTS': pts,
+                    'REB': trb,
+                    'AST': ast,
+                    'STL': stl,
+                    'BLK': blk,
+                    'TOV': tov
+                })
+            except (ValueError, IndexError, AttributeError):
+                continue
         
-        df['player_name'] = df['PLAYER_NAME']
+        if not players:
+            print(f"No player data parsed for {game_date}")
+            return pd.DataFrame()
         
-        return df[['player_name', 'FP', 'MIN', 'PTS', 'REB', 'AST', 'STL', 'BLK', 'TOV']]
+        df = pd.DataFrame(players)
+        print(f"Fetched stats for {len(df)} players from {game_date}")
+        return df
         
     except Exception as e:
         print(f"Error fetching stats: {e}")
@@ -174,7 +184,7 @@ def score_contest(contest_date: date = None, force: bool = False):
     print(f"House lineup score: {house_total:.1f} FP")
     print(f"Total entries: {len(entries)}")
     winners = sum(1 for e in entries if e.beat_house)
-    print(f"Winners: {winners} ({winners/len(entries)*100:.1f}% if entries else 0)")
+    print(f"Winners: {winners} ({winners/len(entries)*100:.1f}%)" if entries else "Winners: 0")
     
     db.close()
 
