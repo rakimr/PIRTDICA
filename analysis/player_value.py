@@ -263,6 +263,163 @@ def generate_upside_chart(players_df, output_path='static/images/upside_chart.pn
     
     return output_path
 
+def generate_ref_foul_chart(output_path='static/images/ref_foul_chart.png'):
+    """Generate referee foul analysis chart - crew fouls/game vs home/away foul bias."""
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    
+    import sqlite3
+    conn = sqlite3.connect("dfs_nba.db")
+    
+    try:
+        from utils.timezone import get_eastern_date_str
+        today = get_eastern_date_str()
+    except:
+        from datetime import datetime
+        today = datetime.now().strftime('%Y-%m-%d')
+    
+    assignments = pd.read_sql_query(
+        "SELECT home_team, away_team, crew_chief, referee, umpire FROM referee_assignments WHERE game_date = ?",
+        conn, params=[today]
+    )
+    
+    ref_stats = pd.read_sql_query(
+        "SELECT referee, fouls_pg, foul_diff, foul_pct_home, foul_pct_road, games_officiated FROM referee_stats",
+        conn
+    )
+    conn.close()
+    
+    if len(assignments) == 0 or len(ref_stats) == 0:
+        print("No referee data available for chart")
+        return None
+    
+    ref_stats_deduped = ref_stats.sort_values('games_officiated', ascending=False).drop_duplicates(subset='referee', keep='first')
+    ref_lookup = {}
+    for _, row in ref_stats_deduped.iterrows():
+        ref_lookup[row['referee'].strip().lower()] = {
+            'fouls_pg': row['fouls_pg'],
+            'foul_diff': row['foul_diff'],
+            'foul_pct_home': row['foul_pct_home'],
+            'foul_pct_road': row['foul_pct_road']
+        }
+    
+    game_data = []
+    for _, game in assignments.iterrows():
+        crew = [game['crew_chief'], game['referee'], game['umpire']]
+        crew = [r for r in crew if r and pd.notna(r)]
+        
+        crew_fouls = []
+        crew_diffs = []
+        crew_home_pct = []
+        
+        for ref_name in crew:
+            key = ref_name.strip().lower()
+            if key in ref_lookup:
+                stats = ref_lookup[key]
+                crew_fouls.append(stats['fouls_pg'])
+                crew_diffs.append(stats['foul_diff'])
+                crew_home_pct.append(stats['foul_pct_home'])
+        
+        if len(crew_fouls) >= 2:
+            avg_fouls = sum(crew_fouls) / len(crew_fouls)
+            avg_diff = sum(crew_diffs) / len(crew_diffs)
+            avg_home_pct = sum(crew_home_pct) / len(crew_home_pct)
+            
+            home = game['home_team'] or '?'
+            away = game['away_team'] or '?'
+            
+            game_data.append({
+                'matchup': f"{away} @ {home}",
+                'home_team': home,
+                'away_team': away,
+                'crew_avg_fouls': avg_fouls,
+                'crew_avg_diff': avg_diff,
+                'crew_home_pct': avg_home_pct,
+                'refs_matched': len(crew_fouls),
+                'crew_names': crew
+            })
+    
+    if len(game_data) == 0:
+        print("Could not match any refs to stats")
+        return None
+    
+    gdf = pd.DataFrame(game_data)
+    
+    fig, ax = plt.subplots(figsize=(12, 8))
+    fig.patch.set_facecolor('white')
+    ax.set_facecolor('white')
+    
+    league_avg_fouls = ref_stats_deduped['fouls_pg'].mean()
+    league_avg_diff = ref_stats_deduped['foul_diff'].mean()
+    
+    for _, g in gdf.iterrows():
+        shade = 0.15 + 0.7 * ((g['crew_avg_fouls'] - gdf['crew_avg_fouls'].min()) / 
+                               max(gdf['crew_avg_fouls'].max() - gdf['crew_avg_fouls'].min(), 1))
+        color = str(max(0.1, min(0.85, 1.0 - shade)))
+        
+        marker = '^' if g['crew_avg_diff'] > 0 else 'v'
+        
+        ax.scatter(g['crew_avg_fouls'], g['crew_avg_diff'],
+                  c=color, s=220, marker=marker,
+                  edgecolors='black', linewidths=1.5, zorder=5)
+        
+        y_offset = 8 if g['crew_avg_diff'] >= 0 else -12
+        ax.annotate(g['matchup'],
+                   (g['crew_avg_fouls'], g['crew_avg_diff']),
+                   xytext=(6, y_offset), textcoords='offset points',
+                   fontsize=9, fontweight='bold', color='black',
+                   ha='left')
+    
+    ax.axhline(y=0, color='black', linewidth=1.5, alpha=0.6)
+    ax.axvline(x=league_avg_fouls, color='gray', linestyle='--', linewidth=1, alpha=0.5)
+    
+    x_min, x_max = ax.get_xlim()
+    y_min, y_max = ax.get_ylim()
+    
+    pad = 0.3
+    y_max = max(y_max, abs(y_min)) + pad
+    y_min = -y_max
+    ax.set_ylim(y_min, y_max)
+    
+    ax.fill_between([x_min, x_max], 0, y_max, color='#e8e8e8', alpha=0.3, zorder=0)
+    ax.fill_between([x_min, x_max], y_min, 0, color='#d0d0d0', alpha=0.3, zorder=0)
+    
+    ax.text(x_max - (x_max - x_min) * 0.02, y_max * 0.88,
+            'HOME ADVANTAGE', ha='right', fontsize=8, color='#555',
+            fontweight='bold', alpha=0.7, style='italic')
+    ax.text(x_max - (x_max - x_min) * 0.02, y_min * 0.88,
+            'ROAD ADVANTAGE', ha='right', fontsize=8, color='#555',
+            fontweight='bold', alpha=0.7, style='italic')
+    ax.text(x_min + (x_max - x_min) * 0.02, y_max * 0.88,
+            'FEWER FOULS', ha='left', fontsize=7, color='#888', alpha=0.6)
+    ax.text(x_max - (x_max - x_min) * 0.02, y_max * 0.78,
+            'MORE FOULS', ha='right', fontsize=7, color='#888', alpha=0.6)
+    
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], marker='^', color='w', markerfacecolor='#555', 
+               markeredgecolor='black', markersize=10, label='Home-favored crew'),
+        Line2D([0], [0], marker='v', color='w', markerfacecolor='#999',
+               markeredgecolor='black', markersize=10, label='Road-favored crew'),
+        Line2D([0], [0], color='gray', linestyle='--', linewidth=1, label=f'League avg ({league_avg_fouls:.1f} fouls/g)')
+    ]
+    legend = ax.legend(handles=legend_elements, loc='lower left', frameon=True,
+                       edgecolor='black', facecolor='white')
+    legend.get_frame().set_linewidth(2)
+    
+    apply_chart_style(ax, "Tonight's Referee Crews — Foul Volume vs Home/Away Bias",
+                      'Crew Avg Fouls Per Game', 'Foul Differential (+ = more road fouls)')
+    
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150, facecolor='white', edgecolor='black')
+    plt.close()
+    
+    print(f"Referee foul chart saved to {output_path}")
+    for _, g in gdf.iterrows():
+        bias = "HOME" if g['crew_avg_diff'] > 0 else "ROAD"
+        print(f"  {g['matchup']}: {g['crew_avg_fouls']:.1f} fouls/g, diff {g['crew_avg_diff']:+.1f} ({bias} advantage)")
+    
+    return output_path
+
 def generate_dvp_heatmap(dvp_df, output_path='static/images/dvp_heatmap.png'):
     """Generate DVP heatmap by team and position."""
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
@@ -562,6 +719,10 @@ def run_analysis():
         dvp_heatmap = generate_dvp_heatmap(dvp_df)
         if dvp_heatmap:
             print(f"DVP heatmap: {dvp_heatmap}")
+        
+        ref_chart = generate_ref_foul_chart()
+        if ref_chart:
+            print(f"Referee foul chart: {ref_chart}")
     except Exception as e:
         print(f"Chart generation error: {e}")
     
