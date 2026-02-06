@@ -91,12 +91,16 @@ df = pd.DataFrame(rows, columns=[
 df["home_team"] = df["home_team"].apply(to_abbrev)
 df["away_team"] = df["away_team"].apply(to_abbrev)
 
-df["game_date"] = get_eastern_date_str()
+today = get_eastern_date_str()
+df["game_date"] = today
 df["scraped_at"] = get_eastern_now().isoformat()
 
 # ============================
 # 4. WRITE TO DATABASE
 # ============================
+
+cursor.execute("DELETE FROM referee_assignments WHERE game_date = ?", (today,))
+conn.commit()
 
 df.to_sql("referee_assignments", conn, if_exists="append", index=False)
 conn.close()

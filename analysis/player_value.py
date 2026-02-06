@@ -281,12 +281,26 @@ def generate_ref_foul_chart(output_path='static/images/ref_foul_chart.png'):
         "SELECT home_team, away_team, crew_chief, referee, umpire FROM referee_assignments WHERE game_date = ?",
         conn, params=[today]
     )
+    assignments = assignments.drop_duplicates(subset=['home_team', 'away_team'])
+    
+    todays_games = pd.read_sql_query(
+        "SELECT DISTINCT home_team, away_team FROM game_odds", conn
+    )
     
     ref_stats = pd.read_sql_query(
         "SELECT referee, fouls_pg, foul_diff, foul_pct_home, foul_pct_road, games_officiated FROM referee_stats",
         conn
     )
     conn.close()
+    
+    if len(todays_games) > 0 and len(assignments) > 0:
+        valid_pairs = set()
+        for _, g in todays_games.iterrows():
+            valid_pairs.add((g['home_team'], g['away_team']))
+            valid_pairs.add((g['away_team'], g['home_team']))
+        assignments = assignments[
+            assignments.apply(lambda r: (r['home_team'], r['away_team']) in valid_pairs, axis=1)
+        ]
     
     if len(assignments) == 0 or len(ref_stats) == 0:
         print("No referee data available for chart")
