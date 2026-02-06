@@ -62,12 +62,15 @@
 
 {% if contest %}
 <section class="house-lineup-section">
-    {% if is_todays_contest %}
     <h2>Today's House Lineup</h2>
-    {% else %}
-    <h2>Latest House Lineup</h2>
-    {% endif %}
-    <p class="subtitle">{{ contest.slate_date.strftime('%B %d, %Y') }}</p>
+    <p class="subtitle" id="lineup-date"></p>
+    <script>
+    (function(){
+        const d = new Date();
+        const opts = { year: 'numeric', month: 'long', day: '2-digit', timeZone: 'America/New_York' };
+        document.getElementById('lineup-date').textContent = d.toLocaleDateString('en-US', opts);
+    })();
+    </script>
     
     {% if house_players %}
     <div class="lineup-horizontal">
