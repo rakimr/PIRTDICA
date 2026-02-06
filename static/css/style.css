@@ -195,6 +195,15 @@ a:hover {
     line-height: 1.6;
 }
 
+.countdown-display {
+    font-family: 'Righteous', cursive;
+    font-size: 4rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    color: var(--text);
+    margin-bottom: 2rem;
+}
+
 .hero-buttons {
     display: flex;
     gap: 1.25rem;

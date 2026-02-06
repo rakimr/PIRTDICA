@@ -127,6 +127,34 @@ async def home(request: Request, db: Session = Depends(get_db)):
         except:
             no_games_today = True
     
+    next_game_iso = None
+    try:
+        import sqlite3 as sl3
+        from zoneinfo import ZoneInfo
+        eastern = ZoneInfo("America/New_York")
+        now_et = datetime.now(eastern)
+        conn2 = sl3.connect("dfs_nba.db")
+        cur2 = conn2.cursor()
+        cur2.execute("SELECT DISTINCT game_time FROM player_salaries WHERE game_time IS NOT NULL")
+        game_times_raw = [row[0] for row in cur2.fetchall()]
+        conn2.close()
+        
+        upcoming = []
+        for gt in game_times_raw:
+            try:
+                parsed = datetime.strptime(gt, "%I:%M%p")
+                game_dt = parsed.replace(year=now_et.year, month=now_et.month, day=now_et.day, tzinfo=eastern)
+                if game_dt > now_et:
+                    upcoming.append(game_dt)
+            except:
+                pass
+        
+        if upcoming:
+            next_game = min(upcoming)
+            next_game_iso = next_game.isoformat()
+    except Exception as e:
+        pass
+    
     return templates.TemplateResponse("home.html", {
         "request": request,
         "user": user,
@@ -135,7 +163,8 @@ async def home(request: Request, db: Session = Depends(get_db)):
         "user_entry": user_entry,
         "headshots": headshots,
         "no_games_today": no_games_today,
-        "is_todays_contest": is_todays_contest
+        "is_todays_contest": is_todays_contest,
+        "next_game_iso": next_game_iso
     })
 
 @app.get("/register")
