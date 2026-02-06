@@ -181,4 +181,7 @@ class PlayerAdjustmentFactor(Base):
     avg_prediction_error = Column(Float, default=0)
     adjustment_factor = Column(Float, default=1.0)
     consistency_score = Column(Float, default=0)
+    prediction_variance = Column(Float, default=0)
+    variance_dampening = Column(Float, default=1.0)
+    avg_actual_fp = Column(Float, default=0)
     last_updated = Column(DateTime, server_default=func.now(), onupdate=func.now())

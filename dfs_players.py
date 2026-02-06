@@ -284,20 +284,43 @@ try:
     if database_url:
         pg_engine = create_engine(database_url)
         adj_factors = pd.read_sql_query(
-            "SELECT player_name_normalized, adjustment_factor, sample_size FROM player_adjustment_factors WHERE sample_size >= 3",
+            "SELECT player_name_normalized, adjustment_factor, variance_dampening, prediction_variance, avg_actual_fp, sample_size FROM player_adjustment_factors WHERE sample_size >= 3",
             pg_engine
         )
         if len(adj_factors) > 0:
-            adj_dict = dict(zip(adj_factors['player_name_normalized'], adj_factors['adjustment_factor']))
             df['player_name_normalized'] = df['player_name'].apply(normalize_player_name)
-            df['ml_adjustment'] = df['player_name_normalized'].map(adj_dict).fillna(1.0)
-            df["proj_fp"] = df["proj_fp"] * df["ml_adjustment"]
-            adjusted_count = (df['ml_adjustment'] != 1.0).sum()
-            print(f"Applied ML adjustments to {adjusted_count} players based on historical performance")
+            
+            bias_dict = dict(zip(adj_factors['player_name_normalized'], adj_factors['adjustment_factor']))
+            df['ml_bias'] = df['player_name_normalized'].map(bias_dict).fillna(1.0)
+            
+            variance_dict = dict(zip(adj_factors['player_name_normalized'], adj_factors['variance_dampening']))
+            avg_actual_dict = dict(zip(adj_factors['player_name_normalized'], adj_factors['avg_actual_fp']))
+            df['ml_variance'] = df['player_name_normalized'].map(variance_dict).fillna(1.0)
+            df['ml_avg_actual'] = df['player_name_normalized'].map(avg_actual_dict)
+            
+            df["proj_fp"] = df["proj_fp"] * df["ml_bias"]
+            bias_count = (df['ml_bias'] != 1.0).sum()
+            
+            variance_mask = (df['ml_variance'] < 1.0) & df['ml_avg_actual'].notna()
+            if variance_mask.any():
+                df.loc[variance_mask, 'proj_fp'] = (
+                    df.loc[variance_mask, 'proj_fp'] * df.loc[variance_mask, 'ml_variance'] +
+                    df.loc[variance_mask, 'ml_avg_actual'] * (1 - df.loc[variance_mask, 'ml_variance'])
+                )
+            variance_count = variance_mask.sum()
+            
+            df['ml_adjustment'] = df['ml_bias'] * df['ml_variance']
+            
+            print(f"ML Model 1 (Bias): Adjusted {bias_count} players for systematic over/under-projection")
+            print(f"ML Model 2 (Variance): Dampened {variance_count} players with high prediction variance")
         else:
             df['ml_adjustment'] = 1.0
+            df['ml_bias'] = 1.0
+            df['ml_variance'] = 1.0
 except Exception as e:
     df['ml_adjustment'] = 1.0
+    df['ml_bias'] = 1.0
+    df['ml_variance'] = 1.0
 
 df["proj_fp"] = df["proj_fp"].round(2)
 

@@ -201,29 +201,50 @@ def update_adjustment_factors():
     ).all()
     
     player_errors = {}
+    player_actuals = {}
     player_display_names = {}
     for snap in snapshots:
         normalized = snap.player_name_normalized or normalize_name(snap.player_name)
         if normalized not in player_errors:
             player_errors[normalized] = []
+            player_actuals[normalized] = []
             player_display_names[normalized] = snap.player_name
         error_pct = (snap.actual_fp - snap.proj_fp) / snap.proj_fp
         player_errors[normalized].append(error_pct)
+        player_actuals[normalized].append(snap.actual_fp)
     
     print(f"\nUpdating adjustment factors for {len(player_errors)} players...")
     
     import statistics
+    
+    bias_updated = 0
+    variance_updated = 0
     
     for normalized_name, errors in player_errors.items():
         if len(errors) < 3:
             continue
         
         avg_error = sum(errors) / len(errors)
-        
         adjustment = 1.0 + (avg_error * 0.5)
         adjustment = max(0.7, min(1.3, adjustment))
         
-        consistency = 1.0 / (1.0 + statistics.stdev(errors)) if len(errors) > 1 else 0.5
+        error_std = statistics.stdev(errors) if len(errors) > 1 else 0
+        consistency = 1.0 / (1.0 + error_std) if len(errors) > 1 else 0.5
+        
+        prediction_variance = error_std
+        
+        if error_std < 0.2:
+            variance_dampening = 1.0
+        elif error_std < 0.4:
+            variance_dampening = 0.95
+        elif error_std < 0.6:
+            variance_dampening = 0.88
+        elif error_std < 0.8:
+            variance_dampening = 0.80
+        else:
+            variance_dampening = 0.72
+        
+        avg_actual = sum(player_actuals[normalized_name]) / len(player_actuals[normalized_name])
         
         existing = db.query(models.PlayerAdjustmentFactor).filter(
             models.PlayerAdjustmentFactor.player_name_normalized == normalized_name
@@ -237,6 +258,9 @@ def update_adjustment_factors():
             existing.avg_prediction_error = avg_error
             existing.adjustment_factor = adjustment
             existing.consistency_score = consistency
+            existing.prediction_variance = prediction_variance
+            existing.variance_dampening = variance_dampening
+            existing.avg_actual_fp = avg_actual
         else:
             factor = models.PlayerAdjustmentFactor(
                 player_name=display_name,
@@ -244,13 +268,21 @@ def update_adjustment_factors():
                 sample_size=len(errors),
                 avg_prediction_error=avg_error,
                 adjustment_factor=adjustment,
-                consistency_score=consistency
+                consistency_score=consistency,
+                prediction_variance=prediction_variance,
+                variance_dampening=variance_dampening,
+                avg_actual_fp=avg_actual
             )
             db.add(factor)
+        
+        bias_updated += 1
+        if variance_dampening < 1.0:
+            variance_updated += 1
     
     db.commit()
     db.close()
-    print("Adjustment factors updated successfully")
+    print(f"ML Model 1 (Bias): Updated {bias_updated} players with bias correction factors")
+    print(f"ML Model 2 (Variance): {variance_updated} players will have variance dampening applied")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Score completed contests")
