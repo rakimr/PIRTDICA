@@ -416,7 +416,8 @@ def generate_ref_foul_chart(output_path='static/images/ref_foul_chart.png'):
                markeredgecolor='black', markersize=10, label='Road-favored crew'),
         Line2D([0], [0], color='gray', linestyle='--', linewidth=1, label=f'League avg ({league_avg_fouls:.1f} fouls/g)')
     ]
-    legend = ax.legend(handles=legend_elements, loc='lower left', frameon=True,
+    legend = ax.legend(handles=legend_elements, loc='upper center',
+                       bbox_to_anchor=(0.5, -0.12), ncol=3, frameon=True,
                        edgecolor='black', facecolor='white')
     legend.get_frame().set_linewidth(2)
     
@@ -424,7 +425,8 @@ def generate_ref_foul_chart(output_path='static/images/ref_foul_chart.png'):
                       'Crew Avg Fouls Per Game', 'Foul Differential (+ = more road fouls)')
     
     plt.tight_layout()
-    plt.savefig(output_path, dpi=150, facecolor='white', edgecolor='black')
+    plt.subplots_adjust(bottom=0.18)
+    plt.savefig(output_path, dpi=150, facecolor='white', edgecolor='black', bbox_inches='tight')
     plt.close()
     
     print(f"Referee foul chart saved to {output_path}")
