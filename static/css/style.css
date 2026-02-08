@@ -72,6 +72,24 @@ a:hover {
     text-decoration: none;
 }
 
+.hamburger {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.hamburger span {
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: var(--text);
+    transition: transform 0.2s;
+}
+
 .nav-links {
     display: flex;
     align-items: center;
@@ -1453,6 +1471,63 @@ a:hover {
     }
 }
 
+@media (max-width: 768px) {
+    .hamburger {
+        display: flex;
+    }
+
+    .navbar {
+        position: relative;
+    }
+
+    .nav-links {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--bg-card);
+        border-bottom: 1px solid var(--border);
+        flex-direction: column;
+        gap: 0;
+        padding: 0.5rem 0;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        margin-left: 0;
+        z-index: 200;
+    }
+
+    .nav-links.open {
+        display: flex;
+    }
+
+    .nav-links a,
+    .nav-links .user-menu {
+        padding: 0.75rem 1.5rem;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .nav-links a:hover {
+        background: rgba(0, 0, 0, 0.03);
+    }
+
+    .nav-links .btn-play {
+        border-radius: 0;
+        text-align: left;
+    }
+
+    .user-menu {
+        flex-direction: column;
+        gap: 0 !important;
+        padding: 0 !important;
+    }
+
+    .user-menu span,
+    .user-menu a {
+        padding: 0.75rem 1.5rem;
+    }
+}
+
 @media (max-width: 600px) {
     .entry-comparison {
         grid-template-columns: 1fr auto 1fr;
@@ -1500,10 +1575,6 @@ a:hover {
     
     .hero h1 {
         font-size: 2rem;
-    }
-    
-    .nav-links {
-        gap: 1rem;
     }
     
     .profile-header {
