@@ -443,6 +443,13 @@ async def play(request: Request, db: Session = Depends(get_db)):
             "SELECT DISTINCT game, game_time FROM player_salaries WHERE game_time IS NOT NULL", 
             conn
         )
+        
+        injury_df = pd.read_sql_query(
+            "SELECT player_name, status FROM injury_alerts WHERE status IN ('OUT', 'QUESTIONABLE', 'PROBABLE', 'DOUBTFUL', 'GTD')",
+            conn
+        )
+        injury_map = dict(zip(injury_df['player_name'], injury_df['status']))
+        
         conn.close()
         game_times = dict(zip(game_times_df['game'], game_times_df['game_time']))
         
@@ -479,9 +486,19 @@ async def play(request: Request, db: Session = Depends(get_db)):
             axis=1
         )
         
+        players_df['injury_status'] = players_df['player_name'].map(injury_map).fillna('')
+        
+        players_df['position'] = players_df['fd_position']
+        
+        players_df['matchup'] = players_df.apply(
+            lambda row: f"{row['team']} vs {row['opponent']}", axis=1
+        )
+        
         players = players_df.to_dict("records")
     except Exception as e:
         print(f"Error loading players: {e}")
+        import traceback
+        traceback.print_exc()
         players = []
     
     house_players = db.query(models.HouseLineupPlayer).filter(
