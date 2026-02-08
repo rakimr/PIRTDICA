@@ -567,11 +567,26 @@ async def submit_lineup(request: Request, db: Session = Depends(get_db)):
     if total_salary > SALARY_CAP:
         raise HTTPException(status_code=400, detail=f"Lineup exceeds salary cap: ${total_salary:,} > ${SALARY_CAP:,}")
     
+    import json
+    house_players = db.query(models.HouseLineupPlayer).filter(
+        models.HouseLineupPlayer.contest_id == contest.id
+    ).all()
+    house_proj_total = sum(hp.proj_fp or 0 for hp in house_players)
+    house_snapshot = json.dumps([{
+        "player_name": hp.player_name,
+        "position": hp.position,
+        "team": hp.team or "",
+        "salary": hp.salary or 0,
+        "proj_fp": round(hp.proj_fp or 0, 1)
+    } for hp in house_players])
+    
     entry = models.ContestEntry(
         user_id=user.id,
         contest_id=contest.id,
         total_salary=total_salary,
-        proj_score=total_proj
+        proj_score=total_proj,
+        house_proj_score=house_proj_total,
+        house_lineup_snapshot=house_snapshot
     )
     db.add(entry)
     db.flush()

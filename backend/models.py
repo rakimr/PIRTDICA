@@ -57,6 +57,8 @@ class ContestEntry(Base):
     total_salary = Column(Integer, default=0)
     proj_score = Column(Float, default=0)
     actual_score = Column(Float, default=0)
+    house_proj_score = Column(Float, default=0)
+    house_lineup_snapshot = Column(Text, default="")
     beat_house = Column(Boolean, default=False)
     rank = Column(Integer, default=0)
     coins_earned = Column(Integer, default=0)
