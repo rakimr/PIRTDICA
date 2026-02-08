@@ -474,12 +474,33 @@ async def play(request: Request, db: Session = Depends(get_db)):
         
         players_df['game'] = players_df['team'] + " vs " + players_df['opponent']
         
+        team_aliases = {
+            'NYK': 'NY', 'NY': 'NYK',
+            'GS': 'GSW', 'GSW': 'GS',
+            'SA': 'SAS', 'SAS': 'SA',
+            'NO': 'NOP', 'NOP': 'NO',
+            'UTAH': 'UTA', 'UTA': 'UTAH',
+            'PHX': 'PHO', 'PHO': 'PHX',
+            'CHA': 'CHO', 'CHO': 'CHA',
+            'BKN': 'BK', 'BK': 'BKN',
+        }
+        
         for game_key in list(game_times.keys()):
             if " @ " not in game_key:
                 continue
             away, home = game_key.split(" @ ")
-            game_times[f"{away} vs {home}"] = game_times[game_key]
-            game_times[f"{home} vs {away}"] = game_times[game_key]
+            combos = [(away, home)]
+            away_alt = team_aliases.get(away)
+            home_alt = team_aliases.get(home)
+            if away_alt:
+                combos.append((away_alt, home))
+            if home_alt:
+                combos.append((away, home_alt))
+            if away_alt and home_alt:
+                combos.append((away_alt, home_alt))
+            for a, h in combos:
+                game_times[f"{a} vs {h}"] = game_times[game_key]
+                game_times[f"{h} vs {a}"] = game_times[game_key]
         
         players_df['is_locked'] = players_df.apply(
             lambda row: is_game_locked(f"{row['team']} vs {row['opponent']}") or 
