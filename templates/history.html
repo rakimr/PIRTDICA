@@ -44,7 +44,7 @@
     {% set entry = detail.entry %}
     {% set players = detail.players %}
     {% set house_players = detail.house_players %}
-    <div class="history-card {% if entry.beat_house %}history-win{% else %}history-loss{% endif %}">
+    <div class="history-card {% if entry.contest.status == 'completed' %}{% if entry.beat_house %}history-win{% else %}history-loss{% endif %}{% else %}history-pending{% endif %}">
         <div class="history-card-header" onclick="this.parentElement.classList.toggle('expanded')">
             <div class="history-card-date">
                 {{ entry.created_at.strftime('%b %d, %Y') }}
@@ -61,9 +61,15 @@
                 {% endif %}
             </div>
             <div class="history-card-scores">
-                <span class="your-score">You: {{ "%.1f"|format(entry.actual_score or entry.proj_score) }}</span>
+                {% if entry.contest.status == 'completed' %}
+                <span class="your-score">You: {{ "%.1f"|format(entry.actual_score) }}</span>
                 <span class="score-vs">vs</span>
-                <span class="house-score">House: {{ "%.1f"|format(entry.house_actual_score or detail.house_total_proj) }}</span>
+                <span class="house-score">House: {{ "%.1f"|format(entry.house_actual_score or 0) }}</span>
+                {% else %}
+                <span class="your-score">Proj: {{ "%.1f"|format(entry.proj_score) }}</span>
+                <span class="score-vs">vs</span>
+                <span class="house-score">House: {{ "%.1f"|format(detail.house_total_proj) }}</span>
+                {% endif %}
             </div>
             <div class="history-card-coins">
                 {% if entry.coins_earned %}+{{ entry.coins_earned }} coins{% endif %}

@@ -441,14 +441,15 @@ async def history(request: Request, db: Session = Depends(get_db)):
         })
     
     total_entries = len(entries)
-    wins = sum(1 for e in entries if e.beat_house)
-    losses = total_entries - wins
+    completed_entries = [e for e in entries if e.contest and e.contest.status == 'completed']
+    wins = sum(1 for e in completed_entries if e.beat_house)
+    losses = len(completed_entries) - wins
     total_coins = sum(e.coins_earned or 0 for e in entries)
-    best_score = max((e.actual_score or 0 for e in entries), default=0)
-    win_rate = (wins / total_entries * 100) if total_entries > 0 else 0
+    best_score = max((e.actual_score or 0 for e in completed_entries), default=0)
+    win_rate = (wins / len(completed_entries) * 100) if completed_entries else 0
     
     current_streak = 0
-    for e in entries:
+    for e in completed_entries:
         if e.beat_house:
             current_streak += 1
         else:
