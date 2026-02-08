@@ -70,6 +70,7 @@
                     <th>Actual</th>
                     <th>Result</th>
                     <th>Coins</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
@@ -82,10 +83,14 @@
                         {% if entry.beat_house %}Win{% else %}Loss{% endif %}
                     </td>
                     <td>+{{ entry.coins_earned }}</td>
+                    <td><a href="/entry/{{ entry.id }}" class="btn btn-secondary btn-sm">View</a></td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+        {% if user and user.id == profile.id %}
+        <a href="/history" class="btn btn-secondary" style="margin-top: 1rem;">View Full History</a>
+        {% endif %}
         {% else %}
         <p class="no-data">No entries yet. <a href="/play">Play your first contest!</a></p>
         {% endif %}

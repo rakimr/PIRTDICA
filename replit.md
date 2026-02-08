@@ -6,6 +6,7 @@ This is an NBA Daily Fantasy Sports (DFS) projection and gaming platform operate
 
 ## Recent Changes (February 2026)
 
+- **Contest History Page** - `/history` page shows all past contest entries with collapsible cards, side-by-side lineups (yours vs house), aggregate stats (wins, losses, win rate, coins earned, best score, streak), and links to full entry view; accessible from nav bar and profile page
 - **Live Scoring** - Real-time FP tracking from plaintextsports.com/nba with 30-second auto-refresh on entry pages; `/api/live-scores` and `/api/live-entry/{id}` endpoints with 30s server cache
 - **House Lineup Snapshot** - Each coach entry freezes the house lineup at submission time; regeneration preserves entries and scoring uses the frozen lineup
 - **Referee Foul Tendencies Chart** - Scatter plot on Trends page showing tonight's crew foul volume vs home/away bias (▲ home-favored, ▼ road-favored)

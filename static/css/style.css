@@ -1808,3 +1808,276 @@ th[data-sortable].sort-desc::after {
         font-size: 1.3rem;
     }
 }
+
+/* History Page */
+.history-page {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 2rem 0;
+}
+
+.history-page h1 {
+    margin-bottom: 1.5rem;
+}
+
+.history-stats-bar {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+}
+
+.history-stat {
+    flex: 1;
+    min-width: 80px;
+    text-align: center;
+}
+
+.history-stat-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.history-stat-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+}
+
+.win-text {
+    color: var(--accent);
+}
+
+.loss-text {
+    color: var(--danger);
+}
+
+.history-card {
+    background: var(--bg-card);
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border);
+    overflow: hidden;
+}
+
+.history-card.history-win {
+    border-left: 4px solid var(--accent);
+}
+
+.history-card.history-loss {
+    border-left: 4px solid var(--danger);
+}
+
+.history-card-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.history-card-header:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.history-card-date {
+    font-weight: 700;
+    min-width: 100px;
+}
+
+.history-card-result {
+    min-width: 70px;
+}
+
+.result-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.result-badge.win {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--accent);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.result-badge.loss {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.result-badge.pending {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+}
+
+.history-card-scores {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.history-card-scores .your-score {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.history-card-scores .score-vs {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.history-card-scores .house-score {
+    color: var(--danger);
+    font-weight: 600;
+}
+
+.history-card-coins {
+    color: var(--gold);
+    font-weight: 600;
+    font-size: 0.85rem;
+    min-width: 80px;
+    text-align: right;
+}
+
+.history-card-toggle {
+    color: var(--text-muted);
+    transition: transform 0.3s;
+}
+
+.history-card.expanded .history-card-toggle {
+    transform: rotate(180deg);
+}
+
+.history-card-body {
+    display: none;
+    border-top: 1px solid var(--border);
+    padding: 1.25rem;
+}
+
+.history-card.expanded .history-card-body {
+    display: block;
+}
+
+.history-lineups {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.history-lineup h3 {
+    margin-bottom: 0.75rem;
+    font-size: 0.95rem;
+}
+
+.your-history h3 {
+    color: var(--accent);
+}
+
+.house-history h3 {
+    color: var(--danger);
+}
+
+.history-lineup-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+
+.history-lineup-table th {
+    text-align: left;
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.history-lineup-table td {
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.history-lineup-table tfoot td {
+    border-top: 1px solid var(--border);
+    border-bottom: none;
+    padding-top: 0.5rem;
+}
+
+.history-card-actions {
+    margin-top: 1rem;
+    text-align: right;
+}
+
+.btn-sm {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.8rem;
+}
+
+@media (max-width: 600px) {
+    .history-card-header {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.75rem;
+    }
+    
+    .history-card-date {
+        min-width: auto;
+        font-size: 0.85rem;
+    }
+    
+    .history-card-scores {
+        font-size: 0.8rem;
+    }
+    
+    .history-card-coins {
+        font-size: 0.75rem;
+        min-width: auto;
+    }
+    
+    .history-lineups {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+    }
+    
+    .history-lineup-table th,
+    .history-lineup-table td {
+        padding: 0.25rem 0.2rem;
+        font-size: 0.6rem;
+    }
+    
+    .history-lineup h3 {
+        font-size: 0.8rem;
+    }
+    
+    .history-stats-bar {
+        gap: 0.5rem;
+        padding: 0.75rem;
+    }
+    
+    .history-stat-value {
+        font-size: 1.1rem;
+    }
+    
+    .history-stat-label {
+        font-size: 0.6rem;
+    }
+}

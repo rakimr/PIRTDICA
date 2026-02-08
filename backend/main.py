@@ -401,6 +401,76 @@ async def profile(request: Request, username: str, db: Session = Depends(get_db)
         "achievements": achievements
     })
 
+@app.get("/history")
+async def history(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    
+    entries = db.query(models.ContestEntry).filter(
+        models.ContestEntry.user_id == user.id
+    ).order_by(desc(models.ContestEntry.created_at)).all()
+    
+    entry_details = []
+    for entry in entries:
+        players = db.query(models.EntryPlayer).filter(
+            models.EntryPlayer.entry_id == entry.id
+        ).all()
+        
+        house_players = []
+        if entry.house_lineup_snapshot:
+            import json as json_mod
+            try:
+                house_players = json_mod.loads(entry.house_lineup_snapshot)
+            except:
+                pass
+        
+        if not house_players:
+            hp_records = db.query(models.HouseLineupPlayer).filter(
+                models.HouseLineupPlayer.contest_id == entry.contest_id
+            ).all()
+            house_players = [{"player_name": hp.player_name, "position": hp.position, "team": hp.team, "salary": hp.salary, "proj_fp": hp.proj_fp} for hp in hp_records]
+        
+        house_total_proj = sum(p.get("proj_fp", 0) or 0 for p in house_players) if house_players else (entry.house_proj_score or 0)
+        
+        entry_details.append({
+            "entry": entry,
+            "players": players,
+            "house_players": house_players,
+            "house_total_proj": house_total_proj,
+        })
+    
+    total_entries = len(entries)
+    wins = sum(1 for e in entries if e.beat_house)
+    losses = total_entries - wins
+    total_coins = sum(e.coins_earned or 0 for e in entries)
+    best_score = max((e.actual_score or 0 for e in entries), default=0)
+    win_rate = (wins / total_entries * 100) if total_entries > 0 else 0
+    
+    current_streak = 0
+    for e in entries:
+        if e.beat_house:
+            current_streak += 1
+        else:
+            break
+    
+    stats = {
+        "total_entries": total_entries,
+        "wins": wins,
+        "losses": losses,
+        "win_rate": win_rate,
+        "total_coins": total_coins,
+        "best_score": best_score,
+        "current_streak": current_streak,
+    }
+    
+    return templates.TemplateResponse("history.html", {
+        "request": request,
+        "user": user,
+        "entry_details": entry_details,
+        "stats": stats,
+    })
+
 @app.get("/shop")
 async def shop(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)

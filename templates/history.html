@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}Contest History - PIRTDICA{% endblock %}
+
+{% block content %}
+<div class="history-page">
+    <h1>Contest History</h1>
+    
+    <div class="history-stats-bar">
+        <div class="history-stat">
+            <span class="history-stat-value">{{ stats.total_entries }}</span>
+            <span class="history-stat-label">Contests</span>
+        </div>
+        <div class="history-stat">
+            <span class="history-stat-value win-text">{{ stats.wins }}</span>
+            <span class="history-stat-label">Wins</span>
+        </div>
+        <div class="history-stat">
+            <span class="history-stat-value loss-text">{{ stats.losses }}</span>
+            <span class="history-stat-label">Losses</span>
+        </div>
+        <div class="history-stat">
+            <span class="history-stat-value">{{ "%.1f"|format(stats.win_rate) }}%</span>
+            <span class="history-stat-label">Win Rate</span>
+        </div>
+        <div class="history-stat">
+            <span class="history-stat-value">{{ stats.total_coins }}</span>
+            <span class="history-stat-label">Coins Earned</span>
+        </div>
+        <div class="history-stat">
+            <span class="history-stat-value">{{ "%.1f"|format(stats.best_score) }}</span>
+            <span class="history-stat-label">Best Score</span>
+        </div>
+        {% if stats.current_streak > 0 %}
+        <div class="history-stat">
+            <span class="history-stat-value win-text">{{ stats.current_streak }}</span>
+            <span class="history-stat-label">Win Streak</span>
+        </div>
+        {% endif %}
+    </div>
+    
+    {% if entry_details %}
+    {% for detail in entry_details %}
+    {% set entry = detail.entry %}
+    {% set players = detail.players %}
+    {% set house_players = detail.house_players %}
+    <div class="history-card {% if entry.beat_house %}history-win{% else %}history-loss{% endif %}">
+        <div class="history-card-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <div class="history-card-date">
+                {{ entry.created_at.strftime('%b %d, %Y') }}
+            </div>
+            <div class="history-card-result">
+                {% if entry.contest.status == 'completed' %}
+                    {% if entry.beat_house %}
+                    <span class="result-badge win">WIN</span>
+                    {% else %}
+                    <span class="result-badge loss">LOSS</span>
+                    {% endif %}
+                {% else %}
+                    <span class="result-badge pending">PENDING</span>
+                {% endif %}
+            </div>
+            <div class="history-card-scores">
+                <span class="your-score">You: {{ "%.1f"|format(entry.actual_score or entry.proj_score) }}</span>
+                <span class="score-vs">vs</span>
+                <span class="house-score">House: {{ "%.1f"|format(entry.house_actual_score or detail.house_total_proj) }}</span>
+            </div>
+            <div class="history-card-coins">
+                {% if entry.coins_earned %}+{{ entry.coins_earned }} coins{% endif %}
+            </div>
+            <div class="history-card-toggle">
+                <span class="expand-icon">&#9660;</span>
+            </div>
+        </div>
+        
+        <div class="history-card-body">
+            <div class="history-lineups">
+                <div class="history-lineup your-history">
+                    <h3>Your Lineup</h3>
+                    <table class="history-lineup-table">
+                        <thead>
+                            <tr>
+                                <th>Player</th>
+                                <th>Pos</th>
+                                <th>Team</th>
+                                <th>Salary</th>
+                                <th>Proj</th>
+                                {% if entry.contest.status == 'completed' %}
+                                <th>Actual</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in players %}
+                            <tr>
+                                <td>{{ p.player_name }}</td>
+                                <td>{{ p.position }}</td>
+                                <td>{{ p.team }}</td>
+                                <td>${{ "{:,}".format(p.salary) }}</td>
+                                <td>{{ "%.1f"|format(p.proj_fp) }}</td>
+                                {% if entry.contest.status == 'completed' %}
+                                <td class="{% if p.actual_fp and p.actual_fp > p.proj_fp %}positive{% elif p.actual_fp %}negative{% endif %}">
+                                    {{ "%.1f"|format(p.actual_fp or 0) }}
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="3"><strong>Total</strong></td>
+                                <td><strong>${{ "{:,}".format(entry.total_salary) }}</strong></td>
+                                <td><strong>{{ "%.1f"|format(entry.proj_score) }}</strong></td>
+                                {% if entry.contest.status == 'completed' %}
+                                <td><strong>{{ "%.1f"|format(entry.actual_score) }}</strong></td>
+                                {% endif %}
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                
+                <div class="history-lineup house-history">
+                    <h3>House Lineup</h3>
+                    <table class="history-lineup-table">
+                        <thead>
+                            <tr>
+                                <th>Player</th>
+                                <th>Pos</th>
+                                <th>Team</th>
+                                <th>Salary</th>
+                                <th>Proj</th>
+                                {% if entry.contest.status == 'completed' %}
+                                <th>Actual</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in house_players %}
+                            <tr>
+                                <td>{{ p.player_name if p is mapping else p.player_name }}</td>
+                                <td>{{ p.position if p is mapping else p.position }}</td>
+                                <td>{{ p.team if p is mapping else p.team }}</td>
+                                <td>${{ "{:,}".format((p.salary if p is mapping else p.salary)|int) }}</td>
+                                <td>{{ "%.1f"|format((p.proj_fp if p is mapping else p.proj_fp)|float) }}</td>
+                                {% if entry.contest.status == 'completed' %}
+                                <td>--</td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="3"><strong>Total</strong></td>
+                                <td></td>
+                                <td><strong>{{ "%.1f"|format(detail.house_total_proj) }}</strong></td>
+                                {% if entry.contest.status == 'completed' %}
+                                <td><strong>{{ "%.1f"|format(entry.house_actual_score or 0) }}</strong></td>
+                                {% endif %}
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            <div class="history-card-actions">
+                <a href="/entry/{{ entry.id }}" class="btn btn-secondary btn-sm">View Full Entry</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="no-data">
+        <p>No contest history yet.</p>
+        <a href="/play" class="btn btn-primary">Play Your First Contest</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
