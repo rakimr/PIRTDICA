@@ -115,39 +115,6 @@
     </div>
     {% endif %}
     
-    {% if ownership %}
-    <div class="trends-section">
-        <h2>Projected Ownership</h2>
-        <p class="chart-description">Estimated public ownership based on optimizer frequency. Higher % = more chalk.</p>
-        <div class="table-controls">
-            <input type="text" class="table-search" data-table="ownership-table" placeholder="Search player...">
-        </div>
-        <div class="ownership-table">
-            <table id="ownership-table">
-                <thead>
-                    <tr>
-                        <th data-sortable="text">Player</th>
-                        <th data-sortable="text">Team</th>
-                        <th data-sortable="number">Salary</th>
-                        <th data-sortable="number">Proj FP</th>
-                        <th data-sortable="number">pOwn%</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for player in ownership %}
-                    <tr>
-                        <td>{{ player.player_name }}</td>
-                        <td>{{ player.team }}</td>
-                        <td>${{ "{:,}".format(player.salary|int) }}</td>
-                        <td>{{ "%.1f"|format(player.proj_fp) }}</td>
-                        <td class="{% if player.pown_pct >= 30 %}chalk-high{% elif player.pown_pct >= 15 %}chalk-med{% else %}chalk-low{% endif %}">{{ "%.0f"|format(player.pown_pct) }}%</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-    {% endif %}
     
     {% if props %}
     <div class="trends-section">
