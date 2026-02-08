@@ -6,13 +6,15 @@
 <div class="entry-page">
     <h1>Your Entry</h1>
     
-    <div class="entry-comparison">
+    <div class="entry-comparison" id="entry-comparison">
         <div class="lineup-side your-side">
             <h2>Your Lineup</h2>
             <div class="score-summary">
                 <span class="proj">Projected: {{ "%.1f"|format(entry.proj_score) }} FP</span>
                 {% if entry.contest.status == 'completed' %}
                 <span class="actual">Actual: {{ "%.1f"|format(entry.actual_score) }} FP</span>
+                {% elif entry.contest.status == 'active' %}
+                <span class="actual live-score" id="your-live-total">Live: -- FP</span>
                 {% endif %}
             </div>
             <table class="lineup-table">
@@ -24,10 +26,12 @@
                         <th>Proj</th>
                         {% if entry.contest.status == 'completed' %}
                         <th>Actual</th>
+                        {% elif entry.contest.status == 'active' %}
+                        <th>Live</th>
                         {% endif %}
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="your-players">
                     {% for p in players %}
                     <tr>
                         <td>{{ p.position }}</td>
@@ -38,6 +42,8 @@
                         <td class="{% if p.actual_fp > p.proj_fp %}positive{% else %}negative{% endif %}">
                             {{ "%.1f"|format(p.actual_fp) }}
                         </td>
+                        {% elif entry.contest.status == 'active' %}
+                        <td class="live-fp" data-player="{{ p.player_name }}">--</td>
                         {% endif %}
                     </tr>
                     {% endfor %}
@@ -55,6 +61,8 @@
                 <span class="proj">Projected: {{ "%.1f"|format(house_total) }} FP</span>
                 {% if entry.contest.status == 'completed' %}
                 <span class="actual">Actual: {{ "%.1f"|format(entry.house_actual_score or entry.contest.house_lineup_score) }} FP</span>
+                {% elif entry.contest.status == 'active' %}
+                <span class="actual live-score" id="house-live-total">Live: -- FP</span>
                 {% endif %}
             </div>
             <table class="lineup-table">
@@ -64,9 +72,14 @@
                         <th>Player</th>
                         <th>Salary</th>
                         <th>Proj</th>
+                        {% if entry.contest.status == 'completed' %}
+                        <th>Actual</th>
+                        {% elif entry.contest.status == 'active' %}
+                        <th>Live</th>
+                        {% endif %}
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="house-players">
                     {% for p in house_players %}
                     <tr>
                         {% if p is mapping %}
@@ -79,6 +92,9 @@
                         <td>{{ p.player_name }}</td>
                         <td>${{ "{:,}".format(p.salary) }}</td>
                         <td>{{ "%.1f"|format(p.proj_fp) }}</td>
+                        {% endif %}
+                        {% if entry.contest.status == 'active' %}
+                        <td class="live-fp" data-player="{{ p.player_name if p is mapping else p.player_name }}">--</td>
                         {% endif %}
                     </tr>
                     {% endfor %}
@@ -97,10 +113,18 @@
             <p>Better luck next time!</p>
         {% endif %}
     </div>
+    {% elif entry.contest.status == 'active' %}
+    <div class="live-banner" id="live-banner">
+        <h2>Games In Progress</h2>
+        <p id="live-status-text">Live scores update every 30 seconds</p>
+        <div class="live-indicator">
+            <span class="live-dot"></span> LIVE
+        </div>
+    </div>
     {% else %}
     <div class="pending-banner">
-        <h2>Games In Progress</h2>
-        <p>Check back after games complete for results!</p>
+        <h2>Games Haven't Started Yet</h2>
+        <p>Check back once games begin for live scoring!</p>
     </div>
     {% endif %}
     
@@ -109,4 +133,122 @@
         <a href="/leaderboard" class="btn btn-secondary">View Leaderboard</a>
     </div>
 </div>
+
+{% if entry.contest.status == 'active' %}
+<style>
+.live-score {
+    color: #00ff88;
+    font-weight: bold;
+}
+.live-fp {
+    font-weight: bold;
+    transition: color 0.3s ease;
+}
+.live-fp.updated {
+    color: #00ff88;
+}
+.live-banner {
+    background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    margin: 20px 0;
+    position: relative;
+}
+.live-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 0, 0, 0.15);
+    border: 1px solid rgba(255, 0, 0, 0.3);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8em;
+    font-weight: bold;
+    color: #ff4444;
+    margin-top: 8px;
+}
+.live-dot {
+    width: 8px;
+    height: 8px;
+    background: #ff4444;
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+.live-winning .your-side h2 { color: #00ff88; }
+.live-losing .your-side h2 { color: #ff4444; }
+</style>
+<script>
+const ENTRY_ID = {{ entry.id }};
+let refreshInterval;
+
+async function fetchLiveScores() {
+    try {
+        const resp = await fetch(`/api/live-entry/${ENTRY_ID}`);
+        const data = await resp.json();
+        
+        if (data.error) return;
+        
+        data.your_players.forEach(p => {
+            const cells = document.querySelectorAll('#your-players .live-fp');
+            cells.forEach(cell => {
+                if (cell.dataset.player === p.player_name) {
+                    const oldVal = cell.textContent;
+                    const newVal = p.live_fp.toFixed(1);
+                    cell.textContent = newVal;
+                    if (oldVal !== newVal && oldVal !== '--') {
+                        cell.classList.add('updated');
+                        setTimeout(() => cell.classList.remove('updated'), 2000);
+                    }
+                    if (p.live_fp > p.proj_fp) {
+                        cell.classList.add('positive');
+                        cell.classList.remove('negative');
+                    } else if (p.live_fp > 0) {
+                        cell.classList.add('negative');
+                        cell.classList.remove('positive');
+                    }
+                }
+            });
+        });
+        
+        data.house_players.forEach(p => {
+            const cells = document.querySelectorAll('#house-players .live-fp');
+            cells.forEach(cell => {
+                if (cell.dataset.player === p.player_name) {
+                    cell.textContent = p.live_fp.toFixed(1);
+                }
+            });
+        });
+        
+        document.getElementById('your-live-total').textContent = `Live: ${data.your_total.toFixed(1)} FP`;
+        document.getElementById('house-live-total').textContent = `Live: ${data.house_total.toFixed(1)} FP`;
+        
+        const comparison = document.getElementById('entry-comparison');
+        if (data.your_total > data.house_total) {
+            comparison.classList.add('live-winning');
+            comparison.classList.remove('live-losing');
+        } else if (data.house_total > data.your_total) {
+            comparison.classList.add('live-losing');
+            comparison.classList.remove('live-winning');
+        }
+        
+        if (data.status === 'completed') {
+            clearInterval(refreshInterval);
+            location.reload();
+        }
+        
+    } catch (e) {
+        console.error('Live score fetch error:', e);
+    }
+}
+
+fetchLiveScores();
+refreshInterval = setInterval(fetchLiveScores, 30000);
+</script>
+{% endif %}
 {% endblock %}

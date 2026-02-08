@@ -8,6 +8,8 @@ from sqlalchemy import func, desc
 from datetime import datetime, date
 import os
 import sys
+import time
+import json
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.timezone import get_eastern_today, get_eastern_now
@@ -766,6 +768,111 @@ async def add_injury(request: Request, db: Session = Depends(get_db), player_nam
         return {"success": True, "message": f"Added {normalized} as OUT ({reason})"}
     except Exception as e:
         return {"success": False, "message": f"Error: {str(e)}"}
+
+_live_scores_cache = {"data": {}, "timestamp": 0}
+LIVE_SCORES_CACHE_TTL = 30
+
+@app.get("/api/live-scores")
+async def api_live_scores(request: Request, db: Session = Depends(get_db)):
+    now = time.time()
+    if now - _live_scores_cache["timestamp"] < LIVE_SCORES_CACHE_TTL and _live_scores_cache["data"]:
+        return {"scores": _live_scores_cache["data"], "cached": True}
+    
+    try:
+        from scrape_live_scores import get_live_scores_summary
+        scores = get_live_scores_summary()
+        _live_scores_cache["data"] = scores
+        _live_scores_cache["timestamp"] = now
+        return {"scores": scores, "cached": False}
+    except Exception as e:
+        return {"scores": _live_scores_cache.get("data", {}), "error": str(e)}
+
+@app.get("/api/live-entry/{entry_id}")
+async def api_live_entry(request: Request, entry_id: int, db: Session = Depends(get_db)):
+    entry = db.query(models.ContestEntry).filter(models.ContestEntry.id == entry_id).first()
+    if not entry:
+        return {"error": "Entry not found"}
+    
+    now = time.time()
+    if now - _live_scores_cache["timestamp"] >= LIVE_SCORES_CACHE_TTL or not _live_scores_cache["data"]:
+        try:
+            from scrape_live_scores import get_live_scores_summary
+            scores = get_live_scores_summary()
+            _live_scores_cache["data"] = scores
+            _live_scores_cache["timestamp"] = now
+        except Exception as e:
+            scores = _live_scores_cache.get("data", {})
+    else:
+        scores = _live_scores_cache["data"]
+    
+    from utils.name_normalize import normalize_player_name
+    
+    entry_players = db.query(models.EntryPlayer).filter(
+        models.EntryPlayer.entry_id == entry_id
+    ).all()
+    
+    your_live = []
+    your_total = 0
+    for p in entry_players:
+        norm = normalize_player_name(p.player_name)
+        live = scores.get(norm, {})
+        fp = live.get('fp', 0)
+        your_total += fp
+        your_live.append({
+            'player_name': p.player_name,
+            'position': p.position,
+            'salary': p.salary,
+            'proj_fp': p.proj_fp,
+            'live_fp': fp,
+            'live_stats': live,
+        })
+    
+    house_live = []
+    house_total = 0
+    if entry.house_lineup_snapshot:
+        try:
+            snapshot = json.loads(entry.house_lineup_snapshot)
+            for hp in snapshot:
+                norm = normalize_player_name(hp['player_name'])
+                live = scores.get(norm, {})
+                fp = live.get('fp', 0)
+                house_total += fp
+                house_live.append({
+                    'player_name': hp['player_name'],
+                    'position': hp['position'],
+                    'salary': hp.get('salary', 0),
+                    'proj_fp': hp.get('proj_fp', 0),
+                    'live_fp': fp,
+                    'live_stats': live,
+                })
+        except:
+            pass
+    
+    if not house_live:
+        hp_records = db.query(models.HouseLineupPlayer).filter(
+            models.HouseLineupPlayer.contest_id == entry.contest_id
+        ).all()
+        for hp in hp_records:
+            norm = normalize_player_name(hp.player_name)
+            live = scores.get(norm, {})
+            fp = live.get('fp', 0)
+            house_total += fp
+            house_live.append({
+                'player_name': hp.player_name,
+                'position': hp.position,
+                'salary': hp.salary,
+                'proj_fp': hp.proj_fp,
+                'live_fp': fp,
+                'live_stats': live,
+            })
+    
+    return {
+        'your_players': your_live,
+        'your_total': round(your_total, 1),
+        'house_players': house_live,
+        'house_total': round(house_total, 1),
+        'status': entry.contest.status,
+    }
 
 if __name__ == "__main__":
     import uvicorn
