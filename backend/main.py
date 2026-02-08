@@ -10,6 +10,8 @@ import os
 import sys
 import time
 import json
+import threading
+import subprocess
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.timezone import get_eastern_today, get_eastern_now
@@ -33,6 +35,46 @@ class NoCacheMiddleware(BaseHTTPMiddleware):
 app.add_middleware(NoCacheMiddleware)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+_house_lineup_lock = threading.Lock()
+
+def auto_generate_house_lineup():
+    if not _house_lineup_lock.acquire(blocking=False):
+        print("[Auto] House lineup generation already in progress, skipping")
+        return
+    try:
+        from sqlalchemy.orm import sessionmaker
+        Session = sessionmaker(bind=engine)
+        db = Session()
+        today = get_eastern_today()
+        existing = db.query(models.Contest).filter(models.Contest.slate_date == today).first()
+        has_house_players = False
+        if existing:
+            has_house_players = db.query(models.HouseLineupPlayer).filter(
+                models.HouseLineupPlayer.contest_id == existing.id
+            ).count() > 0
+        db.close()
+        
+        if os.path.exists("dfs_players.csv") and (not existing or not has_house_players):
+            print("[Auto] Generating house lineup...")
+            subprocess.run(
+                [sys.executable, "generate_house_lineup.py", "--force"],
+                timeout=120,
+                capture_output=True,
+                cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            )
+            print("[Auto] House lineup generated successfully")
+        else:
+            print("[Auto] House lineup already exists for today")
+    except Exception as e:
+        print(f"[Auto] House lineup generation failed: {e}")
+    finally:
+        _house_lineup_lock.release()
+
+@app.on_event("startup")
+async def startup_event():
+    thread = threading.Thread(target=auto_generate_house_lineup, daemon=True)
+    thread.start()
 
 def get_current_user(request: Request, db: Session = Depends(get_db)):
     token = request.cookies.get("session_token")
@@ -669,8 +711,6 @@ async def view_entry(request: Request, entry_id: int, db: Session = Depends(get_
     })
 
 from sqlalchemy import Integer
-import subprocess
-import threading
 
 refresh_status = {"running": False, "log": [], "last_run": None, "success": None}
 
