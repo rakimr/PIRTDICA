@@ -6,6 +6,7 @@ This is an NBA Daily Fantasy Sports (DFS) projection and gaming platform operate
 
 ## Recent Changes (February 2026)
 
+- **House Lineup Snapshot** - Each coach entry freezes the house lineup at submission time; regeneration preserves entries and scoring uses the frozen lineup
 - **Referee Foul Tendencies Chart** - Scatter plot on Trends page showing tonight's crew foul volume vs home/away bias (▲ home-favored, ▼ road-favored)
 - **Admin Control Panel** - Web-based data refresh button and manual injury override form at /admin
 - **Team Incentive Score** - Standings-based variance adjustment (must-win teams = lower σ, tanking teams = higher σ)
