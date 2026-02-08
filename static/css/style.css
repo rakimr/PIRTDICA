@@ -1421,16 +1421,83 @@ a:hover {
     }
     
     .entry-comparison {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 0.5rem;
+    }
+    
+    .lineup-side {
+        padding: 0.75rem;
+        overflow-x: auto;
+    }
+    
+    .lineup-side h2 {
+        font-size: 0.95rem;
+    }
+    
+    .score-summary {
+        flex-direction: column;
+        gap: 0.25rem;
+        font-size: 0.75rem;
+    }
+    
+    .lineup-table th,
+    .lineup-table td {
+        padding: 0.3rem 0.25rem;
+        font-size: 0.65rem;
+        white-space: nowrap;
     }
     
     .vs-divider {
-        justify-content: center;
-        padding: 1rem 0;
+        font-size: 0.9rem;
+        padding: 0 0.15rem;
     }
 }
 
 @media (max-width: 600px) {
+    .entry-comparison {
+        grid-template-columns: 1fr auto 1fr;
+        gap: 0.25rem;
+    }
+    
+    .lineup-side {
+        padding: 0.5rem;
+    }
+    
+    .lineup-side h2 {
+        font-size: 0.8rem;
+    }
+    
+    .score-summary {
+        font-size: 0.65rem;
+    }
+    
+    .lineup-table th,
+    .lineup-table td {
+        padding: 0.2rem 0.15rem;
+        font-size: 0.55rem;
+    }
+    
+    .vs-divider {
+        font-size: 0.75rem;
+        padding: 0 0.1rem;
+    }
+    
+    .entry-page h1 {
+        font-size: 1.25rem;
+    }
+    
+    .live-banner {
+        padding: 10px;
+    }
+    
+    .live-indicator {
+        font-size: 0.65rem;
+    }
+    
+    #live-status-text {
+        font-size: 0.7rem;
+    }
+    
     .hero h1 {
         font-size: 2rem;
     }
