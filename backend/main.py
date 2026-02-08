@@ -470,7 +470,9 @@ async def play(request: Request, db: Session = Depends(get_db)):
         
         players_df['game'] = players_df['team'] + " vs " + players_df['opponent']
         
-        for game_key in game_times.keys():
+        for game_key in list(game_times.keys()):
+            if " @ " not in game_key:
+                continue
             away, home = game_key.split(" @ ")
             game_times[f"{away} vs {home}"] = game_times[game_key]
             game_times[f"{home} vs {away}"] = game_times[game_key]
