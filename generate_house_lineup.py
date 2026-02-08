@@ -31,17 +31,14 @@ def generate_house_lineup(force=False, exclude_teams=None):
     existing = db.query(models.Contest).filter(models.Contest.slate_date == today).first()
     if existing:
         if force:
-            print(f"Force refresh: deleting existing contest for {today}")
+            entry_count = db.query(models.ContestEntry).filter(
+                models.ContestEntry.contest_id == existing.id
+            ).count()
+            print(f"Force refresh: updating house lineup for {today} (preserving {entry_count} coach entries)")
             db.query(models.HouseLineupPlayer).filter(models.HouseLineupPlayer.contest_id == existing.id).delete()
-            db.query(models.EntryPlayer).filter(
-                models.EntryPlayer.entry_id.in_(
-                    db.query(models.ContestEntry.id).filter(models.ContestEntry.contest_id == existing.id)
-                )
-            ).delete(synchronize_session=False)
-            db.query(models.ContestEntry).filter(models.ContestEntry.contest_id == existing.id).delete()
             db.query(models.ProjectionSnapshot).filter(models.ProjectionSnapshot.contest_id == existing.id).delete()
-            db.query(models.Contest).filter(models.Contest.id == existing.id).delete()
             db.commit()
+            contest = existing
         else:
             print(f"Contest already exists for {today}")
             db.close()
@@ -185,15 +182,15 @@ def generate_house_lineup(force=False, exclude_teams=None):
         from optimize_fanduel import optimize_lineup
         best_lineup = optimize_lineup(players_df)
     
-    lock_time = datetime.combine(today, datetime.strptime("19:00", "%H:%M").time())
-    
-    contest = models.Contest(
-        slate_date=today,
-        lock_time=lock_time,
-        status="open"
-    )
-    db.add(contest)
-    db.flush()
+    if not existing:
+        lock_time = datetime.combine(today, datetime.strptime("19:00", "%H:%M").time())
+        contest = models.Contest(
+            slate_date=today,
+            lock_time=lock_time,
+            status="open"
+        )
+        db.add(contest)
+        db.flush()
     
     total_proj = 0
     for player_name in best_lineup:

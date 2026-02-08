@@ -618,16 +618,31 @@ async def view_entry(request: Request, entry_id: int, db: Session = Depends(get_
         models.EntryPlayer.entry_id == entry_id
     ).all()
     
-    house_players = db.query(models.HouseLineupPlayer).filter(
-        models.HouseLineupPlayer.contest_id == entry.contest_id
-    ).all()
+    import json
+    house_snapshot = None
+    if entry.house_lineup_snapshot:
+        try:
+            house_snapshot = json.loads(entry.house_lineup_snapshot)
+        except:
+            pass
+    
+    if house_snapshot:
+        house_players = house_snapshot
+        house_total = entry.house_proj_score
+    else:
+        hp_records = db.query(models.HouseLineupPlayer).filter(
+            models.HouseLineupPlayer.contest_id == entry.contest_id
+        ).all()
+        house_players = [{"player_name": hp.player_name, "position": hp.position, "team": hp.team, "salary": hp.salary, "proj_fp": hp.proj_fp} for hp in hp_records]
+        house_total = sum(hp.proj_fp or 0 for hp in hp_records)
     
     return templates.TemplateResponse("entry.html", {
         "request": request,
         "user": user,
         "entry": entry,
         "players": players,
-        "house_players": house_players
+        "house_players": house_players,
+        "house_total": house_total
     })
 
 from sqlalchemy import Integer

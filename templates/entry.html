@@ -52,9 +52,9 @@
         <div class="lineup-side house-side">
             <h2>House Lineup</h2>
             <div class="score-summary">
-                <span class="proj">Projected: {{ "%.1f"|format(house_players|sum(attribute='proj_fp')) }} FP</span>
+                <span class="proj">Projected: {{ "%.1f"|format(house_total) }} FP</span>
                 {% if entry.contest.status == 'completed' %}
-                <span class="actual">Actual: {{ "%.1f"|format(house_players|sum(attribute='actual_fp')) }} FP</span>
+                <span class="actual">Actual: {{ "%.1f"|format(entry.house_actual_score or entry.contest.house_lineup_score) }} FP</span>
                 {% endif %}
             </div>
             <table class="lineup-table">
@@ -64,22 +64,21 @@
                         <th>Player</th>
                         <th>Salary</th>
                         <th>Proj</th>
-                        {% if entry.contest.status == 'completed' %}
-                        <th>Actual</th>
-                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
                     {% for p in house_players %}
                     <tr>
+                        {% if p is mapping %}
+                        <td>{{ p.position }}</td>
+                        <td>{{ p.player_name }}</td>
+                        <td>${{ "{:,}".format(p.salary|int) }}</td>
+                        <td>{{ "%.1f"|format(p.proj_fp) }}</td>
+                        {% else %}
                         <td>{{ p.position }}</td>
                         <td>{{ p.player_name }}</td>
                         <td>${{ "{:,}".format(p.salary) }}</td>
                         <td>{{ "%.1f"|format(p.proj_fp) }}</td>
-                        {% if entry.contest.status == 'completed' %}
-                        <td class="{% if p.actual_fp > p.proj_fp %}positive{% else %}negative{% endif %}">
-                            {{ "%.1f"|format(p.actual_fp) }}
-                        </td>
                         {% endif %}
                     </tr>
                     {% endfor %}

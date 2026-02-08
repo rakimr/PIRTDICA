@@ -58,6 +58,7 @@ class ContestEntry(Base):
     proj_score = Column(Float, default=0)
     actual_score = Column(Float, default=0)
     house_proj_score = Column(Float, default=0)
+    house_actual_score = Column(Float, default=0)
     house_lineup_snapshot = Column(Text, default="")
     beat_house = Column(Boolean, default=False)
     rank = Column(Integer, default=0)

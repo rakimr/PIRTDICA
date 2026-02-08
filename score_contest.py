@@ -175,7 +175,23 @@ def score_contest(contest_date: date = None, force: bool = False):
                 player.actual_fp = 0
         
         entry.actual_score = entry_total
-        entry.beat_house = entry_total > house_total
+        
+        if entry.house_lineup_snapshot:
+            import json
+            try:
+                snapshot_players = json.loads(entry.house_lineup_snapshot)
+                snapshot_actual = 0
+                for sp in snapshot_players:
+                    norm = normalize_name(sp['player_name'])
+                    snapshot_actual += name_to_fp.get(norm, 0)
+                entry.house_actual_score = snapshot_actual
+                entry.beat_house = entry_total > snapshot_actual
+            except:
+                entry.house_actual_score = house_total
+                entry.beat_house = entry_total > house_total
+        else:
+            entry.house_actual_score = house_total
+            entry.beat_house = entry_total > house_total
     
     contest.status = 'completed'
     db.commit()
