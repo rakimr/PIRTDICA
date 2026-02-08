@@ -6,6 +6,30 @@
 <div class="entry-page">
     <h1>Your Entry</h1>
     
+    {% if is_live %}
+    <div class="live-banner" id="live-banner">
+        <div class="live-indicator">
+            <span class="live-dot"></span> LIVE
+        </div>
+        <p id="live-status-text">Live scores update every 30 seconds</p>
+    </div>
+    {% elif entry.contest.status == 'completed' %}
+    <div class="result-banner {% if entry.beat_house %}win{% else %}loss{% endif %}">
+        {% if entry.beat_house %}
+            <h2>You Beat the House!</h2>
+            <p>You earned {{ entry.coins_earned }} coins!</p>
+        {% else %}
+            <h2>House Wins</h2>
+            <p>Better luck next time!</p>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="pending-banner">
+        <h2>Games Haven't Started Yet</h2>
+        <p>Check back once games begin for live scoring!</p>
+    </div>
+    {% endif %}
+    
     <div class="entry-comparison" id="entry-comparison">
         <div class="lineup-side your-side">
             <h2>Your Lineup</h2>
@@ -13,37 +37,63 @@
                 <span class="proj">Projected: {{ "%.1f"|format(entry.proj_score) }} FP</span>
                 {% if entry.contest.status == 'completed' %}
                 <span class="actual">Actual: {{ "%.1f"|format(entry.actual_score) }} FP</span>
-                {% elif entry.contest.status == 'active' %}
+                {% elif is_live %}
                 <span class="actual live-score" id="your-live-total">Live: -- FP</span>
                 {% endif %}
             </div>
             <table class="lineup-table">
                 <thead>
                     <tr>
-                        <th>Pos</th>
                         <th>Player</th>
+                        <th>Team</th>
                         <th>Salary</th>
-                        <th>Proj</th>
                         {% if entry.contest.status == 'completed' %}
+                        <th>Proj</th>
                         <th>Actual</th>
-                        {% elif entry.contest.status == 'active' %}
+                        {% elif is_live %}
+                        <th>Proj</th>
                         <th>Live</th>
+                        {% else %}
+                        <th>Proj</th>
                         {% endif %}
                     </tr>
                 </thead>
                 <tbody id="your-players">
                     {% for p in players %}
-                    <tr>
-                        <td>{{ p.position }}</td>
-                        <td>{{ p.player_name }}</td>
-                        <td>${{ "{:,}".format(p.salary) }}</td>
-                        <td>{{ "%.1f"|format(p.proj_fp) }}</td>
+                    {% set team = p.team|default('') %}
+                    {% set game_started = team in locked_teams %}
+                    <tr class="{% if is_live and not game_started %}game-pending{% endif %}" 
+                        data-team="{{ team }}"
+                        data-game-time="{{ team_game_times.get(team, '') }}">
+                        <td>
+                            {% if is_live and not game_started %}
+                            <span class="hidden-player">{{ p.position }} - Upcoming</span>
+                            {% else %}
+                            {{ p.player_name }}
+                            {% endif %}
+                        </td>
+                        <td>{{ team }}</td>
+                        <td>
+                            {% if is_live and not game_started %}
+                            --
+                            {% else %}
+                            ${{ "{:,}".format(p.salary) }}
+                            {% endif %}
+                        </td>
                         {% if entry.contest.status == 'completed' %}
+                        <td>{{ "%.1f"|format(p.proj_fp) }}</td>
                         <td class="{% if p.actual_fp > p.proj_fp %}positive{% else %}negative{% endif %}">
                             {{ "%.1f"|format(p.actual_fp) }}
                         </td>
-                        {% elif entry.contest.status == 'active' %}
-                        <td class="live-fp" data-player="{{ p.player_name }}">--</td>
+                        {% elif is_live %}
+                        <td>
+                            {% if game_started %}{{ "%.1f"|format(p.proj_fp) }}{% else %}--{% endif %}
+                        </td>
+                        <td class="live-fp" data-player="{{ p.player_name }}">
+                            {% if game_started %}--{% else %}<span class="game-time-label">{{ team_game_times.get(team, '') }}</span>{% endif %}
+                        </td>
+                        {% else %}
+                        <td>{{ "%.1f"|format(p.proj_fp) }}</td>
                         {% endif %}
                     </tr>
                     {% endfor %}
@@ -61,40 +111,65 @@
                 <span class="proj">Projected: {{ "%.1f"|format(house_total) }} FP</span>
                 {% if entry.contest.status == 'completed' %}
                 <span class="actual">Actual: {{ "%.1f"|format(entry.house_actual_score or entry.contest.house_lineup_score) }} FP</span>
-                {% elif entry.contest.status == 'active' %}
+                {% elif is_live %}
                 <span class="actual live-score" id="house-live-total">Live: -- FP</span>
                 {% endif %}
             </div>
             <table class="lineup-table">
                 <thead>
                     <tr>
-                        <th>Pos</th>
                         <th>Player</th>
+                        <th>Team</th>
                         <th>Salary</th>
-                        <th>Proj</th>
                         {% if entry.contest.status == 'completed' %}
+                        <th>Proj</th>
                         <th>Actual</th>
-                        {% elif entry.contest.status == 'active' %}
+                        {% elif is_live %}
+                        <th>Proj</th>
                         <th>Live</th>
+                        {% else %}
+                        <th>Proj</th>
                         {% endif %}
                     </tr>
                 </thead>
                 <tbody id="house-players">
                     {% for p in house_players %}
-                    <tr>
-                        {% if p is mapping %}
-                        <td>{{ p.position }}</td>
-                        <td>{{ p.player_name }}</td>
-                        <td>${{ "{:,}".format(p.salary|int) }}</td>
-                        <td>{{ "%.1f"|format(p.proj_fp) }}</td>
+                    {% if p is mapping %}
+                        {% set team = p.team|default('') %}
+                    {% else %}
+                        {% set team = p.team|default('') %}
+                    {% endif %}
+                    {% set game_started = team in locked_teams %}
+                    <tr class="{% if is_live and not game_started %}game-pending{% endif %}"
+                        data-team="{{ team }}"
+                        data-game-time="{{ team_game_times.get(team, '') }}">
+                        <td>
+                            {% if is_live and not game_started %}
+                            <span class="hidden-player">{{ (p.position if p is mapping else p.position) }} - Upcoming</span>
+                            {% else %}
+                            {{ p.player_name if p is mapping else p.player_name }}
+                            {% endif %}
+                        </td>
+                        <td>{{ team }}</td>
+                        <td>
+                            {% if is_live and not game_started %}
+                            --
+                            {% else %}
+                            ${{ "{:,}".format((p.salary if p is mapping else p.salary)|int) }}
+                            {% endif %}
+                        </td>
+                        {% if entry.contest.status == 'completed' %}
+                        <td>{{ "%.1f"|format(p.proj_fp if p is mapping else p.proj_fp) }}</td>
+                        <td>--</td>
+                        {% elif is_live %}
+                        <td>
+                            {% if game_started %}{{ "%.1f"|format(p.proj_fp if p is mapping else p.proj_fp) }}{% else %}--{% endif %}
+                        </td>
+                        <td class="live-fp" data-player="{{ p.player_name if p is mapping else p.player_name }}">
+                            {% if game_started %}--{% else %}<span class="game-time-label">{{ team_game_times.get(team, '') }}</span>{% endif %}
+                        </td>
                         {% else %}
-                        <td>{{ p.position }}</td>
-                        <td>{{ p.player_name }}</td>
-                        <td>${{ "{:,}".format(p.salary) }}</td>
-                        <td>{{ "%.1f"|format(p.proj_fp) }}</td>
-                        {% endif %}
-                        {% if entry.contest.status == 'active' %}
-                        <td class="live-fp" data-player="{{ p.player_name if p is mapping else p.player_name }}">--</td>
+                        <td>{{ "%.1f"|format(p.proj_fp if p is mapping else p.proj_fp) }}</td>
                         {% endif %}
                     </tr>
                     {% endfor %}
@@ -103,38 +178,13 @@
         </div>
     </div>
     
-    {% if entry.contest.status == 'completed' %}
-    <div class="result-banner {% if entry.beat_house %}win{% else %}loss{% endif %}">
-        {% if entry.beat_house %}
-            <h2>You Beat the House!</h2>
-            <p>You earned {{ entry.coins_earned }} coins!</p>
-        {% else %}
-            <h2>House Wins</h2>
-            <p>Better luck next time!</p>
-        {% endif %}
-    </div>
-    {% elif entry.contest.status == 'active' %}
-    <div class="live-banner" id="live-banner">
-        <h2>Games In Progress</h2>
-        <p id="live-status-text">Live scores update every 30 seconds</p>
-        <div class="live-indicator">
-            <span class="live-dot"></span> LIVE
-        </div>
-    </div>
-    {% else %}
-    <div class="pending-banner">
-        <h2>Games Haven't Started Yet</h2>
-        <p>Check back once games begin for live scoring!</p>
-    </div>
-    {% endif %}
-    
     <div class="entry-actions">
         <a href="/" class="btn btn-secondary">Back to Home</a>
         <a href="/leaderboard" class="btn btn-secondary">View Leaderboard</a>
     </div>
 </div>
 
-{% if entry.contest.status == 'active' %}
+{% if is_live %}
 <style>
 .live-score {
     color: #00ff88;
@@ -167,7 +217,7 @@
     font-size: 0.8em;
     font-weight: bold;
     color: #ff4444;
-    margin-top: 8px;
+    margin-bottom: 8px;
 }
 .live-dot {
     width: 8px;
@@ -182,6 +232,20 @@
 }
 .live-winning .your-side h2 { color: #00ff88; }
 .live-losing .your-side h2 { color: #ff4444; }
+.game-pending {
+    opacity: 0.4;
+}
+.game-pending td {
+    font-style: italic;
+}
+.hidden-player {
+    color: #888;
+    font-style: italic;
+}
+.game-time-label {
+    color: #888;
+    font-size: 0.85em;
+}
 </style>
 <script>
 const ENTRY_ID = {{ entry.id }};
@@ -198,19 +262,31 @@ async function fetchLiveScores() {
             const cells = document.querySelectorAll('#your-players .live-fp');
             cells.forEach(cell => {
                 if (cell.dataset.player === p.player_name) {
-                    const oldVal = cell.textContent;
-                    const newVal = p.live_fp.toFixed(1);
-                    cell.textContent = newVal;
-                    if (oldVal !== newVal && oldVal !== '--') {
-                        cell.classList.add('updated');
-                        setTimeout(() => cell.classList.remove('updated'), 2000);
-                    }
-                    if (p.live_fp > p.proj_fp) {
-                        cell.classList.add('positive');
-                        cell.classList.remove('negative');
-                    } else if (p.live_fp > 0) {
-                        cell.classList.add('negative');
-                        cell.classList.remove('positive');
+                    if (p.game_started) {
+                        const oldVal = cell.textContent;
+                        const newVal = p.live_fp.toFixed(1);
+                        cell.textContent = newVal;
+                        if (oldVal !== newVal && oldVal !== '--') {
+                            cell.classList.add('updated');
+                            setTimeout(() => cell.classList.remove('updated'), 2000);
+                        }
+                        if (p.live_fp > p.proj_fp) {
+                            cell.classList.add('positive');
+                            cell.classList.remove('negative');
+                        } else if (p.live_fp > 0) {
+                            cell.classList.add('negative');
+                            cell.classList.remove('positive');
+                        }
+                        const row = cell.closest('tr');
+                        if (row && row.classList.contains('game-pending')) {
+                            row.classList.remove('game-pending');
+                            const nameCell = row.querySelector('td:first-child');
+                            if (nameCell) nameCell.textContent = p.player_name;
+                            const salaryCell = row.querySelectorAll('td')[2];
+                            if (salaryCell) salaryCell.textContent = '$' + p.salary.toLocaleString();
+                            const projCell = row.querySelectorAll('td')[3];
+                            if (projCell) projCell.textContent = p.proj_fp.toFixed(1);
+                        }
                     }
                 }
             });
@@ -220,7 +296,19 @@ async function fetchLiveScores() {
             const cells = document.querySelectorAll('#house-players .live-fp');
             cells.forEach(cell => {
                 if (cell.dataset.player === p.player_name) {
-                    cell.textContent = p.live_fp.toFixed(1);
+                    if (p.game_started) {
+                        cell.textContent = p.live_fp.toFixed(1);
+                        const row = cell.closest('tr');
+                        if (row && row.classList.contains('game-pending')) {
+                            row.classList.remove('game-pending');
+                            const nameCell = row.querySelector('td:first-child');
+                            if (nameCell) nameCell.textContent = p.player_name;
+                            const salaryCell = row.querySelectorAll('td')[2];
+                            if (salaryCell) salaryCell.textContent = '$' + p.salary.toLocaleString();
+                            const projCell = row.querySelectorAll('td')[3];
+                            if (projCell) projCell.textContent = p.proj_fp.toFixed(1);
+                        }
+                    }
                 }
             });
         });

@@ -701,13 +701,21 @@ async def view_entry(request: Request, entry_id: int, db: Session = Depends(get_
         house_players = [{"player_name": hp.player_name, "position": hp.position, "team": hp.team, "salary": hp.salary, "proj_fp": hp.proj_fp} for hp in hp_records]
         house_total = sum(hp.proj_fp or 0 for hp in hp_records)
     
+    locked_teams, any_started, team_game_times = get_game_lock_status()
+    
+    is_live = any_started and entry.contest.status in ('open', 'active')
+    
     return templates.TemplateResponse("entry.html", {
         "request": request,
         "user": user,
         "entry": entry,
         "players": players,
         "house_players": house_players,
-        "house_total": house_total
+        "house_total": house_total,
+        "locked_teams": locked_teams,
+        "any_started": any_started,
+        "is_live": is_live,
+        "team_game_times": team_game_times,
     })
 
 from sqlalchemy import Integer
@@ -848,6 +856,56 @@ async def api_live_scores(request: Request, db: Session = Depends(get_db)):
     except Exception as e:
         return {"scores": _live_scores_cache.get("data", {}), "error": str(e)}
 
+def get_game_lock_status():
+    import sqlite3
+    from zoneinfo import ZoneInfo
+    eastern = ZoneInfo("America/New_York")
+    now = datetime.now(eastern)
+    
+    team_aliases = {
+        'NYK': 'NY', 'NY': 'NYK', 'GS': 'GSW', 'GSW': 'GS',
+        'SA': 'SAS', 'SAS': 'SA', 'NO': 'NOP', 'NOP': 'NO',
+        'UTAH': 'UTA', 'UTA': 'UTAH', 'PHX': 'PHO', 'PHO': 'PHX',
+        'CHA': 'CHO', 'CHO': 'CHA', 'BKN': 'BK', 'BK': 'BKN',
+    }
+    
+    try:
+        conn = sqlite3.connect("dfs_nba.db")
+        cur = conn.cursor()
+        cur.execute("SELECT DISTINCT game, game_time FROM player_salaries WHERE game_time IS NOT NULL")
+        rows = cur.fetchall()
+        conn.close()
+    except:
+        return set(), False, {}
+    
+    locked_teams = set()
+    any_started = False
+    team_game_times = {}
+    
+    for game, game_time_str in rows:
+        try:
+            game_dt = datetime.strptime(game_time_str, "%I:%M%p")
+            game_dt = game_dt.replace(year=now.year, month=now.month, day=now.day, tzinfo=eastern)
+            started = now >= game_dt
+        except:
+            started = False
+        
+        if ' @ ' in game:
+            away, home = game.split(' @ ')
+            teams = [away, home]
+            for t in list(teams):
+                alt = team_aliases.get(t)
+                if alt:
+                    teams.append(alt)
+            for t in teams:
+                team_game_times[t] = game_time_str
+                if started:
+                    locked_teams.add(t)
+            if started:
+                any_started = True
+    
+    return locked_teams, any_started, team_game_times
+
 @app.get("/api/live-entry/{entry_id}")
 async def api_live_entry(request: Request, entry_id: int, db: Session = Depends(get_db)):
     entry = db.query(models.ContestEntry).filter(models.ContestEntry.id == entry_id).first()
@@ -868,6 +926,8 @@ async def api_live_entry(request: Request, entry_id: int, db: Session = Depends(
     
     from utils.name_normalize import normalize_player_name
     
+    locked_teams, any_started, team_game_times = get_game_lock_status()
+    
     entry_players = db.query(models.EntryPlayer).filter(
         models.EntryPlayer.entry_id == entry_id
     ).all()
@@ -877,15 +937,18 @@ async def api_live_entry(request: Request, entry_id: int, db: Session = Depends(
     for p in entry_players:
         norm = normalize_player_name(p.player_name)
         live = scores.get(norm, {})
-        fp = live.get('fp', 0)
+        game_started = (p.team or '') in locked_teams
+        fp = live.get('fp', 0) if game_started else 0
         your_total += fp
         your_live.append({
             'player_name': p.player_name,
             'position': p.position,
+            'team': p.team or '',
             'salary': p.salary,
             'proj_fp': p.proj_fp,
             'live_fp': fp,
-            'live_stats': live,
+            'game_started': game_started,
+            'game_time': team_game_times.get(p.team or '', ''),
         })
     
     house_live = []
@@ -896,15 +959,19 @@ async def api_live_entry(request: Request, entry_id: int, db: Session = Depends(
             for hp in snapshot:
                 norm = normalize_player_name(hp['player_name'])
                 live = scores.get(norm, {})
-                fp = live.get('fp', 0)
+                team = hp.get('team', '')
+                game_started = team in locked_teams
+                fp = live.get('fp', 0) if game_started else 0
                 house_total += fp
                 house_live.append({
                     'player_name': hp['player_name'],
                     'position': hp['position'],
+                    'team': team,
                     'salary': hp.get('salary', 0),
                     'proj_fp': hp.get('proj_fp', 0),
                     'live_fp': fp,
-                    'live_stats': live,
+                    'game_started': game_started,
+                    'game_time': team_game_times.get(team, ''),
                 })
         except:
             pass
@@ -916,15 +983,19 @@ async def api_live_entry(request: Request, entry_id: int, db: Session = Depends(
         for hp in hp_records:
             norm = normalize_player_name(hp.player_name)
             live = scores.get(norm, {})
-            fp = live.get('fp', 0)
+            team = hp.team or ''
+            game_started = team in locked_teams
+            fp = live.get('fp', 0) if game_started else 0
             house_total += fp
             house_live.append({
                 'player_name': hp.player_name,
                 'position': hp.position,
+                'team': team,
                 'salary': hp.salary,
                 'proj_fp': hp.proj_fp,
                 'live_fp': fp,
-                'live_stats': live,
+                'game_started': game_started,
+                'game_time': team_game_times.get(team, ''),
             })
     
     return {
@@ -933,6 +1004,7 @@ async def api_live_entry(request: Request, entry_id: int, db: Session = Depends(
         'house_players': house_live,
         'house_total': round(house_total, 1),
         'status': entry.contest.status,
+        'any_game_started': any_started,
     }
 
 if __name__ == "__main__":
