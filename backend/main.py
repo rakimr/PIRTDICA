@@ -437,6 +437,8 @@ async def play(request: Request, db: Session = Depends(get_db)):
     
     try:
         players_df = pd.read_csv("dfs_players.csv")
+        players_df = players_df.dropna(subset=['fd_position', 'salary'])
+        players_df['salary'] = players_df['salary'].astype(int)
         
         conn = sqlite3.connect("dfs_nba.db")
         game_times_df = pd.read_sql_query(
