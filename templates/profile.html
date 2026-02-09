@@ -62,6 +62,7 @@
     <div class="history-section">
         <h2>Recent Entries</h2>
         {% if entries %}
+        <div class="table-scroll-wrapper">
         <table class="entries-table">
             <thead>
                 <tr>
@@ -88,6 +89,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
         {% if user and user.id == profile.id %}
         <a href="/history" class="btn btn-secondary" style="margin-top: 1rem;">View Full History</a>
         {% endif %}
