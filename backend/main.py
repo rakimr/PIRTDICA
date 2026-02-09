@@ -388,9 +388,25 @@ async def profile(request: Request, username: str, db: Session = Depends(get_db)
         func.avg(models.ContestEntry.actual_score).label("avg_score")
     ).filter(models.ContestEntry.user_id == profile_user.id).first()
     
-    achievements = db.query(models.UserAchievement).join(models.Achievement).filter(
+    user_achievements = db.query(models.UserAchievement).filter(
         models.UserAchievement.user_id == profile_user.id
     ).all()
+    
+    achievement_map = {}
+    if user_achievements:
+        all_achievements = db.query(models.Achievement).all()
+        achievement_map = {a.code: a for a in all_achievements}
+    
+    achievements = []
+    for ua in user_achievements:
+        achievement = achievement_map.get(ua.achievement_code)
+        if achievement:
+            achievements.append({
+                "name": achievement.name,
+                "description": achievement.description,
+                "icon": achievement.icon,
+                "achieved_at": ua.achieved_at
+            })
     
     return templates.TemplateResponse("profile.html", {
         "request": request,
