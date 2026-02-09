@@ -110,18 +110,37 @@ def score_contest(contest_date: date = None, force: bool = False):
     
     actual_stats = fetch_actual_stats(contest_date)
     
-    if actual_stats.empty:
-        print("No stats available yet. Games may still be in progress.")
+    name_to_fp = {}
+    if not actual_stats.empty:
+        for _, row in actual_stats.iterrows():
+            normalized = normalize_name(row['player_name'])
+            if normalized in name_to_fp:
+                name_to_fp[normalized] += row['FP']
+            else:
+                name_to_fp[normalized] = row['FP']
+        print(f"Using Basketball Reference data ({len(name_to_fp)} players)")
+    else:
+        print("Basketball Reference unavailable, trying live scores...")
+        try:
+            from scrape_live_scores import get_live_scores_summary
+            live_scores = get_live_scores_summary(contest_date.strftime("%Y-%m-%d"))
+            if live_scores:
+                for norm_name, data in live_scores.items():
+                    name_to_fp[norm_name] = data['fp']
+                print(f"Using live scores data ({len(name_to_fp)} players)")
+            else:
+                print("No live scores available either. Games may still be in progress.")
+                db.close()
+                return
+        except Exception as e:
+            print(f"Error fetching live scores: {e}")
+            db.close()
+            return
+    
+    if not name_to_fp:
+        print("No scoring data available.")
         db.close()
         return
-    
-    name_to_fp = {}
-    for _, row in actual_stats.iterrows():
-        normalized = normalize_name(row['player_name'])
-        if normalized in name_to_fp:
-            name_to_fp[normalized] += row['FP']
-        else:
-            name_to_fp[normalized] = row['FP']
     
     house_players = db.query(models.HouseLineupPlayer).filter(
         models.HouseLineupPlayer.contest_id == contest.id

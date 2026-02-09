@@ -1,6 +1,6 @@
 player,team,opponent,salary,value,stat,player_avg,adjusted_avg,extra_fp,edge_pct,recommendation
-Norman Powell,MIA,UTA,7100,6.27,PTS,23.0,25.9,2.9,12.5,OVER
+Norman Powell,MIA,UTA,7100,6.25,PTS,23.0,25.9,2.9,12.5,OVER
 Rudy Gobert,MIN,ATL,6500,5.26,REB,11.4,12.7,1.6,9.2,OVER
-Bam Adebayo,MIA,UTA,8300,5.64,PTS,18.1,19.6,1.5,7.1,OVER
-Dru Smith,MIA,UTA,4200,6.64,STL,1.5,1.9,1.2,20.4,OVER
+Bam Adebayo,MIA,UTA,8300,5.61,PTS,18.1,19.6,1.5,7.1,OVER
+Dru Smith,MIA,UTA,4200,6.61,STL,1.5,1.9,1.2,20.4,OVER
 Anthony Edwards,MIN,ATL,10300,5.35,PTS,29.8,30.8,1.0,4.3,OVER
