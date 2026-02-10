@@ -1934,6 +1934,37 @@ th[data-sortable].sort-desc::after {
     height: 280px;
 }
 
+.trend-modal-legend {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    padding: 0.6rem 1.5rem 0;
+    font-family: 'Marvel', sans-serif;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.legend-line {
+    display: inline-block;
+    width: 20px;
+    height: 0;
+    border-top: 2px dashed;
+}
+
+.legend-blue {
+    border-color: #2563eb;
+}
+
+.legend-grey {
+    border-color: #6b7280;
+}
+
 .trend-modal-footer {
     display: flex;
     justify-content: space-between;

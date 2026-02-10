@@ -176,6 +176,10 @@
         <div class="trend-modal-body">
             <canvas id="trend-chart" height="260"></canvas>
         </div>
+        <div class="trend-modal-legend">
+            <span class="legend-item"><span class="legend-line legend-blue"></span> FanDuel Line</span>
+            <span class="legend-item"><span class="legend-line legend-grey"></span> Player Average</span>
+        </div>
         <div class="trend-modal-footer">
             <span id="trend-modal-avg"></span>
             <span id="trend-modal-call"></span>
@@ -203,7 +207,7 @@ async function openTrendModal(player, stat, line, call) {
     const avgEl = document.getElementById('trend-modal-avg');
     const callEl = document.getElementById('trend-modal-call');
     
-    title.textContent = player + ' — ' + stat + ' (Last 10)';
+    title.textContent = player + ' — ' + stat + ' (Last 10 Games)';
     avgEl.textContent = 'Loading...';
     callEl.textContent = '';
     modal.style.display = 'flex';
@@ -255,8 +259,8 @@ async function openTrendModal(player, stat, line, call) {
                 maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: {
-                    y: { beginAtZero: true, grid: { color: '#e5e7eb' }, ticks: { font: { family: 'Marvel' } } },
-                    x: { grid: { display: false }, ticks: { font: { family: 'Marvel', size: 11 } } }
+                    y: { beginAtZero: true, grid: { color: '#e5e7eb' }, ticks: { font: { family: 'Marvel' } }, title: { display: true, text: stat, font: { family: 'Marvel', size: 13, weight: 'bold' }, color: '#374151' } },
+                    x: { grid: { display: false }, ticks: { font: { family: 'Marvel', size: 11 } }, title: { display: true, text: 'Game', font: { family: 'Marvel', size: 13, weight: 'bold' }, color: '#374151' } }
                 }
             },
             plugins: [{
@@ -269,16 +273,13 @@ async function openTrendModal(player, stat, line, call) {
                     if (line !== null) {
                         const yLine = yAxis.getPixelForValue(line);
                         ctx.save();
-                        ctx.strokeStyle = '#dc2626';
+                        ctx.strokeStyle = '#2563eb';
                         ctx.lineWidth = 2;
                         ctx.setLineDash([6, 4]);
                         ctx.beginPath();
                         ctx.moveTo(xAxis.left, yLine);
                         ctx.lineTo(xAxis.right, yLine);
                         ctx.stroke();
-                        ctx.fillStyle = '#dc2626';
-                        ctx.font = '11px Marvel';
-                        ctx.fillText('Line ' + line, xAxis.left + 4, yLine - 6);
                         ctx.restore();
                     }
                     
@@ -291,10 +292,6 @@ async function openTrendModal(player, stat, line, call) {
                     ctx.moveTo(xAxis.left, yAvg);
                     ctx.lineTo(xAxis.right, yAvg);
                     ctx.stroke();
-                    ctx.fillStyle = '#6b7280';
-                    ctx.font = '11px Marvel';
-                    ctx.textAlign = 'right';
-                    ctx.fillText('Avg ' + avg, xAxis.right - 4, yAvg - 6);
                     ctx.restore();
                 }
             }]
