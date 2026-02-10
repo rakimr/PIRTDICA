@@ -19,6 +19,7 @@ This is an NBA Daily Fantasy Sports (DFS) projection and gaming platform operate
 - **Projection Snapshots** - All player projections saved with each contest for training data, including actual minutes and minutes error
 - **Player Adjustment Factors** - Learned multipliers for FP bias (0.7-1.3) and minutes bias (0.6-1.4) correct systematic projection errors
 - **Blended DVP System** - Adaptive weighting combines full season and 30-day DvP data (60/40 base, volatility-adjusted)
+- **Player Prop Odds Integration** - The Odds API pulls FanDuel player prop lines (PTS, REB, AST, 3PM, STL, BLK); prop table now shows Book Line, Edge%, and our projection side-by-side, sorted by largest model-vs-market disagreement
 - **Prop Recommendations +/-FP** - Renamed columns and color-coded positive (green) / negative (red) FP values
 
 ## Previous Changes (January 2026)
@@ -173,6 +174,7 @@ SQLite database (`dfs_nba.db`) stores all scraped and processed data. Tables are
 | Projected Ownership | Monte Carlo Sim | `player_ownership_estimates` |
 | Actual FP/Minutes | NBA.com Stats API (primary) | `projection_snapshots` |
 | Actual FP/Minutes | Basketball Reference (fallback) | `projection_snapshots` |
+| Player Prop Odds | The Odds API (FanDuel lines) | `player_props` |
 
 ## Web Platform Architecture
 

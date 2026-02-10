@@ -492,15 +492,73 @@ def generate_dvp_heatmap(dvp_df, output_path='static/images/dvp_heatmap.png'):
     
     return output_path
 
+def _normalize_prop_name(name):
+    """Normalize player name for matching prop lines."""
+    import unicodedata, re
+    if pd.isna(name):
+        return ""
+    name = str(name).strip().lower()
+    name = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode('ascii')
+    name = re.sub(r'\.', '', name)
+    name = re.sub(r'-', ' ', name)
+    name = re.sub(r'\s+(jr|sr|ii|iii|iv|v)\.?$', '', name)
+    name = re.sub(r'\s+', ' ', name).strip()
+    return name
+
+def _load_book_props():
+    """Load player prop lines from The Odds API data."""
+    try:
+        conn = sqlite3.connect("dfs_nba.db")
+        from utils.timezone import get_eastern_date_str
+        today = get_eastern_date_str()
+        df = pd.read_sql_query(
+            "SELECT player_name, stat, line, over_odds, under_odds, bookmaker FROM player_props WHERE game_date = ?",
+            conn, params=[today]
+        )
+        conn.close()
+        if len(df) == 0:
+            return {}
+
+        lookup = {}
+        for _, row in df.iterrows():
+            key = (_normalize_prop_name(row['player_name']), row['stat'])
+            lookup[key] = {
+                'line': row['line'],
+                'over_odds': row['over_odds'],
+                'under_odds': row['under_odds'],
+                'bookmaker': row['bookmaker']
+            }
+        return lookup
+    except Exception as e:
+        print(f"Could not load book props: {e}")
+        return {}
+
+def _american_to_implied_prob(odds):
+    """Convert American odds to implied probability."""
+    if odds is None or pd.isna(odds):
+        return None
+    odds = float(odds)
+    if odds > 0:
+        return 100.0 / (odds + 100.0)
+    else:
+        return abs(odds) / (abs(odds) + 100.0)
+
 def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n=50):
-    """Generate prop bet recommendations based on player averages + DVP matchups."""
-    
+    """Generate prop bet recommendations based on player averages + DVP matchups + book lines."""
+    import unicodedata, re
+
     valued_df = calculate_value_metrics(players_df)
     high_value = valued_df[valued_df['value'] >= min_value].nlargest(top_n, 'value')
     
     stats_norm = per100_df.copy()
     stats_norm['team_norm'] = stats_norm['team'].apply(normalize_team)
     
+    per100_cols = ['pts_per100', 'reb_per100', 'ast_per100', 'stl_per100', 'blk_per100']
+    for col in per100_cols:
+        if col in stats_norm.columns and 'mpg' in stats_norm.columns:
+            pg_col = col.replace('_per100', '_pg')
+            stats_norm[pg_col] = stats_norm[col] * stats_norm['mpg'] / 48.0
+
     stat_config = {
         'pts': ('pts_pg', 'PTS', 1.0, 8.0, 18.0),
         'reb': ('reb_pg', 'REB', 1.2, 3.0, 8.0),
@@ -508,6 +566,9 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n
         'stl': ('stl_pg', 'STL', 3.0, 0.5, 1.5),
         'blk': ('blk_pg', 'BLK', 3.0, 0.5, 1.2)
     }
+
+    book_props = _load_book_props()
+    has_book = len(book_props) > 0
     
     props = []
     
@@ -530,6 +591,8 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n
         if len(opp_dvp) == 0:
             continue
         opp_dvp = opp_dvp.iloc[0]
+
+        player_norm = _normalize_prop_name(player_name)
         
         for stat_key, (col, label, fp_mult, min_under, min_over) in stat_config.items():
             player_avg = player_stats.get(col, 0)
@@ -544,22 +607,37 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n
             league_avg = all_pos_dvp[stat_key].mean()
             diff_stat = opp_allows - league_avg
             diff_fp = diff_stat * fp_mult
-            
+
+            book_key = (player_norm, label)
+            book = book_props.get(book_key)
+            book_line = None
+            book_over = None
+            book_under = None
+            edge = None
+
+            if book:
+                book_line = book['line']
+                book_over = book['over_odds']
+                book_under = book['under_odds']
+                adjusted_avg = player_avg + diff_stat
+                if book_line and book_line > 0:
+                    edge = round(((adjusted_avg - book_line) / book_line) * 100, 1)
+
+            should_include = False
             if diff_stat > 0 and player_avg >= min_over and diff_fp >= 0.3:
-                props.append({
-                    'player': player_name,
-                    'team': team,
-                    'opponent': opponent,
-                    'salary': player['salary'],
-                    'value': round(player['value'], 2),
-                    'stat': label,
-                    'player_avg': round(player_avg, 1),
-                    'adjusted_avg': round(player_avg + diff_stat, 1),
-                    'extra_fp': round(diff_fp, 1),
-                    'edge_pct': round((diff_stat / league_avg * 100) if league_avg > 0 else 0, 1),
-                    'recommendation': 'OVER'
-                })
+                recommendation = 'OVER'
+                should_include = True
             elif diff_stat < 0 and player_avg <= min_under and diff_fp <= -0.3:
+                recommendation = 'UNDER'
+                should_include = True
+            elif book and book_line:
+                adjusted_avg = player_avg + diff_stat
+                gap = adjusted_avg - book_line
+                if abs(gap) >= 1.5:
+                    recommendation = 'OVER' if gap > 0 else 'UNDER'
+                    should_include = True
+
+            if should_include:
                 props.append({
                     'player': player_name,
                     'team': team,
@@ -571,12 +649,19 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n
                     'adjusted_avg': round(player_avg + diff_stat, 1),
                     'extra_fp': round(diff_fp, 1),
                     'edge_pct': round((diff_stat / league_avg * 100) if league_avg > 0 else 0, 1),
-                    'recommendation': 'UNDER'
+                    'recommendation': recommendation,
+                    'book_line': book_line,
+                    'book_over': book_over,
+                    'book_under': book_under,
+                    'vs_book_edge': edge,
                 })
     
     props_df = pd.DataFrame(props)
     if len(props_df) > 0:
-        props_df = props_df.sort_values('extra_fp', key=abs, ascending=False)
+        if has_book and 'vs_book_edge' in props_df.columns:
+            props_df = props_df.sort_values('vs_book_edge', key=abs, ascending=False, na_position='last')
+        else:
+            props_df = props_df.sort_values('extra_fp', key=abs, ascending=False)
     
     return props_df
 

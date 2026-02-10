@@ -18,6 +18,7 @@ SCRIPTS = [
     ("etl_game_foul_environment.py", "Game Foul Environment"),
     ("detect_rotation_changes.py", "Rotation Detection"),
     ("dfs_players.py", "DFS Player Projections"),
+    ("scrape_player_props.py", "Player Prop Odds (The Odds API)"),
     ("analysis/player_value.py", "Player Value Analysis"),
     ("estimate_ownership.py --iterations 500", "Ownership Estimation"),
     ("generate_house_lineup.py --force", "House Lineup Generation"),

@@ -125,7 +125,7 @@
     {% if props %}
     <div class="trends-section">
         <h2>Prop Recommendations</h2>
-        <p class="chart-description">High-volume players with favorable DVP matchups. Only shows stats where player has meaningful averages.</p>
+        <p class="chart-description">Our projections vs FanDuel book lines. Sorted by largest edge where our model disagrees with the market.</p>
         <div class="table-controls">
             <input type="text" class="table-search" data-table="props-table" placeholder="Search player...">
         </div>
@@ -137,7 +137,9 @@
                         <th data-sortable="text">vs</th>
                         <th data-sortable="text">Stat</th>
                         <th data-sortable="number">Avg</th>
-                        <th data-sortable="number">Projected</th>
+                        <th data-sortable="number">Proj</th>
+                        <th data-sortable="number">Line</th>
+                        <th data-sortable="number">Edge%</th>
                         <th data-sortable="number">+/-FP</th>
                         <th data-sortable="text">Call</th>
                     </tr>
@@ -150,6 +152,8 @@
                         <td>{{ prop.stat }}</td>
                         <td>{{ prop.player_avg }}</td>
                         <td>{{ prop.adjusted_avg }}</td>
+                        <td>{{ prop.book_line if prop.book_line is not none and prop.book_line == prop.book_line else '—' }}</td>
+                        <td class="{% if prop.vs_book_edge is not none and prop.vs_book_edge == prop.vs_book_edge %}{% if prop.vs_book_edge > 15 %}fp-positive{% elif prop.vs_book_edge < -15 %}fp-negative{% else %}fp-neutral{% endif %}{% endif %}">{{ '%+.1f'|format(prop.vs_book_edge) if prop.vs_book_edge is not none and prop.vs_book_edge == prop.vs_book_edge else '—' }}</td>
                         <td class="{% if prop.extra_fp > 0 %}fp-positive{% elif prop.extra_fp < 0 %}fp-negative{% else %}fp-neutral{% endif %}">{{ prop.extra_fp }}</td>
                         <td class="{% if prop.recommendation == 'OVER' %}over-cell{% else %}under-cell{% endif %}">{{ prop.recommendation }}</td>
                     </tr>
