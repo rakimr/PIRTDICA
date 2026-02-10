@@ -6,6 +6,7 @@ This is an NBA Daily Fantasy Sports (DFS) projection and gaming platform operate
 
 ## Recent Changes (February 2026)
 
+- **Prop Trend Analysis Modal** - Clickable analysis icon on each prop recommendation opens a Chart.js bar chart of the player's last 10 games for that stat; shows book line (red dashed) and average (grey dashed) reference lines with OVER/UNDER call badge; raw game logs stored in `player_game_logs` table; `/api/player-trend/{player}/{stat}` endpoint
 - **Contest History Page** - `/history` page shows all past contest entries with collapsible cards, side-by-side lineups (yours vs house), aggregate stats (wins, losses, win rate, coins earned, best score, streak), and links to full entry view; accessible from nav bar and profile page
 - **Live Scoring** - Real-time FP tracking from plaintextsports.com/nba with 30-second auto-refresh on entry pages; `/api/live-scores` and `/api/live-entry/{id}` endpoints with 30s server cache
 - **House Lineup Snapshot** - Each coach entry freezes the house lineup at submission time; regeneration preserves entries and scoring uses the frozen lineup

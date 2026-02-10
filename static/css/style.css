@@ -1852,6 +1852,128 @@ th[data-sortable].sort-desc::after {
     font-weight: bold;
 }
 
+.trend-btn-cell {
+    padding: 0.25rem 0.5rem !important;
+    text-align: center;
+    border-bottom: none !important;
+    background: transparent !important;
+}
+
+.trend-analysis-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #9ca3af;
+    padding: 4px;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.trend-analysis-btn:hover {
+    color: #111827;
+    background: #f3f4f6;
+}
+
+.trend-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.trend-modal {
+    background: #fff;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 560px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+.trend-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.trend-modal-header h3 {
+    font-family: 'Marvel', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0;
+}
+
+.trend-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #9ca3af;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 4px;
+}
+
+.trend-modal-close:hover {
+    color: #111827;
+}
+
+.trend-modal-body {
+    padding: 1.25rem 1.5rem;
+    height: 280px;
+}
+
+.trend-modal-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border);
+    font-family: 'Marvel', sans-serif;
+    font-size: 0.95rem;
+    color: var(--text-muted);
+}
+
+.trend-call-over {
+    font-weight: bold;
+    background: #111827;
+    color: #fff;
+    padding: 0.2rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.trend-call-under {
+    font-weight: bold;
+    color: #666;
+    padding: 0.2rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    border: 1px solid #d1d5db;
+}
+
+.props-table th:last-child {
+    background: transparent;
+    width: 36px;
+    min-width: 36px;
+    padding: 0;
+}
+
+.props-table td:last-child {
+    border-bottom: 1px solid var(--border);
+}
+
 /* Mobile fixes for trends page */
 @media (max-width: 768px) {
     .value-table,

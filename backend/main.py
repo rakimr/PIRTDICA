@@ -1099,6 +1099,33 @@ async def api_live_entry(request: Request, entry_id: int, db: Session = Depends(
         'any_game_started': any_started,
     }
 
+@app.get("/api/player-trend/{player_name}/{stat}")
+async def api_player_trend(player_name: str, stat: str, n: int = 10):
+    import sqlite3 as sqlite3_mod
+    stat_map = {
+        'PTS': 'pts', 'REB': 'reb', 'AST': 'ast',
+        'STL': 'stl', 'BLK': 'blk', 'FP': 'fp',
+        'MIN': 'min', 'TOV': 'tov'
+    }
+    col = stat_map.get(stat.upper())
+    if not col:
+        return {"error": "Invalid stat", "games": []}
+    try:
+        conn = sqlite3_mod.connect("dfs_nba.db")
+        rows = conn.execute(
+            f"SELECT game_date, matchup, {col} FROM player_game_logs WHERE player_name = ? ORDER BY game_date DESC LIMIT ?",
+            (player_name, n)
+        ).fetchall()
+        conn.close()
+        if not rows:
+            return {"error": "No data found", "games": []}
+        games = [{"date": r[0], "matchup": r[1], "value": r[2]} for r in reversed(rows)]
+        values = [g["value"] for g in games]
+        avg = round(sum(values) / len(values), 1) if values else 0
+        return {"player": player_name, "stat": stat.upper(), "games": games, "avg": avg}
+    except Exception as e:
+        return {"error": str(e), "games": []}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=5000)
