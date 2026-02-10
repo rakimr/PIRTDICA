@@ -15,8 +15,56 @@ from backend.database import Base, engine
 from backend import models
 from utils.timezone import get_eastern_today
 
-def fetch_actual_stats(game_date: date) -> pd.DataFrame:
-    """Fetch actual player stats from Basketball Reference for a given date."""
+def fetch_actual_stats_nba(game_date: date) -> pd.DataFrame:
+    """Fetch actual player stats from NBA.com stats API (primary source).
+    Returns official FanDuel FP values and minutes directly."""
+    import time
+    try:
+        from nba_api.stats.endpoints import PlayerGameLogs
+        
+        date_str = game_date.strftime("%m/%d/%Y")
+        time.sleep(1)
+        logs = PlayerGameLogs(
+            season_nullable='2025-26',
+            season_type_nullable='Regular Season',
+            date_from_nullable=date_str,
+            date_to_nullable=date_str,
+            league_id_nullable='00'
+        )
+        df = logs.get_data_frames()[0]
+        
+        if df.empty:
+            print(f"No NBA.com data for {game_date}")
+            return pd.DataFrame()
+        
+        players = []
+        for _, row in df.iterrows():
+            fp = row.get('NBA_FANTASY_PTS', 0) or 0
+            mins = row.get('MIN', 0) or 0
+            players.append({
+                'player_name': row['PLAYER_NAME'],
+                'FP': round(float(fp), 1),
+                'MIN': float(mins),
+                'PTS': float(row.get('PTS', 0) or 0),
+                'REB': float(row.get('REB', 0) or 0),
+                'AST': float(row.get('AST', 0) or 0),
+                'STL': float(row.get('STL', 0) or 0),
+                'BLK': float(row.get('BLK', 0) or 0),
+                'TOV': float(row.get('TOV', 0) or 0)
+            })
+        
+        result = pd.DataFrame(players)
+        print(f"Fetched stats for {len(result)} players from NBA.com for {game_date}")
+        return result
+        
+    except Exception as e:
+        print(f"NBA.com API error: {e}")
+        return pd.DataFrame()
+
+
+def fetch_actual_stats_bbref(game_date: date) -> pd.DataFrame:
+    """Fetch actual player stats from Basketball Reference (fallback source).
+    Manually calculates FanDuel FP from box score stats."""
     from bs4 import BeautifulSoup
     
     url = f"https://www.basketball-reference.com/friv/dailyleaders.fcgi?month={game_date.month}&day={game_date.day}&year={game_date.year}"
@@ -31,7 +79,7 @@ def fetch_actual_stats(game_date: date) -> pd.DataFrame:
         
         table = soup.find('table', {'id': 'stats'})
         if not table:
-            print(f"No stats table found for {game_date}")
+            print(f"No stats table found on BBRef for {game_date}")
             return pd.DataFrame()
         
         rows = table.find('tbody').find_all('tr', class_=lambda x: x != 'thead')
@@ -69,16 +117,26 @@ def fetch_actual_stats(game_date: date) -> pd.DataFrame:
                 continue
         
         if not players:
-            print(f"No player data parsed for {game_date}")
+            print(f"No player data parsed from BBRef for {game_date}")
             return pd.DataFrame()
         
         df = pd.DataFrame(players)
-        print(f"Fetched stats for {len(df)} players from {game_date}")
+        print(f"Fetched stats for {len(df)} players from BBRef for {game_date}")
         return df
         
     except Exception as e:
-        print(f"Error fetching stats: {e}")
+        print(f"BBRef error: {e}")
         return pd.DataFrame()
+
+
+def fetch_actual_stats(game_date: date) -> pd.DataFrame:
+    """Fetch actual player stats, trying NBA.com first, then Basketball Reference."""
+    df = fetch_actual_stats_nba(game_date)
+    if not df.empty:
+        return df
+    
+    print("Falling back to Basketball Reference...")
+    return fetch_actual_stats_bbref(game_date)
 
 from utils.name_normalize import normalize_player_name as normalize_name
 
@@ -136,9 +194,9 @@ def score_contest(contest_date: date = None, force: bool = False):
                 name_to_min[normalized] += mins
             else:
                 name_to_min[normalized] = mins
-        print(f"Using Basketball Reference data ({len(name_to_fp)} players)")
+        print(f"Loaded {len(name_to_fp)} players with actual stats")
     else:
-        print("Basketball Reference unavailable, trying live scores...")
+        print("NBA.com and BBRef unavailable, trying live scores...")
         try:
             from scrape_live_scores import get_all_live_scores
             live_players = get_all_live_scores(contest_date.strftime("%Y-%m-%d"))

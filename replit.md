@@ -171,6 +171,8 @@ SQLite database (`dfs_nba.db`) stores all scraped and processed data. Tables are
 | Player Positions | Basketball Reference | `player_positions` |
 | Team Standings | ESPN (fallback data) | `team_standings` |
 | Projected Ownership | Monte Carlo Sim | `player_ownership_estimates` |
+| Actual FP/Minutes | NBA.com Stats API (primary) | `projection_snapshots` |
+| Actual FP/Minutes | Basketball Reference (fallback) | `projection_snapshots` |
 
 ## Web Platform Architecture
 
