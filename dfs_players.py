@@ -255,6 +255,31 @@ df["fp_per_min"] = df["fp_per_min"].fillna(DEFAULT_FP_PER_MIN)
 df["fppm_adj"] = df["fppm_adj"].fillna(df["fp_per_min"])
 df["fp_pg"] = df["fp_pg"].fillna(0)
 
+try:
+    from sqlalchemy import create_engine as _create_engine
+    from utils.name_normalize import normalize_player_name as _normalize
+    _database_url = os.environ.get('DATABASE_URL')
+    if _database_url:
+        _pg_engine = _create_engine(_database_url)
+        _min_factors = pd.read_sql_query(
+            "SELECT player_name_normalized, minutes_adjustment_factor, minutes_sample_size, avg_minutes_error FROM player_adjustment_factors WHERE minutes_sample_size >= 2 AND minutes_adjustment_factor != 1.0",
+            _pg_engine
+        )
+        if len(_min_factors) > 0:
+            if 'player_name_normalized' not in df.columns:
+                df['player_name_normalized'] = df['player_name'].apply(_normalize)
+            min_adj_dict = dict(zip(_min_factors['player_name_normalized'], _min_factors['minutes_adjustment_factor']))
+            df['ml_min_adj'] = df['player_name_normalized'].map(min_adj_dict).fillna(1.0)
+            df['projected_min'] = df['projected_min'] * df['ml_min_adj']
+            min_adj_count = (df['ml_min_adj'] != 1.0).sum()
+            print(f"ML Model 3 (Minutes): Adjusted projected minutes for {min_adj_count} players")
+        else:
+            df['ml_min_adj'] = 1.0
+    else:
+        df['ml_min_adj'] = 1.0
+except Exception as e:
+    df['ml_min_adj'] = 1.0
+
 df["base_fp"] = df["fppm_adj"] * df["projected_min"].fillna(0)
 
 vol_df = pd.read_sql("SELECT player_name, min_sd, fp_sd, avg_fp, max_fp, min_fp, avg_fppm, fppm_sd FROM player_volatility", conn)

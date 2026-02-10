@@ -14,9 +14,10 @@ This is an NBA Daily Fantasy Sports (DFS) projection and gaming platform operate
 - **Team Incentive Score** - Standings-based variance adjustment (must-win teams = lower σ, tanking teams = higher σ)
 - **Projected Ownership (pOwn%)** - Monte Carlo simulation (500+ iterations) estimates public ownership from optimizer frequency
 - **Excel-style Table Filtering** - Sortable columns and player search on Trends page tables
-- **ML Adjustment System** - Historical performance tracking adjusts projections based on actual vs predicted FP
-- **Projection Snapshots** - All player projections saved with each contest for training data
-- **Player Adjustment Factors** - Learned multipliers (0.7-1.3) correct systematic over/under-projection
+- **ML Adjustment System** - Historical performance tracking adjusts projections based on actual vs predicted FP and minutes
+- **ML Minutes Correction (Model 3)** - Tracks projected vs actual minutes per player; learns multipliers (0.6-1.4) to fix systematic minutes over/under-projection before FP is calculated
+- **Projection Snapshots** - All player projections saved with each contest for training data, including actual minutes and minutes error
+- **Player Adjustment Factors** - Learned multipliers for FP bias (0.7-1.3) and minutes bias (0.6-1.4) correct systematic projection errors
 - **Blended DVP System** - Adaptive weighting combines full season and 30-day DvP data (60/40 base, volatility-adjusted)
 - **Prop Recommendations +/-FP** - Renamed columns and color-coded positive (green) / negative (red) FP values
 

@@ -110,7 +110,20 @@ def score_contest(contest_date: date = None, force: bool = False):
     
     actual_stats = fetch_actual_stats(contest_date)
     
+    def parse_minutes_str(min_str):
+        """Convert minutes string like '32:15' or '32' to float minutes."""
+        if not min_str:
+            return 0.0
+        try:
+            if ':' in str(min_str):
+                parts = str(min_str).split(':')
+                return float(parts[0]) + float(parts[1]) / 60.0
+            return float(min_str)
+        except (ValueError, IndexError):
+            return 0.0
+    
     name_to_fp = {}
+    name_to_min = {}
     if not actual_stats.empty:
         for _, row in actual_stats.iterrows():
             normalized = normalize_name(row['player_name'])
@@ -118,15 +131,21 @@ def score_contest(contest_date: date = None, force: bool = False):
                 name_to_fp[normalized] += row['FP']
             else:
                 name_to_fp[normalized] = row['FP']
+            mins = parse_minutes_str(row.get('MIN', 0))
+            if normalized in name_to_min:
+                name_to_min[normalized] += mins
+            else:
+                name_to_min[normalized] = mins
         print(f"Using Basketball Reference data ({len(name_to_fp)} players)")
     else:
         print("Basketball Reference unavailable, trying live scores...")
         try:
-            from scrape_live_scores import get_live_scores_summary
-            live_scores = get_live_scores_summary(contest_date.strftime("%Y-%m-%d"))
-            if live_scores:
-                for norm_name, data in live_scores.items():
-                    name_to_fp[norm_name] = data['fp']
+            from scrape_live_scores import get_all_live_scores
+            live_players = get_all_live_scores(contest_date.strftime("%Y-%m-%d"))
+            if live_players:
+                for norm_name, data in live_players.items():
+                    name_to_fp[norm_name] = round(data['fp'], 1)
+                    name_to_min[norm_name] = parse_minutes_str(data.get('minutes', 0))
                 print(f"Using live scores data ({len(name_to_fp)} players)")
             else:
                 print("No live scores available either. Games may still be in progress.")
@@ -165,6 +184,7 @@ def score_contest(contest_date: date = None, force: bool = False):
     ).all()
     
     snapshot_matched = 0
+    minutes_matched = 0
     for snapshot in snapshots:
         normalized = snapshot.player_name_normalized or normalize_name(snapshot.player_name)
         if normalized in name_to_fp:
@@ -172,8 +192,13 @@ def score_contest(contest_date: date = None, force: bool = False):
             if snapshot.proj_fp and snapshot.proj_fp > 0:
                 snapshot.prediction_error = name_to_fp[normalized] - snapshot.proj_fp
             snapshot_matched += 1
+        if normalized in name_to_min:
+            snapshot.actual_min = name_to_min[normalized]
+            if snapshot.proj_min and snapshot.proj_min > 0:
+                snapshot.minutes_error = name_to_min[normalized] - snapshot.proj_min
+            minutes_matched += 1
     
-    print(f"Updated {snapshot_matched} projection snapshots with actual FP")
+    print(f"Updated {snapshot_matched} projection snapshots with actual FP, {minutes_matched} with actual minutes")
     
     entries = db.query(models.ContestEntry).filter(
         models.ContestEntry.contest_id == contest.id
@@ -238,15 +263,20 @@ def update_adjustment_factors():
     player_errors = {}
     player_actuals = {}
     player_display_names = {}
+    player_minutes_errors = {}
     for snap in snapshots:
         normalized = snap.player_name_normalized or normalize_name(snap.player_name)
         if normalized not in player_errors:
             player_errors[normalized] = []
             player_actuals[normalized] = []
             player_display_names[normalized] = snap.player_name
+            player_minutes_errors[normalized] = []
         error_pct = (snap.actual_fp - snap.proj_fp) / snap.proj_fp
         player_errors[normalized].append(error_pct)
         player_actuals[normalized].append(snap.actual_fp)
+        if snap.actual_min is not None and snap.proj_min and snap.proj_min > 0:
+            min_error_pct = (snap.actual_min - snap.proj_min) / snap.proj_min
+            player_minutes_errors[normalized].append(min_error_pct)
     
     print(f"\nUpdating adjustment factors for {len(player_errors)} players...")
     
@@ -254,6 +284,7 @@ def update_adjustment_factors():
     
     bias_updated = 0
     variance_updated = 0
+    minutes_updated = 0
     
     for normalized_name, errors in player_errors.items():
         if len(errors) < 3:
@@ -281,6 +312,20 @@ def update_adjustment_factors():
         
         avg_actual = sum(player_actuals[normalized_name]) / len(player_actuals[normalized_name])
         
+        min_errors = player_minutes_errors.get(normalized_name, [])
+        min_sample = len(min_errors)
+        avg_min_error = 0.0
+        min_adjustment = 1.0
+        min_consistency = 0.0
+        
+        if min_sample >= 2:
+            avg_min_error = sum(min_errors) / min_sample
+            min_adjustment = 1.0 + (avg_min_error * 0.6)
+            min_adjustment = max(0.6, min(1.4, min_adjustment))
+            min_std = statistics.stdev(min_errors) if min_sample > 1 else 0
+            min_consistency = 1.0 / (1.0 + min_std)
+            minutes_updated += 1
+        
         existing = db.query(models.PlayerAdjustmentFactor).filter(
             models.PlayerAdjustmentFactor.player_name_normalized == normalized_name
         ).first()
@@ -296,6 +341,10 @@ def update_adjustment_factors():
             existing.prediction_variance = prediction_variance
             existing.variance_dampening = variance_dampening
             existing.avg_actual_fp = avg_actual
+            existing.minutes_sample_size = min_sample
+            existing.avg_minutes_error = avg_min_error
+            existing.minutes_adjustment_factor = min_adjustment
+            existing.minutes_consistency = min_consistency
         else:
             factor = models.PlayerAdjustmentFactor(
                 player_name=display_name,
@@ -306,7 +355,11 @@ def update_adjustment_factors():
                 consistency_score=consistency,
                 prediction_variance=prediction_variance,
                 variance_dampening=variance_dampening,
-                avg_actual_fp=avg_actual
+                avg_actual_fp=avg_actual,
+                minutes_sample_size=min_sample,
+                avg_minutes_error=avg_min_error,
+                minutes_adjustment_factor=min_adjustment,
+                minutes_consistency=min_consistency
             )
             db.add(factor)
         
@@ -318,6 +371,7 @@ def update_adjustment_factors():
     db.close()
     print(f"ML Model 1 (Bias): Updated {bias_updated} players with bias correction factors")
     print(f"ML Model 2 (Variance): {variance_updated} players will have variance dampening applied")
+    print(f"ML Model 3 (Minutes): {minutes_updated} players with minutes correction factors")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Score completed contests")
