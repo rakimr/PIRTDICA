@@ -36,7 +36,6 @@ def generate_house_lineup(force=False, exclude_teams=None):
             ).count()
             print(f"Force refresh: updating house lineup for {today} (preserving {entry_count} coach entries)")
             db.query(models.HouseLineupPlayer).filter(models.HouseLineupPlayer.contest_id == existing.id).delete()
-            db.query(models.ProjectionSnapshot).filter(models.ProjectionSnapshot.contest_id == existing.id).delete()
             db.commit()
             contest = existing
         else:
@@ -211,34 +210,70 @@ def generate_house_lineup(force=False, exclude_teams=None):
     
     from utils.name_normalize import normalize_player_name
     
-    snapshot_count = 0
+    existing_snapshots = {}
+    for snap in db.query(models.ProjectionSnapshot).filter(
+        models.ProjectionSnapshot.contest_id == contest.id
+    ).all():
+        existing_snapshots[snap.player_name_normalized] = snap
+    
+    snapshot_added = 0
+    snapshot_updated = 0
     for _, player_data in players_df.iterrows():
         raw_name = str(player_data.get('player_name', ''))
-        snapshot = models.ProjectionSnapshot(
-            contest_id=contest.id,
-            player_name=raw_name,
-            player_name_normalized=normalize_player_name(raw_name),
-            team=str(player_data.get('team', '')),
-            position=str(player_data.get('fd_position', player_data.get('position', ''))),
-            salary=int(player_data.get('salary', 0)) if pd.notna(player_data.get('salary')) else None,
-            proj_min=float(player_data.get('projected_min', 0)) if pd.notna(player_data.get('projected_min')) else None,
-            proj_fp=float(player_data.get('proj_fp', 0)) if pd.notna(player_data.get('proj_fp')) else None,
-            fp_sd=float(player_data.get('fp_sd', 0)) if pd.notna(player_data.get('fp_sd')) else None,
-            usg_pct=float(player_data.get('usg_pct', 0)) if pd.notna(player_data.get('usg_pct')) else None,
-            dvp_weight=float(player_data.get('dvp_weight', 1.0)) if pd.notna(player_data.get('dvp_weight')) else None,
-            ref_weight=float(player_data.get('ref_weight', 1.0)) if pd.notna(player_data.get('ref_weight')) else None,
-            line_weight=float(player_data.get('line_weight', 1.0)) if pd.notna(player_data.get('line_weight')) else None,
-            omega=float(player_data.get('omega', 0)) if pd.notna(player_data.get('omega')) else None
-        )
-        db.add(snapshot)
-        snapshot_count += 1
+        norm_name = normalize_player_name(raw_name)
+        
+        proj_min_val = float(player_data.get('projected_min', 0)) if pd.notna(player_data.get('projected_min')) else None
+        proj_fp_val = float(player_data.get('proj_fp', 0)) if pd.notna(player_data.get('proj_fp')) else None
+        fp_sd_val = float(player_data.get('fp_sd', 0)) if pd.notna(player_data.get('fp_sd')) else None
+        usg_val = float(player_data.get('usg_pct', 0)) if pd.notna(player_data.get('usg_pct')) else None
+        dvp_val = float(player_data.get('dvp_weight', 1.0)) if pd.notna(player_data.get('dvp_weight')) else None
+        ref_val = float(player_data.get('ref_weight', 1.0)) if pd.notna(player_data.get('ref_weight')) else None
+        line_val = float(player_data.get('line_weight', 1.0)) if pd.notna(player_data.get('line_weight')) else None
+        omega_val = float(player_data.get('omega', 0)) if pd.notna(player_data.get('omega')) else None
+        
+        if norm_name in existing_snapshots:
+            snap = existing_snapshots[norm_name]
+            snap.player_name = raw_name
+            snap.team = str(player_data.get('team', ''))
+            snap.position = str(player_data.get('fd_position', player_data.get('position', '')))
+            snap.salary = int(player_data.get('salary', 0)) if pd.notna(player_data.get('salary')) else None
+            snap.proj_min = proj_min_val
+            snap.proj_fp = proj_fp_val
+            snap.fp_sd = fp_sd_val
+            snap.usg_pct = usg_val
+            snap.dvp_weight = dvp_val
+            snap.ref_weight = ref_val
+            snap.line_weight = line_val
+            snap.omega = omega_val
+            snapshot_updated += 1
+        else:
+            snapshot = models.ProjectionSnapshot(
+                contest_id=contest.id,
+                player_name=raw_name,
+                player_name_normalized=norm_name,
+                team=str(player_data.get('team', '')),
+                position=str(player_data.get('fd_position', player_data.get('position', ''))),
+                salary=int(player_data.get('salary', 0)) if pd.notna(player_data.get('salary')) else None,
+                proj_min=proj_min_val,
+                proj_fp=proj_fp_val,
+                fp_sd=fp_sd_val,
+                usg_pct=usg_val,
+                dvp_weight=dvp_val,
+                ref_weight=ref_val,
+                line_weight=line_val,
+                omega=omega_val
+            )
+            db.add(snapshot)
+            snapshot_added += 1
     
     db.commit()
     
     print(f"\nCreated contest for {today}")
     print(f"House lineup: {', '.join(best_lineup)}")
     print(f"Projected score: {total_proj:.1f} FP")
-    print(f"Saved {snapshot_count} player projection snapshots for ML training")
+    total_snapshots = snapshot_added + snapshot_updated
+    preserved = len(existing_snapshots) - snapshot_updated
+    print(f"Snapshots: {snapshot_added} new, {snapshot_updated} updated, {preserved} preserved from earlier slate")
     
     db.close()
 
