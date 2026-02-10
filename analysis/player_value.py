@@ -2,6 +2,7 @@
 Player Value Analysis and Prop Insights
 Calculates value metrics and identifies high-value prop opportunities using DVP data.
 """
+import os
 import pandas as pd
 import sqlite3
 import matplotlib
@@ -304,6 +305,9 @@ def generate_ref_foul_chart(output_path='static/images/ref_foul_chart.png'):
     
     if len(assignments) == 0 or len(ref_stats) == 0:
         print("No referee data available for chart")
+        if os.path.exists(output_path):
+            os.remove(output_path)
+            print(f"Removed stale chart: {output_path}")
         return None
     
     ref_stats_deduped = ref_stats.sort_values('games_officiated', ascending=False).drop_duplicates(subset='referee', keep='first')
@@ -354,6 +358,9 @@ def generate_ref_foul_chart(output_path='static/images/ref_foul_chart.png'):
     
     if len(game_data) == 0:
         print("Could not match any refs to stats")
+        if os.path.exists(output_path):
+            os.remove(output_path)
+            print(f"Removed stale chart: {output_path}")
         return None
     
     gdf = pd.DataFrame(game_data)

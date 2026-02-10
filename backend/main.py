@@ -316,12 +316,16 @@ async def trends(request: Request, db: Session = Depends(get_db)):
     except:
         pass
     
+    import os
+    ref_chart_exists = os.path.exists("static/images/ref_foul_chart.png")
+    
     return templates.TemplateResponse("trends.html", {
         "request": request,
         "user": user,
         "top_value": top_value,
         "props": props,
         "targeted": targeted,
+        "ref_chart_exists": ref_chart_exists,
         "cache_bust": int(time.time())
     })
 

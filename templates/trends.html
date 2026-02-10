@@ -36,7 +36,13 @@
         <h2>Referee Foul Tendencies</h2>
         <p class="chart-description">Tonight's crews plotted by foul volume (X) and home/away bias (Y). ▲ = home-favored, ▼ = road-favored.</p>
         <div class="chart-container">
+            {% if ref_chart_exists %}
             <img src="/static/images/ref_foul_chart.png?v={{ cache_bust }}" alt="Referee Foul Chart" class="trend-chart">
+            {% else %}
+            <div style="text-align:center; padding:40px 20px; color:#888; font-size:1.1rem;">
+                Referee assignments for tonight's games haven't been posted yet. Check back closer to tip-off.
+            </div>
+            {% endif %}
         </div>
     </div>
     
