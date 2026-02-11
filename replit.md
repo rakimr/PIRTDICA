@@ -6,7 +6,8 @@ This is an NBA Daily Fantasy Sports (DFS) projection and gaming platform operate
 
 ## Recent Changes (February 2026)
 
-- **FTA Ownership Projections** - Scrapes FantasyTeamAdvice.com FanDuel NBA ownership data; displays side-by-side comparison with our Monte Carlo ownership estimates on Trends page with diff column; `scrape_fta_ownership.py` saves to `fta_ownership` table in SQLite
+- **FTA Ownership Projections** - Scrapes FantasyTeamAdvice.com FanDuel NBA ownership data; FTA is now the primary ownership source on Trends page with Monte Carlo as secondary reference; `scrape_fta_ownership.py` saves to `fta_ownership` table in SQLite
+- **Ownership ML Calibration (Model 4)** - Learns per-salary-tier scale factors from historical FTA vs Monte Carlo comparisons using least-squares regression; stored in `ownership_calibration` table; daily snapshots in `ownership_snapshots` track mc_pown vs fta_pown per player; factors applied after MC sim to nudge estimates toward market consensus over time
 - **Prop Trend Analysis Modal** - Clickable analysis icon on each prop recommendation opens a Chart.js bar chart of the player's last 10 games for that stat (including 3PM); shows book line (blue dashed) and average (grey dashed) reference lines with OVER/UNDER call badge; raw game logs stored in `player_game_logs` table; `/api/player-trend/{player}/{stat}` endpoint
 - **Contest History Page** - `/history` page shows all past contest entries with collapsible cards, side-by-side lineups (yours vs house), aggregate stats (wins, losses, win rate, coins earned, best score, streak), and links to full entry view; accessible from nav bar and profile page
 - **Live Scoring** - Real-time FP tracking from plaintextsports.com/nba with 30-second auto-refresh on entry pages; `/api/live-scores` and `/api/live-entry/{id}` endpoints with 30s server cache

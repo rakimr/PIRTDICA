@@ -337,14 +337,14 @@ async def trends(request: Request, db: Session = Depends(get_db)):
                 fta_df['_norm'] = fta_df['player_name'].apply(lambda n: normalize_name(n).lower())
                 own_df['_norm'] = own_df['player_name'].apply(lambda n: normalize_name(n).lower())
                 merged = fta_df.merge(own_df[['_norm', 'pown_pct']], on='_norm', how='left')
-                merged = merged.rename(columns={'pown_pct': 'our_pown'})
-                merged['our_pown'] = merged['our_pown'].fillna(0)
-                merged['diff'] = merged['ownership_pct'] - merged['our_pown']
-                ownership = merged[['player_name', 'team', 'ownership_pct', 'our_pown', 'diff']].to_dict('records')
+                merged = merged.rename(columns={'pown_pct': 'mc_pown'})
+                merged['mc_pown'] = merged['mc_pown'].fillna(0)
+                merged['diff'] = merged['ownership_pct'] - merged['mc_pown']
+                ownership = merged[['player_name', 'team', 'ownership_pct', 'mc_pown', 'diff']].to_dict('records')
             else:
-                fta_df['our_pown'] = 0.0
+                fta_df['mc_pown'] = 0.0
                 fta_df['diff'] = 0.0
-                ownership = fta_df[['player_name', 'team', 'ownership_pct', 'our_pown', 'diff']].to_dict('records')
+                ownership = fta_df[['player_name', 'team', 'ownership_pct', 'mc_pown', 'diff']].to_dict('records')
     except Exception as e:
         print(f"Ownership load error: {e}")
     

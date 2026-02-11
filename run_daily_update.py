@@ -21,7 +21,7 @@ SCRIPTS = [
     ("scrape_player_props.py", "Player Prop Odds (The Odds API)"),
     ("scrape_fta_ownership.py", "FTA Ownership Projections"),
     ("analysis/player_value.py", "Player Value Analysis"),
-    ("estimate_ownership.py --iterations 500", "Ownership Estimation"),
+    ("estimate_ownership.py --iterations 500 --update-calibration", "Ownership Estimation (with FTA calibration)"),
     ("generate_house_lineup.py --force", "House Lineup Generation"),
     ("score_contest.py --update-factors", "Score Yesterday's Contest + Update ML Factors"),
 ]
