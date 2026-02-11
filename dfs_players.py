@@ -426,11 +426,53 @@ if not dva_stats.empty and 'archetype' in df.columns:
     df["dvs_raw"] = df.apply(get_dva_weight, axis=1)
     df["dva_weight"] = 1 + (df["dvs_raw"] / 100.0)
     df["dva_weight"] = df["dva_weight"].clip(0.90, 1.12)
-    DVP_BLEND = 0.5
+
+    total_games = 0
+    try:
+        total_games = pd.read_sql_query("SELECT COUNT(DISTINCT game_date) as n FROM player_game_logs", conn).iloc[0]['n']
+    except:
+        pass
+
+    if total_games > 0:
+        season_pct = min(total_games / 82, 1.0)
+        DVP_BLEND = max(0.30, 0.70 - 0.40 * season_pct)
+    else:
+        DVP_BLEND = 0.50
+        season_pct = 0.0
+
+    dvp_only = df["dvp_weight"].copy()
+    dva_only = df["dva_weight"].copy()
+    has_both = (dvp_only != 1.0) & (dva_only != 1.0)
+    if has_both.sum() > 10:
+        corr = dvp_only[has_both].corr(dva_only[has_both])
+        print(f"DVP vs DVS Correlation: {corr:.3f} (n={has_both.sum()})")
+        if corr > 0.6:
+            print(f"  High correlation — signals overlap, blend conservatively")
+        elif corr < 0.3:
+            print(f"  Low correlation — orthogonal edges, blend adds new info")
+        else:
+            print(f"  Moderate correlation — partial overlap")
+
     df["dvp_weight"] = (df["dvp_weight"] * DVP_BLEND) + (df["dva_weight"] * (1 - DVP_BLEND))
     df["proj_fp"] = df["base_fp"] * df["line_weight"] * df["dvp_weight"] * df["ref_weight"] * df["gp_weight"] * df["omega_weight"]
+
+    dvs_abs = df["dvs_raw"].abs()
+    favorable_mask = df["dvs_raw"] > 2.0
+    unfavorable_mask = df["dvs_raw"] < -2.0
+    dvs_ceil_boost = (df["dvs_raw"].clip(0, None) / 100.0) * 0.5
+    df.loc[favorable_mask, "fp_sd"] = df.loc[favorable_mask, "fp_sd"] * (1 + dvs_ceil_boost[favorable_mask])
+    dvs_floor_shrink = (df["dvs_raw"].clip(None, 0).abs() / 100.0) * 0.3
+    df.loc[unfavorable_mask, "fp_sd"] = df.loc[unfavorable_mask, "fp_sd"] * (1 - dvs_floor_shrink[unfavorable_mask])
+
+    df["ceiling"] = (df["proj_fp"] + 1.5 * df["fp_sd"]).round(1)
+    df["floor"] = (df["proj_fp"] - 1.0 * df["fp_sd"]).clip(lower=0).round(1)
+    df["fp_range"] = df["ceiling"] - df["floor"]
+    df["upside_ratio"] = ((df["ceiling"] - df["proj_fp"]) / df["proj_fp"]).round(3)
+
     dva_applied = (df["dvs_raw"].abs() > 0.01).sum()
-    print(f"DVA/DVS Integration: Blended DVS multiplier for {dva_applied} players (50/50 with DVP)")
+    ceil_boosted = favorable_mask.sum()
+    print(f"DVA/DVS Integration: Blended DVS multiplier for {dva_applied} players ({int(DVP_BLEND*100)}/{int((1-DVP_BLEND)*100)} DVP/DVS, season {season_pct*100:.0f}% complete)")
+    print(f"Ceiling Asymmetry: {ceil_boosted} players with boosted upside from favorable DVS matchups")
 
 value_cols = []
 for col in ['tier', 'raw_fp_sd', 'tier_cv', 'tier_expected_sd', 'value_ratio', 'value_vs_tier', 'archetype']:
