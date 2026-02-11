@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Coach vs Coach - PIRTDICA{% endblock %}
+
+{% block content %}
+<style>
+.h2h-page { max-width: 900px; margin: 0 auto; }
+.h2h-header { text-align: center; margin-bottom: 2rem; }
+.h2h-header h1 { font-family: 'Righteous', cursive; font-size: 2.5rem; letter-spacing: 0.05em; }
+.h2h-header p { color: #6b7280; margin-top: 0.5rem; }
+.h2h-section { margin-bottom: 2.5rem; }
+.h2h-section h2 { font-family: 'Righteous', cursive; font-size: 1.3rem; margin-bottom: 1rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+.create-form { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+.create-form label { font-weight: 600; }
+.create-form select { padding: 0.6rem 1rem; border-radius: 6px; border: 1px solid #e5e7eb; background: #fff; font-size: 1rem; }
+.coin-balance { color: #1a1a1a; font-weight: 700; font-size: 1.1rem; margin-left: auto; }
+.challenge-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
+.challenge-info { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.challenge-user { font-weight: 600; font-size: 1rem; }
+.challenge-wager { background: #1a1a1a; color: #fff; padding: 0.25rem 0.75rem; border-radius: 12px; font-weight: 700; font-size: 0.85rem; }
+.challenge-status { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.2rem 0.6rem; border-radius: 4px; }
+.status-open { background: #dbeafe; color: #1d4ed8; }
+.status-accepted { background: #fef3c7; color: #92400e; }
+.status-locked { background: #fce7f3; color: #9d174d; }
+.status-completed { background: #d1fae5; color: #065f46; }
+.challenge-actions { display: flex; gap: 0.5rem; }
+.btn-accept { background: #1a1a1a; color: #fff; border: none; padding: 0.5rem 1.25rem; border-radius: 6px; font-weight: 600; cursor: pointer; }
+.btn-accept:hover { background: #000; }
+.btn-cancel { background: #fff; color: #4b5563; border: 1px solid #e5e7eb; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600; cursor: pointer; }
+.btn-cancel:hover { background: #f3f4f6; }
+.btn-view { background: #f9fafb; color: #1a1a1a; border: 1px solid #e5e7eb; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600; text-decoration: none; }
+.btn-view:hover { background: #f3f4f6; text-decoration: none; }
+.result-win { color: #00ff88; font-weight: 700; }
+.result-loss { color: #ff4444; font-weight: 700; }
+.result-tie { color: #6b7280; font-weight: 700; }
+.empty-state { color: #6b7280; font-style: italic; padding: 1rem 0; }
+.score-display { font-size: 0.9rem; color: #6b7280; }
+</style>
+
+<div class="h2h-page">
+    <div class="h2h-header">
+        <h1>COACH VS COACH</h1>
+        <p>Challenge other coaches head-to-head. Build your best lineup and put your coins on the line.</p>
+    </div>
+
+    {% if contest %}
+    <div class="h2h-section">
+        <h2>Create Challenge</h2>
+        <form class="create-form" method="POST" action="/h2h/create">
+            <label for="wager">Wager:</label>
+            <select name="wager" id="wager">
+                <option value="5">5 coins</option>
+                <option value="10" selected>10 coins</option>
+                <option value="25">25 coins</option>
+                <option value="50">50 coins</option>
+                <option value="100">100 coins</option>
+                <option value="250">250 coins</option>
+                <option value="500">500 coins</option>
+            </select>
+            <button type="submit" class="btn btn-primary">Create Challenge</button>
+            <span class="coin-balance">Balance: {{ user.coins }} coins</span>
+        </form>
+    </div>
+    {% else %}
+    <div class="h2h-section">
+        <p class="empty-state">No contest available today. Check back when games are scheduled.</p>
+    </div>
+    {% endif %}
+
+    <div class="h2h-section">
+        <h2>Open Challenges</h2>
+        {% if open_challenges %}
+            {% for c in open_challenges %}
+            <div class="challenge-card">
+                <div class="challenge-info">
+                    <span class="challenge-user">{{ c.challenger.display_name or c.challenger.username }}</span>
+                    <span class="challenge-wager">{{ c.wager }} coins</span>
+                </div>
+                <div class="challenge-actions">
+                    <form method="POST" action="/h2h/accept/{{ c.id }}" style="display:inline;">
+                        <button type="submit" class="btn-accept">Accept</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="empty-state">No open challenges right now. Create one!</p>
+        {% endif %}
+    </div>
+
+    <div class="h2h-section">
+        <h2>Your Active Matches</h2>
+        {% if active_challenges %}
+            {% for c in active_challenges %}
+            <div class="challenge-card">
+                <div class="challenge-info">
+                    {% if c.challenger_id == user.id %}
+                        <span class="challenge-user">You</span>
+                        <span>vs</span>
+                        <span class="challenge-user">{{ c.opponent.display_name or c.opponent.username if c.opponent else 'Waiting...' }}</span>
+                    {% else %}
+                        <span class="challenge-user">{{ c.challenger.display_name or c.challenger.username }}</span>
+                        <span>vs</span>
+                        <span class="challenge-user">You</span>
+                    {% endif %}
+                    <span class="challenge-wager">{{ c.wager }} coins</span>
+                    <span class="challenge-status status-{{ c.status }}">{{ c.status }}</span>
+                </div>
+                <div class="challenge-actions">
+                    {% if c.status == 'open' and c.challenger_id == user.id %}
+                        <form method="POST" action="/h2h/cancel/{{ c.id }}" style="display:inline;">
+                            <button type="submit" class="btn-cancel">Cancel</button>
+                        </form>
+                    {% elif c.status == 'accepted' %}
+                        {% set needs_lineup = (c.challenger_id == user.id and not c.challenger_lineup_submitted) or (c.opponent_id == user.id and not c.opponent_lineup_submitted) %}
+                        {% if needs_lineup %}
+                            <a href="/h2h/lineup/{{ c.id }}" class="btn-accept" style="text-decoration:none;">Build Lineup</a>
+                        {% else %}
+                            <a href="/h2h/match/{{ c.id }}" class="btn-view">View Match</a>
+                        {% endif %}
+                    {% elif c.status == 'locked' %}
+                        <a href="/h2h/match/{{ c.id }}" class="btn-view">View Match</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="empty-state">No active matches.</p>
+        {% endif %}
+    </div>
+
+    <div class="h2h-section">
+        <h2>Recent Results</h2>
+        {% if history_challenges %}
+            {% for c in history_challenges %}
+            <div class="challenge-card">
+                <div class="challenge-info">
+                    {% if c.challenger_id == user.id %}
+                        <span class="challenge-user">You</span>
+                        <span class="score-display">{{ "%.1f"|format(c.challenger_score) }}</span>
+                        <span>vs</span>
+                        <span class="score-display">{{ "%.1f"|format(c.opponent_score) }}</span>
+                        <span class="challenge-user">{{ c.opponent.display_name or c.opponent.username if c.opponent else '?' }}</span>
+                    {% else %}
+                        <span class="challenge-user">{{ c.challenger.display_name or c.challenger.username }}</span>
+                        <span class="score-display">{{ "%.1f"|format(c.challenger_score) }}</span>
+                        <span>vs</span>
+                        <span class="score-display">{{ "%.1f"|format(c.opponent_score) }}</span>
+                        <span class="challenge-user">You</span>
+                    {% endif %}
+                    <span class="challenge-wager">{{ c.wager }} coins</span>
+                </div>
+                <div class="challenge-actions">
+                    {% if c.winner_id == user.id %}
+                        <span class="result-win">WIN</span>
+                    {% elif c.winner_id %}
+                        <span class="result-loss">LOSS</span>
+                    {% else %}
+                        <span class="result-tie">TIE</span>
+                    {% endif %}
+                    <a href="/h2h/match/{{ c.id }}" class="btn-view">Details</a>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="empty-state">No completed matches yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

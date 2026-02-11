@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+
+{% block title %}H2H Match - PIRTDICA{% endblock %}
+
+{% block content %}
+<style>
+.h2h-match-page { max-width: 1100px; margin: 0 auto; }
+.h2h-match-header { text-align: center; margin-bottom: 1.5rem; }
+.h2h-match-header h1 { font-family: 'Righteous', cursive; font-size: 2rem; }
+.h2h-match-header .wager-badge { background: #1a1a1a; color: #fff; padding: 0.3rem 1rem; border-radius: 16px; font-weight: 700; display: inline-block; margin-top: 0.5rem; }
+.result-banner { text-align: center; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; }
+.result-banner.win { background: rgba(0, 255, 136, 0.08); border: 1px solid rgba(0, 255, 136, 0.3); }
+.result-banner.win h2 { color: #00ff88; }
+.result-banner.loss { background: rgba(255, 68, 68, 0.08); border: 1px solid rgba(255, 68, 68, 0.3); }
+.result-banner.loss h2 { color: #ff4444; }
+.result-banner.tie { background: rgba(107, 114, 128, 0.08); border: 1px solid rgba(107, 114, 128, 0.3); }
+.result-banner.tie h2 { color: #6b7280; }
+.pending-banner { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; text-align: center; margin-bottom: 1.5rem; }
+.pending-banner h2 { margin-bottom: 0.5rem; }
+.pending-banner p { color: #6b7280; }
+.lineup-action { text-align: center; margin-bottom: 1.5rem; }
+.live-banner { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.25rem; text-align: center; margin-bottom: 1.5rem; position: relative; }
+.live-indicator { display: inline-flex; align-items: center; gap: 6px; background: rgba(255, 0, 0, 0.08); border: 1px solid rgba(255, 0, 0, 0.2); padding: 4px 12px; border-radius: 20px; font-size: 0.8em; font-weight: bold; color: #ff4444; margin-bottom: 8px; }
+.live-dot { width: 8px; height: 8px; background: #ff4444; border-radius: 50%; animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.h2h-comparison { display: grid; grid-template-columns: 1fr auto 1fr; gap: 1rem; align-items: start; }
+.vs-divider { display: flex; align-items: center; justify-content: center; font-family: 'Righteous', cursive; font-size: 1.5rem; color: #6b7280; padding-top: 3rem; }
+.lineup-side { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.25rem; }
+.lineup-side h2 { font-family: 'Righteous', cursive; font-size: 1.2rem; margin-bottom: 0.75rem; text-align: center; }
+.score-summary { text-align: center; margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap; }
+.score-summary .proj { color: #6b7280; font-weight: 600; }
+.score-summary .actual { font-weight: 700; }
+.live-score { color: #1a1a1a; font-weight: bold; }
+.lineup-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.lineup-table th, .lineup-table td { padding: 0.6rem 0.5rem; text-align: left; }
+.lineup-table th { color: #6b7280; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; border-bottom: 1px solid #e5e7eb; letter-spacing: 0.03em; }
+.lineup-table tbody tr:hover { background: rgba(0,0,0,0.02); }
+.positive { color: #065f46; }
+.negative { color: #4b5563; }
+.live-fp { font-weight: bold; transition: color 0.3s ease; }
+.live-fp.updated { color: #00ff88; }
+.game-pending { opacity: 0.4; }
+.game-pending td { font-style: italic; }
+.hidden-player { color: #9ca3af; font-style: italic; }
+.game-time-label { color: #9ca3af; font-size: 0.85em; }
+.live-winning .challenger-side h2 { color: #065f46; }
+.live-losing .challenger-side h2 { color: #4b5563; }
+.entry-actions { display: flex; gap: 1rem; justify-content: center; margin-top: 2rem; flex-wrap: wrap; }
+.waiting-msg { text-align: center; padding: 2rem; color: #6b7280; font-style: italic; }
+@media (max-width: 768px) {
+    .h2h-comparison { grid-template-columns: 1fr; }
+    .vs-divider { padding: 0.5rem 0; }
+}
+</style>
+
+<div class="h2h-match-page">
+    <div class="h2h-match-header">
+        <h1>{{ challenge.challenger.display_name or challenge.challenger.username }} vs {{ challenge.opponent.display_name or challenge.opponent.username if challenge.opponent else 'Waiting...' }}</h1>
+        <div class="wager-badge">{{ challenge.wager }} coins</div>
+    </div>
+
+    {% if needs_lineup %}
+    <div class="lineup-action">
+        <a href="/h2h/lineup/{{ challenge.id }}" class="btn btn-primary btn-large">Build Your Lineup</a>
+    </div>
+    {% endif %}
+
+    {% if is_live %}
+    <div class="live-banner" id="live-banner">
+        <div class="live-indicator">
+            <span class="live-dot"></span> LIVE
+        </div>
+        <p id="live-status-text">Live scores update every 30 seconds</p>
+    </div>
+    {% elif challenge.status == 'completed' %}
+        {% if challenge.winner_id == user.id %}
+        <div class="result-banner win">
+            <h2>You Won!</h2>
+            {% set total_pot = challenge.wager * 2 %}
+            {% set house_cut = [1, (total_pot * 0.1)|int]|max %}
+            <p>You earned {{ total_pot - house_cut }} coins!</p>
+        </div>
+        {% elif challenge.winner_id %}
+        <div class="result-banner loss">
+            <h2>You Lost</h2>
+            <p>Better luck next time!</p>
+        </div>
+        {% else %}
+        <div class="result-banner tie">
+            <h2>It's a Tie!</h2>
+            <p>Wagers refunded.</p>
+        </div>
+        {% endif %}
+    {% elif challenge.status in ['open', 'accepted'] %}
+    <div class="pending-banner">
+        {% if challenge.status == 'open' %}
+        <h2>Waiting for Opponent</h2>
+        <p>Share this challenge or wait for someone to accept.</p>
+        {% elif not challenge.challenger_lineup_submitted or not challenge.opponent_lineup_submitted %}
+        <h2>Waiting for Lineups</h2>
+        <p>Both coaches must submit their lineups before the match begins.</p>
+        {% else %}
+        <h2>Lineups Locked</h2>
+        <p>Waiting for games to start.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="h2h-comparison" id="h2h-comparison">
+        <div class="lineup-side challenger-side">
+            <h2>{{ challenge.challenger.display_name or challenge.challenger.username }}</h2>
+            {% if challenger_players %}
+            <div class="score-summary">
+                <span class="proj">Proj: {{ "%.1f"|format(challenger_players|sum(attribute='proj_fp')) }} FP</span>
+                {% if challenge.status == 'completed' %}
+                <span class="actual">Actual: {{ "%.1f"|format(challenge.challenger_score) }} FP</span>
+                {% elif is_live %}
+                <span class="actual live-score" id="challenger-live-total">Live: -- FP</span>
+                {% endif %}
+            </div>
+            <table class="lineup-table">
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        <th>Team</th>
+                        <th>Salary</th>
+                        {% if challenge.status == 'completed' %}
+                        <th>Proj</th>
+                        <th>Actual</th>
+                        {% elif is_live %}
+                        <th>Proj</th>
+                        <th>Live</th>
+                        {% else %}
+                        <th>Proj</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody id="challenger-players">
+                    {% for p in challenger_players %}
+                    {% set team = p.team|default('') %}
+                    {% set game_started = team in locked_teams %}
+                    <tr class="{% if is_live and not game_started %}game-pending{% endif %}"
+                        data-team="{{ team }}"
+                        data-game-time="{{ team_game_times.get(team, '') }}">
+                        <td>
+                            {% if is_live and not game_started %}
+                            <span class="hidden-player">{{ p.position }} - Upcoming</span>
+                            {% else %}
+                            {{ p.player_name }}
+                            {% endif %}
+                        </td>
+                        <td>{{ team }}</td>
+                        <td>
+                            {% if is_live and not game_started %}--{% else %}${{ "{:,}".format(p.salary) }}{% endif %}
+                        </td>
+                        {% if challenge.status == 'completed' %}
+                        <td>{{ "%.1f"|format(p.proj_fp) }}</td>
+                        <td class="{% if p.actual_fp > p.proj_fp %}positive{% else %}negative{% endif %}">
+                            {{ "%.1f"|format(p.actual_fp) }}
+                        </td>
+                        {% elif is_live %}
+                        <td>{% if game_started %}{{ "%.1f"|format(p.proj_fp) }}{% else %}--{% endif %}</td>
+                        <td class="live-fp" data-player="{{ p.player_name }}">
+                            {% if game_started %}--{% else %}<span class="game-time-label">{{ team_game_times.get(team, '') }}</span>{% endif %}
+                        </td>
+                        {% else %}
+                        <td>{{ "%.1f"|format(p.proj_fp) }}</td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="waiting-msg">Lineup not yet submitted</p>
+            {% endif %}
+        </div>
+
+        <div class="vs-divider">
+            <span>VS</span>
+        </div>
+
+        <div class="lineup-side opponent-side">
+            <h2>{{ challenge.opponent.display_name or challenge.opponent.username if challenge.opponent else 'Waiting...' }}</h2>
+            {% if opponent_players %}
+            <div class="score-summary">
+                <span class="proj">Proj: {{ "%.1f"|format(opponent_players|sum(attribute='proj_fp')) }} FP</span>
+                {% if challenge.status == 'completed' %}
+                <span class="actual">Actual: {{ "%.1f"|format(challenge.opponent_score) }} FP</span>
+                {% elif is_live %}
+                <span class="actual live-score" id="opponent-live-total">Live: -- FP</span>
+                {% endif %}
+            </div>
+            <table class="lineup-table">
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        <th>Team</th>
+                        <th>Salary</th>
+                        {% if challenge.status == 'completed' %}
+                        <th>Proj</th>
+                        <th>Actual</th>
+                        {% elif is_live %}
+                        <th>Proj</th>
+                        <th>Live</th>
+                        {% else %}
+                        <th>Proj</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody id="opponent-players">
+                    {% for p in opponent_players %}
+                    {% set team = p.team|default('') %}
+                    {% set game_started = team in locked_teams %}
+                    <tr class="{% if is_live and not game_started %}game-pending{% endif %}"
+                        data-team="{{ team }}"
+                        data-game-time="{{ team_game_times.get(team, '') }}">
+                        <td>
+                            {% if is_live and not game_started %}
+                            <span class="hidden-player">{{ p.position }} - Upcoming</span>
+                            {% else %}
+                            {{ p.player_name }}
+                            {% endif %}
+                        </td>
+                        <td>{{ team }}</td>
+                        <td>
+                            {% if is_live and not game_started %}--{% else %}${{ "{:,}".format(p.salary) }}{% endif %}
+                        </td>
+                        {% if challenge.status == 'completed' %}
+                        <td>{{ "%.1f"|format(p.proj_fp) }}</td>
+                        <td class="{% if p.actual_fp > p.proj_fp %}positive{% else %}negative{% endif %}">
+                            {{ "%.1f"|format(p.actual_fp) }}
+                        </td>
+                        {% elif is_live %}
+                        <td>{% if game_started %}{{ "%.1f"|format(p.proj_fp) }}{% else %}--{% endif %}</td>
+                        <td class="live-fp" data-player="{{ p.player_name }}">
+                            {% if game_started %}--{% else %}<span class="game-time-label">{{ team_game_times.get(team, '') }}</span>{% endif %}
+                        </td>
+                        {% else %}
+                        <td>{{ "%.1f"|format(p.proj_fp) }}</td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="waiting-msg">Lineup not yet submitted</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="entry-actions">
+        <a href="/h2h" class="btn btn-secondary">Back to H2H Lobby</a>
+    </div>
+</div>
+
+{% if is_live %}
+<script>
+const CHALLENGE_ID = {{ challenge.id }};
+let refreshInterval;
+
+async function fetchLiveScores() {
+    try {
+        const resp = await fetch(`/api/live-h2h/${CHALLENGE_ID}`);
+        const data = await resp.json();
+
+        if (data.error) return;
+
+        data.challenger_players.forEach(p => {
+            const cells = document.querySelectorAll('#challenger-players .live-fp');
+            cells.forEach(cell => {
+                if (cell.dataset.player === p.player_name) {
+                    if (p.game_started) {
+                        const oldVal = cell.textContent;
+                        const newVal = p.live_fp.toFixed(1);
+                        cell.textContent = newVal;
+                        if (oldVal !== newVal && oldVal !== '--') {
+                            cell.classList.add('updated');
+                            setTimeout(() => cell.classList.remove('updated'), 2000);
+                        }
+                        const row = cell.closest('tr');
+                        if (row && row.classList.contains('game-pending')) {
+                            row.classList.remove('game-pending');
+                            const nameCell = row.querySelector('td:first-child');
+                            if (nameCell) nameCell.textContent = p.player_name;
+                            const salaryCell = row.querySelectorAll('td')[2];
+                            if (salaryCell) salaryCell.textContent = '$' + p.salary.toLocaleString();
+                            const projCell = row.querySelectorAll('td')[3];
+                            if (projCell) projCell.textContent = p.proj_fp.toFixed(1);
+                        }
+                    }
+                }
+            });
+        });
+
+        data.opponent_players.forEach(p => {
+            const cells = document.querySelectorAll('#opponent-players .live-fp');
+            cells.forEach(cell => {
+                if (cell.dataset.player === p.player_name) {
+                    if (p.game_started) {
+                        const oldVal = cell.textContent;
+                        const newVal = p.live_fp.toFixed(1);
+                        cell.textContent = newVal;
+                        if (oldVal !== newVal && oldVal !== '--') {
+                            cell.classList.add('updated');
+                            setTimeout(() => cell.classList.remove('updated'), 2000);
+                        }
+                        const row = cell.closest('tr');
+                        if (row && row.classList.contains('game-pending')) {
+                            row.classList.remove('game-pending');
+                            const nameCell = row.querySelector('td:first-child');
+                            if (nameCell) nameCell.textContent = p.player_name;
+                            const salaryCell = row.querySelectorAll('td')[2];
+                            if (salaryCell) salaryCell.textContent = '$' + p.salary.toLocaleString();
+                            const projCell = row.querySelectorAll('td')[3];
+                            if (projCell) projCell.textContent = p.proj_fp.toFixed(1);
+                        }
+                    }
+                }
+            });
+        });
+
+        const challEl = document.getElementById('challenger-live-total');
+        if (challEl) challEl.textContent = `Live: ${data.challenger_total.toFixed(1)} FP`;
+        const oppEl = document.getElementById('opponent-live-total');
+        if (oppEl) oppEl.textContent = `Live: ${data.opponent_total.toFixed(1)} FP`;
+
+        const comparison = document.getElementById('h2h-comparison');
+        if (data.challenger_total > data.opponent_total) {
+            comparison.classList.add('live-winning');
+            comparison.classList.remove('live-losing');
+        } else if (data.opponent_total > data.challenger_total) {
+            comparison.classList.add('live-losing');
+            comparison.classList.remove('live-winning');
+        }
+
+        if (data.status === 'completed') {
+            clearInterval(refreshInterval);
+            location.reload();
+        }
+
+    } catch (e) {
+        console.error('Live score fetch error:', e);
+    }
+}
+
+fetchLiveScores();
+refreshInterval = setInterval(fetchLiveScores, 30000);
+</script>
+{% endif %}
+{% endblock %}

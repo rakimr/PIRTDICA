@@ -304,6 +304,12 @@ def score_contest(contest_date: date = None, force: bool = False):
     winners = sum(1 for e in entries if e.beat_house)
     print(f"Winners: {winners} ({winners/len(entries)*100:.1f}%)" if entries else "Winners: 0")
     
+    try:
+        from backend.main import settle_h2h_challenges
+        settle_h2h_challenges(db)
+    except Exception as e:
+        print(f"H2H settlement: {e}")
+    
     db.close()
 
 def update_adjustment_factors():

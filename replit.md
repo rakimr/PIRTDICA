@@ -33,6 +33,7 @@ The system employs an ETL (Extract-Transform-Load) pattern using a SQLite databa
 -   **Lineup Optimizer:** Uses PuLP linear programming to find optimal 9-player FanDuel lineups within salary caps and position requirements, with optional reliability adjustments.
 -   **Monte Carlo Optimizer:** Stochastic simulation finds lineups with the highest win probability.
 -   **Beat the House Game:** Daily contests where users compete against an AI-generated house lineup; features include user accounts, leaderboards, in-game currency, and live scoring.
+-   **Coach vs Coach (H2H):** Head-to-head challenge system where users wager coins and compete with their own lineups against each other. Features: lobby for creating/accepting challenges, coin escrow system with 10% house cut, same salary cap and player pool as main contest, game lock enforcement, live scoring with 30-second refresh, side-by-side match view, settlement on contest completion (auto-triggered via live scoring API and score_contest.py), tie handling with full refund, H2H record tracking on user profiles.
 
 ### Web Platform
 -   **Backend:** FastAPI (Python) with SQLAlchemy ORM, PostgreSQL for user and contest data.

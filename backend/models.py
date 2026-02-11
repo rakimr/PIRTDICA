@@ -19,6 +19,7 @@ class User(Base):
     entries = relationship("ContestEntry", back_populates="user")
     achievements = relationship("UserAchievement", back_populates="user")
     currency_transactions = relationship("CurrencyTransaction", back_populates="user")
+    h2h_challenges_created = relationship("H2HChallenge", foreign_keys="H2HChallenge.challenger_id", back_populates="challenger")
 
 class Contest(Base):
     __tablename__ = "contests"
@@ -194,3 +195,40 @@ class PlayerAdjustmentFactor(Base):
     minutes_adjustment_factor = Column(Float, default=1.0)
     minutes_consistency = Column(Float, default=0)
     last_updated = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+class H2HChallenge(Base):
+    __tablename__ = "h2h_challenges"
+
+    id = Column(Integer, primary_key=True, index=True)
+    contest_id = Column(Integer, ForeignKey("contests.id"), nullable=False)
+    challenger_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    opponent_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    wager = Column(Integer, default=10)
+    status = Column(String(20), default="open")
+    winner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    challenger_score = Column(Float, default=0)
+    opponent_score = Column(Float, default=0)
+    challenger_lineup_submitted = Column(Boolean, default=False)
+    opponent_lineup_submitted = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    challenger = relationship("User", foreign_keys=[challenger_id], back_populates="h2h_challenges_created")
+    opponent = relationship("User", foreign_keys=[opponent_id])
+    winner = relationship("User", foreign_keys=[winner_id])
+    contest = relationship("Contest")
+    players = relationship("H2HLineupPlayer", back_populates="challenge")
+
+class H2HLineupPlayer(Base):
+    __tablename__ = "h2h_lineup_players"
+
+    id = Column(Integer, primary_key=True, index=True)
+    challenge_id = Column(Integer, ForeignKey("h2h_challenges.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    player_name = Column(String(100), nullable=False)
+    position = Column(String(10), nullable=False)
+    team = Column(String(10))
+    salary = Column(Integer)
+    proj_fp = Column(Float)
+    actual_fp = Column(Float, default=0)
+
+    challenge = relationship("H2HChallenge", back_populates="players")

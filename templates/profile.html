@@ -43,6 +43,71 @@
     </div>
     {% endif %}
     
+    {% if h2h_stats and h2h_stats.total > 0 %}
+    <div class="h2h-stats-section" style="background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
+        <h2 style="font-family: 'Righteous', cursive; margin-bottom: 16px;">H2H Record</h2>
+        <div class="profile-stats-summary">
+            <div class="stat">
+                <span class="value">{{ h2h_stats.total }}</span>
+                <span class="label">Matches</span>
+            </div>
+            <div class="stat">
+                <span class="value" style="color: #00ff88;">{{ h2h_stats.wins }}</span>
+                <span class="label">Wins</span>
+            </div>
+            <div class="stat">
+                <span class="value" style="color: #ff4444;">{{ h2h_stats.losses }}</span>
+                <span class="label">Losses</span>
+            </div>
+            <div class="stat">
+                <span class="value">
+                    {% if h2h_stats.total > 0 %}
+                        {{ "%.0f"|format(h2h_stats.wins / h2h_stats.total * 100) }}%
+                    {% else %}
+                        0%
+                    {% endif %}
+                </span>
+                <span class="label">Win Rate</span>
+            </div>
+            <div class="stat">
+                <span class="value" style="color: #ffd700;">+{{ h2h_stats.earnings }}</span>
+                <span class="label">Coins Won</span>
+            </div>
+        </div>
+        {% if h2h_history %}
+        <h3 style="margin-top: 20px; margin-bottom: 12px; font-size: 0.95rem; color: #aaa;">Recent H2H Matches</h3>
+        <div class="table-scroll-wrapper">
+        <table class="entries-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Opponent</th>
+                    <th>Score</th>
+                    <th>Wager</th>
+                    <th>Result</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for h in h2h_history %}
+                <tr>
+                    <td>{{ h.date.strftime('%m/%d/%Y') }}</td>
+                    <td>{{ h.opponent }}</td>
+                    <td>{{ "%.1f"|format(h.my_score or 0) }} - {{ "%.1f"|format(h.opp_score or 0) }}</td>
+                    <td>{{ h.wager }} coins</td>
+                    <td class="{% if h.won %}win{% elif h.tied %}{% else %}loss{% endif %}">
+                        {% if h.won %}Win{% elif h.tied %}Tie{% else %}Loss{% endif %}
+                    </td>
+                    <td><a href="/h2h/match/{{ h.id }}" class="btn btn-secondary btn-sm">View</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <div class="achievements-section">
         <h2>Achievements</h2>
         {% if achievements %}

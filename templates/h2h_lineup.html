@@ -1,0 +1,369 @@
+{% extends "base.html" %}
+
+{% block title %}H2H Lineup - PIRTDICA{% endblock %}
+
+{% block content %}
+<div class="play-page">
+    <div class="play-header">
+        <h1>H2H vs {{ opponent_name or "Opponent" }}</h1>
+        <p>Wager: {{ challenge.wager }} coins | Pick 9 players. Stay under $60,000.</p>
+    </div>
+
+    <div class="play-container">
+        <div class="lineup-side">
+            <div class="salary-bar">
+                <div class="salary-info">
+                    <span class="salary-label">SALARY</span>
+                    <span id="salary-display" class="salary-amount">$0 / $60,000</span>
+                </div>
+                <div class="salary-progress-track">
+                    <div id="salary-progress" class="salary-progress-fill" style="width: 0%"></div>
+                </div>
+                <div class="salary-info">
+                    <span class="salary-label">REMAINING</span>
+                    <span id="salary-remaining" class="salary-remaining">$60,000</span>
+                </div>
+            </div>
+
+            <div class="roster-slots">
+                <h3>YOUR ROSTER</h3>
+                <div id="roster-grid" class="roster-grid">
+                    <div class="roster-slot" data-slot="PG1" data-pos="PG">
+                        <span class="slot-label">PG</span>
+                        <span class="slot-empty">Select Player</span>
+                    </div>
+                    <div class="roster-slot" data-slot="PG2" data-pos="PG">
+                        <span class="slot-label">PG</span>
+                        <span class="slot-empty">Select Player</span>
+                    </div>
+                    <div class="roster-slot" data-slot="SG1" data-pos="SG">
+                        <span class="slot-label">SG</span>
+                        <span class="slot-empty">Select Player</span>
+                    </div>
+                    <div class="roster-slot" data-slot="SG2" data-pos="SG">
+                        <span class="slot-label">SG</span>
+                        <span class="slot-empty">Select Player</span>
+                    </div>
+                    <div class="roster-slot" data-slot="SF1" data-pos="SF">
+                        <span class="slot-label">SF</span>
+                        <span class="slot-empty">Select Player</span>
+                    </div>
+                    <div class="roster-slot" data-slot="SF2" data-pos="SF">
+                        <span class="slot-label">SF</span>
+                        <span class="slot-empty">Select Player</span>
+                    </div>
+                    <div class="roster-slot" data-slot="PF1" data-pos="PF">
+                        <span class="slot-label">PF</span>
+                        <span class="slot-empty">Select Player</span>
+                    </div>
+                    <div class="roster-slot" data-slot="PF2" data-pos="PF">
+                        <span class="slot-label">PF</span>
+                        <span class="slot-empty">Select Player</span>
+                    </div>
+                    <div class="roster-slot" data-slot="C1" data-pos="C">
+                        <span class="slot-label">C</span>
+                        <span class="slot-empty">Select Player</span>
+                    </div>
+                </div>
+                <div class="roster-summary">
+                    <div class="summary-row">
+                        <span>Projected FP</span>
+                        <span id="total-proj" class="summary-value">0.0</span>
+                    </div>
+                </div>
+            </div>
+
+            <form method="POST" action="/h2h/submit-lineup" id="lineup-form">
+                <input type="hidden" name="challenge_id" value="{{ challenge.id }}">
+                <div id="hidden-inputs"></div>
+                <button type="submit" class="btn btn-primary btn-full" id="submit-btn" disabled>
+                    Submit Lineup (0/9)
+                </button>
+            </form>
+        </div>
+
+        <div class="player-pool-side">
+            <div class="pool-header">
+                <h3>PLAYER POOL</h3>
+                <div class="pool-filters">
+                    <input type="text" id="search" class="pool-search" placeholder="Search players...">
+                    <select id="pos-filter" class="pool-select">
+                        <option value="">All Positions</option>
+                        <option value="PG">PG</option>
+                        <option value="SG">SG</option>
+                        <option value="SF">SF</option>
+                        <option value="PF">PF</option>
+                        <option value="C">C</option>
+                    </select>
+                    <select id="status-filter" class="pool-select">
+                        <option value="">All Status</option>
+                        <option value="healthy">Healthy</option>
+                        <option value="PROBABLE">Probable</option>
+                        <option value="QUESTIONABLE">Questionable</option>
+                        <option value="GTD">GTD</option>
+                        <option value="DOUBTFUL">Doubtful</option>
+                        <option value="OUT">Out</option>
+                    </select>
+                </div>
+            </div>
+            <div class="pool-table-wrapper">
+                <table class="player-table" id="player-table">
+                    <thead>
+                        <tr>
+                            <th class="col-action"></th>
+                            <th class="col-pos">Pos</th>
+                            <th class="col-name">Player</th>
+                            <th class="col-status">Status</th>
+                            <th class="col-matchup">Matchup</th>
+                            <th class="col-salary" data-sort="number">Salary</th>
+                            <th class="col-proj" data-sort="number">Proj</th>
+                            <th class="col-value" data-sort="number">Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in players %}
+                        <tr data-name="{{ p.player_name }}"
+                            data-pos="{{ p.fd_position }}"
+                            data-salary="{{ p.salary }}"
+                            data-proj="{{ p.proj_fp }}"
+                            data-team="{{ p.team }}"
+                            data-opponent="{{ p.opponent|default('') }}"
+                            data-injury="{{ p.injury_status|default('') }}"
+                            data-locked="{{ p.is_locked|default(false)|lower }}"
+                            data-game-time="{{ p.game_time|default('') }}"
+                            class="{% if p.is_locked %}locked{% endif %} {% if p.injury_status == 'OUT' %}player-out{% endif %}">
+                            <td class="col-action">
+                                {% if p.is_locked %}
+                                <span class="lock-icon" title="Game started">&#128274;</span>
+                                {% else %}
+                                <button type="button" class="add-btn" onclick="addPlayerToNextSlot(this)" title="Add player">+</button>
+                                {% endif %}
+                            </td>
+                            <td class="col-pos"><span class="pos-badge">{{ p.fd_position }}</span></td>
+                            <td class="col-name">{{ p.player_name }}</td>
+                            <td class="col-status">
+                                {% if p.injury_status == 'OUT' %}
+                                <span class="injury-tag tag-out">OUT</span>
+                                {% elif p.injury_status == 'DOUBTFUL' %}
+                                <span class="injury-tag tag-doubtful">DTD</span>
+                                {% elif p.injury_status == 'QUESTIONABLE' %}
+                                <span class="injury-tag tag-questionable">Q</span>
+                                {% elif p.injury_status == 'GTD' %}
+                                <span class="injury-tag tag-gtd">GTD</span>
+                                {% elif p.injury_status == 'PROBABLE' %}
+                                <span class="injury-tag tag-probable">P</span>
+                                {% endif %}
+                            </td>
+                            <td class="col-matchup">
+                                <span class="matchup-text">{{ p.team }} <span class="matchup-vs">vs</span> {{ p.opponent|default('') }}</span>
+                                <span class="game-time-small">{{ p.game_time|default('') }}</span>
+                            </td>
+                            <td class="col-salary">${{ "{:,}".format(p.salary|int) }}</td>
+                            <td class="col-proj">{{ "%.1f"|format(p.proj_fp) }}</td>
+                            <td class="col-value">{{ "%.1f"|format(p.proj_fp / (p.salary / 1000)) }}x</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const SALARY_CAP = 60000;
+const MAX_PLAYERS = 9;
+
+const POSITION_SLOTS = [
+    {id: 'PG1', pos: 'PG'}, {id: 'PG2', pos: 'PG'},
+    {id: 'SG1', pos: 'SG'}, {id: 'SG2', pos: 'SG'},
+    {id: 'SF1', pos: 'SF'}, {id: 'SF2', pos: 'SF'},
+    {id: 'PF1', pos: 'PF'}, {id: 'PF2', pos: 'PF'},
+    {id: 'C1', pos: 'C'}
+];
+
+let roster = {};
+
+function canFitPosition(playerPos, slotPos) {
+    if (playerPos === slotPos) return true;
+    const parts = playerPos.split('/');
+    return parts.includes(slotPos);
+}
+
+function getEligibleSlots(playerPos) {
+    return POSITION_SLOTS.filter(slot => !roster[slot.id] && canFitPosition(playerPos, slot.pos));
+}
+
+function findBestSlot(playerPos) {
+    const eligible = getEligibleSlots(playerPos);
+    if (eligible.length === 0) return null;
+    const parts = playerPos.split('/');
+    if (parts.length === 1) return eligible[0];
+    const primary = eligible.find(s => s.pos === parts[0]);
+    return primary || eligible[0];
+}
+
+function addPlayerToNextSlot(btn) {
+    const row = btn.closest('tr');
+    const player = {
+        name: row.dataset.name,
+        pos: row.dataset.pos,
+        team: row.dataset.team,
+        salary: parseInt(row.dataset.salary),
+        proj: parseFloat(row.dataset.proj),
+        injury: row.dataset.injury
+    };
+
+    if (Object.keys(roster).length >= MAX_PLAYERS) { showToast('Lineup full!'); return; }
+    if (Object.values(roster).some(p => p && p.name === player.name)) { showToast('Player already in lineup'); return; }
+    if (getTotalSalary() + player.salary > SALARY_CAP) { showToast('Not enough salary remaining'); return; }
+
+    const slot = findBestSlot(player.pos);
+    if (!slot) { showToast('No eligible position slot available for ' + player.pos); return; }
+
+    roster[slot.id] = player;
+    row.classList.add('selected');
+    btn.disabled = true;
+    btn.textContent = '-';
+    btn.classList.add('remove-mode');
+    btn.onclick = function() { removePlayerFromRoster(player.name); };
+    updateDisplay();
+}
+
+function removePlayerFromRoster(playerName) {
+    for (const slotId in roster) {
+        if (roster[slotId] && roster[slotId].name === playerName) {
+            delete roster[slotId];
+            break;
+        }
+    }
+    const row = document.querySelector(`tr[data-name="${playerName}"]`);
+    if (row) {
+        row.classList.remove('selected');
+        const btn = row.querySelector('.add-btn, .remove-mode');
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '+';
+            btn.classList.remove('remove-mode');
+            btn.onclick = function() { addPlayerToNextSlot(this); };
+        }
+    }
+    updateDisplay();
+}
+
+function removeFromSlot(slotId) {
+    const player = roster[slotId];
+    if (player) removePlayerFromRoster(player.name);
+}
+
+function getTotalSalary() { return Object.values(roster).reduce((sum, p) => p ? sum + p.salary : sum, 0); }
+function getTotalProj() { return Object.values(roster).reduce((sum, p) => p ? sum + p.proj : sum, 0); }
+function getPlayerCount() { return Object.values(roster).filter(p => p).length; }
+
+function updateDisplay() {
+    const totalSalary = getTotalSalary();
+    const totalProj = getTotalProj();
+    const count = getPlayerCount();
+    const remaining = SALARY_CAP - totalSalary;
+    const pct = (totalSalary / SALARY_CAP) * 100;
+
+    document.getElementById('salary-display').textContent = '$' + totalSalary.toLocaleString() + ' / $60,000';
+    document.getElementById('salary-remaining').textContent = '$' + remaining.toLocaleString();
+    document.getElementById('salary-remaining').className = 'salary-remaining' + (remaining < 0 ? ' over-cap' : '');
+    document.getElementById('total-proj').textContent = totalProj.toFixed(1);
+
+    const progressBar = document.getElementById('salary-progress');
+    progressBar.style.width = Math.min(pct, 100) + '%';
+    progressBar.className = 'salary-progress-fill' + (pct > 100 ? ' over' : pct > 90 ? ' warning' : '');
+
+    POSITION_SLOTS.forEach(slot => {
+        const el = document.querySelector(`.roster-slot[data-slot="${slot.id}"]`);
+        if (!el) return;
+        const player = roster[slot.id];
+        if (player) {
+            el.innerHTML = `
+                <span class="slot-label">${slot.pos}</span>
+                <div class="slot-filled">
+                    <span class="slot-player-name">${player.name}</span>
+                    <span class="slot-player-info">
+                        ${player.injury ? '<span class="injury-tag tag-' + player.injury.toLowerCase() + '">' + player.injury + '</span>' : ''}
+                        $${player.salary.toLocaleString()} | ${player.proj.toFixed(1)} FP
+                    </span>
+                </div>
+                <button type="button" class="slot-remove" onclick="removeFromSlot('${slot.id}')">x</button>
+            `;
+            el.classList.add('filled');
+        } else {
+            el.innerHTML = `<span class="slot-label">${slot.pos}</span><span class="slot-empty">Select Player</span>`;
+            el.classList.remove('filled');
+        }
+    });
+
+    const hiddenInputs = document.getElementById('hidden-inputs');
+    hiddenInputs.innerHTML = Object.values(roster)
+        .filter(p => p)
+        .map(p => `<input type="hidden" name="players" value="${p.name}">`)
+        .join('');
+
+    const submitBtn = document.getElementById('submit-btn');
+    submitBtn.textContent = `Submit Lineup (${count}/${MAX_PLAYERS})`;
+    submitBtn.disabled = count !== MAX_PLAYERS;
+}
+
+function showToast(msg) {
+    let toast = document.getElementById('toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast';
+        toast.className = 'toast';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+document.getElementById('search').addEventListener('input', filterPlayers);
+document.getElementById('pos-filter').addEventListener('change', filterPlayers);
+document.getElementById('status-filter').addEventListener('change', filterPlayers);
+
+function filterPlayers() {
+    const search = document.getElementById('search').value.toLowerCase();
+    const pos = document.getElementById('pos-filter').value;
+    const status = document.getElementById('status-filter').value;
+    document.querySelectorAll('#player-table tbody tr').forEach(row => {
+        const name = row.dataset.name.toLowerCase();
+        const playerPos = row.dataset.pos;
+        const injury = row.dataset.injury || '';
+        const matchSearch = name.includes(search);
+        const matchPos = !pos || playerPos.includes(pos);
+        let matchStatus = true;
+        if (status === 'healthy') matchStatus = !injury || injury === '';
+        else if (status) matchStatus = injury === status;
+        row.style.display = (matchSearch && matchPos && matchStatus) ? '' : 'none';
+    });
+}
+
+document.querySelectorAll('#player-table th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+        const table = document.getElementById('player-table');
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const colIdx = th.cellIndex;
+        const isNumber = th.dataset.sort === 'number';
+        const isAsc = th.classList.contains('sort-asc');
+        document.querySelectorAll('#player-table th').forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+        th.classList.add(isAsc ? 'sort-desc' : 'sort-asc');
+        rows.sort((a, b) => {
+            let va = a.cells[colIdx].textContent.replace(/[$,x]/g, '').trim();
+            let vb = b.cells[colIdx].textContent.replace(/[$,x]/g, '').trim();
+            if (isNumber) { va = parseFloat(va) || 0; vb = parseFloat(vb) || 0; }
+            if (va < vb) return isAsc ? 1 : -1;
+            if (va > vb) return isAsc ? -1 : 1;
+            return 0;
+        });
+        rows.forEach(r => tbody.appendChild(r));
+    });
+});
+</script>
+{% endblock %}

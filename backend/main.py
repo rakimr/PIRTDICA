@@ -423,13 +423,62 @@ async def profile(request: Request, username: str, db: Session = Depends(get_db)
                 "achieved_at": ua.achieved_at
             })
     
+    from sqlalchemy import or_
+    h2h_completed = db.query(models.H2HChallenge).filter(
+        models.H2HChallenge.status == "completed",
+        or_(
+            models.H2HChallenge.challenger_id == profile_user.id,
+            models.H2HChallenge.opponent_id == profile_user.id
+        )
+    ).all()
+    h2h_wins = sum(1 for c in h2h_completed if c.winner_id == profile_user.id)
+    h2h_losses = len(h2h_completed) - h2h_wins - sum(1 for c in h2h_completed if c.winner_id is None)
+    h2h_ties = sum(1 for c in h2h_completed if c.winner_id is None)
+    h2h_earnings = 0
+    for c in h2h_completed:
+        if c.winner_id == profile_user.id:
+            total_pot = c.wager * 2
+            house_cut = max(1, int(total_pot * 0.1))
+            h2h_earnings += (total_pot - house_cut - c.wager)
+    
+    h2h_recent = db.query(models.H2HChallenge).filter(
+        models.H2HChallenge.status == "completed",
+        or_(
+            models.H2HChallenge.challenger_id == profile_user.id,
+            models.H2HChallenge.opponent_id == profile_user.id
+        )
+    ).order_by(desc(models.H2HChallenge.created_at)).limit(10).all()
+    
+    h2h_history = []
+    for c in h2h_recent:
+        if c.challenger_id == profile_user.id:
+            opp = db.query(models.User).filter(models.User.id == c.opponent_id).first()
+            my_score = c.challenger_score
+            opp_score = c.opponent_score
+        else:
+            opp = db.query(models.User).filter(models.User.id == c.challenger_id).first()
+            my_score = c.opponent_score
+            opp_score = c.challenger_score
+        h2h_history.append({
+            "id": c.id,
+            "opponent": opp.display_name or opp.username if opp else "Unknown",
+            "my_score": my_score,
+            "opp_score": opp_score,
+            "wager": c.wager,
+            "won": c.winner_id == profile_user.id,
+            "tied": c.winner_id is None,
+            "date": c.created_at,
+        })
+    
     return templates.TemplateResponse("profile.html", {
         "request": request,
         "user": current_user,
         "profile": profile_user,
         "entries": entries,
         "stats": stats,
-        "achievements": achievements
+        "achievements": achievements,
+        "h2h_stats": {"wins": h2h_wins, "losses": h2h_losses, "ties": h2h_ties, "total": len(h2h_completed), "earnings": h2h_earnings},
+        "h2h_history": h2h_history,
     })
 
 @app.get("/history")
@@ -1277,6 +1326,545 @@ async def api_player_trend(player_name: str, stat: str, n: int = 10):
         return {"player": player_name, "stat": stat.upper(), "games": games, "avg": avg}
     except Exception as e:
         return {"error": str(e), "games": []}
+
+@app.get("/h2h")
+async def h2h_lobby(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    today = get_eastern_today()
+    contest = db.query(models.Contest).filter(models.Contest.slate_date == today).first()
+
+    open_challenges = []
+    active_challenges = []
+    history_challenges = []
+
+    if contest:
+        open_challenges = db.query(models.H2HChallenge).filter(
+            models.H2HChallenge.contest_id == contest.id,
+            models.H2HChallenge.status == "open",
+            models.H2HChallenge.challenger_id != user.id
+        ).order_by(desc(models.H2HChallenge.created_at)).all()
+
+        active_challenges = db.query(models.H2HChallenge).filter(
+            models.H2HChallenge.contest_id == contest.id,
+            models.H2HChallenge.status.in_(["open", "accepted", "locked"]),
+            (models.H2HChallenge.challenger_id == user.id) | (models.H2HChallenge.opponent_id == user.id)
+        ).order_by(desc(models.H2HChallenge.created_at)).all()
+
+    history_challenges = db.query(models.H2HChallenge).filter(
+        models.H2HChallenge.status == "completed",
+        (models.H2HChallenge.challenger_id == user.id) | (models.H2HChallenge.opponent_id == user.id)
+    ).order_by(desc(models.H2HChallenge.created_at)).limit(20).all()
+
+    return templates.TemplateResponse("h2h_lobby.html", {
+        "request": request,
+        "user": user,
+        "contest": contest,
+        "open_challenges": open_challenges,
+        "active_challenges": active_challenges,
+        "history_challenges": history_challenges,
+    })
+
+@app.post("/h2h/create")
+async def h2h_create(request: Request, wager: int = Form(...), db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not logged in")
+
+    today = get_eastern_today()
+    contest = db.query(models.Contest).filter(models.Contest.slate_date == today).first()
+    if not contest or contest.status != "open":
+        raise HTTPException(status_code=400, detail="No active contest today")
+
+    if wager < 5 or wager > 500:
+        raise HTTPException(status_code=400, detail="Wager must be between 5 and 500 coins")
+
+    if user.coins < wager:
+        raise HTTPException(status_code=400, detail="Not enough coins")
+
+    user.coins -= wager
+    db.add(models.CurrencyTransaction(
+        user_id=user.id,
+        amount=-wager,
+        transaction_type="h2h_wager",
+        description=f"H2H challenge wager ({wager} coins)"
+    ))
+
+    challenge = models.H2HChallenge(
+        contest_id=contest.id,
+        challenger_id=user.id,
+        wager=wager,
+        status="open"
+    )
+    db.add(challenge)
+    db.commit()
+
+    return RedirectResponse(url="/h2h", status_code=303)
+
+@app.post("/h2h/accept/{challenge_id}")
+async def h2h_accept(request: Request, challenge_id: int, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not logged in")
+
+    challenge = db.query(models.H2HChallenge).filter(models.H2HChallenge.id == challenge_id).first()
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    if challenge.status != "open":
+        raise HTTPException(status_code=400, detail="Challenge is no longer open")
+    if challenge.challenger_id == user.id:
+        raise HTTPException(status_code=400, detail="Cannot accept your own challenge")
+    if user.coins < challenge.wager:
+        raise HTTPException(status_code=400, detail="Not enough coins")
+
+    user.coins -= challenge.wager
+    db.add(models.CurrencyTransaction(
+        user_id=user.id,
+        amount=-challenge.wager,
+        transaction_type="h2h_wager",
+        description=f"Accepted H2H challenge ({challenge.wager} coins)"
+    ))
+
+    challenge.opponent_id = user.id
+    challenge.status = "accepted"
+    db.commit()
+
+    return RedirectResponse(url=f"/h2h/match/{challenge.id}", status_code=303)
+
+@app.post("/h2h/cancel/{challenge_id}")
+async def h2h_cancel(request: Request, challenge_id: int, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not logged in")
+
+    challenge = db.query(models.H2HChallenge).filter(models.H2HChallenge.id == challenge_id).first()
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    if challenge.challenger_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the challenger can cancel")
+    if challenge.status != "open":
+        raise HTTPException(status_code=400, detail="Can only cancel open challenges")
+
+    user.coins += challenge.wager
+    db.add(models.CurrencyTransaction(
+        user_id=user.id,
+        amount=challenge.wager,
+        transaction_type="h2h_refund",
+        description=f"H2H challenge cancelled - refund ({challenge.wager} coins)"
+    ))
+    challenge.status = "cancelled"
+    db.commit()
+
+    return RedirectResponse(url="/h2h", status_code=303)
+
+@app.get("/h2h/lineup/{challenge_id}")
+async def h2h_lineup(request: Request, challenge_id: int, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    challenge = db.query(models.H2HChallenge).filter(models.H2HChallenge.id == challenge_id).first()
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+
+    is_challenger = challenge.challenger_id == user.id
+    is_opponent = challenge.opponent_id == user.id
+    if not is_challenger and not is_opponent:
+        raise HTTPException(status_code=403, detail="You are not part of this challenge")
+
+    if is_challenger and challenge.challenger_lineup_submitted:
+        return RedirectResponse(url=f"/h2h/match/{challenge_id}", status_code=303)
+    if is_opponent and challenge.opponent_lineup_submitted:
+        return RedirectResponse(url=f"/h2h/match/{challenge_id}", status_code=303)
+
+    opponent_name = ""
+    if is_challenger and challenge.opponent:
+        opponent_name = challenge.opponent.display_name or challenge.opponent.username
+    elif is_opponent:
+        opponent_name = challenge.challenger.display_name or challenge.challenger.username
+
+    import pandas as pd
+    import sqlite3
+
+    try:
+        players_df = pd.read_csv("dfs_players.csv")
+        players_df = players_df.dropna(subset=['fd_position', 'salary'])
+        players_df['salary'] = players_df['salary'].astype(int)
+
+        conn = sqlite3.connect("dfs_nba.db")
+        game_times_df = pd.read_sql_query(
+            "SELECT DISTINCT game, game_time FROM player_salaries WHERE game_time IS NOT NULL",
+            conn
+        )
+        injury_df = pd.read_sql_query(
+            "SELECT player_name, status FROM injury_alerts WHERE status IN ('OUT', 'QUESTIONABLE', 'PROBABLE', 'DOUBTFUL', 'GTD')",
+            conn
+        )
+        injury_map = dict(zip(injury_df['player_name'], injury_df['status']))
+        conn.close()
+        game_times = dict(zip(game_times_df['game'], game_times_df['game_time']))
+
+        from zoneinfo import ZoneInfo
+        eastern = ZoneInfo("America/New_York")
+        now = datetime.now(eastern)
+
+        team_aliases = {
+            'NYK': 'NY', 'NY': 'NYK', 'GS': 'GSW', 'GSW': 'GS',
+            'SA': 'SAS', 'SAS': 'SA', 'NO': 'NOP', 'NOP': 'NO',
+            'UTAH': 'UTA', 'UTA': 'UTAH', 'PHX': 'PHO', 'PHO': 'PHX',
+            'CHA': 'CHO', 'CHO': 'CHA', 'BKN': 'BK', 'BK': 'BKN',
+        }
+
+        def is_game_locked(game_str):
+            game_time_str = game_times.get(game_str)
+            if not game_time_str:
+                return False
+            try:
+                game_dt = datetime.strptime(game_time_str, "%I:%M%p")
+                game_dt = game_dt.replace(year=now.year, month=now.month, day=now.day, tzinfo=eastern)
+                return now >= game_dt
+            except:
+                return False
+
+        players_df['game'] = players_df['team'] + " vs " + players_df['opponent']
+
+        for game_key in list(game_times.keys()):
+            if " @ " not in game_key:
+                continue
+            away, home = game_key.split(" @ ")
+            combos = [(away, home)]
+            away_alt = team_aliases.get(away)
+            home_alt = team_aliases.get(home)
+            if away_alt:
+                combos.append((away_alt, home))
+            if home_alt:
+                combos.append((away, home_alt))
+            if away_alt and home_alt:
+                combos.append((away_alt, home_alt))
+            for a, h in combos:
+                game_times[f"{a} vs {h}"] = game_times[game_key]
+                game_times[f"{h} vs {a}"] = game_times[game_key]
+
+        players_df['is_locked'] = players_df.apply(
+            lambda row: is_game_locked(f"{row['team']} vs {row['opponent']}") or
+                       is_game_locked(f"{row['opponent']} vs {row['team']}"),
+            axis=1
+        )
+        players_df['game_time'] = players_df.apply(
+            lambda row: game_times.get(f"{row['team']} vs {row['opponent']}") or
+                       game_times.get(f"{row['opponent']} vs {row['team']}") or "",
+            axis=1
+        )
+        players_df['injury_status'] = players_df['player_name'].map(injury_map).fillna('')
+        players_df['position'] = players_df['fd_position']
+        players = players_df.to_dict("records")
+    except Exception as e:
+        print(f"Error loading players for H2H: {e}")
+        import traceback
+        traceback.print_exc()
+        players = []
+
+    return templates.TemplateResponse("h2h_lineup.html", {
+        "request": request,
+        "user": user,
+        "challenge": challenge,
+        "opponent_name": opponent_name,
+        "players": players,
+    })
+
+@app.post("/h2h/submit-lineup")
+async def h2h_submit_lineup(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not logged in")
+
+    form = await request.form()
+    player_ids = form.getlist("players")
+    challenge_id = int(form.get("challenge_id", 0))
+
+    challenge = db.query(models.H2HChallenge).filter(models.H2HChallenge.id == challenge_id).first()
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+
+    is_challenger = challenge.challenger_id == user.id
+    is_opponent = challenge.opponent_id == user.id
+    if not is_challenger and not is_opponent:
+        raise HTTPException(status_code=403, detail="You are not part of this challenge")
+
+    if is_challenger and challenge.challenger_lineup_submitted:
+        raise HTTPException(status_code=400, detail="You already submitted your lineup")
+    if is_opponent and challenge.opponent_lineup_submitted:
+        raise HTTPException(status_code=400, detail="You already submitted your lineup")
+
+    today = get_eastern_today()
+    contest = db.query(models.Contest).filter(models.Contest.slate_date == today).first()
+    if not contest or contest.status not in ("open", "active"):
+        raise HTTPException(status_code=400, detail="Contest is not open")
+
+    if get_eastern_now().replace(tzinfo=None) >= contest.lock_time:
+        raise HTTPException(status_code=400, detail="Contest is locked - games have started")
+
+    if len(player_ids) != 9:
+        raise HTTPException(status_code=400, detail="Lineup must have exactly 9 players")
+
+    import pandas as pd
+    players_df = pd.read_csv("dfs_players.csv")
+
+    locked_teams, _, _ = get_game_lock_status()
+
+    total_salary = 0
+    player_entries = []
+    for player_name in player_ids:
+        matches = players_df[players_df["player_name"] == player_name]
+        if len(matches) == 0:
+            raise HTTPException(status_code=400, detail=f"Player not found: {player_name}")
+        player_data = matches.iloc[0]
+        team = str(player_data.get("team", ""))
+        if team in locked_teams:
+            raise HTTPException(status_code=400, detail=f"{player_name}'s game has already started")
+        total_salary += int(player_data.get("salary", 0))
+        player_entries.append(player_data)
+
+    SALARY_CAP = 60000
+    if total_salary > SALARY_CAP:
+        raise HTTPException(status_code=400, detail=f"Lineup exceeds salary cap: ${total_salary:,} > ${SALARY_CAP:,}")
+
+    for player_data in player_entries:
+        lp = models.H2HLineupPlayer(
+            challenge_id=challenge.id,
+            user_id=user.id,
+            player_name=str(player_data.get("player_name", "")),
+            position=str(player_data.get("fd_position", "")),
+            team=str(player_data.get("team", "")),
+            salary=int(player_data.get("salary", 0)),
+            proj_fp=float(player_data.get("proj_fp", 0))
+        )
+        db.add(lp)
+
+    if is_challenger:
+        challenge.challenger_lineup_submitted = True
+    else:
+        challenge.opponent_lineup_submitted = True
+
+    if challenge.challenger_lineup_submitted and challenge.opponent_lineup_submitted:
+        challenge.status = "locked"
+
+    db.commit()
+
+    return RedirectResponse(url=f"/h2h/match/{challenge.id}", status_code=303)
+
+@app.get("/h2h/match/{challenge_id}")
+async def h2h_match(request: Request, challenge_id: int, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    challenge = db.query(models.H2HChallenge).filter(models.H2HChallenge.id == challenge_id).first()
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+
+    is_challenger = challenge.challenger_id == user.id
+    is_opponent = challenge.opponent_id == user.id
+
+    challenger_players = db.query(models.H2HLineupPlayer).filter(
+        models.H2HLineupPlayer.challenge_id == challenge.id,
+        models.H2HLineupPlayer.user_id == challenge.challenger_id
+    ).all()
+
+    opponent_players = []
+    if challenge.opponent_id:
+        opponent_players = db.query(models.H2HLineupPlayer).filter(
+            models.H2HLineupPlayer.challenge_id == challenge.id,
+            models.H2HLineupPlayer.user_id == challenge.opponent_id
+        ).all()
+
+    locked_teams, any_started, team_game_times = get_game_lock_status()
+    is_live = any_started and challenge.status in ("locked", "accepted")
+
+    needs_lineup = False
+    if is_challenger and not challenge.challenger_lineup_submitted:
+        needs_lineup = True
+    elif is_opponent and not challenge.opponent_lineup_submitted:
+        needs_lineup = True
+
+    return templates.TemplateResponse("h2h_match.html", {
+        "request": request,
+        "user": user,
+        "challenge": challenge,
+        "challenger_players": challenger_players,
+        "opponent_players": opponent_players,
+        "locked_teams": locked_teams,
+        "any_started": any_started,
+        "is_live": is_live,
+        "team_game_times": team_game_times,
+        "is_challenger": is_challenger,
+        "is_opponent": is_opponent,
+        "needs_lineup": needs_lineup,
+    })
+
+@app.get("/api/live-h2h/{challenge_id}")
+async def api_live_h2h(request: Request, challenge_id: int, db: Session = Depends(get_db)):
+    challenge = db.query(models.H2HChallenge).filter(models.H2HChallenge.id == challenge_id).first()
+    if not challenge:
+        return {"error": "Challenge not found"}
+
+    now = time.time()
+    if now - _live_scores_cache["timestamp"] >= LIVE_SCORES_CACHE_TTL or not _live_scores_cache["data"]:
+        try:
+            from scrape_live_scores import get_live_scores_summary
+            scores = get_live_scores_summary()
+            _live_scores_cache["data"] = scores
+            _live_scores_cache["timestamp"] = now
+        except Exception as e:
+            scores = _live_scores_cache.get("data", {})
+    else:
+        scores = _live_scores_cache["data"]
+
+    from utils.name_normalize import normalize_player_name
+    locked_teams, any_started, team_game_times = get_game_lock_status()
+
+    def build_live_list(players_query):
+        live_list = []
+        total = 0
+        for p in players_query:
+            norm = normalize_player_name(p.player_name)
+            live = scores.get(norm, {})
+            game_started = (p.team or '') in locked_teams
+            fp = live.get('fp', 0) if game_started else 0
+            total += fp
+            live_list.append({
+                'player_name': p.player_name,
+                'position': p.position,
+                'team': p.team or '',
+                'salary': p.salary,
+                'proj_fp': p.proj_fp,
+                'live_fp': fp,
+                'game_started': game_started,
+                'game_time': team_game_times.get(p.team or '', ''),
+            })
+        return live_list, total
+
+    challenger_ps = db.query(models.H2HLineupPlayer).filter(
+        models.H2HLineupPlayer.challenge_id == challenge.id,
+        models.H2HLineupPlayer.user_id == challenge.challenger_id
+    ).all()
+
+    opponent_ps = []
+    if challenge.opponent_id:
+        opponent_ps = db.query(models.H2HLineupPlayer).filter(
+            models.H2HLineupPlayer.challenge_id == challenge.id,
+            models.H2HLineupPlayer.user_id == challenge.opponent_id
+        ).all()
+
+    challenger_live, challenger_total = build_live_list(challenger_ps)
+    opponent_live, opponent_total = build_live_list(opponent_ps)
+
+    contest = challenge.contest
+    if contest and contest.status == 'completed' and challenge.status == 'locked':
+        try:
+            settle_h2h_challenges(db)
+            db.refresh(challenge)
+        except Exception as e:
+            print(f"H2H auto-settle error: {e}")
+
+    return {
+        'challenger_players': challenger_live,
+        'challenger_total': round(challenger_total, 1),
+        'opponent_players': opponent_live,
+        'opponent_total': round(opponent_total, 1),
+        'status': challenge.status,
+        'any_game_started': any_started,
+    }
+
+def settle_h2h_challenges(db: Session):
+    locked_challenges = db.query(models.H2HChallenge).filter(
+        models.H2HChallenge.status == "locked"
+    ).all()
+
+    if not locked_challenges:
+        return
+
+    try:
+        from scrape_live_scores import get_live_scores_summary
+        scores = get_live_scores_summary()
+    except:
+        scores = {}
+
+    from utils.name_normalize import normalize_player_name
+
+    for challenge in locked_challenges:
+        challenger_ps = db.query(models.H2HLineupPlayer).filter(
+            models.H2HLineupPlayer.challenge_id == challenge.id,
+            models.H2HLineupPlayer.user_id == challenge.challenger_id
+        ).all()
+        opponent_ps = db.query(models.H2HLineupPlayer).filter(
+            models.H2HLineupPlayer.challenge_id == challenge.id,
+            models.H2HLineupPlayer.user_id == challenge.opponent_id
+        ).all()
+
+        c_total = 0
+        for p in challenger_ps:
+            norm = normalize_player_name(p.player_name)
+            fp = scores.get(norm, {}).get('fp', 0)
+            p.actual_fp = fp
+            c_total += fp
+
+        o_total = 0
+        for p in opponent_ps:
+            norm = normalize_player_name(p.player_name)
+            fp = scores.get(norm, {}).get('fp', 0)
+            p.actual_fp = fp
+            o_total += fp
+
+        challenge.challenger_score = round(c_total, 1)
+        challenge.opponent_score = round(o_total, 1)
+
+        total_pot = challenge.wager * 2
+        house_cut = max(1, int(total_pot * 0.1))
+        winnings = total_pot - house_cut
+
+        if c_total > o_total:
+            challenge.winner_id = challenge.challenger_id
+            winner = db.query(models.User).filter(models.User.id == challenge.challenger_id).first()
+        elif o_total > c_total:
+            challenge.winner_id = challenge.opponent_id
+            winner = db.query(models.User).filter(models.User.id == challenge.opponent_id).first()
+        else:
+            challenger_user = db.query(models.User).filter(models.User.id == challenge.challenger_id).first()
+            opponent_user = db.query(models.User).filter(models.User.id == challenge.opponent_id).first()
+            if challenger_user:
+                challenger_user.coins += challenge.wager
+                db.add(models.CurrencyTransaction(
+                    user_id=challenger_user.id,
+                    amount=challenge.wager,
+                    transaction_type="h2h_tie_refund",
+                    description="H2H tie - wager refunded"
+                ))
+            if opponent_user:
+                opponent_user.coins += challenge.wager
+                db.add(models.CurrencyTransaction(
+                    user_id=opponent_user.id,
+                    amount=challenge.wager,
+                    transaction_type="h2h_tie_refund",
+                    description="H2H tie - wager refunded"
+                ))
+            challenge.status = "completed"
+            continue
+
+        if winner:
+            winner.coins += winnings
+            db.add(models.CurrencyTransaction(
+                user_id=winner.id,
+                amount=winnings,
+                transaction_type="h2h_win",
+                description=f"H2H challenge won! (+{winnings} coins)"
+            ))
+
+        challenge.status = "completed"
+
+    db.commit()
 
 if __name__ == "__main__":
     import uvicorn
