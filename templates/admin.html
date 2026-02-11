@@ -54,10 +54,56 @@
     </div>
     
     <div class="admin-card">
+        <h2>Today's House Lineup</h2>
+        {% if house_players %}
+        <p>Contest: {{ contest.slate_date }} | Status: {{ contest.status }}</p>
+        <table class="admin-lineup-table">
+            <thead>
+                <tr>
+                    <th>Pos</th>
+                    <th>Player</th>
+                    <th>Team</th>
+                    <th>Salary</th>
+                    <th>Proj FP</th>
+                    {% if contest.status == 'completed' %}
+                    <th>Actual FP</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in house_players %}
+                <tr>
+                    <td>{{ p.position }}</td>
+                    <td>{{ p.player_name }}</td>
+                    <td>{{ p.team }}</td>
+                    <td>${{ "{:,}".format(p.salary) }}</td>
+                    <td>{{ "%.1f"|format(p.proj_fp or 0) }}</td>
+                    {% if contest.status == 'completed' %}
+                    <td>{{ "%.1f"|format(p.actual_fp or 0) }}</td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="3"><strong>TOTAL</strong></td>
+                    <td><strong>${{ "{:,}".format(house_players|sum(attribute='salary')) }}</strong></td>
+                    <td><strong>{{ "%.1f"|format(house_players|sum(attribute='proj_fp')) }}</strong></td>
+                    {% if contest.status == 'completed' %}
+                    <td><strong>{{ "%.1f"|format(house_players|sum(attribute='actual_fp')) }}</strong></td>
+                    {% endif %}
+                </tr>
+            </tfoot>
+        </table>
+        {% else %}
+        <p class="no-data">No house lineup generated yet for today.</p>
+        {% endif %}
+    </div>
+
+    <div class="admin-card">
         <h2>Quick Links</h2>
         <div class="quick-links">
             <a href="/trends" class="quick-link">View Chart Gallery</a>
-            <a href="/" class="quick-link">View House Lineup</a>
             <a href="/leaderboard" class="quick-link">View Leaderboard</a>
         </div>
     </div>
@@ -242,6 +288,42 @@
 
 .quick-link:hover {
     background: #eee;
+}
+
+.admin-lineup-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    font-family: 'Marvel', sans-serif;
+}
+
+.admin-lineup-table th,
+.admin-lineup-table td {
+    padding: 0.6rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.admin-lineup-table th {
+    background: #f5f5f5;
+    font-weight: bold;
+    color: #333;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+.admin-lineup-table tbody tr:hover {
+    background: #fafafa;
+}
+
+.admin-lineup-table tfoot td {
+    border-top: 2px solid #333;
+    font-size: 1.05rem;
+}
+
+.no-data {
+    color: #888;
+    font-style: italic;
 }
 </style>
 

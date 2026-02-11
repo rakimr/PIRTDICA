@@ -724,13 +724,15 @@ async def play(request: Request, db: Session = Depends(get_db)):
     house_players = db.query(models.HouseLineupPlayer).filter(
         models.HouseLineupPlayer.contest_id == contest.id
     ).all()
+    house_proj_total = sum(hp.proj_fp or 0 for hp in house_players)
     
     return templates.TemplateResponse("play.html", {
         "request": request,
         "user": user,
         "contest": contest,
         "players": players,
-        "house_players": house_players
+        "house_players": house_players,
+        "house_proj_total": house_proj_total
     })
 
 @app.post("/submit-lineup")
@@ -915,10 +917,24 @@ async def admin_page(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     if not require_admin(user):
         return RedirectResponse(url="/", status_code=302)
+    
+    today = get_eastern_today()
+    contest = db.query(models.Contest).filter(models.Contest.slate_date == today).first()
+    if not contest:
+        contest = db.query(models.Contest).order_by(models.Contest.slate_date.desc()).first()
+    
+    house_players = []
+    if contest:
+        house_players = db.query(models.HouseLineupPlayer).filter(
+            models.HouseLineupPlayer.contest_id == contest.id
+        ).all()
+    
     return templates.TemplateResponse("admin.html", {
         "request": request,
         "user": user,
-        "refresh_status": refresh_status
+        "refresh_status": refresh_status,
+        "contest": contest,
+        "house_players": house_players
     })
 
 @app.post("/admin/refresh")

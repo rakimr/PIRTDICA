@@ -81,15 +81,11 @@
             </form>
 
             <div class="house-preview">
-                <h3>House Lineup to Beat</h3>
+                <h3>House Score to Beat</h3>
                 <div class="house-score">
-                    <span class="proj">{{ "%.1f"|format(house_players|sum(attribute='proj_fp')) }} Proj FP</span>
+                    <span class="proj">{{ "%.1f"|format(house_proj_total) }} Proj FP</span>
                 </div>
-                <ul class="house-list">
-                    {% for p in house_players %}
-                    <li><span class="house-pos">{{ p.position }}</span> {{ p.player_name }} <span class="house-fp">{{ "%.1f"|format(p.proj_fp) }}</span></li>
-                    {% endfor %}
-                </ul>
+                <p class="house-hint-small">Use PIRTDICA's research tools to build a lineup that beats the house!</p>
             </div>
         </div>
 

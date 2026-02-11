@@ -62,7 +62,7 @@
 
 {% if contest %}
 <section class="house-lineup-section">
-    <h2>Today's House Lineup</h2>
+    <h2>Today's Contest</h2>
     <p class="subtitle" id="lineup-date"></p>
     <script>
     (function(){
@@ -73,38 +73,13 @@
     </script>
     
     {% if house_players %}
-    <div class="lineup-horizontal">
-        {% for player in house_players %}
-        <div class="player-card">
-            <div class="player-image">
-                {% if headshots.get(player.player_name) %}
-                <img src="{{ headshots.get(player.player_name) }}" alt="{{ player.player_name }}" onerror="this.src='https://ui-avatars.com/api/?name={{ player.player_name|urlencode }}&background=1a1a1a&color=fff&size=80&font-size=0.35&bold=true'">
-                {% else %}
-                <img src="https://ui-avatars.com/api/?name={{ player.player_name|urlencode }}&background=1a1a1a&color=fff&size=80&font-size=0.35&bold=true" alt="{{ player.player_name }}">
-                {% endif %}
-            </div>
-            <div class="player-position">{{ player.position }}</div>
-            <div class="player-name">{{ player.player_name }}</div>
-            <div class="player-team">{{ player.team }}</div>
-            <div class="player-salary">${{ "{:,}".format(player.salary) }}</div>
-            {% if contest.status == 'completed' %}
-            <div class="player-fp {% if player.actual_fp > player.proj_fp %}positive{% else %}negative{% endif %}">
-                {{ "%.1f"|format(player.actual_fp) }} FP
-            </div>
-            {% else %}
-            <div class="player-fp">{{ "%.1f"|format(player.proj_fp or 0) }} FP</div>
-            {% endif %}
-        </div>
-        {% endfor %}
-    </div>
-    
     <div class="lineup-totals">
-        <span class="total-salary">Total Salary: ${{ "{:,}".format(house_players|sum(attribute='salary')) }}</span>
-        <span class="total-proj">Projected: {{ "%.1f"|format(house_players|sum(attribute='proj_fp')) }} FP</span>
+        <span class="total-proj">House Projected: {{ "%.1f"|format(house_players|sum(attribute='proj_fp')) }} FP</span>
         {% if contest.status == 'completed' %}
-        <span class="total-actual">Actual: {{ "%.1f"|format(house_players|sum(attribute='actual_fp')) }} FP</span>
+        <span class="total-actual">House Actual: {{ "%.1f"|format(house_players|sum(attribute='actual_fp')) }} FP</span>
         {% endif %}
     </div>
+    <p class="house-hint">Build your lineup and try to beat the house score!</p>
     {% else %}
     <p class="no-data">House lineup will be generated soon...</p>
     {% endif %}
