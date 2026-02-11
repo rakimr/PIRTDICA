@@ -198,7 +198,7 @@ def generate_house_lineup(force=False, exclude_teams=None):
         house_player = models.HouseLineupPlayer(
             contest_id=contest.id,
             player_name=player_name,
-            position=str(player_data.get('position', '')),
+            position=str(player_data.get('fd_position', player_data.get('position', ''))),
             team=str(player_data.get('team', '')),
             salary=int(player_data.get('salary', 0)),
             proj_fp=float(player_data.get('proj_fp', 0))
