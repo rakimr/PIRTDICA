@@ -509,8 +509,9 @@ def _load_book_props():
     """Load player prop lines from The Odds API data."""
     try:
         conn = sqlite3.connect("dfs_nba.db")
-        from utils.timezone import get_eastern_date_str
-        today = get_eastern_date_str()
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        today = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
         df = pd.read_sql_query(
             "SELECT player_name, stat, line, over_odds, under_odds, bookmaker FROM player_props WHERE game_date = ?",
             conn, params=[today]
