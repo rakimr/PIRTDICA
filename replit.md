@@ -6,6 +6,7 @@ This is an NBA Daily Fantasy Sports (DFS) projection and gaming platform operate
 
 ## Recent Changes (February 2026)
 
+- **Salary-Tier Volatility Model (Model 5)** - Empirical salary-tier profiles regularize player fp_sd using CV-based blending; individual σ blended with tier-expected σ weighted by sample confidence; unrealistic ceiling/floor tails capped at tier P95/P5; value_vs_tier metric detects mispriced players relative to salary peers; `salary_tier_volatility.py` computes profiles from game logs + salaries; affects Monte Carlo distributions downstream
 - **FTA Ownership Projections** - Scrapes FantasyTeamAdvice.com FanDuel NBA ownership data; FTA is now the primary ownership source on Trends page with Monte Carlo as secondary reference; `scrape_fta_ownership.py` saves to `fta_ownership` table in SQLite
 - **Ownership ML Calibration (Model 4)** - Learns per-salary-tier scale factors from historical FTA vs Monte Carlo comparisons using least-squares regression; stored in `ownership_calibration` table; daily snapshots in `ownership_snapshots` track mc_pown vs fta_pown per player; factors applied after MC sim to nudge estimates toward market consensus over time
 - **Prop Trend Analysis Modal** - Clickable analysis icon on each prop recommendation opens a Chart.js bar chart of the player's last 10 games for that stat (including 3PM); shows book line (blue dashed) and average (grey dashed) reference lines with OVER/UNDER call badge; raw game logs stored in `player_game_logs` table; `/api/player-trend/{player}/{stat}` endpoint
@@ -120,13 +121,43 @@ Where:
 
 Low ω players (e.g., Sengun at 0.60) have higher projection risk than high ω players (e.g., Bam at 0.74).
 
+### Salary-Tier Volatility Regularization (Model 5)
+`salary_tier_volatility.py` uses empirical game log data to shape player variance distributions by salary tier:
+
+**Key principle:** Salary shapes the distribution (σ), not the mean projection.
+
+**Tier Profiles** (computed from historical game logs):
+| Tier | Salary | Median CV | P5 Floor | P95 Cap |
+|------|--------|-----------|----------|---------|
+| Stud | $9k+ | 0.29 | 22 FP | 66 FP |
+| Mid-High | $7-9k | 0.30 | 20 FP | 54 FP |
+| Mid | $5-7k | 0.37 | 10 FP | 43 FP |
+| Value | $4-5k | 0.46 | 4 FP | 37 FP |
+| Punt | <$4k | 0.88 | 0 FP | 27 FP |
+
+**Regularization Formula:**
+```
+tier_expected_sd = tier_CV × proj_fp
+confidence = min(games_pct / 100, 1.0), floor 0.3
+blended_sd = (player_sd × confidence) + (tier_expected_sd × (1 - confidence))
+if blended_sd / proj_fp > cv_max: blended_sd = cv_max × proj_fp
+```
+
+**Tail Capping:** Ceiling capped at tier P95, floor raised to tier P5.
+
+**Value Detection:**
+```
+value_ratio = proj_fp / (salary / 1000)
+value_vs_tier = (value_ratio / tier_median_value) - 1
+```
+
 ### Ceiling/Floor Model
 Turns point projections into full distributions for GPP/cash decision-making:
 
 **Formulas:**
 ```
-ceiling = proj_fp + (1.5 × fp_sd)
-floor = proj_fp - (1.0 × fp_sd)
+ceiling = proj_fp + (1.5 × fp_sd)  [capped at tier P95]
+floor = proj_fp - (1.0 × fp_sd)    [floored at tier P5]
 upside_ratio = (ceiling - proj_fp) / proj_fp
 ```
 

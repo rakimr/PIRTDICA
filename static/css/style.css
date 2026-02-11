@@ -1736,6 +1736,16 @@ th[data-sortable].sort-desc::after {
     color: var(--primary);
 }
 
+.positive-value {
+    font-weight: bold;
+    color: #4caf50;
+}
+
+.negative-value {
+    font-weight: bold;
+    color: #f44336;
+}
+
 .edge-cell {
     font-weight: bold;
     color: #000;

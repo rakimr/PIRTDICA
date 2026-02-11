@@ -57,16 +57,20 @@
     {% if top_value %}
     <div class="trends-section">
         <h2>Top Value Plays</h2>
+        <p class="chart-description">Players outperforming their salary tier. Value vs Tier shows how much better than peers at similar price.</p>
         <div class="value-table">
             <table>
                 <thead>
                     <tr>
-                        <th>Player</th>
-                        <th>Team</th>
-                        <th>Salary</th>
-                        <th>Proj FP</th>
-                        <th>Value</th>
-                        <th>Tier</th>
+                        <th data-sortable="string">Player</th>
+                        <th data-sortable="string">Team</th>
+                        <th data-sortable="number">Salary</th>
+                        <th data-sortable="number">Proj FP</th>
+                        <th data-sortable="number">Floor</th>
+                        <th data-sortable="number">Ceiling</th>
+                        <th data-sortable="number">FP/$1k</th>
+                        <th data-sortable="number">vs Tier</th>
+                        <th data-sortable="string">Tier</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -76,8 +80,11 @@
                         <td>{{ player.team }}</td>
                         <td>${{ "{:,}".format(player.salary|int) }}</td>
                         <td>{{ "%.1f"|format(player.proj_fp) }}</td>
-                        <td class="value-cell">{{ "%.2f"|format(player.value) }}</td>
-                        <td>{{ player.salary_tier }}</td>
+                        <td>{{ "%.1f"|format(player.get('floor', 0)) }}</td>
+                        <td>{{ "%.1f"|format(player.get('ceiling', 0)) }}</td>
+                        <td class="value-cell">{{ "%.2f"|format(player.get('value_ratio', player.get('value', 0))) }}</td>
+                        <td class="{% if player.get('value_vs_tier', 0) > 0 %}positive-value{% else %}negative-value{% endif %}">{{ "%+.1f"|format((player.get('value_vs_tier', 0) * 100)) }}%</td>
+                        <td>{{ player.get('tier', player.get('salary_tier', '')) }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

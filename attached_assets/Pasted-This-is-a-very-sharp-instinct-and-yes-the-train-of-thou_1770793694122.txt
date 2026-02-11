@@ -1,0 +1,399 @@
+This is a very sharp instinct — and yes, the train of thought is absolutely valid.
+
+You’re basically asking:
+
+“Since salary already encodes expectation, should it also inform the range (floor/ceiling) of outcomes?”
+
+Short answer:
+
+✅ Yes conceptually
+⚠️ But you have to be careful not to double count information
+🔥 And this can be used very intelligently
+
+Let’s break it down cleanly.
+
+1️⃣ What salary actually represents
+
+Salary is not random.
+
+It’s the market’s estimate of:
+
+𝐸
+[
+𝐹
+𝑃
+∣
+𝑀
+𝑖
+𝑛
+𝑢
+𝑡
+𝑒
+𝑠
+,
+𝑈
+𝑠
+𝑎
+𝑔
+𝑒
+,
+𝑅
+𝑜
+𝑙
+𝑒
+,
+𝑀
+𝑎
+𝑡
+𝑐
+ℎ
+𝑢
+𝑝
+]
+E[FP∣Minutes,Usage,Role,Matchup]
+
+So when you project fantasy points using:
+
+Minutes
+
+Usage
+
+Rates
+
+You are already modeling the same signal salary was built from.
+
+That means:
+
+Salary and projection are highly correlated by design.
+
+2️⃣ So are we already capturing it?
+
+If your projection model is solid:
+
+Minutes model
+
+Usage adjustments
+
+Efficiency baseline
+
+Then yes — you’re implicitly capturing salary logic.
+
+Because salary is just:
+
+Projection
+×
+Market Adjustment
+Projection×Market Adjustment
+
+So adjusting mean projection again using salary would double count.
+
+3️⃣ Where your idea becomes powerful
+
+Not in the mean.
+
+In the distribution shape.
+
+This is the key.
+
+Empirical truth in DFS:
+
+Players in different salary tiers have different volatility profiles.
+
+For example:
+
+Salary Tier	Mean FP	Std Dev	Distribution Shape
+$3k–4k	18–25	High relative	Skewed right
+$5k–7k	28–38	Moderate	Normal-ish
+$9k+	45–60	Lower relative	Stable with ceiling spikes
+
+So instead of saying:
+
+“Salary adjusts projection”
+
+You say:
+
+“Salary informs expected variance and tail behavior.”
+
+That’s much cleaner.
+
+4️⃣ Conceptual model
+
+Instead of:
+
+𝐹
+𝑃
+𝑖
+∼
+𝑁
+(
+𝜇
+𝑖
+,
+𝜎
+𝑖
+)
+FP
+i
+	​
+
+∼N(μ
+i
+	​
+
+,σ
+i
+	​
+
+)
+
+You model:
+
+𝜎
+𝑖
+=
+𝑓
+(
+𝜇
+𝑖
+,
+𝑆
+𝑎
+𝑙
+𝑎
+𝑟
+𝑦
+𝑖
+)
+σ
+i
+	​
+
+=f(μ
+i
+	​
+
+,Salary
+i
+	​
+
+)
+
+Or even:
+
+𝜎
+𝑖
+=
+𝛼
+𝜇
+𝑖
++
+𝛽
+⋅
+𝑇
+𝑖
+𝑒
+𝑟
+𝑉
+𝑜
+𝑙
+𝑎
+𝑡
+𝑖
+𝑙
+𝑖
+𝑡
+𝑦
+σ
+i
+	​
+
+=αμ
+i
+	​
+
++β⋅TierVolatility
+
+Because historically:
+
+Cheap players → more fragile minutes → higher σ
+
+Mid-tier → most unstable
+
+Superstars → heavy minutes floor
+
+5️⃣ Salary-based floor/ceiling bands (your idea formalized)
+
+You could empirically compute:
+
+For each salary bucket:
+
+10th percentile FP
+
+90th percentile FP
+
+Std dev
+
+Example:
+
+$4k players historically:
+
+10th pct = 12 FP
+
+90th pct = 36 FP
+
+$10k players:
+
+10th pct = 38 FP
+
+90th pct = 75 FP
+
+Then instead of assuming:
+
+𝐶
+𝑒
+𝑖
+𝑙
+𝑖
+𝑛
+𝑔
+=
+𝜇
++
+1.5
+𝜎
+Ceiling=μ+1.5σ
+
+You could shrink/expand based on historical tier data.
+
+This prevents unrealistic tails.
+
+6️⃣ When this is most useful
+Large slates
+
+You care about:
+
+Tail behavior
+
+Relative ceiling
+
+Ownership leverage
+
+Salary-tier variance modeling helps here.
+
+Ownership modeling
+
+Public ownership strongly clusters by:
+
+Salary tier
+
+Value multiplier (5x, 6x talk)
+
+So salary-tier expectations help estimate chalk.
+
+7️⃣ The danger (important)
+
+If you use salary to adjust:
+
+Mean projection
+
+Minutes
+
+AND variance
+
+You can accidentally make your model:
+
+Too conservative
+
+Too close to market
+
+Reduce edge
+
+Because salary already reflects public sentiment.
+
+8️⃣ The cleaner way to integrate salary
+
+Instead of adjusting μ:
+
+Use salary to:
+
+A) Regularize variance
+𝜎
+𝑖
+=
+𝜎
+𝑖
+⋅
+𝑔
+(
+SalaryTier
+)
+σ
+i
+	​
+
+=σ
+i
+	​
+
+⋅g(SalaryTier)
+B) Cap unrealistic tails
+
+Prevent:
+
+$3k player projecting 55 FP ceiling
+
+$11k player having absurdly low floor
+
+C) Detect mispricing
+
+Compare:
+
+𝜇
+𝑖
+𝑆
+𝑎
+𝑙
+𝑎
+𝑟
+𝑦
+𝑖
+Salary
+i
+	​
+
+μ
+i
+	​
+
+	​
+
+
+to historical tier averages.
+
+This identifies actual value.
+
+9️⃣ Are sharp players already doing this?
+
+Yes — but indirectly.
+
+Advanced optimizers often:
+
+Use empirical distributions by salary tier
+
+Run simulations using salary-conditioned variance
+
+Penalize unrealistic outcomes
+
+You’re thinking along the same lines.
+
+🔟 Big-picture answer
+
+Your idea makes sense.
+
+But:
+
+Salary should not move the mean projection.
+
+Salary should shape the uncertainty distribution.
+
+That’s the mathematically clean integration.

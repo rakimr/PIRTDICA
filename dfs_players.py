@@ -361,10 +361,26 @@ except Exception as e:
 
 df["proj_fp"] = df["proj_fp"].round(2)
 
+try:
+    from salary_tier_volatility import regularize_fp_sd, cap_tails, compute_value_score
+    df, adj_count, tier_profiles = regularize_fp_sd(df)
+    print(f"Model 5 (Tier Volatility): Regularized fp_sd for {adj_count} players")
+except Exception as e:
+    print(f"Warning: Tier volatility model skipped: {e}")
+    tier_profiles = None
+
 df["ceiling"] = (df["proj_fp"] + 1.5 * df["fp_sd"]).round(1)
 df["floor"] = (df["proj_fp"] - 1.0 * df["fp_sd"]).clip(lower=0).round(1)
 df["fp_range"] = df["ceiling"] - df["floor"]
 df["upside_ratio"] = ((df["ceiling"] - df["proj_fp"]) / df["proj_fp"]).round(3)
+
+try:
+    if tier_profiles:
+        df, cap_count = cap_tails(df, tier_profiles)
+        print(f"Model 5 (Tier Volatility): Capped {cap_count} unrealistic tails")
+        df = compute_value_score(df)
+except Exception as e:
+    print(f"Warning: Tail capping skipped: {e}")
 
 def clean_display_name(name):
     """Remove Jr., Sr., II, III suffixes for cleaner display."""
@@ -376,12 +392,17 @@ def clean_display_name(name):
 
 df["player_name"] = df["player_name"].apply(clean_display_name)
 
+value_cols = []
+for col in ['tier', 'raw_fp_sd', 'tier_cv', 'tier_expected_sd', 'value_ratio', 'value_vs_tier']:
+    if col in df.columns:
+        value_cols.append(col)
+
 output_cols = [
     "player_name", "position", "true_position", "projected_min", "salary",
     "team", "opponent", "location", "implied_total", "fp_pg", "fp_per_min", "usg_pct", "usg_boost", "fppm_adj",
     "ref_weight", "dvp_weight", "line_weight", "games_pct", "gp_weight", "low_gp_flag", "min_sd", "omega", "omega_weight",
     "proj_fp", "fp_sd", "ceiling", "floor", "fp_range", "upside_ratio", "hist_max_fp", "hist_min_fp"
-]
+] + value_cols
 
 df_output = df[output_cols].copy()
 df_output = df_output.rename(columns={"position": "fd_position"})
