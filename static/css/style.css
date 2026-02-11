@@ -1746,6 +1746,81 @@ th[data-sortable].sort-desc::after {
     color: #f44336;
 }
 
+.archetype-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    background: #f0f0f0;
+    color: #333;
+    border: 1px solid #ddd;
+}
+
+.archetype-combo-guard,
+.archetype-combo-guard-elite {
+    background: #e3f2fd;
+    color: #1565c0;
+    border-color: #90caf9;
+}
+
+.archetype-playmaker,
+.archetype-playmaker-elite {
+    background: #ede7f6;
+    color: #4527a0;
+    border-color: #b39ddb;
+}
+
+.archetype-scoring-wing {
+    background: #fce4ec;
+    color: #c62828;
+    border-color: #ef9a9a;
+}
+
+.archetype-3-and-d-wing,
+.archetype-3-and-d-wing-role {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border-color: #a5d6a7;
+}
+
+.archetype-point-forward {
+    background: #fff3e0;
+    color: #e65100;
+    border-color: #ffcc80;
+}
+
+.archetype-stretch-big {
+    background: #e0f7fa;
+    color: #00695c;
+    border-color: #80cbc4;
+}
+
+.archetype-traditional-big {
+    background: #efebe9;
+    color: #4e342e;
+    border-color: #bcaaa4;
+}
+
+.archetype-versatile-big {
+    background: #f3e5f5;
+    color: #6a1b9a;
+    border-color: #ce93d8;
+}
+
+.archetype-athletic-wing {
+    background: #fff8e1;
+    color: #f57f17;
+    border-color: #ffe082;
+}
+
+.archetype-point-center {
+    background: #e8eaf6;
+    color: #283593;
+    border-color: #9fa8da;
+}
+
 .edge-cell {
     font-weight: bold;
     color: #000;

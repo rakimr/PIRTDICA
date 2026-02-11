@@ -392,8 +392,24 @@ def clean_display_name(name):
 
 df["player_name"] = df["player_name"].apply(clean_display_name)
 
+try:
+    archetypes_df = pd.read_sql_query("SELECT player_name, archetype FROM player_archetypes", conn)
+    df = df.merge(archetypes_df, on='player_name', how='left')
+    matched = df['archetype'].notna().sum()
+    position_fallback = {
+        'PG': 'Combo Guard', 'SG': 'Combo Guard', 'SF': 'Athletic Wing',
+        'PF': 'Athletic Wing', 'C': 'Traditional Big',
+        'G': 'Combo Guard', 'F': 'Athletic Wing',
+    }
+    mask = df['archetype'].isna()
+    df.loc[mask, 'archetype'] = df.loc[mask, 'true_position'].map(position_fallback).fillna('Athletic Wing')
+    print(f"Merged archetypes for {matched} players ({mask.sum()} fallback from position)")
+except Exception:
+    df['archetype'] = 'Unknown'
+    print("No archetype data found - run build_player_archetypes.py first")
+
 value_cols = []
-for col in ['tier', 'raw_fp_sd', 'tier_cv', 'tier_expected_sd', 'value_ratio', 'value_vs_tier']:
+for col in ['tier', 'raw_fp_sd', 'tier_cv', 'tier_expected_sd', 'value_ratio', 'value_vs_tier', 'archetype']:
     if col in df.columns:
         value_cols.append(col)
 

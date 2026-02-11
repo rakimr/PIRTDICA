@@ -17,6 +17,7 @@ SCRIPTS = [
     ("etl_referee_stats_agg.py", "Referee Stats Aggregation"),
     ("etl_game_foul_environment.py", "Game Foul Environment"),
     ("detect_rotation_changes.py", "Rotation Detection"),
+    ("build_player_archetypes.py", "Player Archetype Classification"),
     ("dfs_players.py", "DFS Player Projections"),
     ("scrape_player_props.py", "Player Prop Odds (The Odds API)"),
     ("scrape_fta_ownership.py", "FTA Ownership Projections"),

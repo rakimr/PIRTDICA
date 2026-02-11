@@ -71,6 +71,7 @@
                         <th data-sortable="number">FP/$1k</th>
                         <th data-sortable="number">vs Tier</th>
                         <th data-sortable="string">Tier</th>
+                        <th data-sortable="string">Archetype</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -85,6 +86,7 @@
                         <td class="value-cell">{{ "%.2f"|format(player.get('value_ratio', player.get('value', 0))) }}</td>
                         <td class="{% if player.get('value_vs_tier', 0) > 0 %}positive-value{% else %}negative-value{% endif %}">{{ "%+.1f"|format((player.get('value_vs_tier', 0) * 100)) }}%</td>
                         <td>{{ player.get('tier', player.get('salary_tier', '')) }}</td>
+                        <td><span class="archetype-badge archetype-{{ player.get('archetype', 'Unknown')|lower|replace(' ', '-')|replace('(', '')|replace(')', '') }}">{{ player.get('archetype', '') }}</span></td>
                     </tr>
                     {% endfor %}
                 </tbody>

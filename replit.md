@@ -2,36 +2,7 @@
 
 ## Overview
 
-This is an NBA Daily Fantasy Sports (DFS) projection and gaming platform operated by PIRTDICA SPORTS CO. The core engine scrapes, processes, and analyzes basketball data to generate player projections. The platform features a "Beat the House" game where players compete against an AI-generated house lineup using Monte Carlo simulation.
-
-## Recent Changes (February 2026)
-
-- **Salary-Tier Volatility Model (Model 5)** - Empirical salary-tier profiles regularize player fp_sd using CV-based blending; individual σ blended with tier-expected σ weighted by sample confidence; unrealistic ceiling/floor tails capped at tier P95/P5; value_vs_tier metric detects mispriced players relative to salary peers; `salary_tier_volatility.py` computes profiles from game logs + salaries; affects Monte Carlo distributions downstream
-- **FTA Ownership Projections** - Scrapes FantasyTeamAdvice.com FanDuel NBA ownership data; FTA is now the primary ownership source on Trends page with Monte Carlo as secondary reference; `scrape_fta_ownership.py` saves to `fta_ownership` table in SQLite
-- **Ownership ML Calibration (Model 4)** - Learns per-salary-tier scale factors from historical FTA vs Monte Carlo comparisons using least-squares regression; stored in `ownership_calibration` table; daily snapshots in `ownership_snapshots` track mc_pown vs fta_pown per player; factors applied after MC sim to nudge estimates toward market consensus over time
-- **Prop Trend Analysis Modal** - Clickable analysis icon on each prop recommendation opens a Chart.js bar chart of the player's last 10 games for that stat (including 3PM); shows book line (blue dashed) and average (grey dashed) reference lines with OVER/UNDER call badge; raw game logs stored in `player_game_logs` table; `/api/player-trend/{player}/{stat}` endpoint
-- **Contest History Page** - `/history` page shows all past contest entries with collapsible cards, side-by-side lineups (yours vs house), aggregate stats (wins, losses, win rate, coins earned, best score, streak), and links to full entry view; accessible from nav bar and profile page
-- **Live Scoring** - Real-time FP tracking from plaintextsports.com/nba with 30-second auto-refresh on entry pages; `/api/live-scores` and `/api/live-entry/{id}` endpoints with 30s server cache
-- **House Lineup Snapshot** - Each coach entry freezes the house lineup at submission time; regeneration preserves entries and scoring uses the frozen lineup
-- **Referee Foul Tendencies Chart** - Scatter plot on Trends page showing tonight's crew foul volume vs home/away bias (▲ home-favored, ▼ road-favored)
-- **Admin Control Panel** - Web-based data refresh button and manual injury override form at /admin
-- **Team Incentive Score** - Standings-based variance adjustment (must-win teams = lower σ, tanking teams = higher σ)
-- **Projected Ownership (pOwn%)** - Monte Carlo simulation (500+ iterations) estimates public ownership from optimizer frequency
-- **Excel-style Table Filtering** - Sortable columns and player search on Trends page tables
-- **ML Adjustment System** - Historical performance tracking adjusts projections based on actual vs predicted FP and minutes
-- **ML Minutes Correction (Model 3)** - Tracks projected vs actual minutes per player; learns multipliers (0.6-1.4) to fix systematic minutes over/under-projection before FP is calculated
-- **Projection Snapshots** - All player projections saved with each contest for training data, including actual minutes and minutes error
-- **Player Adjustment Factors** - Learned multipliers for FP bias (0.7-1.3) and minutes bias (0.6-1.4) correct systematic projection errors
-- **Blended DVP System** - Adaptive weighting combines full season and 30-day DvP data (60/40 base, volatility-adjusted)
-- **Player Prop Odds Integration** - The Odds API pulls FanDuel player prop lines (PTS, REB, AST, 3PM, STL, BLK); prop table now shows Book Line, Edge%, and our projection side-by-side, sorted by largest model-vs-market disagreement
-- **Prop Recommendations +/-FP** - Renamed columns and color-coded positive (green) / negative (red) FP values
-
-## Previous Changes (January 2026)
-
-- **PIRTDICA Web Platform** - Full-stack FastAPI application with user accounts, leaderboards, and gamification
-- **Monte Carlo Optimizer** - Stochastic simulation finds lineups with highest win probability, not just expected value
-- **In-Game Currency System** - Coins for participation, wins, and achievements; shop for cosmetics
-- **Coach Rankings** - Leaderboard with Coach of Day/Week/Month/Year awards
+PIRTDICA SPORTS CO. operates an NBA Daily Fantasy Sports (DFS) platform focused on providing projections and a unique "Beat the House" game. The core system processes basketball data to generate player projections, while the game allows users to compete against an AI-generated lineup using Monte Carlo simulation. The platform aims to offer a competitive and engaging DFS experience, leveraging advanced analytics for projection accuracy and game mechanics. Key capabilities include sophisticated player archetype classification, salary-tier volatility modeling, and real-time ownership projections.
 
 ## User Preferences
 
@@ -39,224 +10,61 @@ Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Data Pipeline Design
-The system follows an ETL (Extract-Transform-Load) pattern with a SQLite database as the central data store. Scripts are organized into three categories:
+### Data Pipeline and Orchestration
+The system employs an ETL (Extract-Transform-Load) pattern using a SQLite database as the central data store. Scripts are categorized into scrapers, ETL processors, and analysis scripts, with `run_daily_update.py` orchestrating their execution in dependency order. This ensures data integrity and timely projection generation.
 
-1. **Scrapers** (`scrape_*.py`) - Fetch raw data from external websites
-2. **ETL Scripts** (`etl_*.py`) - Transform and aggregate scraped data
-3. **Analysis Scripts** (`dfs_players.py`, `detect_rotation_changes.py`) - Generate final projections
+### Core Projection Models and Features
+-   **Minutes Projection Model:** Utilizes empirical baseline minutes, depth charts, injury impacts, and game context to project player minutes.
+-   **Usage-Based FPPM Adjustment:** Dynamically redistributes injured players' usage to teammates, adjusting their fantasy points per minute (FPPM) to reflect increased opportunity.
+-   **Position Handling:** Tracks five core positions plus hybrids, deriving data from Basketball Reference.
+-   **Name Normalization:** Robust system for handling player name inconsistencies across various data sources.
+-   **Physical Matchup Modifiers:** Adjusts projected minutes based on player-specific foul tendencies for opponents.
+-   **FanDuel Roster Order Integration:** Incorporates FanDuel's `roster_order` to refine depth chart interpretations.
+-   **Phillips Archetype Classification (Model 6):** Uses K-means clustering to assign secondary position labels (e.g., Combo Guard, Playmaker) based on advanced per-100 stats and usage.
+-   **Salary-Tier Volatility Model (Model 5):** Regularizes player fantasy point standard deviation (fp_sd) using empirical salary-tier profiles, blending individual and tier-expected volatility. Includes tail capping at tier-specific P5/P95 and a `value_vs_tier` metric.
+-   **Ceiling/Floor Model:** Transforms point projections into full distributions to aid in cash game (consistent, high floor) vs. GPP (high upside) decision-making.
+-   **ML Minutes Correction (Model 3):** Learns and applies multipliers to correct systematic minutes over/under-projection.
+-   **Blended DVP System:** Adaptively weights full-season and 30-day Defense vs. Position (DvP) data.
+-   **Team Incentive Score:** Adjusts player volatility based on team standings (e.g., must-win vs. tanking teams).
+-   **Prop Trend Analysis Modal:** Visualizes a player's last 10 games for a specific stat against book lines, providing OVER/UNDER calls.
 
-### Orchestration
-`run_daily_update.py` serves as the main orchestrator, running all scripts in dependency order. This ensures scraped data is available before ETL scripts run, and ETL outputs are ready before projection generation.
+### Lineup Optimization and Gaming
+-   **Lineup Optimizer:** Uses PuLP linear programming to find optimal 9-player FanDuel lineups within salary caps and position requirements, with optional reliability adjustments.
+-   **Monte Carlo Optimizer:** Stochastic simulation finds lineups with the highest win probability.
+-   **Beat the House Game:** Daily contests where users compete against an AI-generated house lineup; features include user accounts, leaderboards, in-game currency, and live scoring.
 
-### Minutes Projection Model
-The core projection logic uses empirical baseline minutes from 2012-2018 NBA box scores (`baseline_minutes.py`). Players are assigned minutes based on:
-- Depth chart position (PG1, SG2, etc.)
-- Injury-driven promotions
-- Historical minutes per game (MPG)
-- Game context (pace, spread, total)
-
-### Usage-Based FPPM Adjustment
-When teammates are injured (OUT), their usage is redistributed to remaining players, boosting per-minute production:
-
-**Formula:**
-```
-FPPM_adj = FPPM_base × (1 + β × (Usage_adj - Usage_base) / Usage_base)
-```
-
-Where:
-- **β = 0.7** (diminishing returns factor)
-- **Usage_adj = Usage_base + (Injured Usage × Player's Usage Share × 0.6)**
-- Usage rates come from Basketball Reference advanced stats (USG%)
-
-This captures how players like RJ Barrett get more touches/shots when a star teammate is out.
-
-### Position Handling
-The system tracks five positions (PG, SG, SF, PF, C) plus hybrid positions (G, F). Position data comes from Basketball Reference play-by-play data showing percentage of time at each position.
-
-### Name Normalization
-Player names are aggressively normalized to handle inconsistencies across data sources:
-- Unicode normalization (accents, special characters)
-- Suffix removal (Jr, Sr, II, III)
-- Alias mapping for common variations
-
-### Physical Matchup Modifiers
-`physical_matchups.py` contains lookup tables for players who cause above-average foul trouble for opponents. This affects projected minutes for opposing centers/forwards.
-
-### FanDuel Roster Order
-The system captures FanDuel's `roster_order` (1-5 = starters, 6+ = bench) to override ESPN depth charts when conflicts arise. This prevents false promotions when ESPN starters aren't DFS-eligible.
-
-### Lineup Optimizer
-`optimize_fanduel.py` uses PuLP linear programming to find the optimal 9-player lineup:
-- **Constraints:** $60,000 cap, 2 PG, 2 SG, 2 SF, 2 PF, 1 C
-- **Dual Eligibility:** Correctly handles players like C/PF, SG/PG who can fill either slot
-- **Filters:** Excludes players with <20 projected minutes
-- **Star Weight (ω):** Optional reliability adjustment based on games played percentage and salary tier
-
-Usage:
-```bash
-python optimize_fanduel.py                    # Raw projections
-python optimize_fanduel.py --reliability      # With reliability adjustment
-python optimize_fanduel.py --min-minutes 25   # Higher minutes threshold
-```
-
-### Volatility Model
-`scrape_nba_gamelogs.py` pulls all player game logs from NBA.com's stats API to calculate:
-- **min_sd** - Player's minutes standard deviation (lower = more consistent)
-- **omega (ω)** - Combined reliability score (0.10-0.90)
-- **fp_sd** - Fantasy point standard deviation (historical volatility)
-- **avg_fp** - Historical average fantasy points per game
-- **max_fp / min_fp** - Season high/low fantasy point games
-
-**Omega Formula:**
-```
-ω = (games_pct × 0.5) + (sd_factor × 0.5)
-sd_factor = clip(1 - (SD - 3) / 7, 0, 1)
-```
-
-Where:
-- **games_pct** = games played / ~50 games (availability)
-- **sd_factor** = penalizes high SD (volatility)
-- SD of 3 = perfect stability, SD of 10+ = high volatility
-
-Low ω players (e.g., Sengun at 0.60) have higher projection risk than high ω players (e.g., Bam at 0.74).
-
-### Salary-Tier Volatility Regularization (Model 5)
-`salary_tier_volatility.py` uses empirical game log data to shape player variance distributions by salary tier:
-
-**Key principle:** Salary shapes the distribution (σ), not the mean projection.
-
-**Tier Profiles** (computed from historical game logs):
-| Tier | Salary | Median CV | P5 Floor | P95 Cap |
-|------|--------|-----------|----------|---------|
-| Stud | $9k+ | 0.29 | 22 FP | 66 FP |
-| Mid-High | $7-9k | 0.30 | 20 FP | 54 FP |
-| Mid | $5-7k | 0.37 | 10 FP | 43 FP |
-| Value | $4-5k | 0.46 | 4 FP | 37 FP |
-| Punt | <$4k | 0.88 | 0 FP | 27 FP |
-
-**Regularization Formula:**
-```
-tier_expected_sd = tier_CV × proj_fp
-confidence = min(games_pct / 100, 1.0), floor 0.3
-blended_sd = (player_sd × confidence) + (tier_expected_sd × (1 - confidence))
-if blended_sd / proj_fp > cv_max: blended_sd = cv_max × proj_fp
-```
-
-**Tail Capping:** Ceiling capped at tier P95, floor raised to tier P5.
-
-**Value Detection:**
-```
-value_ratio = proj_fp / (salary / 1000)
-value_vs_tier = (value_ratio / tier_median_value) - 1
-```
-
-### Ceiling/Floor Model
-Turns point projections into full distributions for GPP/cash decision-making:
-
-**Formulas:**
-```
-ceiling = proj_fp + (1.5 × fp_sd)  [capped at tier P95]
-floor = proj_fp - (1.0 × fp_sd)    [floored at tier P5]
-upside_ratio = (ceiling - proj_fp) / proj_fp
-```
-
-**Usage:**
-- **Cash games**: Prefer low fp_sd players (consistent producers, high floor)
-- **GPPs**: Target high upside_ratio players (boom-or-bust leverage)
-- **Bust probability**: Use floor to assess downside risk vs salary
-
-**FanDuel FP Calculation:**
-```
-FP = PTS + (REB × 1.2) + (AST × 1.5) + (STL × 3) + (BLK × 3) - TO
-```
+### Web Platform
+-   **Backend:** FastAPI (Python) with SQLAlchemy ORM, PostgreSQL for user and contest data.
+-   **Frontend:** Jinja2 templates with custom CSS.
+-   **Live Scoring:** Real-time fantasy point tracking with 30-second auto-refresh.
+-   **Contest History Page:** Displays past contest entries, win/loss records, and earnings.
+-   **Admin Control Panel:** Web-based interface for data refresh and injury overrides.
 
 ## External Dependencies
 
 ### Web Scraping Targets
-- **ESPN** - Depth charts (`espn.com/nba/depth`)
-- **RotoGrinders** - Player salaries, injury alerts (`rotogrinders.com`)
-- **TeamRankings** - Game odds/spreads (`teamrankings.com/nba/odds`)
-- **HashtagBasketball** - Defense vs Position stats (`hashtagbasketball.com`)
-- **Basketball Reference** - Per-100 possession stats, player positions, foul rates
-- **NBA.com Stats API** - Player game logs, minutes volatility (`stats.nba.com`)
-- **NBA Official** - Referee assignments (`official.nba.com`)
-- **NBAStuffer** - Historical referee statistics
-- **SportsDatabase** - Historic betting lines
+-   **ESPN:** Depth charts
+-   **RotoGrinders:** Player salaries, injury alerts
+-   **TeamRankings:** Game odds/spreads
+-   **HashtagBasketball:** Defense vs Position stats
+-   **Basketball Reference:** Per-100 possession stats, player positions, foul rates
+-   **NBA.com Stats API:** Player game logs, minutes volatility, referee assignments
+-   **NBAStuffer:** Historical referee statistics
+-   **SportsDatabase:** Historic betting lines
+-   **FantasyTeamAdvice.com:** FanDuel NBA ownership data
 
-### Database
-SQLite database (`dfs_nba.db`) stores all scraped and processed data. Tables are recreated on each run to ensure fresh data.
+### APIs
+-   **The Odds API:** Player prop lines (FanDuel)
+-   **plaintextsports.com/nba:** Live scoring data
+
+### Databases
+-   **SQLite:** Primary data store (`dfs_nba.db`) for scraped and processed data.
+-   **PostgreSQL:** Stores user accounts, contest data, entries, achievements, and shop items for the web platform.
 
 ### Python Libraries
-- `requests` + `BeautifulSoup` - Web scraping
-- `pandas` - Data manipulation
-- `sqlite3` - Database operations
-
-### Data Sources Summary
-| Data Type | Source | Table |
-|-----------|--------|-------|
-| Player Salaries | RotoGrinders | `player_salaries` |
-| Depth Charts | ESPN | `depth_charts` |
-| Game Odds | TeamRankings | `game_odds` |
-| DvP Stats | HashtagBasketball | `dvp_stats` |
-| Per-100 Stats | Basketball Reference | `player_per100` |
-| Referee Stats | NBAStuffer | `referee_stats` |
-| Referee Assignments | NBA.com | `referee_assignments` |
-| Injury Alerts | RotoGrinders | `injury_alerts` |
-| Player Positions | Basketball Reference | `player_positions` |
-| Team Standings | ESPN (fallback data) | `team_standings` |
-| Projected Ownership | Monte Carlo Sim | `player_ownership_estimates` |
-| Actual FP/Minutes | NBA.com Stats API (primary) | `projection_snapshots` |
-| Actual FP/Minutes | Basketball Reference (fallback) | `projection_snapshots` |
-| Player Prop Odds | The Odds API (FanDuel lines) | `player_props` |
-
-## Web Platform Architecture
-
-### Beat This Lineup Game
-The platform runs a daily "Beat the House" contest:
-1. **House Lineup Generation** - `generate_house_lineup.py` runs Monte Carlo simulation (10k sims) to create the house lineup
-2. **User Submissions** - Players build their own 9-player lineups within $60k salary cap
-3. **Scoring** - After games complete, actual FP are calculated and compared
-4. **Leaderboard** - Rankings by wins, winrate, and total score
-
-### Tech Stack
-- **Backend:** FastAPI (Python) with SQLAlchemy ORM
-- **Database:** PostgreSQL for user data, contests, entries
-- **Frontend:** Jinja2 templates with custom CSS
-- **Auth:** Session-based with bcrypt password hashing
-
-### Key Files
-- `backend/main.py` - FastAPI routes and endpoints
-- `backend/models.py` - SQLAlchemy database models
-- `backend/auth.py` - Authentication utilities
-- `generate_house_lineup.py` - Daily contest creation
-- `seed_data.py` - Initial achievements and shop items
-- `templates/` - HTML templates for all pages
-- `static/css/style.css` - Dark theme styling
-
-### Database Tables (PostgreSQL)
-| Table | Purpose |
-|-------|---------|
-| users | User accounts with coins balance |
-| contests | Daily contest records |
-| house_lineup_players | AI-generated house lineup |
-| contest_entries | User lineup submissions |
-| entry_players | Players in user lineups |
-| achievements | Available achievements |
-| user_achievements | Earned achievements |
-| shop_items | Purchasable cosmetics |
-| user_items | Owned items |
-| currency_transactions | Coin transaction history |
-| leaderboard_cache | Precomputed rankings |
-
-### Running the Platform
-```bash
-# Start web server
-python -m uvicorn backend.main:app --host 0.0.0.0 --port 5000
-
-# Generate daily contest
-python generate_house_lineup.py
-
-# Seed initial data
-python seed_data.py
-```
+-   `requests`, `BeautifulSoup`: Web scraping
+-   `pandas`: Data manipulation
+-   `sqlite3`: SQLite database operations
+-   `PuLP`: Linear programming for optimization
+-   `scikit-learn`: K-means clustering for player archetype classification
+-   `Chart.js`: Frontend charting
