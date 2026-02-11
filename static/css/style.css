@@ -2452,3 +2452,44 @@ th[data-sortable].sort-desc::after {
         font-size: 0.6rem;
     }
 }
+
+@media (max-width: 768px) {
+    .cluster-chart-wrapper {
+        height: 360px;
+        padding: 6px;
+    }
+
+    .cluster-legend {
+        gap: 4px 10px;
+    }
+
+    .cluster-legend-item {
+        font-size: 0.75rem;
+        padding: 2px 5px;
+    }
+
+    .cluster-legend-dot {
+        width: 8px;
+        height: 8px;
+    }
+
+    .cluster-legend-count {
+        font-size: 0.7rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .cluster-chart-wrapper {
+        height: 300px;
+        padding: 4px;
+    }
+
+    .cluster-legend {
+        gap: 3px 6px;
+    }
+
+    .cluster-legend-item {
+        font-size: 0.7rem;
+        padding: 2px 4px;
+    }
+}

@@ -238,14 +238,19 @@ async function loadClusterChart() {
             grouped[p.archetype].push(p);
         });
 
+        const isMobile = window.innerWidth < 768;
+        const ptRadius = isMobile ? 3.5 : 6;
+        const ptHover = isMobile ? 6 : 9;
+        const borderW = isMobile ? 1 : 1.5;
+
         const datasets = Object.entries(grouped).map(([arch, players]) => ({
             label: arch,
             data: players.map(p => ({ x: p.x, y: p.y, name: p.name, team: p.team, pts: p.pts, reb: p.reb, ast: p.ast, usg: p.usg })),
             backgroundColor: (ARCHETYPE_COLORS[arch] || '#888') + 'cc',
             borderColor: ARCHETYPE_COLORS[arch] || '#888',
-            borderWidth: 1.5,
-            pointRadius: 6,
-            pointHoverRadius: 9,
+            borderWidth: borderW,
+            pointRadius: ptRadius,
+            pointHoverRadius: ptHover,
         }));
 
         const ctx = document.getElementById('cluster-chart').getContext('2d');
@@ -257,6 +262,9 @@ async function loadClusterChart() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                    padding: isMobile ? { top: 4, right: 4, bottom: 4, left: 4 } : { top: 10, right: 10, bottom: 10, left: 10 }
+                },
                 plugins: {
                     legend: { display: false },
                     tooltip: {
@@ -272,22 +280,22 @@ async function loadClusterChart() {
                             }
                         },
                         backgroundColor: '#111',
-                        titleFont: { family: 'Marvel', size: 13 },
-                        bodyFont: { family: 'Marvel', size: 12 },
-                        padding: 10,
+                        titleFont: { family: 'Marvel', size: isMobile ? 11 : 13 },
+                        bodyFont: { family: 'Marvel', size: isMobile ? 10 : 12 },
+                        padding: isMobile ? 6 : 10,
                         cornerRadius: 6,
                     }
                 },
                 scales: {
                     x: {
-                        title: { display: true, text: 'PC1 (' + data.variance_explained[0] + '% var)', font: { family: 'Marvel', size: 13, weight: 'bold' }, color: '#374151' },
+                        title: { display: !isMobile, text: 'PC1 (' + data.variance_explained[0] + '% var)', font: { family: 'Marvel', size: 13, weight: 'bold' }, color: '#374151' },
                         grid: { color: '#e5e7eb' },
-                        ticks: { font: { family: 'Marvel' } }
+                        ticks: { font: { family: 'Marvel', size: isMobile ? 9 : 12 }, maxTicksLimit: isMobile ? 5 : 10 }
                     },
                     y: {
-                        title: { display: true, text: 'PC2 (' + data.variance_explained[1] + '% var)', font: { family: 'Marvel', size: 13, weight: 'bold' }, color: '#374151' },
+                        title: { display: !isMobile, text: 'PC2 (' + data.variance_explained[1] + '% var)', font: { family: 'Marvel', size: 13, weight: 'bold' }, color: '#374151' },
                         grid: { color: '#e5e7eb' },
-                        ticks: { font: { family: 'Marvel' } }
+                        ticks: { font: { family: 'Marvel', size: isMobile ? 9 : 12 }, maxTicksLimit: isMobile ? 5 : 10 }
                     }
                 }
             }
