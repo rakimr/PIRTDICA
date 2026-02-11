@@ -271,12 +271,9 @@ def generate_ref_foul_chart(output_path='static/images/ref_foul_chart.png'):
     import sqlite3
     conn = sqlite3.connect("dfs_nba.db")
     
-    try:
-        from utils.timezone import get_eastern_date_str
-        today = get_eastern_date_str()
-    except:
-        from datetime import datetime
-        today = datetime.now().strftime('%Y-%m-%d')
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    today = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
     
     assignments = pd.read_sql_query(
         "SELECT home_team, away_team, crew_chief, referee, umpire FROM referee_assignments WHERE game_date = ?",

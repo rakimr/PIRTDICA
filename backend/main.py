@@ -1105,13 +1105,17 @@ async def api_player_trend(player_name: str, stat: str, n: int = 10):
     stat_map = {
         'PTS': 'pts', 'REB': 'reb', 'AST': 'ast',
         'STL': 'stl', 'BLK': 'blk', 'FP': 'fp',
-        'MIN': 'min', 'TOV': 'tov'
+        'MIN': 'min', 'TOV': 'tov', '3PM': 'fg3m'
     }
     col = stat_map.get(stat.upper())
     if not col:
         return {"error": "Invalid stat", "games": []}
     try:
         conn = sqlite3_mod.connect("dfs_nba.db")
+        existing_cols = [r[1] for r in conn.execute("PRAGMA table_info(player_game_logs)").fetchall()]
+        if col not in existing_cols:
+            conn.close()
+            return {"error": f"{stat.upper()} data not yet available. Will populate on next daily update.", "games": []}
         rows = conn.execute(
             f"SELECT game_date, matchup, {col} FROM player_game_logs WHERE player_name = ? ORDER BY game_date DESC LIMIT ?",
             (player_name, n)
@@ -1119,7 +1123,7 @@ async def api_player_trend(player_name: str, stat: str, n: int = 10):
         conn.close()
         if not rows:
             return {"error": "No data found", "games": []}
-        games = [{"date": r[0], "matchup": r[1], "value": r[2]} for r in reversed(rows)]
+        games = [{"date": r[0], "matchup": r[1], "value": r[2] or 0} for r in reversed(rows)]
         values = [g["value"] for g in games]
         avg = round(sum(values) / len(values), 1) if values else 0
         return {"player": player_name, "stat": stat.upper(), "games": games, "avg": avg}

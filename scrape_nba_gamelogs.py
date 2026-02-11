@@ -73,8 +73,8 @@ def scrape_gamelogs():
     conn = sqlite3.connect('dfs_nba.db')
     stats.to_sql('player_volatility', conn, if_exists='replace', index=False)
     
-    game_logs = df[['PLAYER_NAME', 'GAME_DATE', 'MATCHUP', 'MIN', 'PTS', 'REB', 'AST', 'STL', 'BLK', 'TOV', 'FP']].copy()
-    game_logs = game_logs.rename(columns={
+    log_cols = ['PLAYER_NAME', 'GAME_DATE', 'MATCHUP', 'MIN', 'PTS', 'REB', 'AST', 'STL', 'BLK', 'TOV', 'FP']
+    rename_map = {
         'PLAYER_NAME': 'player_name',
         'GAME_DATE': 'game_date',
         'MATCHUP': 'matchup',
@@ -86,7 +86,12 @@ def scrape_gamelogs():
         'BLK': 'blk',
         'TOV': 'tov',
         'FP': 'fp'
-    })
+    }
+    if 'FG3M' in df.columns:
+        log_cols.append('FG3M')
+        rename_map['FG3M'] = 'fg3m'
+    game_logs = df[log_cols].copy()
+    game_logs = game_logs.rename(columns=rename_map)
     game_logs = game_logs.sort_values(['player_name', 'game_date'], ascending=[True, False])
     game_logs.to_sql('player_game_logs', conn, if_exists='replace', index=False)
     print(f"Saved {len(game_logs)} individual game log entries to player_game_logs table.")
