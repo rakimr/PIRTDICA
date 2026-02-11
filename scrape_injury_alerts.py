@@ -8,7 +8,6 @@ from utils.timezone import get_eastern_date_str
 conn = sqlite3.connect("dfs_nba.db")
 cursor = conn.cursor()
 
-cursor.execute("DROP TABLE IF EXISTS injury_alerts")
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS injury_alerts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -20,6 +19,8 @@ CREATE TABLE IF NOT EXISTS injury_alerts (
     UNIQUE(player_name, alert_title)
 )
 """)
+
+cursor.execute("DELETE FROM injury_alerts WHERE alert_title NOT LIKE '%SUSPENDED%'")
 conn.commit()
 
 today = get_eastern_date_str()
