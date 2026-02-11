@@ -53,10 +53,19 @@ conn.commit()
 
 today = get_eastern_date_str()
 
+import sys
+force = '--force' in sys.argv
+
 if not API_KEY:
     print("ERROR: THE_ODDS_API_KEY not set")
     conn.close()
     exit(1)
+
+existing = cursor.execute("SELECT COUNT(*) FROM player_props WHERE game_date = ?", (today,)).fetchone()[0]
+if existing > 0 and not force:
+    print(f"Props already scraped for {today} ({existing} lines). Use --force to re-fetch.")
+    conn.close()
+    exit(0)
 
 print(f"Fetching NBA events...")
 events_url = f'{BASE_URL}/sports/{SPORT}/events'
