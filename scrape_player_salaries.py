@@ -147,8 +147,8 @@ for game_card in game_cards:
 df = pd.DataFrame(rows)
 
 if not df.empty:
-    df = df.drop_duplicates(subset=["player_name"], keep="first")
-    df.to_sql("player_salaries", conn, if_exists="append", index=False)
+    df = df.drop_duplicates(subset=["player_name", "team"], keep="first")
+    df.to_sql("player_salaries", conn, if_exists="replace", index=False)
     print(f"FanDuel salaries scraped successfully. {len(df)} players found.")
     print(df.head(10))
 else:

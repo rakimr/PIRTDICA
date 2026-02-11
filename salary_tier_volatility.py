@@ -52,6 +52,7 @@ def compute_empirical_tier_profiles(db_path='dfs_nba.db'):
     if len(merged) < 50:
         return TIER_DEFAULTS
     
+    merged['salary'] = pd.to_numeric(merged['salary'], errors='coerce').fillna(0)
     merged['tier'] = merged['salary'].apply(get_salary_tier)
     
     profiles = {}

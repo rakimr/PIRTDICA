@@ -54,6 +54,8 @@ def normalize_name(name):
     return NAME_ALIASES.get(name, name)
 
 salaries["player_name"] = salaries["player_name"].str.strip()
+salaries = salaries.drop_duplicates(subset=["player_name", "team"], keep="first")
+salaries["salary"] = pd.to_numeric(salaries["salary"], errors="coerce").fillna(0).astype(int)
 rotation["player_name"] = rotation["player_name"].str.strip()
 player_stats["player_name"] = player_stats["player_name"].str.strip()
 player_positions["player_name"] = player_positions["player_name"].str.strip()
