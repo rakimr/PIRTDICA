@@ -46,7 +46,8 @@ The system employs an ETL (Extract-Transform-Load) pattern using a SQLite databa
 
 ### Web Scraping Targets
 -   **ESPN:** Depth charts
--   **RotoGrinders:** Player salaries, injury alerts
+-   **RotoGrinders:** Player lineups (Starter/Bench status, roster order), injury alerts. Authority for lineup structure — overrides depth chart labels when available.
+-   **FantasyPros:** FanDuel salary fallback (`/daily-fantasy/nba/fanduel-salary-changes.php`). Patches missing/null salaries from RotoGrinders and adds players RotoGrinders missed (using depth chart for Starter/Bench status: position-1 slot = Starter, else Bench). Priority hierarchy: RotoGrinders status > depth chart status > FantasyPros-only players.
 -   **TeamRankings:** Game odds/spreads
 -   **HashtagBasketball:** Defense vs Position stats
 -   **Basketball Reference:** Per-100 possession stats, player positions, foul rates
