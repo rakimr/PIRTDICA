@@ -54,6 +54,15 @@
         </div>
     </div>
     
+    <div class="trends-section">
+        <h2>Player Archetype Clusters</h2>
+        <p class="chart-description">K-Means clustering groups players by how they actually play. Each dot is a player, positioned by PCA of 12 statistical features. Hover for details.</p>
+        <div class="cluster-chart-wrapper">
+            <canvas id="cluster-chart"></canvas>
+        </div>
+        <div id="cluster-legend" class="cluster-legend"></div>
+    </div>
+    
     {% if top_value %}
     <div class="trends-section">
         <h2>Top Value Plays</h2>
@@ -130,42 +139,6 @@
     </div>
     {% endif %}
     
-    {% if ownership %}
-    <div class="trends-section">
-        <h2>Projected Ownership (FanDuel)</h2>
-        <p class="chart-description">FTA market ownership (primary) vs our Monte Carlo model. Diff = FTA minus MC (positive = our model is underweighting).</p>
-        <div class="table-controls">
-            <input type="text" class="table-search" data-table="ownership-table" placeholder="Search player...">
-        </div>
-        <div class="ownership-table">
-            <table id="ownership-table">
-                <thead>
-                    <tr>
-                        <th data-sortable="text">Player</th>
-                        <th data-sortable="text">Team</th>
-                        <th data-sortable="number">Own%</th>
-                        <th data-sortable="number">MC Own%</th>
-                        <th data-sortable="number">Diff</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for p in ownership %}
-                    {% if p.ownership_pct > 0 or p.mc_pown > 0 %}
-                    <tr>
-                        <td>{{ p.player_name }}</td>
-                        <td>{{ p.team }}</td>
-                        <td>{{ "%.1f"|format(p.ownership_pct) }}%</td>
-                        <td>{{ "%.1f"|format(p.mc_pown) }}%</td>
-                        <td class="{% if p.diff > 5 %}fp-positive{% elif p.diff < -5 %}fp-negative{% else %}fp-neutral{% endif %}">{{ "%+.1f"|format(p.diff) }}</td>
-                    </tr>
-                    {% endif %}
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-    {% endif %}
-    
     {% if props %}
     <div class="trends-section">
         <h2>Prop Recommendations</h2>
@@ -233,6 +206,123 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
+const ARCHETYPE_COLORS = {
+    'Combo Guard': '#1a1a2e',
+    'Combo Guard (Elite)': '#16213e',
+    'Playmaker': '#0f3460',
+    'Scoring Wing': '#e94560',
+    '3-and-D Wing': '#533483',
+    '3-and-D Wing (Role)': '#7b2d8e',
+    'Point Forward': '#2d6a4f',
+    'Stretch Big': '#d4a373',
+    'Traditional Big': '#6c757d',
+    'Versatile Big': '#495057',
+    'Athletic Wing': '#264653',
+    'Point Center': '#e76f51',
+};
+
+let clusterChart = null;
+
+async function loadClusterChart() {
+    try {
+        const res = await fetch('/api/archetype-clusters');
+        const data = await res.json();
+        if (!data.players || data.players.length === 0) {
+            document.querySelector('.cluster-chart-wrapper').innerHTML = '<div style="text-align:center;padding:40px 20px;color:#888;font-size:1.1rem;">Archetype clustering data not yet available. Run the daily update to generate clusters.</div>';
+            return;
+        }
+
+        const grouped = {};
+        data.players.forEach(p => {
+            if (!grouped[p.archetype]) grouped[p.archetype] = [];
+            grouped[p.archetype].push(p);
+        });
+
+        const datasets = Object.entries(grouped).map(([arch, players]) => ({
+            label: arch,
+            data: players.map(p => ({ x: p.x, y: p.y, name: p.name, team: p.team, pts: p.pts, reb: p.reb, ast: p.ast, usg: p.usg })),
+            backgroundColor: (ARCHETYPE_COLORS[arch] || '#888') + 'cc',
+            borderColor: ARCHETYPE_COLORS[arch] || '#888',
+            borderWidth: 1.5,
+            pointRadius: 6,
+            pointHoverRadius: 9,
+        }));
+
+        const ctx = document.getElementById('cluster-chart').getContext('2d');
+        if (clusterChart) clusterChart.destroy();
+
+        clusterChart = new Chart(ctx, {
+            type: 'scatter',
+            data: { datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const p = context.raw;
+                                return [
+                                    p.name + ' (' + p.team + ')',
+                                    context.dataset.label,
+                                    'PTS/100: ' + p.pts + '  REB/100: ' + p.reb,
+                                    'AST/100: ' + p.ast + '  USG%: ' + p.usg
+                                ];
+                            }
+                        },
+                        backgroundColor: '#111',
+                        titleFont: { family: 'Marvel', size: 13 },
+                        bodyFont: { family: 'Marvel', size: 12 },
+                        padding: 10,
+                        cornerRadius: 6,
+                    }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: 'PC1 (' + data.variance_explained[0] + '% var)', font: { family: 'Marvel', size: 13, weight: 'bold' }, color: '#374151' },
+                        grid: { color: '#e5e7eb' },
+                        ticks: { font: { family: 'Marvel' } }
+                    },
+                    y: {
+                        title: { display: true, text: 'PC2 (' + data.variance_explained[1] + '% var)', font: { family: 'Marvel', size: 13, weight: 'bold' }, color: '#374151' },
+                        grid: { color: '#e5e7eb' },
+                        ticks: { font: { family: 'Marvel' } }
+                    }
+                }
+            }
+        });
+
+        const legendEl = document.getElementById('cluster-legend');
+        legendEl.innerHTML = data.archetypes.map(arch => {
+            const color = ARCHETYPE_COLORS[arch] || '#888';
+            const count = (grouped[arch] || []).length;
+            return '<span class="cluster-legend-item" data-arch="' + arch + '">' +
+                   '<span class="cluster-legend-dot" style="background:' + color + '"></span>' +
+                   arch + ' <span class="cluster-legend-count">(' + count + ')</span></span>';
+        }).join('');
+
+        legendEl.querySelectorAll('.cluster-legend-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const arch = this.dataset.arch;
+                const ds = clusterChart.data.datasets.find(d => d.label === arch);
+                if (ds) {
+                    const idx = clusterChart.data.datasets.indexOf(ds);
+                    const meta = clusterChart.getDatasetMeta(idx);
+                    meta.hidden = !meta.hidden;
+                    this.classList.toggle('cluster-legend-dimmed');
+                    clusterChart.update();
+                }
+            });
+        });
+
+    } catch(e) {
+        console.error('Cluster chart error:', e);
+    }
+}
+
+loadClusterChart();
+
 let trendChart = null;
 
 document.querySelectorAll('.trend-analysis-btn').forEach(btn => {

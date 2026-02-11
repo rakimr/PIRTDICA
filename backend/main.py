@@ -325,42 +325,12 @@ async def trends(request: Request, db: Session = Depends(get_db)):
     import os
     ref_chart_exists = os.path.exists("static/images/ref_foul_chart.png")
     
-    ownership = []
-    try:
-        import sqlite3 as sqlite3_mod
-        from datetime import datetime as dt
-        from zoneinfo import ZoneInfo
-        today_et = dt.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
-        sconn = sqlite3_mod.connect("dfs_nba.db")
-        fta_df = pd.read_sql_query(
-            "SELECT player_name, team, ownership_pct FROM fta_ownership WHERE platform='FanDuel' AND game_date=? ORDER BY ownership_pct DESC",
-            sconn, params=[today_et]
-        )
-        sconn.close()
-        own_df = pd.read_csv("ownership_projections.csv") if os.path.exists("ownership_projections.csv") else pd.DataFrame()
-        if len(fta_df) > 0:
-            if len(own_df) > 0 and 'pown_pct' in own_df.columns:
-                fta_df['_norm'] = fta_df['player_name'].apply(lambda n: normalize_name(n).lower())
-                own_df['_norm'] = own_df['player_name'].apply(lambda n: normalize_name(n).lower())
-                merged = fta_df.merge(own_df[['_norm', 'pown_pct']], on='_norm', how='left')
-                merged = merged.rename(columns={'pown_pct': 'mc_pown'})
-                merged['mc_pown'] = merged['mc_pown'].fillna(0)
-                merged['diff'] = merged['ownership_pct'] - merged['mc_pown']
-                ownership = merged[['player_name', 'team', 'ownership_pct', 'mc_pown', 'diff']].to_dict('records')
-            else:
-                fta_df['mc_pown'] = 0.0
-                fta_df['diff'] = 0.0
-                ownership = fta_df[['player_name', 'team', 'ownership_pct', 'mc_pown', 'diff']].to_dict('records')
-    except Exception as e:
-        print(f"Ownership load error: {e}")
-    
     return templates.TemplateResponse("trends.html", {
         "request": request,
         "user": user,
         "top_value": top_value,
         "props": props,
         "targeted": targeted,
-        "ownership": ownership,
         "ref_chart_exists": ref_chart_exists,
         "cache_bust": int(time.time())
     })
@@ -1134,6 +1104,85 @@ async def api_live_entry(request: Request, entry_id: int, db: Session = Depends(
         'status': entry.contest.status,
         'any_game_started': any_started,
     }
+
+@app.get("/api/archetype-clusters")
+async def api_archetype_clusters():
+    import sqlite3 as sqlite3_mod
+    import numpy as np
+    import pandas as pd
+    try:
+        sconn = sqlite3_mod.connect("dfs_nba.db")
+
+        arch_df = pd.read_sql_query("SELECT player_name, team, archetype, cluster FROM player_archetypes", sconn)
+        per100 = pd.read_sql_query("""
+            SELECT player_name, pts_per100, reb_per100, ast_per100, stl_per100, blk_per100
+            FROM player_per100 WHERE games_played >= 10 AND mpg >= 12
+        """, sconn)
+        positions = pd.read_sql_query("SELECT player_name, pg_pct, sg_pct, sf_pct, pf_pct, c_pct FROM player_positions", sconn)
+        usage = pd.read_sql_query("SELECT player_name, usg_pct FROM player_stats", sconn)
+        game_logs = pd.read_sql_query("""
+            SELECT player_name, AVG(fg3m) as fg3m_pg, AVG(min) as min_pg
+            FROM player_game_logs WHERE min >= 10
+            GROUP BY player_name HAVING COUNT(*) >= 5
+        """, sconn)
+        sconn.close()
+
+        df = arch_df.merge(per100, on='player_name', how='left')
+        df = df.merge(positions, on='player_name', how='left')
+        df = df.merge(usage, on='player_name', how='left')
+        df = df.merge(game_logs, on='player_name', how='left')
+        df = df.dropna(subset=['pts_per100'])
+
+        df['usg_pct'] = df['usg_pct'].fillna(df['usg_pct'].median())
+        df['fg3m_pg'] = df['fg3m_pg'].fillna(0)
+        df['min_pg'] = df['min_pg'].fillna(1)
+        df['pg_pct'] = df['pg_pct'].fillna(0)
+        df['sg_pct'] = df['sg_pct'].fillna(0)
+        df['sf_pct'] = df['sf_pct'].fillna(0)
+        df['pf_pct'] = df['pf_pct'].fillna(0)
+        df['c_pct'] = df['c_pct'].fillna(0)
+        df['fg3m_per100'] = np.where(df['min_pg'] > 0, df['fg3m_pg'] / df['min_pg'] * 100, 0)
+        df['guard_pct'] = df['pg_pct'] + df['sg_pct']
+        df['forward_pct'] = df['sf_pct'] + df['pf_pct']
+        df['big_pct'] = df['c_pct']
+        df['ast_to_reb_ratio'] = np.where(df['reb_per100'] > 0, df['ast_per100'] / df['reb_per100'], df['ast_per100'])
+        df['scoring_versatility'] = np.where(df['pts_per100'] > 0, df['fg3m_per100'] / df['pts_per100'], 0)
+
+        features = ['pts_per100', 'reb_per100', 'ast_per100', 'stl_per100', 'blk_per100',
+                     'fg3m_per100', 'usg_pct', 'guard_pct', 'forward_pct', 'big_pct',
+                     'ast_to_reb_ratio', 'scoring_versatility']
+        for col in features:
+            df[col] = df[col].fillna(0)
+
+        from sklearn.preprocessing import StandardScaler
+        from sklearn.decomposition import PCA
+        X = df[features].values
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        pca = PCA(n_components=2)
+        coords = pca.fit_transform(X_scaled)
+
+        archetypes = sorted(df['archetype'].unique().tolist())
+        players = []
+        for i, row in df.iterrows():
+            players.append({
+                "name": row['player_name'],
+                "team": row['team'],
+                "archetype": row['archetype'],
+                "x": round(float(coords[df.index.get_loc(i)][0]), 3),
+                "y": round(float(coords[df.index.get_loc(i)][1]), 3),
+                "pts": round(float(row['pts_per100']), 1),
+                "reb": round(float(row['reb_per100']), 1),
+                "ast": round(float(row['ast_per100']), 1),
+                "usg": round(float(row['usg_pct']), 1),
+            })
+
+        var_explained = [round(float(v * 100), 1) for v in pca.explained_variance_ratio_]
+
+        return {"players": players, "archetypes": archetypes, "variance_explained": var_explained}
+    except Exception as e:
+        return {"error": str(e), "players": [], "archetypes": []}
+
 
 @app.get("/api/player-trend/{player_name}/{stat}")
 async def api_player_trend(player_name: str, stat: str, n: int = 10):

@@ -20,7 +20,7 @@ The system employs an ETL (Extract-Transform-Load) pattern using a SQLite databa
 -   **Name Normalization:** Robust system for handling player name inconsistencies across various data sources.
 -   **Physical Matchup Modifiers:** Adjusts projected minutes based on player-specific foul tendencies for opponents.
 -   **FanDuel Roster Order Integration:** Incorporates FanDuel's `roster_order` to refine depth chart interpretations.
--   **Phillips Archetype Classification (Model 6):** Uses K-means clustering to assign secondary position labels (e.g., Combo Guard, Playmaker) based on advanced per-100 stats and usage.
+-   **Phillips Archetype Classification (Model 6):** Uses K-means clustering to assign secondary position labels (e.g., Combo Guard, Playmaker) based on advanced per-100 stats and usage. Interactive PCA scatter chart on Trends page (`/api/archetype-clusters` endpoint) with clickable legend for toggling archetypes.
 -   **Salary-Tier Volatility Model (Model 5):** Regularizes player fantasy point standard deviation (fp_sd) using empirical salary-tier profiles, blending individual and tier-expected volatility. Includes tail capping at tier-specific P5/P95 and a `value_vs_tier` metric.
 -   **Ceiling/Floor Model:** Transforms point projections into full distributions to aid in cash game (consistent, high floor) vs. GPP (high upside) decision-making.
 -   **ML Minutes Correction (Model 3):** Learns and applies multipliers to correct systematic minutes over/under-projection.
