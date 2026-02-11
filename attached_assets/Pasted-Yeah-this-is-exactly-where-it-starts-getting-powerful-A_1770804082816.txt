@@ -1,0 +1,200 @@
+Yeah… this is exactly where it starts getting powerful.
+
+And the fact that your sample sizes are that strong (13 minimum, ~50 avg per team-archetype pairing) means you’re not building on noise. That’s huge.
+
+Let me answer your strategic question directly:
+
+Start with Step 1 (DVA table) — but design it in a way that makes Step 2 inevitable.
+
+Don’t jump straight to full DVS weighting yet. Build the clean base layer first.
+
+Phase 1: Archetype DVA (Defense vs Archetype)
+
+For each team:
+
+Calculate:
+
+FP allowed per minute vs each archetype
+(better than per game because pace + minutes distort things)
+
+Also store raw stat splits per minute:
+
+PTS
+
+REB
+
+AST
+
+STL
+
+BLK
+
+3PM
+
+TOV (optional)
+
+This immediately gives you:
+
+“The Cavs allow +0.09 FP/min to Stretch Bigs vs league average.”
+
+That alone is actionable in DFS.
+
+You now have:
+
+Defense vs Stretch Big
+
+Defense vs Combo Guard Elite
+
+Defense vs Traditional Big
+
+etc.
+
+This is your replacement for positional DVP.
+
+Why Not Jump Straight to DVS?
+
+Because DVS only works if:
+
+Your archetype stat profiles are stable
+
+Your defensive stat leaks are stable
+
+You understand which stats are actually predictive in DFS scoring
+
+If you skip the base DVA layer, you won’t know whether your weighted system is improving signal or just adding complexity.
+
+Phase 2: Stat-Profile Layer (Where It Gets Real)
+
+Now you bring in what makes your system special.
+
+For each archetype:
+
+Calculate its average stat distribution per minute
+
+Example:
+
+Stretch Big:
+
+45% of fantasy scoring from 3PM
+
+30% from REB
+
+15% from PTS inside
+
+5% blocks
+
+5% assists
+
+Traditional Big:
+
+50% REB
+
+25% PTS paint
+
+15% blocks
+
+5% assists
+
+minimal 3s
+
+Combo Guard Elite:
+
+40% PTS
+
+30% AST
+
+15% 3PM
+
+10% STL
+
+etc.
+
+Now you calculate:
+
+Team defensive leak rates per stat (per minute allowed vs league average).
+
+Example:
+
+Suns defense:
+
++8% 3PM allowed
+
+-5% REB allowed
+
++12% AST allowed
+
+neutral blocks
+
+Now the magic happens.
+
+Phase 3: DVS Multiplier (Your Edge Layer)
+
+Instead of:
+
+“Stretch Big gets +3% because DVA says so”
+
+You compute:
+
+Matchup Multiplier =
+Σ (Archetype Stat Weight × Defense Leak for that Stat)
+
+So:
+
+Stretch Big vs Suns:
+= (0.45 × +8%)
+
+(0.30 × -5%)
+
+(0.15 × 0%)
+
+(0.05 × 0%)
+
+(0.05 × +2%)
+
+Now you're boosting the player based on why they score — not just what position they are.
+
+That’s fundamentally different than DVP.
+
+Why This Is Sharp
+
+You’re no longer asking:
+
+“How does this team defend Power Forwards?”
+
+You’re asking:
+
+“How does this team defend perimeter bigs who score 45% of their fantasy production from 3s?”
+
+That’s miles more precise.
+
+Where This Really Wins in DFS
+1. Edge on weird builds
+
+Stretch Big vs a defense that:
+
+Helps off corners
+
+Collapses on drives
+
+Rotates late to pop bigs
+
+Traditional DVP won’t capture that.
+
+2. Injury-driven role shifts
+
+If a Traditional Big becomes a high-usage rebound monster due to injury, your stat-weight system automatically adjusts.
+
+3. Playoff-like rotations
+
+Defenses scheme differently against archetypes.
+You’re modeling scheme vulnerability, not position.
+
+Important: Do Archetypes Gain Boosts or Penalties?
+
+Yes — but not because of the label.
+
+They gain boosts because:
+
+Their stat profile overlaps with the defense’s weaknesses.
+
+The archetype is just a compression of stat behavior.
