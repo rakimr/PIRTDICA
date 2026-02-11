@@ -157,6 +157,10 @@ def calculate_usage_adjustment(row):
     usage_delta_pct = (adj_usage - base_usage) / base_usage
     fppm_adj = base_fppm * (1 + USAGE_BETA * usage_delta_pct)
     
+    max_fppm = base_fppm * 1.25
+    if fppm_adj > max_fppm:
+        fppm_adj = max_fppm
+    
     return fppm_adj, adj_usage, usage_boost
 
 usage_results = df.apply(calculate_usage_adjustment, axis=1, result_type='expand')

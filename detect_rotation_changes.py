@@ -29,6 +29,20 @@ if not stats_exists.empty:
 else:
     player_stats = pd.DataFrame()
 
+vol_exists = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='player_volatility'", conn)
+if not vol_exists.empty:
+    player_vol = pd.read_sql("SELECT player_name, max_fp, avg_min FROM player_volatility", conn)
+    player_vol["norm_name"] = player_vol["player_name"].apply(lambda x: x.strip().lower() if pd.notna(x) else "")
+else:
+    player_vol = pd.DataFrame()
+
+gl_exists = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='player_game_logs'", conn)
+if not gl_exists.empty:
+    player_max_min = pd.read_sql("SELECT player_name, MAX(min) as max_min FROM player_game_logs GROUP BY player_name", conn)
+    player_max_min["norm_name"] = player_max_min["player_name"].apply(lambda x: x.strip().lower() if pd.notna(x) else "")
+else:
+    player_max_min = pd.DataFrame()
+
 def get_player_mpg(norm_name):
     """Get player's trailing average MPG."""
     if player_stats.empty:
@@ -36,6 +50,16 @@ def get_player_mpg(norm_name):
     match = player_stats[player_stats["norm_name"].str.contains(norm_name.split()[0] if norm_name else "", case=False, na=False)]
     if not match.empty:
         return match.iloc[0]["mpg"]
+    return None
+
+def get_player_max_min(norm_name):
+    """Get player's season-high minutes from game logs."""
+    if player_max_min.empty:
+        return None
+    match = player_max_min[player_max_min["norm_name"].str.contains(norm_name.split()[0] if norm_name else "", case=False, na=False)]
+    if not match.empty:
+        val = match.iloc[0]["max_min"]
+        return float(val) if val is not None else None
     return None
 
 def get_omega(depth_rank, mpg, games_played=None):
@@ -248,6 +272,18 @@ for team in teams:
             raw_projected = weighted_base + total_adjustments
             min_floor, max_ceiling = get_minutes_bounds(inferred_rank)
             projected_min = clip_minutes(raw_projected, inferred_rank)
+
+            if is_promoted and player_mpg is not None:
+                season_max_min = get_player_max_min(norm)
+                mpg_cap = player_mpg * 2.0
+                if season_max_min is not None:
+                    reality_cap = max(mpg_cap, season_max_min + 4.0)
+                else:
+                    reality_cap = mpg_cap
+                reality_cap = min(reality_cap, 40.0)
+                if projected_min > reality_cap:
+                    print(f"  REALITY CAP: {player} ({team}) {pos} projected {projected_min:.1f} -> capped at {reality_cap:.1f} (mpg={player_mpg}, max_game={season_max_min})")
+                    projected_min = round(reality_cap, 2)
 
             rotation_rows.append({
                 "team": team,
