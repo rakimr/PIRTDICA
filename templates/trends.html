@@ -252,44 +252,28 @@ async function loadDVA() {
 }
 
 function dvaColor(val, mode) {
-    if (mode === 'dvs') {
-        const clamped = Math.max(-25, Math.min(25, val));
-        if (clamped > 0) {
-            const intensity = Math.min(clamped / 20, 1);
-            const r = Math.round(34 + intensity * (22 - 34));
-            const g = Math.round(139 + intensity * (163 - 139));
-            const b = Math.round(34 + intensity * (74 - 34));
-            return `rgb(${r},${g},${b})`;
-        } else if (clamped < 0) {
-            const intensity = Math.min(Math.abs(clamped) / 20, 1);
-            const r = Math.round(180 + intensity * (220 - 180));
-            const g = Math.round(60 - intensity * 30);
-            const b = Math.round(60 - intensity * 30);
-            return `rgb(${r},${g},${b})`;
-        }
-        return '#f5f5f5';
+    const maxVal = mode === 'dvs' ? 20 : 0.15;
+    const t = Math.max(-1, Math.min(1, val / maxVal));
+    const norm = (t + 1) / 2;
+    let r, g, b;
+    if (norm >= 0.5) {
+        const p = (norm - 0.5) * 2;
+        r = Math.round(255 * (1 - p) + 26 * p);
+        g = Math.round(255 * (1 - p) + 150 * p);
+        b = Math.round(191 * (1 - p * 0.8) + 65 * p);
     } else {
-        const clamped = Math.max(-0.2, Math.min(0.2, val));
-        if (clamped > 0) {
-            const intensity = Math.min(clamped / 0.15, 1);
-            const r = Math.round(34 + intensity * (22 - 34));
-            const g = Math.round(139 + intensity * (163 - 139));
-            const b = Math.round(34 + intensity * (74 - 34));
-            return `rgb(${r},${g},${b})`;
-        } else if (clamped < 0) {
-            const intensity = Math.min(Math.abs(clamped) / 0.15, 1);
-            const r = Math.round(180 + intensity * 40);
-            const g = Math.round(60 - intensity * 30);
-            const b = Math.round(60 - intensity * 30);
-            return `rgb(${r},${g},${b})`;
-        }
-        return '#f5f5f5';
+        const p = norm * 2;
+        r = Math.round(215 * (1 - p) + 255 * p);
+        g = Math.round(48 * (1 - p) + 255 * p);
+        b = Math.round(39 * (1 - p) + 191 * p);
     }
+    return `rgb(${r},${g},${b})`;
 }
 
 function dvaTextColor(val, mode) {
-    const threshold = mode === 'dvs' ? 12 : 0.08;
-    return Math.abs(val) > threshold ? '#fff' : '#222';
+    const maxVal = mode === 'dvs' ? 20 : 0.15;
+    const t = Math.abs(val / maxVal);
+    return t > 0.7 ? '#fff' : '#222';
 }
 
 function buildTooltip(cell, team, arch) {

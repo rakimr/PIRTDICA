@@ -1870,8 +1870,8 @@ th[data-sortable].sort-desc::after {
     letter-spacing: 0.5px;
 }
 
-.dva-pos { color: #4ade80; }
-.dva-neg { color: #f87171; }
+.dva-pos { color: #34d399; }
+.dva-neg { color: #fb7185; }
 
 .cluster-chart-wrapper {
     position: relative;

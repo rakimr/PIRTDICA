@@ -1,13 +1,13 @@
 player_name,team,opponent,position,salary,stat,player_avg,opp_allows,league_avg,extra_fp,edge_pct,recommendation
 Victor Wembanyama,SA,GS,C,11700,Rebounds,11.1,15.5,14.4,1.3,7.8,GS gives up +1.3 FP in Rebounds to Cs
 Luke Kornet,SA,GS,C,4300,Rebounds,6.8,15.5,14.4,1.3,7.8,GS gives up +1.3 FP in Rebounds to Cs
-Josh Hart,NY,PHI,SF,7000,Assists,5.0,5.3,4.4,1.3,19.5,PHI gives up +1.3 FP in Assists to SFs
 Mikal Bridges,NY,PHI,SF,6500,Assists,4.1,5.3,4.4,1.3,19.5,PHI gives up +1.3 FP in Assists to SFs
+Josh Hart,NY,PHI,SF,7000,Assists,5.0,5.3,4.4,1.3,19.5,PHI gives up +1.3 FP in Assists to SFs
 Kawhi Leonard,LAC,HOU,SF,10400,Steals,2.1,2.0,1.7,0.9,17.6,HOU gives up +0.9 FP in Steals to SFs
 Royce O'Neale,PHO,OKC,SF,4700,Rebounds,4.9,8.5,7.9,0.7,7.5,OKC gives up +0.7 FP in Rebounds to SFs
-Mikal Bridges,NY,PHI,SF,6500,Points,15.7,23.4,22.8,0.6,2.6,PHI gives up +0.6 FP in Points to SFs
-Amen Thompson,HOU,LAC,PG,8700,Steals,1.4,2.2,2.0,0.6,9.6,LAC gives up +0.6 FP in Steals to PGs
-Josh Hart,NY,PHI,SF,7000,Rebounds,7.5,8.4,7.9,0.6,6.3,PHI gives up +0.6 FP in Rebounds to SFs
 Josh Hart,NY,PHI,SF,7000,Points,12.2,23.4,22.8,0.6,2.6,PHI gives up +0.6 FP in Points to SFs
+Amen Thompson,HOU,LAC,PG,8700,Steals,1.4,2.2,2.0,0.6,9.6,LAC gives up +0.6 FP in Steals to PGs
 Mikal Bridges,NY,PHI,SF,6500,Rebounds,4.1,8.4,7.9,0.6,6.3,PHI gives up +0.6 FP in Rebounds to SFs
+Mikal Bridges,NY,PHI,SF,6500,Points,15.7,23.4,22.8,0.6,2.6,PHI gives up +0.6 FP in Points to SFs
+Josh Hart,NY,PHI,SF,7000,Rebounds,7.5,8.4,7.9,0.6,6.3,PHI gives up +0.6 FP in Rebounds to SFs
 Aaron Nesmith,IND,BKN,SF,5200,Points,13.6,23.4,22.8,0.6,2.6,BKN gives up +0.6 FP in Points to SFs
