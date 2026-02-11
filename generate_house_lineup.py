@@ -132,28 +132,58 @@ def generate_house_lineup(force=False, exclude_teams=None):
         print(f"Warning: Could not check game locks: {e}")
     
     try:
-        injury_df = pd.read_sql_query(
-            "SELECT player_name, status FROM injury_alerts WHERE status IN ('QUESTIONABLE', 'DOUBTFUL')",
-            sqlite3.connect("dfs_nba.db")
-        )
-        questionable_players = set(injury_df[injury_df['status'] == 'QUESTIONABLE']['player_name'].str.lower())
-        doubtful_players = set(injury_df[injury_df['status'] == 'DOUBTFUL']['player_name'].str.lower())
+        from utils.name_normalize import normalize_player_name as norm_name
         
-        QUESTIONABLE_PENALTY = 0.90  # 10% reduction
-        DOUBTFUL_PENALTY = 0.75      # 25% reduction
+        inj_conn = sqlite3.connect("dfs_nba.db")
+        injury_df = pd.read_sql_query(
+            "SELECT player_name, status FROM injury_alerts WHERE status IN ('OUT', 'QUESTIONABLE', 'DOUBTFUL')",
+            inj_conn
+        )
+        
+        manual_df = pd.DataFrame()
+        try:
+            manual_df = pd.read_sql_query(
+                "SELECT player_name, status FROM manual_injuries WHERE status = 'OUT'",
+                inj_conn
+            )
+        except:
+            pass
+        inj_conn.close()
+        
+        out_players = set(injury_df[injury_df['status'] == 'OUT']['player_name'].apply(norm_name))
+        if not manual_df.empty:
+            out_players |= set(manual_df['player_name'].apply(norm_name))
+        questionable_players = set(injury_df[injury_df['status'] == 'QUESTIONABLE']['player_name'].apply(norm_name))
+        doubtful_players = set(injury_df[injury_df['status'] == 'DOUBTFUL']['player_name'].apply(norm_name))
+        
+        players_df['_norm_name'] = players_df['player_name'].apply(norm_name)
+        
+        before_out = len(players_df)
+        players_df = players_df[~players_df['_norm_name'].isin(out_players)]
+        out_removed = before_out - len(players_df)
+        if out_removed > 0:
+            print(f"Removed {out_removed} OUT players from pool")
+        
+        if len(players_df) == 0:
+            print("No players remaining after injury filter")
+            db.close()
+            return
+        
+        QUESTIONABLE_PENALTY = 0.90
+        DOUBTFUL_PENALTY = 0.75
         
         def apply_injury_penalty(row):
-            name_lower = row['player_name'].lower()
-            if name_lower in doubtful_players:
+            norm = row['_norm_name']
+            if norm in doubtful_players:
                 return row['proj_fp'] * DOUBTFUL_PENALTY
-            elif name_lower in questionable_players:
+            elif norm in questionable_players:
                 return row['proj_fp'] * QUESTIONABLE_PENALTY
             return row['proj_fp']
         
         players_df['score'] = players_df.apply(apply_injury_penalty, axis=1)
         
-        q_count = sum(1 for name in players_df['player_name'].str.lower() if name in questionable_players)
-        d_count = sum(1 for name in players_df['player_name'].str.lower() if name in doubtful_players)
+        q_count = sum(1 for n in players_df['_norm_name'] if n in questionable_players)
+        d_count = sum(1 for n in players_df['_norm_name'] if n in doubtful_players)
         if q_count > 0 or d_count > 0:
             print(f"Applied injury penalties: {q_count} Questionable (-10%), {d_count} Doubtful (-25%)")
     except Exception as e:

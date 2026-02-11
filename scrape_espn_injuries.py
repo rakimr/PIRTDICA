@@ -45,11 +45,11 @@ TEAM_URLS = [
 ]
 
 def scrape_espn_injuries():
-    """Scrape injury report from ESPN."""
+    """Scrape injury report from ESPN main injuries page."""
     
     url = "https://www.espn.com/nba/injuries"
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
     
     injuries = []
@@ -59,57 +59,54 @@ def scrape_espn_injuries():
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        tables = soup.find_all('table')
+        rows = soup.find_all('tr', class_='Table__TR')
         
-        for table in tables:
-            rows = table.find_all('tr')
-            for row in rows:
-                cells = row.find_all('td')
-                if len(cells) >= 3:
-                    name_cell = cells[0]
-                    status_cell = cells[1] if len(cells) > 1 else None
-                    
-                    player_link = name_cell.find('a')
-                    if player_link:
-                        player_name = player_link.text.strip()
-                        
-                        status_text = status_cell.text.strip() if status_cell else ""
-                        
-                        if status_text.upper() in ['OUT', 'O', 'DOUBTFUL', 'D']:
-                            injuries.append({
-                                'player_name': player_name,
-                                'status': 'OUT' if status_text.upper() in ['OUT', 'O'] else 'DOUBTFUL',
-                                'source': 'ESPN'
-                            })
+        for row in rows:
+            cells = row.find_all('td')
+            if len(cells) < 4:
+                continue
+            
+            name_link = cells[0].find('a')
+            if not name_link:
+                continue
+            
+            player_name = name_link.text.strip()
+            
+            status_span = row.find('span', class_='TextStatus')
+            if not status_span:
+                continue
+            
+            status_text = status_span.text.strip().upper()
+            
+            if status_text in ['OUT', 'O']:
+                injuries.append({
+                    'player_name': player_name,
+                    'status': 'OUT',
+                    'source': 'ESPN'
+                })
+            elif status_text in ['DOUBTFUL', 'D']:
+                injuries.append({
+                    'player_name': player_name,
+                    'status': 'DOUBTFUL',
+                    'source': 'ESPN'
+                })
+            elif status_text in ['DAY-TO-DAY']:
+                reason_text = cells[4].text.strip() if len(cells) > 4 else ""
+                reason_lower = reason_text.lower()
+                if 'out ' in reason_lower or ' out' in reason_lower or 'will not play' in reason_lower or 'ruled out' in reason_lower or 'suspended' in reason_lower:
+                    injuries.append({
+                        'player_name': player_name,
+                        'status': 'OUT',
+                        'source': 'ESPN'
+                    })
+                elif 'questionable' in reason_lower:
+                    injuries.append({
+                        'player_name': player_name,
+                        'status': 'QUESTIONABLE',
+                        'source': 'ESPN'
+                    })
     except Exception as e:
-        print(f"ESPN main injuries page failed: {e}")
-    
-    for team_abbr, team_slug in TEAM_URLS:
-        try:
-            team_url = f"https://www.espn.com/nba/team/injuries/_/name/{team_abbr.lower()}/{team_slug}"
-            response = requests.get(team_url, headers=headers, timeout=10)
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                
-                injury_rows = soup.find_all('tr', class_='Table__TR')
-                for row in injury_rows:
-                    cells = row.find_all('td')
-                    if len(cells) >= 2:
-                        name_el = row.find('a', class_='AnchorLink')
-                        if name_el:
-                            player_name = name_el.text.strip()
-                            status_el = row.find('span', class_='TextStatus')
-                            if status_el:
-                                status = status_el.text.strip().upper()
-                                if status in ['OUT', 'O', 'DOUBTFUL', 'D']:
-                                    injuries.append({
-                                        'player_name': player_name,
-                                        'status': 'OUT' if status in ['OUT', 'O'] else 'DOUBTFUL',
-                                        'source': 'ESPN',
-                                        'team': team_abbr
-                                    })
-        except Exception as e:
-            pass
+        print(f"ESPN injuries page failed: {e}")
     
     return injuries
 
