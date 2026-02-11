@@ -319,12 +319,42 @@ async def trends(request: Request, db: Session = Depends(get_db)):
     import os
     ref_chart_exists = os.path.exists("static/images/ref_foul_chart.png")
     
+    ownership = []
+    try:
+        import sqlite3 as sqlite3_mod
+        from datetime import datetime as dt
+        from zoneinfo import ZoneInfo
+        today_et = dt.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+        sconn = sqlite3_mod.connect("dfs_nba.db")
+        fta_df = pd.read_sql_query(
+            "SELECT player_name, team, ownership_pct FROM fta_ownership WHERE platform='FanDuel' AND game_date=? ORDER BY ownership_pct DESC",
+            sconn, params=[today_et]
+        )
+        sconn.close()
+        own_df = pd.read_csv("ownership_projections.csv") if os.path.exists("ownership_projections.csv") else pd.DataFrame()
+        if len(fta_df) > 0:
+            if len(own_df) > 0 and 'pown_pct' in own_df.columns:
+                fta_df['_norm'] = fta_df['player_name'].apply(lambda n: normalize_name(n).lower())
+                own_df['_norm'] = own_df['player_name'].apply(lambda n: normalize_name(n).lower())
+                merged = fta_df.merge(own_df[['_norm', 'pown_pct']], on='_norm', how='left')
+                merged = merged.rename(columns={'pown_pct': 'our_pown'})
+                merged['our_pown'] = merged['our_pown'].fillna(0)
+                merged['diff'] = merged['ownership_pct'] - merged['our_pown']
+                ownership = merged[['player_name', 'team', 'ownership_pct', 'our_pown', 'diff']].to_dict('records')
+            else:
+                fta_df['our_pown'] = 0.0
+                fta_df['diff'] = 0.0
+                ownership = fta_df[['player_name', 'team', 'ownership_pct', 'our_pown', 'diff']].to_dict('records')
+    except Exception as e:
+        print(f"Ownership load error: {e}")
+    
     return templates.TemplateResponse("trends.html", {
         "request": request,
         "user": user,
         "top_value": top_value,
         "props": props,
         "targeted": targeted,
+        "ownership": ownership,
         "ref_chart_exists": ref_chart_exists,
         "cache_bust": int(time.time())
     })

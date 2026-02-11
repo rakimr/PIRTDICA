@@ -121,6 +121,41 @@
     </div>
     {% endif %}
     
+    {% if ownership %}
+    <div class="trends-section">
+        <h2>Projected Ownership (FanDuel)</h2>
+        <p class="chart-description">FTA market ownership vs our Monte Carlo model. Diff = FTA minus Ours (positive = we're underweighting).</p>
+        <div class="table-controls">
+            <input type="text" class="table-search" data-table="ownership-table" placeholder="Search player...">
+        </div>
+        <div class="ownership-table">
+            <table id="ownership-table">
+                <thead>
+                    <tr>
+                        <th data-sortable="text">Player</th>
+                        <th data-sortable="text">Team</th>
+                        <th data-sortable="number">FTA Own%</th>
+                        <th data-sortable="number">Our Own%</th>
+                        <th data-sortable="number">Diff</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in ownership %}
+                    {% if p.ownership_pct > 0 or p.our_pown > 0 %}
+                    <tr>
+                        <td>{{ p.player_name }}</td>
+                        <td>{{ p.team }}</td>
+                        <td>{{ "%.1f"|format(p.ownership_pct) }}%</td>
+                        <td>{{ "%.1f"|format(p.our_pown) }}%</td>
+                        <td class="{% if p.diff > 5 %}fp-positive{% elif p.diff < -5 %}fp-negative{% else %}fp-neutral{% endif %}">{{ "%+.1f"|format(p.diff) }}</td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
     
     {% if props %}
     <div class="trends-section">

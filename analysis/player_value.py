@@ -657,7 +657,8 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n
     props_df = pd.DataFrame(props)
     if len(props_df) > 0:
         if has_book and 'vs_book_edge' in props_df.columns:
-            props_df = props_df.sort_values('vs_book_edge', key=abs, ascending=False, na_position='last')
+            props_df['_sort_key'] = props_df['vs_book_edge'].apply(lambda x: abs(x) if x is not None and pd.notna(x) else 0)
+            props_df = props_df.sort_values('_sort_key', ascending=False).drop(columns=['_sort_key'])
         else:
             props_df = props_df.sort_values('extra_fp', key=abs, ascending=False)
     
