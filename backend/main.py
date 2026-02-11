@@ -299,18 +299,22 @@ async def trends(request: Request, db: Session = Depends(get_db)):
     
     try:
         dfs_df = pd.read_csv("dfs_players.csv")
+        dfs_df = dfs_df[dfs_df['salary'] > 0]
         if 'value_vs_tier' in dfs_df.columns and 'value_ratio' in dfs_df.columns:
+            valid_df = dfs_df[~dfs_df['value_vs_tier'].isin([float('inf'), float('-inf')])]
             value_cols = ['player_name', 'team', 'salary', 'proj_fp', 'value_ratio', 'value_vs_tier', 'tier', 'ceiling', 'floor', 'fp_sd', 'archetype']
-            value_cols = [c for c in value_cols if c in dfs_df.columns]
-            top_value = dfs_df.nlargest(10, 'value_vs_tier')[value_cols].to_dict('records')
+            value_cols = [c for c in value_cols if c in valid_df.columns]
+            top_value = valid_df.nlargest(10, 'value_vs_tier')[value_cols].to_dict('records')
         else:
             valued_df = pd.read_csv("dfs_players_valued.csv")
+            valued_df = valued_df[valued_df['salary'] > 0]
             top_value = valued_df.nlargest(10, 'value')[['player_name', 'team', 'salary', 'proj_fp', 'value', 'salary_tier']].to_dict('records')
     except:
         pass
     
     try:
         props_df = pd.read_csv("prop_recommendations.csv")
+        props_df = props_df[props_df['salary'] > 0]
         props = props_df.head(15).to_dict('records')
     except:
         pass

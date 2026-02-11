@@ -31,6 +31,8 @@ def calculate_value_metrics(players_df):
     """Calculate player value metrics."""
     df = players_df.copy()
     
+    df = df[df['salary'] > 0].copy()
+    
     df['value'] = df['proj_fp'] / (df['salary'] / 1000)
     
     df['ceiling_value'] = df['ceiling'] / (df['salary'] / 1000)
@@ -60,7 +62,7 @@ def normalize_team(team):
 def get_dvp_advantages(players_df, dvp_df, stats_df):
     """Find DVP advantages for each player based on opponent and position."""
     
-    players_df_norm = players_df.copy()
+    players_df_norm = players_df[players_df['salary'] > 0].copy()
     stats_df_norm = stats_df.copy()
     players_df_norm['team_norm'] = players_df_norm['team'].apply(normalize_team)
     stats_df_norm['team_norm'] = stats_df_norm['team'].apply(normalize_team)
