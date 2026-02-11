@@ -160,10 +160,11 @@ for team in teams:
             continue
 
         if fd_roster_order:
-            active_order_sorted = sorted(
-                active_order,
-                key=lambda x: fd_roster_order.get(x[1], 999)
-            )
+            starters_at_pos = [(p, norm) for p, norm in active_order if norm not in bench_players]
+            bench_at_pos = [(p, norm) for p, norm in active_order if norm in bench_players]
+            starters_at_pos.sort(key=lambda x: fd_roster_order.get(x[1], 999))
+            bench_at_pos.sort(key=lambda x: fd_roster_order.get(x[1], 999))
+            active_order_sorted = starters_at_pos + bench_at_pos
         else:
             active_order_sorted = active_order
 
