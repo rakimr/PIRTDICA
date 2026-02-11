@@ -16,6 +16,10 @@ if salaries.empty:
 rotation = pd.read_sql("SELECT * FROM rotation_minutes", conn)
 game_odds = pd.read_sql("SELECT * FROM game_odds", conn)
 dvp = pd.read_sql("SELECT * FROM dvp_blended", conn)
+try:
+    dva_stats = pd.read_sql("SELECT opp_team, archetype, dvs_multiplier FROM dva_stats", conn)
+except:
+    dva_stats = pd.DataFrame()
 game_foul_env = pd.read_sql("SELECT * FROM game_foul_environment", conn)
 hist_lines = pd.read_sql("SELECT team, AVG(team_line) as avg_team_line FROM historic_lines GROUP BY team", conn)
 player_stats = pd.read_sql("SELECT * FROM player_stats", conn)
@@ -407,6 +411,24 @@ try:
 except Exception:
     df['archetype'] = 'Unknown'
     print("No archetype data found - run build_player_archetypes.py first")
+
+if not dva_stats.empty and 'archetype' in df.columns:
+    def get_dva_weight(row):
+        if pd.isna(row.get("opponent")) or pd.isna(row.get("archetype")):
+            return 0.0
+        match = dva_stats[(dva_stats["opp_team"] == row["opponent"]) & (dva_stats["archetype"] == row["archetype"])]
+        if match.empty:
+            return 0.0
+        return match.iloc[0]["dvs_multiplier"]
+
+    df["dvs_raw"] = df.apply(get_dva_weight, axis=1)
+    df["dva_weight"] = 1 + (df["dvs_raw"] / 100.0)
+    df["dva_weight"] = df["dva_weight"].clip(0.90, 1.12)
+    DVP_BLEND = 0.5
+    df["dvp_weight"] = (df["dvp_weight"] * DVP_BLEND) + (df["dva_weight"] * (1 - DVP_BLEND))
+    df["proj_fp"] = df["base_fp"] * df["line_weight"] * df["dvp_weight"] * df["ref_weight"] * df["gp_weight"] * df["omega_weight"]
+    dva_applied = (df["dvs_raw"].abs() > 0.01).sum()
+    print(f"DVA/DVS Integration: Blended DVS multiplier for {dva_applied} players (50/50 with DVP)")
 
 value_cols = []
 for col in ['tier', 'raw_fp_sd', 'tier_cv', 'tier_expected_sd', 'value_ratio', 'value_vs_tier', 'archetype']:

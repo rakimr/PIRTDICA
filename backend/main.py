@@ -1184,6 +1184,65 @@ async def api_archetype_clusters():
         return {"error": str(e), "players": [], "archetypes": []}
 
 
+@app.get("/api/dva")
+async def api_dva():
+    import sqlite3 as sqlite3_mod
+    try:
+        sconn = sqlite3_mod.connect("dfs_nba.db")
+        cur = sconn.cursor()
+        tables = [r[0] for r in cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+        if 'dva_stats' not in tables:
+            sconn.close()
+            return {"error": "DVA data not yet available. Run daily update.", "teams": [], "archetypes": []}
+
+        rows = cur.execute("""
+            SELECT opp_team, archetype, fp_pm, fp_pm_diff, sample_n,
+                   pts_pm_diff, reb_pm_diff, ast_pm_diff, stl_pm_diff, blk_pm_diff, fg3m_pm_diff, tov_pm_diff,
+                   dvs_multiplier,
+                   pts_component, reb_component, ast_component, stl_component, blk_component, fg3m_component, tov_component
+            FROM dva_stats ORDER BY opp_team, archetype
+        """).fetchall()
+
+        profiles = {}
+        if 'archetype_profiles' in tables:
+            prof_rows = cur.execute("SELECT * FROM archetype_profiles").fetchall()
+            prof_cols = [d[0] for d in cur.description]
+            for r in prof_rows:
+                rd = dict(zip(prof_cols, r))
+                profiles[rd['archetype']] = {k: rd[k] for k in rd if k != 'archetype'}
+
+        sconn.close()
+
+        teams = sorted(set(r[0] for r in rows))
+        archetypes = sorted(set(r[1] for r in rows))
+
+        data = {}
+        for r in rows:
+            team = r[0]
+            if team not in data:
+                data[team] = {}
+            data[team][r[1]] = {
+                "fp_pm": round(r[2], 4),
+                "fp_pm_diff": round(r[3], 4),
+                "sample_n": int(r[4]),
+                "stat_diffs": {
+                    "pts": round(r[5], 4), "reb": round(r[6], 4), "ast": round(r[7], 4),
+                    "stl": round(r[8], 4), "blk": round(r[9], 4), "fg3m": round(r[10], 4), "tov": round(r[11], 4)
+                },
+                "dvs_multiplier": round(r[12], 2) if r[12] is not None else 0,
+                "dvs_components": {
+                    "pts": round(r[13], 2) if r[13] else 0, "reb": round(r[14], 2) if r[14] else 0,
+                    "ast": round(r[15], 2) if r[15] else 0, "stl": round(r[16], 2) if r[16] else 0,
+                    "blk": round(r[17], 2) if r[17] else 0, "fg3m": round(r[18], 2) if r[18] else 0,
+                    "tov": round(r[19], 2) if r[19] else 0
+                }
+            }
+
+        return {"teams": teams, "archetypes": archetypes, "data": data, "profiles": profiles}
+    except Exception as e:
+        return {"error": str(e), "teams": [], "archetypes": []}
+
+
 @app.get("/api/player-trend/{player_name}/{stat}")
 async def api_player_trend(player_name: str, stat: str, n: int = 10):
     import sqlite3 as sqlite3_mod

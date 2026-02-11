@@ -53,7 +53,20 @@
             <img src="/static/images/dvp_heatmap.png?v={{ cache_bust }}" alt="DVP Heatmap" class="trend-chart dvp-heatmap">
         </div>
     </div>
-    
+
+    <div class="trends-section">
+        <h2>Defense vs Archetype (DVA)</h2>
+        <p class="chart-description">How teams defend playstyles, not positions. DVS multiplier combines archetype stat profile with defensive leaks. Toggle between FP/min differential and DVS multiplier. Hover cells for stat breakdown.</p>
+        <div class="dva-controls">
+            <button class="dva-mode-btn active" data-mode="dvs">DVS Multiplier</button>
+            <button class="dva-mode-btn" data-mode="fp">FP/min Diff</button>
+        </div>
+        <div class="dva-table-wrapper">
+            <div id="dva-loading" style="text-align:center; padding:40px; color:#888;">Loading DVA data...</div>
+            <div id="dva-table-container" style="display:none; overflow-x:auto;"></div>
+        </div>
+    </div>
+
     <div class="trends-section">
         <h2>Player Archetype Clusters</h2>
         <p class="chart-description">K-Means clustering groups players by how they actually play. Each dot is a player, positioned by PCA of 12 statistical features. Hover for details.</p>
@@ -220,6 +233,160 @@ const ARCHETYPE_COLORS = {
     'Athletic Wing': '#264653',
     'Point Center': '#e76f51',
 };
+
+let dvaMode = 'dvs';
+let dvaData = null;
+
+async function loadDVA() {
+    try {
+        const res = await fetch('/api/dva');
+        dvaData = await res.json();
+        if (dvaData.error || !dvaData.teams || dvaData.teams.length === 0) {
+            document.getElementById('dva-loading').textContent = dvaData.error || 'No DVA data available.';
+            return;
+        }
+        renderDVA();
+    } catch(e) {
+        document.getElementById('dva-loading').textContent = 'Failed to load DVA data.';
+    }
+}
+
+function dvaColor(val, mode) {
+    if (mode === 'dvs') {
+        const clamped = Math.max(-25, Math.min(25, val));
+        if (clamped > 0) {
+            const intensity = Math.min(clamped / 20, 1);
+            const r = Math.round(34 + intensity * (22 - 34));
+            const g = Math.round(139 + intensity * (163 - 139));
+            const b = Math.round(34 + intensity * (74 - 34));
+            return `rgb(${r},${g},${b})`;
+        } else if (clamped < 0) {
+            const intensity = Math.min(Math.abs(clamped) / 20, 1);
+            const r = Math.round(180 + intensity * (220 - 180));
+            const g = Math.round(60 - intensity * 30);
+            const b = Math.round(60 - intensity * 30);
+            return `rgb(${r},${g},${b})`;
+        }
+        return '#f5f5f5';
+    } else {
+        const clamped = Math.max(-0.2, Math.min(0.2, val));
+        if (clamped > 0) {
+            const intensity = Math.min(clamped / 0.15, 1);
+            const r = Math.round(34 + intensity * (22 - 34));
+            const g = Math.round(139 + intensity * (163 - 139));
+            const b = Math.round(34 + intensity * (74 - 34));
+            return `rgb(${r},${g},${b})`;
+        } else if (clamped < 0) {
+            const intensity = Math.min(Math.abs(clamped) / 0.15, 1);
+            const r = Math.round(180 + intensity * 40);
+            const g = Math.round(60 - intensity * 30);
+            const b = Math.round(60 - intensity * 30);
+            return `rgb(${r},${g},${b})`;
+        }
+        return '#f5f5f5';
+    }
+}
+
+function dvaTextColor(val, mode) {
+    const threshold = mode === 'dvs' ? 12 : 0.08;
+    return Math.abs(val) > threshold ? '#fff' : '#222';
+}
+
+function buildTooltip(cell, team, arch) {
+    const d = dvaData.data[team][arch];
+    const statNames = {pts:'PTS', reb:'REB', ast:'AST', stl:'STL', blk:'BLK', fg3m:'3PM', tov:'TOV'};
+    let html = '<div class="dva-tooltip">';
+    html += '<div class="dva-tooltip-title">' + team + ' vs ' + arch + '</div>';
+    html += '<div class="dva-tooltip-row"><span>FP/min diff:</span><span>' + (d.fp_pm_diff >= 0 ? '+' : '') + d.fp_pm_diff.toFixed(4) + '</span></div>';
+    html += '<div class="dva-tooltip-row"><span>DVS Multiplier:</span><span>' + (d.dvs_multiplier >= 0 ? '+' : '') + d.dvs_multiplier.toFixed(2) + '%</span></div>';
+    html += '<div class="dva-tooltip-row"><span>Sample:</span><span>' + d.sample_n + ' games</span></div>';
+    html += '<div class="dva-tooltip-divider"></div>';
+    html += '<div class="dva-tooltip-subtitle">Stat Leak (per min vs avg)</div>';
+    for (const [k, label] of Object.entries(statNames)) {
+        const v = d.stat_diffs[k];
+        const cls = v > 0.001 ? 'dva-pos' : v < -0.001 ? 'dva-neg' : '';
+        html += '<div class="dva-tooltip-row ' + cls + '"><span>' + label + ':</span><span>' + (v >= 0 ? '+' : '') + v.toFixed(4) + '</span></div>';
+    }
+    if (d.dvs_components) {
+        html += '<div class="dva-tooltip-divider"></div>';
+        html += '<div class="dva-tooltip-subtitle">DVS Components</div>';
+        for (const [k, label] of Object.entries(statNames)) {
+            const v = d.dvs_components[k];
+            if (Math.abs(v) >= 0.01) {
+                const cls = v > 0 ? 'dva-pos' : 'dva-neg';
+                html += '<div class="dva-tooltip-row ' + cls + '"><span>' + label + ':</span><span>' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%</span></div>';
+            }
+        }
+    }
+    html += '</div>';
+    return html;
+}
+
+function renderDVA() {
+    if (!dvaData || !dvaData.teams) return;
+    const container = document.getElementById('dva-table-container');
+    const isMobile = window.innerWidth < 768;
+    const shortNames = {
+        '3-and-D Wing': '3&D', '3-and-D Wing (Role)': '3&D-R', 'Athletic Wing': 'Ath W',
+        'Combo Guard': 'CG', 'Combo Guard (Elite)': 'CG-E', 'Playmaker': 'PM',
+        'Scoring Wing': 'SC W', 'Stretch Big': 'Str B', 'Traditional Big': 'Trd B'
+    };
+
+    let html = '<table class="dva-table"><thead><tr><th class="dva-team-col">Team</th>';
+    dvaData.archetypes.forEach(a => {
+        const label = isMobile ? (shortNames[a] || a.substring(0,4)) : a;
+        html += '<th class="dva-arch-col">' + label + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+
+    dvaData.teams.forEach(team => {
+        html += '<tr><td class="dva-team-cell">' + team + '</td>';
+        dvaData.archetypes.forEach(arch => {
+            const d = dvaData.data[team] && dvaData.data[team][arch];
+            if (!d) { html += '<td class="dva-cell">-</td>'; return; }
+            const val = dvaMode === 'dvs' ? d.dvs_multiplier : d.fp_pm_diff;
+            const bg = dvaColor(val, dvaMode);
+            const tc = dvaTextColor(val, dvaMode);
+            const display = dvaMode === 'dvs' ? (val >= 0 ? '+' : '') + val.toFixed(1) + '%' : (val >= 0 ? '+' : '') + val.toFixed(3);
+            html += '<td class="dva-cell" style="background:' + bg + ';color:' + tc + '" data-team="' + team + '" data-arch="' + arch + '">' + display + '</td>';
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+    container.style.display = 'block';
+    document.getElementById('dva-loading').style.display = 'none';
+
+    container.querySelectorAll('.dva-cell[data-team]').forEach(cell => {
+        let tooltipEl = null;
+        cell.addEventListener('mouseenter', function(e) {
+            const team = this.dataset.team;
+            const arch = this.dataset.arch;
+            if (!dvaData.data[team] || !dvaData.data[team][arch]) return;
+            tooltipEl = document.createElement('div');
+            tooltipEl.className = 'dva-tooltip-wrap';
+            tooltipEl.innerHTML = buildTooltip(this, team, arch);
+            document.body.appendChild(tooltipEl);
+            const rect = this.getBoundingClientRect();
+            tooltipEl.style.left = Math.min(rect.left, window.innerWidth - 260) + 'px';
+            tooltipEl.style.top = (rect.bottom + 6 + window.scrollY) + 'px';
+        });
+        cell.addEventListener('mouseleave', function() {
+            if (tooltipEl) { tooltipEl.remove(); tooltipEl = null; }
+        });
+    });
+}
+
+document.querySelectorAll('.dva-mode-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.dva-mode-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        dvaMode = this.dataset.mode;
+        renderDVA();
+    });
+});
+
+loadDVA();
 
 let clusterChart = null;
 

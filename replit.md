@@ -25,6 +25,7 @@ The system employs an ETL (Extract-Transform-Load) pattern using a SQLite databa
 -   **Ceiling/Floor Model:** Transforms point projections into full distributions to aid in cash game (consistent, high floor) vs. GPP (high upside) decision-making.
 -   **ML Minutes Correction (Model 3):** Learns and applies multipliers to correct systematic minutes over/under-projection.
 -   **Blended DVP System:** Adaptively weights full-season and 30-day Defense vs. Position (DvP) data.
+-   **Defense vs Archetype (DVA) System:** Three-phase system: (1) DVA table computing FP/min and stat splits per minute for each team vs each archetype, (2) archetype stat-profile vectors showing % of FP from each stat category, (3) DVS multiplier combining archetype stat weights × defensive leak rates. Blended 50/50 with traditional DVP in projections. Interactive heatmap table on Trends page (`/api/dva` endpoint) with toggle between DVS multiplier and FP/min differential views, hover tooltips showing full stat breakdown. Script: `build_dva.py`.
 -   **Team Incentive Score:** Adjusts player volatility based on team standings (e.g., must-win vs. tanking teams).
 -   **Prop Trend Analysis Modal:** Visualizes a player's last 10 games for a specific stat against book lines, providing OVER/UNDER calls.
 
