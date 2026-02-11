@@ -273,11 +273,11 @@ for team in teams:
             min_floor, max_ceiling = get_minutes_bounds(inferred_rank)
             projected_min = clip_minutes(raw_projected, inferred_rank)
 
-            if is_promoted and player_mpg is not None:
+            if is_promoted and player_mpg is not None and not (norm in starters):
                 season_max_min = get_player_max_min(norm)
-                mpg_cap = player_mpg * 2.0
+                mpg_cap = player_mpg * 2.5
                 if season_max_min is not None:
-                    reality_cap = max(mpg_cap, season_max_min + 4.0)
+                    reality_cap = max(mpg_cap, season_max_min + 6.0)
                 else:
                     reality_cap = mpg_cap
                 reality_cap = min(reality_cap, 40.0)
