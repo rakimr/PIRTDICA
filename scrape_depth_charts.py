@@ -46,8 +46,10 @@ soup = BeautifulSoup(response.text, "html.parser")
 
 rows = []
 
-# ESPN uses many nested tables; each team depth chart is a <table class="tablehead">
 team_tables = soup.find_all("table", class_="tablehead")
+
+if len(team_tables) > 1:
+    team_tables = team_tables[1:]
 
 for table in team_tables:
     # Team name is in a <tr class="colhead"><td>TeamName</td></tr>
