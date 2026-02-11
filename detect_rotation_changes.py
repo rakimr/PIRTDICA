@@ -273,18 +273,6 @@ for team in teams:
             min_floor, max_ceiling = get_minutes_bounds(inferred_rank)
             projected_min = clip_minutes(raw_projected, inferred_rank)
 
-            if is_promoted and player_mpg is not None and not (norm in starters):
-                season_max_min = get_player_max_min(norm)
-                mpg_cap = player_mpg * 2.5
-                if season_max_min is not None:
-                    reality_cap = max(mpg_cap, season_max_min + 6.0)
-                else:
-                    reality_cap = mpg_cap
-                reality_cap = min(reality_cap, 40.0)
-                if projected_min > reality_cap:
-                    print(f"  REALITY CAP: {player} ({team}) {pos} projected {projected_min:.1f} -> capped at {reality_cap:.1f} (mpg={player_mpg}, max_game={season_max_min})")
-                    projected_min = round(reality_cap, 2)
-
             rotation_rows.append({
                 "team": team,
                 "player_name": player,
