@@ -783,23 +783,72 @@ a:hover {
 }
 
 .achievements-grid {
-    display: flex;
-    gap: 1.25rem;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.75rem;
+}
+
+.badge-category {
+    margin-bottom: 1.5rem;
+}
+
+.badge-category-label {
+    font-family: 'Marvel', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid var(--border);
 }
 
 .achievement-badge {
     background: var(--bg-card);
-    padding: 1.25rem;
+    padding: 0.75rem 0.5rem;
     border-radius: 8px;
     text-align: center;
     border: 1px solid var(--border);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    cursor: default;
+    position: relative;
+}
+
+.achievement-badge.earned {
+    border-color: var(--text);
+}
+
+.achievement-badge.locked {
+    opacity: 0.35;
+    filter: grayscale(1);
+}
+
+.achievement-badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
 .achievement-badge .icon {
-    font-size: 2rem;
+    font-size: 1.75rem;
     display: block;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.4rem;
+}
+
+.achievement-badge .name {
+    font-family: 'Marvel', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: block;
+    line-height: 1.2;
+    color: var(--text);
+}
+
+.achievement-badge .earned-date {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    display: block;
+    margin-top: 0.25rem;
 }
 
 .entries-table {

@@ -110,17 +110,25 @@
 
     <div class="achievements-section">
         <h2>Achievements</h2>
-        {% if achievements %}
-        <div class="achievements-grid">
-            {% for ua in achievements %}
-            <div class="achievement-badge">
-                <span class="icon">{{ ua.icon }}</span>
-                <span class="name">{{ ua.name }}</span>
+        {% if badge_groups %}
+        {% for group in badge_groups %}
+        <div class="badge-category">
+            <h3 class="badge-category-label">{{ group.label }}</h3>
+            <div class="achievements-grid">
+                {% for badge in group.badges %}
+                <div class="achievement-badge {% if badge.earned %}earned{% else %}locked{% endif %}" title="{{ badge.description }}{% if badge.coin_reward %} (+{{ badge.coin_reward }} coins){% endif %}">
+                    <span class="icon">{{ badge.icon }}</span>
+                    <span class="name">{{ badge.name }}</span>
+                    {% if badge.earned and badge.achieved_at %}
+                    <span class="earned-date">{{ badge.achieved_at.strftime('%b %d') }}</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
             </div>
-            {% endfor %}
         </div>
+        {% endfor %}
         {% else %}
-        <p class="no-data">No achievements yet. Keep playing!</p>
+        <p class="no-data">No achievements available.</p>
         {% endif %}
     </div>
     

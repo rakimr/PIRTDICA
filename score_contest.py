@@ -305,6 +305,21 @@ def score_contest(contest_date: date = None, force: bool = False):
     print(f"Winners: {winners} ({winners/len(entries)*100:.1f}%)" if entries else "Winners: 0")
     
     try:
+        from backend.achievements import check_scoring_achievements
+        badges_awarded = 0
+        for entry in entries:
+            try:
+                check_scoring_achievements(db, entry.user_id, entry)
+                badges_awarded += 1
+            except Exception as e:
+                print(f"Achievement check error for user {entry.user_id}: {e}")
+        db.commit()
+        print(f"Achievement checks completed for {len(entries)} entries")
+    except Exception as e:
+        db.rollback()
+        print(f"Achievement system error: {e}")
+    
+    try:
         from backend.main import settle_h2h_challenges
         settle_h2h_challenges(db)
     except Exception as e:

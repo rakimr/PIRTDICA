@@ -406,21 +406,40 @@ async def profile(request: Request, username: str, db: Session = Depends(get_db)
     user_achievements = db.query(models.UserAchievement).filter(
         models.UserAchievement.user_id == profile_user.id
     ).all()
+    earned_codes = {ua.achievement_code: ua.achieved_at for ua in user_achievements}
     
-    achievement_map = {}
-    if user_achievements:
-        all_achievements = db.query(models.Achievement).all()
-        achievement_map = {a.code: a for a in all_achievements}
+    all_achievements = db.query(models.Achievement).all()
     
-    achievements = []
-    for ua in user_achievements:
-        achievement = achievement_map.get(ua.achievement_code)
-        if achievement:
-            achievements.append({
-                "name": achievement.name,
-                "description": achievement.description,
-                "icon": achievement.icon,
-                "achieved_at": ua.achieved_at
+    category_order = ["competitive", "coach_vs_coach", "archetype", "prestige", "engagement"]
+    category_labels = {
+        "competitive": "Competitive",
+        "coach_vs_coach": "Coach vs Coach",
+        "archetype": "Archetype",
+        "prestige": "Prestige",
+        "engagement": "Engagement",
+    }
+    badge_groups = {}
+    for a in all_achievements:
+        cat = a.category or "competitive"
+        if cat not in badge_groups:
+            badge_groups[cat] = []
+        badge_groups[cat].append({
+            "code": a.code,
+            "name": a.name,
+            "description": a.description,
+            "icon": a.icon,
+            "coin_reward": a.coin_reward,
+            "earned": a.code in earned_codes,
+            "achieved_at": earned_codes.get(a.code),
+        })
+    
+    ordered_badge_groups = []
+    for cat in category_order:
+        if cat in badge_groups:
+            ordered_badge_groups.append({
+                "category": cat,
+                "label": category_labels.get(cat, cat.replace("_", " ").title()),
+                "badges": badge_groups[cat],
             })
     
     from sqlalchemy import or_
@@ -476,7 +495,7 @@ async def profile(request: Request, username: str, db: Session = Depends(get_db)
         "profile": profile_user,
         "entries": entries,
         "stats": stats,
-        "achievements": achievements,
+        "badge_groups": ordered_badge_groups,
         "h2h_stats": {"wins": h2h_wins, "losses": h2h_losses, "ties": h2h_ties, "total": len(h2h_completed), "earnings": h2h_earnings},
         "h2h_history": h2h_history,
     })
@@ -821,6 +840,14 @@ async def submit_lineup(request: Request, db: Session = Depends(get_db)):
         db.add(ep)
     
     db.commit()
+    
+    try:
+        from backend.achievements import check_contest_achievements
+        check_contest_achievements(db, user.id, entry)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"Achievement check error: {e}")
     
     return RedirectResponse(url=f"/entry/{entry.id}", status_code=303)
 
@@ -1879,6 +1906,13 @@ def settle_h2h_challenges(db: Session):
             ))
 
         challenge.status = "completed"
+
+        try:
+            from backend.achievements import check_h2h_achievements
+            if challenge.winner_id:
+                check_h2h_achievements(db, challenge.winner_id, challenge)
+        except Exception as e:
+            print(f"H2H achievement check error: {e}")
 
     db.commit()
 

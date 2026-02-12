@@ -86,6 +86,9 @@ class EntryPlayer(Base):
 
 class UserAchievement(Base):
     __tablename__ = "user_achievements"
+    __table_args__ = (
+        UniqueConstraint("user_id", "achievement_code", name="uq_user_achievement"),
+    )
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
@@ -103,6 +106,7 @@ class Achievement(Base):
     description = Column(Text)
     icon = Column(String(50), default="trophy")
     coin_reward = Column(Integer, default=0)
+    category = Column(String(50), default="competitive")
 
 class CurrencyTransaction(Base):
     __tablename__ = "currency_transactions"
