@@ -214,6 +214,28 @@ function findBestSlot(playerPos) {
     return primary || eligible[0];
 }
 
+const _coinAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playCoinSound() {
+    const ctx = _coinAudioCtx;
+    const now = ctx.currentTime;
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0.18, now);
+    master.connect(ctx.destination);
+    [0, 0.04, 0.09].forEach((offset, i) => {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime([2400, 3200, 2800][i], now + offset);
+        osc.frequency.exponentialRampToValueAtTime([1800, 2400, 2000][i], now + offset + 0.08);
+        g.gain.setValueAtTime(0.3 - i * 0.08, now + offset);
+        g.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.12);
+        osc.connect(g);
+        g.connect(master);
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.13);
+    });
+}
+
 function addPlayerToNextSlot(btn) {
     const row = btn.closest('tr');
     const player = {
@@ -253,6 +275,7 @@ function addPlayerToNextSlot(btn) {
     btn.textContent = '-';
     btn.classList.add('remove-mode');
     btn.onclick = function() { removePlayerFromRoster(player.name); };
+    playCoinSound();
     updateDisplay();
 }
 
