@@ -14,12 +14,22 @@
             <h2>Avatars</h2>
             <div class="items-grid">
                 {% for item in items if item.category == 'avatar' %}
-                <div class="shop-item {% if item.id in owned_ids %}owned{% endif %}">
+                <div class="shop-item {% if item.id in owned_ids %}owned{% endif %}"
+                     data-category="avatar"
+                     data-name="{{ item.name }}"
+                     data-item-data="{{ item.item_data }}"
+                     data-description="{{ item.description or '' }}"
+                     data-price="{{ item.price }}"
+                     data-item-id="{{ item.id }}"
+                     data-owned="{{ 'true' if item.id in owned_ids else 'false' }}"
+                     data-can-afford="{{ 'true' if user.coins >= item.price else 'false' }}">
                     <div class="item-preview">
                         <img src="{{ item.item_data }}" alt="{{ item.name }}">
                     </div>
                     <h3>{{ item.name }}</h3>
+                    <p class="description">{{ item.description }}</p>
                     <p class="price">{{ item.price }} coins</p>
+                    <button type="button" class="btn btn-outline btn-small preview-btn">Preview</button>
                     {% if item.id in owned_ids %}
                         <span class="owned-badge">Owned</span>
                     {% elif user.coins >= item.price %}
@@ -40,10 +50,20 @@
             <h2>Themes</h2>
             <div class="items-grid">
                 {% for item in items if item.category == 'theme' %}
-                <div class="shop-item {% if item.id in owned_ids %}owned{% endif %}">
+                <div class="shop-item {% if item.id in owned_ids %}owned{% endif %}"
+                     data-category="theme"
+                     data-name="{{ item.name }}"
+                     data-item-data="{{ item.item_data }}"
+                     data-description="{{ item.description or '' }}"
+                     data-price="{{ item.price }}"
+                     data-item-id="{{ item.id }}"
+                     data-owned="{{ 'true' if item.id in owned_ids else 'false' }}"
+                     data-can-afford="{{ 'true' if user.coins >= item.price else 'false' }}">
                     <div class="item-preview theme-preview" style="background: {{ item.item_data }}"></div>
                     <h3>{{ item.name }}</h3>
+                    <p class="description">{{ item.description }}</p>
                     <p class="price">{{ item.price }} coins</p>
+                    <button type="button" class="btn btn-outline btn-small preview-btn">Preview</button>
                     {% if item.id in owned_ids %}
                         <span class="owned-badge">Owned</span>
                     {% elif user.coins >= item.price %}
@@ -64,11 +84,20 @@
             <h2>Badges</h2>
             <div class="items-grid">
                 {% for item in items if item.category == 'badge' %}
-                <div class="shop-item {% if item.id in owned_ids %}owned{% endif %}">
+                <div class="shop-item {% if item.id in owned_ids %}owned{% endif %}"
+                     data-category="badge"
+                     data-name="{{ item.name }}"
+                     data-item-data="{{ item.item_data }}"
+                     data-description="{{ item.description or '' }}"
+                     data-price="{{ item.price }}"
+                     data-item-id="{{ item.id }}"
+                     data-owned="{{ 'true' if item.id in owned_ids else 'false' }}"
+                     data-can-afford="{{ 'true' if user.coins >= item.price else 'false' }}">
                     <div class="item-preview badge-preview">{{ item.item_data }}</div>
                     <h3>{{ item.name }}</h3>
                     <p class="description">{{ item.description }}</p>
                     <p class="price">{{ item.price }} coins</p>
+                    <button type="button" class="btn btn-outline btn-small preview-btn">Preview</button>
                     {% if item.id in owned_ids %}
                         <span class="owned-badge">Owned</span>
                     {% elif user.coins >= item.price %}
@@ -86,4 +115,164 @@
         </div>
     </div>
 </div>
+
+<div class="shop-preview-overlay" id="previewOverlay">
+    <div class="shop-preview-modal">
+        <button class="shop-preview-close" id="previewClose">&times;</button>
+        <div class="shop-preview-content" id="previewContent"></div>
+        <div class="shop-preview-info">
+            <h2 id="previewName"></h2>
+            <p id="previewDesc"></p>
+            <p class="price" id="previewPrice"></p>
+            <div id="previewAction"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var username = {{ user.username|tojson }};
+    var overlay = document.getElementById('previewOverlay');
+    var content = document.getElementById('previewContent');
+    var nameEl = document.getElementById('previewName');
+    var descEl = document.getElementById('previewDesc');
+    var priceEl = document.getElementById('previewPrice');
+    var actionEl = document.getElementById('previewAction');
+
+    function openPreview(el) {
+        var d = el.closest('.shop-item').dataset;
+        var category = d.category;
+        var name = d.name;
+        var data = d.itemData;
+        var description = d.description;
+        var price = d.price;
+        var itemId = d.itemId;
+        var owned = d.owned === 'true';
+        var canAfford = d.canAfford === 'true';
+
+        nameEl.textContent = name;
+        descEl.textContent = description;
+        priceEl.textContent = price + ' coins';
+
+        content.innerHTML = '';
+
+        if (category === 'avatar') {
+            var card = document.createElement('div');
+            card.className = 'preview-profile-card';
+
+            var wrap = document.createElement('div');
+            wrap.className = 'preview-avatar-wrap';
+            var img = document.createElement('img');
+            img.src = data;
+            img.alt = name;
+            wrap.appendChild(img);
+
+            var info = document.createElement('div');
+            info.className = 'preview-profile-info';
+            var uname = document.createElement('span');
+            uname.className = 'preview-username';
+            uname.textContent = username;
+            var label = document.createElement('span');
+            label.className = 'preview-label';
+            label.textContent = 'How this avatar looks on your profile';
+            info.appendChild(uname);
+            info.appendChild(label);
+
+            card.appendChild(wrap);
+            card.appendChild(info);
+            content.appendChild(card);
+
+        } else if (category === 'theme') {
+            var demo = document.createElement('div');
+            demo.className = 'preview-theme-demo';
+            demo.style.background = data;
+
+            var tcard = document.createElement('div');
+            tcard.className = 'preview-theme-card';
+            var ttitle = document.createElement('span');
+            ttitle.className = 'preview-theme-title';
+            ttitle.textContent = 'Your Profile';
+            var tsub = document.createElement('span');
+            tsub.className = 'preview-theme-sub';
+            tsub.textContent = 'Theme applied to your page accent';
+            tcard.appendChild(ttitle);
+            tcard.appendChild(tsub);
+            demo.appendChild(tcard);
+            content.appendChild(demo);
+
+        } else if (category === 'badge') {
+            var bdemo = document.createElement('div');
+            bdemo.className = 'preview-badge-demo';
+
+            var blarge = document.createElement('div');
+            blarge.className = 'preview-badge-large';
+            blarge.textContent = data;
+            bdemo.appendChild(blarge);
+
+            var ctx = document.createElement('div');
+            ctx.className = 'preview-badge-context';
+            var cu = document.createElement('span');
+            cu.className = 'preview-username';
+            cu.textContent = username;
+            var tag = document.createElement('span');
+            tag.className = 'preview-badge-tag';
+            tag.textContent = data;
+            ctx.appendChild(cu);
+            ctx.appendChild(tag);
+            bdemo.appendChild(ctx);
+
+            var blabel = document.createElement('span');
+            blabel.className = 'preview-label';
+            blabel.textContent = 'This badge appears on your profile and leaderboard';
+            bdemo.appendChild(blabel);
+            content.appendChild(bdemo);
+        }
+
+        actionEl.innerHTML = '';
+        if (owned) {
+            var span = document.createElement('span');
+            span.className = 'owned-badge';
+            span.textContent = 'You own this';
+            actionEl.appendChild(span);
+        } else if (canAfford) {
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/shop/buy/' + itemId;
+            var btn = document.createElement('button');
+            btn.type = 'submit';
+            btn.className = 'btn btn-primary';
+            btn.textContent = 'Buy Now';
+            form.appendChild(btn);
+            actionEl.appendChild(form);
+        } else {
+            var ins = document.createElement('span');
+            ins.className = 'insufficient';
+            ins.textContent = 'Not enough coins';
+            actionEl.appendChild(ins);
+        }
+
+        overlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closePreview() {
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    document.querySelectorAll('.preview-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() { openPreview(this); });
+    });
+
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) closePreview();
+    });
+
+    document.getElementById('previewClose').addEventListener('click', closePreview);
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closePreview();
+    });
+})();
+</script>
 {% endblock %}
