@@ -5,8 +5,29 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from datetime import datetime
+import unicodedata
+import re
 import warnings
 warnings.filterwarnings('ignore')
+
+
+def _ascii_key(name):
+    """Create an ASCII merge key that handles double-encoded UTF-8 and diacritics."""
+    if not name or not isinstance(name, str):
+        return ""
+    try:
+        fixed = name.encode('latin-1').decode('utf-8')
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        fixed = name
+    nfkd = unicodedata.normalize('NFKD', fixed)
+    ascii_name = ''.join(c for c in nfkd if not unicodedata.combining(c))
+    ascii_name = re.sub(r'[^a-zA-Z\s]', '', ascii_name).lower().strip()
+    ascii_name = re.sub(r'\s+', ' ', ascii_name)
+    for suffix in [' iv', ' iii', ' ii', ' jr', ' sr', ' v']:
+        if ascii_name.endswith(suffix):
+            ascii_name = ascii_name[:-len(suffix)].strip()
+            break
+    return ascii_name
 
 DB_PATH = 'dfs_nba.db'
 
@@ -56,9 +77,13 @@ def load_feature_data():
 
     conn.close()
 
-    df = per100.merge(positions, on='player_name', how='inner')
-    df = df.merge(game_logs, on='player_name', how='inner')
-    df = df.merge(usage, on='player_name', how='left')
+    for tbl in [per100, positions, game_logs, usage]:
+        tbl['_merge_key'] = tbl['player_name'].apply(_ascii_key)
+
+    df = per100.merge(positions.drop(columns=['player_name']), on='_merge_key', how='inner')
+    df = df.merge(game_logs.drop(columns=['player_name']), on='_merge_key', how='inner')
+    df = df.merge(usage.drop(columns=['player_name']), on='_merge_key', how='left')
+    df = df.drop(columns=['_merge_key'])
 
     df['usg_pct'] = df['usg_pct'].fillna(df['usg_pct'].median())
 
