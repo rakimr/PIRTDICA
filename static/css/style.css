@@ -2730,10 +2730,11 @@ th[data-sortable].sort-desc::after {
 }
 
 .props-table th:last-child {
-    background: transparent;
-    width: 36px;
-    min-width: 36px;
-    padding: 0;
+    background: var(--primary);
+    width: 50px;
+    min-width: 50px;
+    padding: 0.75rem 0.5rem;
+    font-size: 0.85rem;
 }
 
 .props-table td:last-child {
