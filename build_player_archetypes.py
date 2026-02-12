@@ -11,14 +11,31 @@ import warnings
 warnings.filterwarnings('ignore')
 
 
+_NICKNAME_MAP = {
+    'ronald': 'ron', 'william': 'will', 'robert': 'rob',
+    'kenneth': 'ken', 'nicholas': 'nick', 'christopher': 'chris',
+    'timothy': 'tim', 'matthew': 'matt', 'daniel': 'dan',
+    'michael': 'mike', 'joseph': 'joe', 'edward': 'ed',
+    'anthony': 'tony', 'richard': 'rich', 'thomas': 'tom',
+    'benjamin': 'ben', 'gregory': 'greg', 'gerald': 'gerry',
+    'patrick': 'pat', 'jeffrey': 'jeff', 'cameron': 'cam',
+}
+
 def _ascii_key(name):
     """Create an ASCII merge key that handles double-encoded UTF-8 and diacritics."""
     if not name or not isinstance(name, str):
         return ""
-    try:
-        fixed = name.encode('latin-1').decode('utf-8')
-    except (UnicodeDecodeError, UnicodeEncodeError):
-        fixed = name
+    fixed = name
+    for _ in range(2):
+        try:
+            fixed = fixed.encode('latin-1').decode('utf-8')
+        except (UnicodeDecodeError, UnicodeEncodeError):
+            break
+    _cyr = {'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh',
+            'з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o',
+            'п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'kh','ц':'ts',
+            'ч':'ch','ш':'sh','щ':'shch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'}
+    fixed = ''.join(_cyr.get(c, _cyr.get(c.lower(), c)) for c in fixed)
     nfkd = unicodedata.normalize('NFKD', fixed)
     ascii_name = ''.join(c for c in nfkd if not unicodedata.combining(c))
     ascii_name = re.sub(r'[^a-zA-Z\s]', '', ascii_name).lower().strip()
@@ -27,6 +44,9 @@ def _ascii_key(name):
         if ascii_name.endswith(suffix):
             ascii_name = ascii_name[:-len(suffix)].strip()
             break
+    parts = ascii_name.split(' ', 1)
+    if len(parts) == 2 and parts[0] in _NICKNAME_MAP:
+        ascii_name = _NICKNAME_MAP[parts[0]] + ' ' + parts[1]
     return ascii_name
 
 DB_PATH = 'dfs_nba.db'
