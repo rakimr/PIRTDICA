@@ -9,111 +9,229 @@
         <p class="balance">Your balance: <strong>{{ user.coins }} coins</strong></p>
     </div>
     
-    <div class="shop-categories">
-        <div class="category">
-            <h2>Avatars</h2>
-            <div class="items-grid">
-                {% for item in items if item.category == 'avatar' %}
-                <div class="shop-item {% if item.id in owned_ids %}owned{% endif %}"
-                     data-category="avatar"
-                     data-name="{{ item.name }}"
-                     data-item-data="{{ item.item_data }}"
-                     data-description="{{ item.description or '' }}"
-                     data-price="{{ item.price }}"
-                     data-item-id="{{ item.id }}"
-                     data-owned="{{ 'true' if item.id in owned_ids else 'false' }}"
-                     data-can-afford="{{ 'true' if user.coins >= item.price else 'false' }}">
-                    <div class="item-preview">
-                        <img src="{{ item.item_data }}" alt="{{ item.name }}">
-                    </div>
-                    <h3>{{ item.name }}</h3>
-                    <p class="description">{{ item.description }}</p>
-                    <p class="price">{{ item.price }} coins</p>
-                    <button type="button" class="btn btn-outline btn-small preview-btn">Preview</button>
-                    {% if item.id in owned_ids %}
-                        <span class="owned-badge">Owned</span>
-                    {% elif user.coins >= item.price %}
-                        <form method="POST" action="/shop/buy/{{ item.id }}">
-                            <button type="submit" class="btn btn-primary btn-small">Buy</button>
-                        </form>
-                    {% else %}
-                        <span class="insufficient">Not enough coins</span>
-                    {% endif %}
-                </div>
-                {% else %}
-                <p class="no-items">Coming soon!</p>
-                {% endfor %}
-            </div>
-        </div>
-        
-        <div class="category">
-            <h2>Themes</h2>
-            <div class="items-grid">
-                {% for item in items if item.category == 'theme' %}
-                <div class="shop-item {% if item.id in owned_ids %}owned{% endif %}"
-                     data-category="theme"
-                     data-name="{{ item.name }}"
-                     data-item-data="{{ item.item_data }}"
-                     data-description="{{ item.description or '' }}"
-                     data-price="{{ item.price }}"
-                     data-item-id="{{ item.id }}"
-                     data-owned="{{ 'true' if item.id in owned_ids else 'false' }}"
-                     data-can-afford="{{ 'true' if user.coins >= item.price else 'false' }}">
-                    <div class="item-preview theme-preview" style="background: {{ item.item_data }}"></div>
-                    <h3>{{ item.name }}</h3>
-                    <p class="description">{{ item.description }}</p>
-                    <p class="price">{{ item.price }} coins</p>
-                    <button type="button" class="btn btn-outline btn-small preview-btn">Preview</button>
-                    {% if item.id in owned_ids %}
-                        <span class="owned-badge">Owned</span>
-                    {% elif user.coins >= item.price %}
-                        <form method="POST" action="/shop/buy/{{ item.id }}">
-                            <button type="submit" class="btn btn-primary btn-small">Buy</button>
-                        </form>
-                    {% else %}
-                        <span class="insufficient">Not enough coins</span>
-                    {% endif %}
-                </div>
-                {% else %}
-                <p class="no-items">Coming soon!</p>
-                {% endfor %}
-            </div>
-        </div>
-        
-        <div class="category">
-            <h2>Badges</h2>
-            <div class="items-grid">
-                {% for item in items if item.category == 'badge' %}
-                <div class="shop-item {% if item.id in owned_ids %}owned{% endif %}"
-                     data-category="badge"
-                     data-name="{{ item.name }}"
-                     data-item-data="{{ item.item_data }}"
-                     data-description="{{ item.description or '' }}"
-                     data-price="{{ item.price }}"
-                     data-item-id="{{ item.id }}"
-                     data-owned="{{ 'true' if item.id in owned_ids else 'false' }}"
-                     data-can-afford="{{ 'true' if user.coins >= item.price else 'false' }}">
-                    <div class="item-preview badge-preview">{{ item.item_data }}</div>
-                    <h3>{{ item.name }}</h3>
-                    <p class="description">{{ item.description }}</p>
-                    <p class="price">{{ item.price }} coins</p>
-                    <button type="button" class="btn btn-outline btn-small preview-btn">Preview</button>
-                    {% if item.id in owned_ids %}
-                        <span class="owned-badge">Owned</span>
-                    {% elif user.coins >= item.price %}
-                        <form method="POST" action="/shop/buy/{{ item.id }}">
-                            <button type="submit" class="btn btn-primary btn-small">Buy</button>
-                        </form>
-                    {% else %}
-                        <span class="insufficient">Not enough coins</span>
-                    {% endif %}
-                </div>
-                {% else %}
-                <p class="no-items">Coming soon!</p>
-                {% endfor %}
-            </div>
-        </div>
+    <div class="pillar-tabs">
+        {% for key, pillar in pillars.items() %}
+        <button class="pillar-tab {% if key == active_pillar %}active{% endif %}" data-pillar="{{ key }}">
+            <span class="pillar-tab-icon">
+                {% if key == 'identity' %}&#9733;{% elif key == 'prestige' %}&#9813;{% elif key == 'access' %}&#9881;{% elif key == 'analytics' %}&#9783;{% endif %}
+            </span>
+            <span class="pillar-tab-label">{{ pillar.label }}</span>
+        </button>
+        {% endfor %}
     </div>
+
+    {% for key, pillar in pillars.items() %}
+    <div class="pillar-panel {% if key == active_pillar %}active{% endif %}" id="pillar-{{ key }}">
+        <div class="pillar-intro">
+            <p>{{ pillar.description }}</p>
+        </div>
+
+        {% if key == 'identity' %}
+            <div class="identity-section">
+                <h3>Avatars</h3>
+                <div class="items-grid">
+                    {% for item in pillar.items if item.category == 'avatar' %}
+                    <div class="shop-item {% if item.id in owned_ids %}owned{% endif %}"
+                         data-category="avatar"
+                         data-name="{{ item.name }}"
+                         data-item-data="{{ item.item_data }}"
+                         data-description="{{ item.description or '' }}"
+                         data-price="{{ item.price }}"
+                         data-item-id="{{ item.id }}"
+                         data-owned="{{ 'true' if item.id in owned_ids else 'false' }}"
+                         data-can-afford="{{ 'true' if user.coins >= item.price else 'false' }}"
+                         data-rarity="{{ item.rarity or 'common' }}">
+                        <div class="item-preview">
+                            <img src="{{ item.item_data }}" alt="{{ item.name }}">
+                        </div>
+                        <h3>{{ item.name }}</h3>
+                        {% if item.rarity and item.rarity != 'common' %}
+                        <span class="rarity-tag rarity-{{ item.rarity }}">{{ item.rarity }}</span>
+                        {% endif %}
+                        <p class="description">{{ item.description }}</p>
+                        <p class="price">{{ item.price }} coins</p>
+                        <button type="button" class="btn btn-outline btn-small preview-btn">Preview</button>
+                        {% if item.id in owned_ids %}
+                            <span class="owned-badge">Owned</span>
+                        {% elif user.coins >= item.price %}
+                            <form method="POST" action="/shop/buy/{{ item.id }}">
+                                <button type="submit" class="btn btn-primary btn-small">Buy</button>
+                            </form>
+                        {% else %}
+                            <span class="insufficient">Not enough coins</span>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <p class="no-items">Coming soon!</p>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="identity-section">
+                <h3>Themes</h3>
+                <div class="items-grid">
+                    {% for item in pillar.items if item.category == 'theme' %}
+                    <div class="shop-item {% if item.id in owned_ids %}owned{% endif %}"
+                         data-category="theme"
+                         data-name="{{ item.name }}"
+                         data-item-data="{{ item.item_data }}"
+                         data-description="{{ item.description or '' }}"
+                         data-price="{{ item.price }}"
+                         data-item-id="{{ item.id }}"
+                         data-owned="{{ 'true' if item.id in owned_ids else 'false' }}"
+                         data-can-afford="{{ 'true' if user.coins >= item.price else 'false' }}"
+                         data-rarity="{{ item.rarity or 'common' }}">
+                        <div class="item-preview theme-preview" style="background: {{ item.item_data }}"></div>
+                        <h3>{{ item.name }}</h3>
+                        {% if item.rarity and item.rarity != 'common' %}
+                        <span class="rarity-tag rarity-{{ item.rarity }}">{{ item.rarity }}</span>
+                        {% endif %}
+                        <p class="description">{{ item.description }}</p>
+                        <p class="price">{{ item.price }} coins</p>
+                        <button type="button" class="btn btn-outline btn-small preview-btn">Preview</button>
+                        {% if item.id in owned_ids %}
+                            <span class="owned-badge">Owned</span>
+                        {% elif user.coins >= item.price %}
+                            <form method="POST" action="/shop/buy/{{ item.id }}">
+                                <button type="submit" class="btn btn-primary btn-small">Buy</button>
+                            </form>
+                        {% else %}
+                            <span class="insufficient">Not enough coins</span>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <p class="no-items">Coming soon!</p>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="identity-section">
+                <h3>Badges</h3>
+                <div class="items-grid">
+                    {% for item in pillar.items if item.category == 'badge' %}
+                    <div class="shop-item {% if item.id in owned_ids %}owned{% endif %}"
+                         data-category="badge"
+                         data-name="{{ item.name }}"
+                         data-item-data="{{ item.item_data }}"
+                         data-description="{{ item.description or '' }}"
+                         data-price="{{ item.price }}"
+                         data-item-id="{{ item.id }}"
+                         data-owned="{{ 'true' if item.id in owned_ids else 'false' }}"
+                         data-can-afford="{{ 'true' if user.coins >= item.price else 'false' }}"
+                         data-rarity="{{ item.rarity or 'common' }}">
+                        <div class="item-preview badge-preview">{{ item.item_data }}</div>
+                        <h3>{{ item.name }}</h3>
+                        {% if item.rarity and item.rarity != 'common' %}
+                        <span class="rarity-tag rarity-{{ item.rarity }}">{{ item.rarity }}</span>
+                        {% endif %}
+                        <p class="description">{{ item.description }}</p>
+                        <p class="price">{{ item.price }} coins</p>
+                        <button type="button" class="btn btn-outline btn-small preview-btn">Preview</button>
+                        {% if item.id in owned_ids %}
+                            <span class="owned-badge">Owned</span>
+                        {% elif user.coins >= item.price %}
+                            <form method="POST" action="/shop/buy/{{ item.id }}">
+                                <button type="submit" class="btn btn-primary btn-small">Buy</button>
+                            </form>
+                        {% else %}
+                            <span class="insufficient">Not enough coins</span>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <p class="no-items">Coming soon!</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+        {% elif key == 'prestige' %}
+            <div class="coming-soon-panel">
+                <div class="coming-soon-icon">&#9813;</div>
+                <h3>Prestige is Coming</h3>
+                <p>Competitive ranking and progression features are on the way.</p>
+                <div class="roadmap-list">
+                    <div class="roadmap-item">
+                        <span class="roadmap-dot"></span>
+                        <span>ELO title ranks and ranked ladders</span>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="roadmap-dot"></span>
+                        <span>High-stakes H2H rooms</span>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="roadmap-dot"></span>
+                        <span>Elite-only contests</span>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="roadmap-dot"></span>
+                        <span>Seasonal Battle Pass with tier progression</span>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="roadmap-dot"></span>
+                        <span>Exclusive cosmetics and profile flairs</span>
+                    </div>
+                </div>
+            </div>
+
+        {% elif key == 'access' %}
+            <div class="coming-soon-panel">
+                <div class="coming-soon-icon">&#9881;</div>
+                <h3>Access is Coming</h3>
+                <p>Strategic tools and visualizations that sharpen your edge — without breaking competitive integrity.</p>
+                <div class="roadmap-list">
+                    <div class="roadmap-item">
+                        <span class="roadmap-dot"></span>
+                        <span>Advanced matchup visualizations</span>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="roadmap-dot"></span>
+                        <span>Archetype heatmaps</span>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="roadmap-dot"></span>
+                        <span>Opponent scouting reports</span>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="roadmap-dot"></span>
+                        <span>Historical matchup explorer</span>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="roadmap-dot"></span>
+                        <span>Ceiling probability charts</span>
+                    </div>
+                </div>
+            </div>
+
+        {% elif key == 'analytics' %}
+            <div class="coming-soon-panel">
+                <div class="coming-soon-icon">&#9783;</div>
+                <h3>Analytics is Coming</h3>
+                <p>Lineup customization features that let you build your way.</p>
+                <div class="roadmap-list">
+                    <div class="roadmap-item">
+                        <span class="roadmap-dot"></span>
+                        <span>Custom lineup naming</span>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="roadmap-dot"></span>
+                        <span>Save lineup templates</span>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="roadmap-dot"></span>
+                        <span>Advanced optimizer presets</span>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="roadmap-dot"></span>
+                        <span>Custom projection weight uploads</span>
+                    </div>
+                    <div class="roadmap-item">
+                        <span class="roadmap-dot"></span>
+                        <span>Custom DVS weighting sliders</span>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+    {% endfor %}
 </div>
 
 <div class="shop-preview-overlay" id="previewOverlay">
@@ -132,6 +250,16 @@
 <script>
 (function() {
     var username = {{ user.username|tojson }};
+
+    document.querySelectorAll('.pillar-tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('.pillar-tab').forEach(function(t) { t.classList.remove('active'); });
+            document.querySelectorAll('.pillar-panel').forEach(function(p) { p.classList.remove('active'); });
+            tab.classList.add('active');
+            document.getElementById('pillar-' + tab.dataset.pillar).classList.add('active');
+        });
+    });
+
     var overlay = document.getElementById('previewOverlay');
     var content = document.getElementById('previewContent');
     var nameEl = document.getElementById('previewName');
@@ -153,20 +281,17 @@
         nameEl.textContent = name;
         descEl.textContent = description;
         priceEl.textContent = price + ' coins';
-
         content.innerHTML = '';
 
         if (category === 'avatar') {
             var card = document.createElement('div');
             card.className = 'preview-profile-card';
-
             var wrap = document.createElement('div');
             wrap.className = 'preview-avatar-wrap';
             var img = document.createElement('img');
             img.src = data;
             img.alt = name;
             wrap.appendChild(img);
-
             var info = document.createElement('div');
             info.className = 'preview-profile-info';
             var uname = document.createElement('span');
@@ -177,16 +302,13 @@
             label.textContent = 'How this avatar looks on your profile';
             info.appendChild(uname);
             info.appendChild(label);
-
             card.appendChild(wrap);
             card.appendChild(info);
             content.appendChild(card);
-
         } else if (category === 'theme') {
             var demo = document.createElement('div');
             demo.className = 'preview-theme-demo';
             demo.style.background = data;
-
             var tcard = document.createElement('div');
             tcard.className = 'preview-theme-card';
             var ttitle = document.createElement('span');
@@ -199,16 +321,13 @@
             tcard.appendChild(tsub);
             demo.appendChild(tcard);
             content.appendChild(demo);
-
         } else if (category === 'badge') {
             var bdemo = document.createElement('div');
             bdemo.className = 'preview-badge-demo';
-
             var blarge = document.createElement('div');
             blarge.className = 'preview-badge-large';
             blarge.textContent = data;
             bdemo.appendChild(blarge);
-
             var ctx = document.createElement('div');
             ctx.className = 'preview-badge-context';
             var cu = document.createElement('span');
@@ -220,7 +339,6 @@
             ctx.appendChild(cu);
             ctx.appendChild(tag);
             bdemo.appendChild(ctx);
-
             var blabel = document.createElement('span');
             blabel.className = 'preview-label';
             blabel.textContent = 'This badge appears on your profile and leaderboard';

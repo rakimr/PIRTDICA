@@ -1421,8 +1421,165 @@ a:hover {
 }
 
 .shop-page h1 {
+    margin-bottom: 0.5rem;
+}
+
+.shop-header {
+    margin-bottom: 1.5rem;
+}
+
+.shop-header .balance {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.pillar-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
     margin-bottom: 2rem;
 }
+
+.pillar-tab {
+    flex: 1;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 0.75rem 0.5rem;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    transition: border-color 0.15s, color 0.15s;
+    color: var(--text-muted);
+}
+
+.pillar-tab:hover {
+    color: var(--text);
+}
+
+.pillar-tab.active {
+    border-bottom-color: var(--text);
+    color: var(--text);
+}
+
+.pillar-tab-icon {
+    font-size: 1.25rem;
+}
+
+.pillar-tab-label {
+    font-family: 'Marvel', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.pillar-panel {
+    display: none;
+}
+
+.pillar-panel.active {
+    display: block;
+}
+
+.pillar-intro {
+    margin-bottom: 1.5rem;
+}
+
+.pillar-intro p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.identity-section {
+    margin-bottom: 2rem;
+}
+
+.identity-section > h3 {
+    font-family: 'Marvel', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.coming-soon-panel {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.coming-soon-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.3;
+}
+
+.coming-soon-panel h3 {
+    font-family: 'Marvel', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.coming-soon-panel > p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.roadmap-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    max-width: 320px;
+    margin: 0 auto;
+    text-align: left;
+}
+
+.roadmap-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.roadmap-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+}
+
+.rarity-tag {
+    font-family: 'Marvel', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.1rem 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 0.35rem;
+    display: inline-block;
+}
+
+.rarity-common { background: var(--bg); color: var(--text-muted); }
+.rarity-rare { background: #e3e8f0; color: #4a6fa5; }
+.rarity-epic { background: #ede3f5; color: #7b4fad; }
+.rarity-legendary { background: #fef3e0; color: #c78b25; }
 
 .shop-grid {
     display: grid;
