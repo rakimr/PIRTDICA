@@ -290,13 +290,38 @@ def save_archetypes(df):
     save_df = df[['player_name', 'team', 'true_position', 'archetype', 'cluster']].copy()
     save_df['computed_at'] = now
 
-    multi_team = save_df['team'].isin(['2TM', '3TM', 'TOT'])
-    if multi_team.any():
-        game_logs = pd.read_sql_query("""
-            SELECT player_name, matchup, game_date
-            FROM player_game_logs
-            ORDER BY game_date DESC
-        """, conn)
+    BREF_TO_ESPN = {
+        'NOP': 'NO', 'CHO': 'CHA', 'BRK': 'BKN', 'NYK': 'NY',
+        'SAS': 'SA', 'GSW': 'GS',
+    }
+    save_df['team'] = save_df['team'].replace(BREF_TO_ESPN)
+
+    depth_charts = pd.read_sql_query(
+        "SELECT DISTINCT player_name, team FROM depth_charts", conn
+    )
+    dc_map = {}
+    for _, row in depth_charts.iterrows():
+        key = _ascii_key(row['player_name'])
+        if key not in dc_map:
+            dc_map[key] = row['team']
+
+    save_df['_mk'] = save_df['player_name'].apply(_ascii_key)
+    updated_count = 0
+    for idx, row in save_df.iterrows():
+        dc_team = dc_map.get(row['_mk'])
+        if dc_team and dc_team != row['team']:
+            old_team = row['team']
+            save_df.at[idx, 'team'] = dc_team
+            updated_count += 1
+            if old_team in ('2TM', '3TM', 'TOT') or dc_team != BREF_TO_ESPN.get(old_team, old_team):
+                print(f"    {row['player_name']}: {old_team} -> {dc_team}")
+
+    still_multi = save_df['team'].isin(['2TM', '3TM', 'TOT'])
+    if still_multi.any():
+        game_logs = pd.read_sql_query(
+            "SELECT player_name, matchup, game_date FROM player_game_logs ORDER BY game_date DESC",
+            conn
+        )
         game_logs['_mk'] = game_logs['player_name'].apply(_ascii_key)
         latest = game_logs.drop_duplicates(subset='_mk', keep='first')
 
@@ -307,18 +332,18 @@ def save_archetypes(df):
             return parts[0].strip() if len(parts) >= 2 else None
 
         latest['current_team'] = latest['matchup'].apply(extract_team)
-        team_map = dict(zip(latest['_mk'], latest['current_team']))
+        gl_map = dict(zip(latest['_mk'], latest['current_team']))
 
-        save_df.loc[multi_team, '_mk'] = save_df.loc[multi_team, 'player_name'].apply(_ascii_key)
-        save_df.loc[multi_team, 'team'] = save_df.loc[multi_team, '_mk'].map(team_map)
-        if '_mk' in save_df.columns:
-            save_df = save_df.drop(columns=['_mk'])
+        for idx in save_df[still_multi].index:
+            gl_team = gl_map.get(save_df.at[idx, '_mk'])
+            if gl_team:
+                print(f"    {save_df.at[idx, 'player_name']}: {save_df.at[idx, 'team']} -> {gl_team} (game log fallback)")
+                save_df.at[idx, 'team'] = gl_team
 
-        resolved = save_df.loc[multi_team & save_df['team'].notna()]
-        if len(resolved):
-            print(f"  Resolved current team for {len(resolved)} traded players")
-            for _, row in resolved.iterrows():
-                print(f"    {row['player_name']} -> {row['team']}")
+    save_df = save_df.drop(columns=['_mk'])
+
+    remaining_multi = save_df['team'].isin(['2TM', '3TM', 'TOT']).sum()
+    print(f"  Team resolution: {updated_count} updated from depth charts, {remaining_multi} unresolved")
 
     save_df.to_sql('player_archetypes', conn, if_exists='replace', index=False)
 
