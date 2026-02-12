@@ -60,31 +60,49 @@
 })();
 </script>
 
-{% if contest %}
-<section class="house-lineup-section">
-    <h2>Today's Contest</h2>
-    <p class="subtitle" id="lineup-date"></p>
+{% if slate_games %}
+<section class="slate-section">
+    <h2>Today's Slate</h2>
+    <p class="subtitle" id="slate-date"></p>
     <script>
     (function(){
         const d = new Date();
         const opts = { year: 'numeric', month: 'long', day: '2-digit', timeZone: 'America/New_York' };
-        document.getElementById('lineup-date').textContent = d.toLocaleDateString('en-US', opts);
+        document.getElementById('slate-date').textContent = d.toLocaleDateString('en-US', opts);
     })();
     </script>
-    
-    {% if house_players %}
-    <div class="lineup-totals">
-        <span class="total-proj">House Projected: {{ "%.1f"|format(house_players|sum(attribute='proj_fp')) }} FP</span>
-        {% if contest.status == 'completed' %}
-        <span class="total-actual">House Actual: {{ "%.1f"|format(house_players|sum(attribute='actual_fp')) }} FP</span>
-        {% endif %}
+    <div class="slate-games">
+        {% for game in slate_games %}
+        <div class="slate-game">
+            <div class="slate-team away">
+                <img src="{{ game.away_logo }}" alt="{{ game.away }}" class="team-logo">
+                <span class="team-abbr">{{ game.away }}</span>
+            </div>
+            <div class="slate-vs">
+                <span class="at-symbol">@</span>
+            </div>
+            <div class="slate-team home">
+                <img src="{{ game.home_logo }}" alt="{{ game.home }}" class="team-logo">
+                <span class="team-abbr">{{ game.home }}</span>
+            </div>
+        </div>
+        {% endfor %}
     </div>
-    <p class="house-hint">Build your lineup and try to beat the house score!</p>
-    {% else %}
-    <p class="no-data">House lineup will be generated soon...</p>
-    {% endif %}
-    
-    {% if user and user_entry %}
+</section>
+{% elif no_games_today %}
+<section class="no-contest">
+    <h2>No Games Today</h2>
+    <p>The NBA schedule has no games today. Check back tomorrow!</p>
+</section>
+{% else %}
+<section class="no-contest">
+    <h2>Lineup Coming Soon</h2>
+    <p>Pirtdica is analyzing today's matchups. Check back shortly!</p>
+</section>
+{% endif %}
+
+{% if user and user_entry %}
+<section class="house-lineup-section">
     <div class="your-entry">
         <h3>Your Entry</h3>
         <p>Projected: {{ "%.1f"|format(user_entry.proj_score) }} FP</p>
@@ -96,17 +114,6 @@
         {% endif %}
         <a href="/entry/{{ user_entry.id }}" class="btn btn-secondary">View Your Lineup</a>
     </div>
-    {% endif %}
-</section>
-{% else %}
-<section class="no-contest">
-    {% if no_games_today %}
-    <h2>No Games Today</h2>
-    <p>The NBA schedule has no games today. Check back tomorrow!</p>
-    {% else %}
-    <h2>Lineup Coming Soon</h2>
-    <p>Pirtdica is analyzing today's matchups. Check back shortly!</p>
-    {% endif %}
 </section>
 {% endif %}
 

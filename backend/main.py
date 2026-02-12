@@ -199,6 +199,56 @@ async def home(request: Request, db: Session = Depends(get_db)):
     except Exception as e:
         pass
     
+    slate_games = []
+    try:
+        import sqlite3 as sl3
+        conn_g = sl3.connect("dfs_nba.db")
+        cur_g = conn_g.cursor()
+        cur_g.execute("SELECT away_team, home_team, spread, total FROM game_odds")
+        for row in cur_g.fetchall():
+            slate_games.append({
+                "away": row[0], "home": row[1],
+                "spread": row[2], "total": row[3]
+            })
+        conn_g.close()
+    except:
+        pass
+
+    nba_team_ids = {
+        "ATL": 1, "BOS": 2, "BKN": 17, "CHA": 30, "CHI": 4,
+        "CLE": 5, "DAL": 6, "DEN": 7, "DET": 8, "GS": 9, "GSW": 9,
+        "HOU": 10, "IND": 11, "LAC": 12, "LAL": 13, "MEM": 29,
+        "MIA": 14, "MIL": 15, "MIN": 16, "NO": 3, "NOP": 3,
+        "NY": 18, "NYK": 18, "OKC": 25, "ORL": 19, "PHI": 20,
+        "PHX": 21, "POR": 22, "SA": 24, "SAS": 24, "SAC": 23,
+        "TOR": 28, "UTA": 26, "WAS": 27
+    }
+
+    team_names = {
+        "ATL": "Hawks", "BOS": "Celtics", "BKN": "Nets", "CHA": "Hornets",
+        "CHI": "Bulls", "CLE": "Cavaliers", "DAL": "Mavericks", "DEN": "Nuggets",
+        "DET": "Pistons", "GS": "Warriors", "GSW": "Warriors", "HOU": "Rockets",
+        "IND": "Pacers", "LAC": "Clippers", "LAL": "Lakers", "MEM": "Grizzlies",
+        "MIA": "Heat", "MIL": "Bucks", "MIN": "Timberwolves", "NO": "Pelicans",
+        "NOP": "Pelicans", "NY": "Knicks", "NYK": "Knicks", "OKC": "Thunder",
+        "ORL": "Magic", "PHI": "76ers", "PHX": "Suns", "POR": "Trail Blazers",
+        "SA": "Spurs", "SAS": "Spurs", "SAC": "Kings", "TOR": "Raptors",
+        "UTA": "Jazz", "WAS": "Wizards"
+    }
+
+    espn_abbr_map = {
+        "GS": "gs", "GSW": "gs", "NO": "no", "NOP": "no",
+        "NY": "ny", "NYK": "ny", "SA": "sa", "SAS": "sa",
+        "UTA": "utah", "PHX": "phx", "CHA": "cha",
+    }
+
+    for g in slate_games:
+        for side in ("away", "home"):
+            abbr = g[side]
+            espn_slug = espn_abbr_map.get(abbr, abbr.lower())
+            g[f"{side}_logo"] = f"https://a.espncdn.com/i/teamlogos/nba/500/{espn_slug}.png"
+            g[f"{side}_name"] = team_names.get(abbr, abbr)
+
     return templates.TemplateResponse("home.html", {
         "request": request,
         "user": user,
@@ -208,7 +258,8 @@ async def home(request: Request, db: Session = Depends(get_db)):
         "headshots": headshots,
         "no_games_today": no_games_today,
         "is_todays_contest": is_todays_contest,
-        "next_game_iso": next_game_iso
+        "next_game_iso": next_game_iso,
+        "slate_games": slate_games
     })
 
 @app.get("/register")

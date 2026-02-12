@@ -234,6 +234,101 @@ a:hover {
     flex-wrap: wrap;
 }
 
+.slate-section {
+    margin-bottom: 3rem;
+    text-align: center;
+}
+
+.slate-section h2 {
+    font-family: 'Marvel', sans-serif;
+    font-size: 1.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.25rem;
+}
+
+.slate-games {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0;
+    margin-top: 1.5rem;
+}
+
+.slate-game {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 auto;
+    min-width: 200px;
+    padding: 1.25rem 1rem;
+    border-right: 1px solid var(--border);
+}
+
+.slate-game:last-child {
+    border-right: none;
+}
+
+.slate-team {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.slate-team .team-logo {
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
+    filter: grayscale(100%);
+    opacity: 0.55;
+    transition: filter 0.2s, opacity 0.2s;
+}
+
+.slate-game:hover .team-logo {
+    filter: grayscale(0%);
+    opacity: 1;
+}
+
+.slate-team .team-abbr {
+    font-family: 'Marvel', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.slate-vs {
+    padding: 0 0.75rem;
+}
+
+.slate-vs .at-symbol {
+    font-family: 'Marvel', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    opacity: 0.4;
+}
+
+@media (max-width: 768px) {
+    .slate-games {
+        flex-direction: column;
+        align-items: center;
+    }
+    .slate-game {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding: 1rem;
+        width: 100%;
+        max-width: 280px;
+    }
+    .slate-game:last-child {
+        border-bottom: none;
+    }
+}
+
 .house-lineup-section {
     margin-bottom: 3rem;
 }
