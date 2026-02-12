@@ -44,8 +44,8 @@
     {% endif %}
     
     {% if h2h_stats and h2h_stats.total > 0 %}
-    <div class="h2h-stats-section" style="background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
-        <h2 style="font-family: 'Righteous', cursive; margin-bottom: 16px;">H2H Record</h2>
+    <div class="h2h-stats-section" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 24px; margin-bottom: 24px;">
+        <h2 style="font-family: 'Righteous', cursive; margin-bottom: 16px;">Coach vs Coach Record</h2>
         <div class="profile-stats-summary">
             <div class="stat">
                 <span class="value">{{ h2h_stats.total }}</span>
@@ -75,7 +75,7 @@
             </div>
         </div>
         {% if h2h_history %}
-        <h3 style="margin-top: 20px; margin-bottom: 12px; font-size: 0.95rem; color: #aaa;">Recent H2H Matches</h3>
+        <h3 style="margin-top: 20px; margin-bottom: 12px; font-size: 0.95rem; color: var(--text-muted);">Recent Coach vs Coach Matches</h3>
         <div class="table-scroll-wrapper">
         <table class="entries-table">
             <thead>

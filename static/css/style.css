@@ -214,10 +214,10 @@ a:hover {
 }
 
 .countdown-display {
-    font-family: 'Righteous', cursive;
-    font-size: 4rem;
-    font-weight: 800;
-    letter-spacing: 0.1em;
+    font-family: 'Marvel', sans-serif;
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
     color: var(--text);
     margin-bottom: 2rem;
 }
