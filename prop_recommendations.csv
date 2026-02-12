@@ -1,9 +1,8 @@
 player,team,opponent,salary,value,stat,player_avg,adjusted_avg,extra_fp,edge_pct,recommendation,book_line,book_over,book_under,vs_book_edge,archetype,dva_edge,dvp_edge,blend
-Cason Wallace,OKC,MIL,5200,4.13,STL,2.1,2.3,0.7,13.6,OVER,1.5,-146.0,110.0,55.4,3-and-D Wing,0.49,-0.1,43/56 DVP/DVA
-Cason Wallace,OKC,MIL,5200,4.13,AST,2.2,2.3,0.1,1.6,UNDER,4.5,114.0,-152.0,-49.2,3-and-D Wing,0.39,-0.31,43/56 DVP/DVA
-Aaron Wiggins,OKC,MIL,5600,5.72,PTS,10.7,10.6,-0.1,-0.6,UNDER,17.5,-108.0,-122.0,-39.6,3-and-D Wing (Role),-0.32,0.12,43/56 DVP/DVA
-Cason Wallace,OKC,MIL,5200,4.13,PTS,8.2,9.0,0.8,3.6,UNDER,12.5,-130.0,-102.0,-27.8,3-and-D Wing,1.74,-0.33,43/56 DVP/DVA
-Luguentz Dort,OKC,MIL,4100,5.09,PTS,8.7,8.3,-0.4,-1.7,UNDER,10.5,-118.0,-112.0,-20.8,3-and-D Wing (Role),-0.32,-0.47,43/56 DVP/DVA
-Chet Holmgren,OKC,MIL,7700,4.29,PTS,17.5,15.4,-2.1,-9.8,UNDER,18.5,-130.0,-102.0,-16.8,Stretch Big,-1.89,-2.37,43/56 DVP/DVA
-Jaylin Williams,OKC,MIL,4500,4.78,PTS,6.3,5.1,-1.2,-5.7,UNDER,,,,,3-and-D Wing (Role),-0.32,-2.37,43/56 DVP/DVA
-Jalen Williams,OKC,MIL,6800,5.67,BLK,0.3,0.2,-0.4,-14.9,UNDER,,,,,Scoring Wing,-0.14,-0.09,43/56 DVP/DVA
+Cason Wallace,OKC,MIL,5200,4.09,STL,2.1,2.3,0.7,13.6,OVER,1.5,-146.0,110.0,55.4,3-and-D Wing,0.49,-0.1,43/56 DVP/DVA
+Cason Wallace,OKC,MIL,5200,4.09,AST,2.2,2.3,0.1,1.6,UNDER,4.5,114.0,-152.0,-49.2,3-and-D Wing,0.39,-0.31,43/56 DVP/DVA
+Aaron Wiggins,OKC,MIL,5600,5.67,PTS,10.7,10.6,-0.1,-0.6,UNDER,17.5,-108.0,-122.0,-39.6,3-and-D Wing (Role),-0.32,0.12,43/56 DVP/DVA
+Cason Wallace,OKC,MIL,5200,4.09,PTS,8.2,9.0,0.8,3.6,UNDER,12.5,-130.0,-102.0,-27.8,3-and-D Wing,1.74,-0.33,43/56 DVP/DVA
+Luguentz Dort,OKC,MIL,4100,5.05,PTS,8.7,8.3,-0.4,-1.7,UNDER,10.5,-118.0,-112.0,-20.8,3-and-D Wing (Role),-0.32,-0.47,43/56 DVP/DVA
+Chet Holmgren,OKC,MIL,7700,4.26,PTS,17.5,15.4,-2.1,-9.8,UNDER,18.5,-130.0,-102.0,-16.8,Stretch Big,-1.89,-2.37,43/56 DVP/DVA
+Jaylin Williams,OKC,MIL,4500,4.74,PTS,6.3,5.1,-1.2,-5.7,UNDER,,,,,3-and-D Wing (Role),-0.32,-2.37,43/56 DVP/DVA

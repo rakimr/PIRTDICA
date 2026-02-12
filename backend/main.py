@@ -1270,6 +1270,49 @@ async def api_archetype_clusters():
     import sqlite3 as sqlite3_mod
     import numpy as np
     import pandas as pd
+    import unicodedata
+    import re as re_mod
+
+    _TEAM_MAP = {
+        'CHO': 'CHA', 'NOP': 'NO', 'BRK': 'BKN', 'PHO': 'PHX',
+        'SAS': 'SA', 'GOS': 'GS', 'NOR': 'NO',
+    }
+
+    def _ascii_key(name):
+        if not name or not isinstance(name, str):
+            return ""
+        fixed = name
+        for _ in range(2):
+            try:
+                fixed = fixed.encode('latin-1').decode('utf-8')
+            except (UnicodeDecodeError, UnicodeEncodeError):
+                break
+        _cyr = {'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh',
+                'з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o',
+                'п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'kh','ц':'ts',
+                'ч':'ch','ш':'sh','щ':'shch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'}
+        fixed = ''.join(_cyr.get(c, _cyr.get(c.lower(), c)) for c in fixed)
+        nfkd = unicodedata.normalize('NFKD', fixed)
+        ascii_name = ''.join(c for c in nfkd if not unicodedata.combining(c))
+        ascii_name = re_mod.sub(r'[^a-zA-Z\s]', '', ascii_name).lower().strip()
+        ascii_name = re_mod.sub(r'\s+', ' ', ascii_name)
+        for suffix in [' iv', ' iii', ' ii', ' jr', ' sr', ' v']:
+            if ascii_name.endswith(suffix):
+                ascii_name = ascii_name[:-len(suffix)].strip()
+                break
+        return ascii_name
+
+    def _clean_name(name):
+        if not name or not isinstance(name, str):
+            return name
+        fixed = name
+        for _ in range(2):
+            try:
+                fixed = fixed.encode('latin-1').decode('utf-8')
+            except (UnicodeDecodeError, UnicodeEncodeError):
+                break
+        return fixed
+
     try:
         sconn = sqlite3_mod.connect("dfs_nba.db")
 
@@ -1287,10 +1330,18 @@ async def api_archetype_clusters():
         """, sconn)
         sconn.close()
 
-        df = arch_df.merge(per100, on='player_name', how='left')
-        df = df.merge(positions, on='player_name', how='left')
-        df = df.merge(usage, on='player_name', how='left')
-        df = df.merge(game_logs, on='player_name', how='left')
+        for tbl in [arch_df, per100, positions, usage, game_logs]:
+            tbl['_mk'] = tbl['player_name'].apply(_ascii_key)
+
+        arch_df['player_name'] = arch_df['player_name'].apply(_clean_name)
+        arch_df['team'] = arch_df['team'].replace(_TEAM_MAP)
+        arch_df = arch_df[~arch_df['team'].isin(['2TM', '3TM'])]
+
+        df = arch_df.merge(per100.drop(columns=['player_name']), on='_mk', how='left')
+        df = df.merge(positions.drop(columns=['player_name']), on='_mk', how='left')
+        df = df.merge(usage.drop(columns=['player_name']), on='_mk', how='left')
+        df = df.merge(game_logs.drop(columns=['player_name']), on='_mk', how='left')
+        df = df.drop(columns=['_mk'])
         df = df.dropna(subset=['pts_per100'])
 
         df['usg_pct'] = df['usg_pct'].fillna(df['usg_pct'].median())
