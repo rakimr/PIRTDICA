@@ -30,7 +30,7 @@
             <div class="identity-section">
                 <h3>Avatars</h3>
                 <div class="items-grid">
-                    {% for item in pillar.items if item.category == 'avatar' %}
+                    {% for item in pillar.shop_items if item.category == 'avatar' %}
                     <div class="shop-item {% if item.id in owned_ids %}owned{% endif %}"
                          data-category="avatar"
                          data-name="{{ item.name }}"
@@ -70,7 +70,7 @@
             <div class="identity-section">
                 <h3>Themes</h3>
                 <div class="items-grid">
-                    {% for item in pillar.items if item.category == 'theme' %}
+                    {% for item in pillar.shop_items if item.category == 'theme' %}
                     <div class="shop-item {% if item.id in owned_ids %}owned{% endif %}"
                          data-category="theme"
                          data-name="{{ item.name }}"
@@ -108,7 +108,7 @@
             <div class="identity-section">
                 <h3>Badges</h3>
                 <div class="items-grid">
-                    {% for item in pillar.items if item.category == 'badge' %}
+                    {% for item in pillar.shop_items if item.category == 'badge' %}
                     <div class="shop-item {% if item.id in owned_ids %}owned{% endif %}"
                          data-category="badge"
                          data-name="{{ item.name }}"
