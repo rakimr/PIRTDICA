@@ -14,7 +14,7 @@ from pathlib import Path
 STAT_CATEGORIES = ['pts', 'reb', 'ast', 'stl', 'blk', '3pm']
 
 def load_data():
-    """Load player projections and DVP data."""
+    """Load player projections, DVP data, and DVA data."""
     players_df = pd.read_csv("dfs_players.csv")
     
     conn = sqlite3.connect("dfs_nba.db")
@@ -23,9 +23,13 @@ def load_data():
         SELECT player_name, team, pts_pg, reb_pg, ast_pg, stl_pg, blk_pg 
         FROM player_stats
     """, conn)
+    try:
+        dva_df = pd.read_sql_query("SELECT * FROM dva_stats", conn)
+    except Exception:
+        dva_df = pd.DataFrame()
     conn.close()
     
-    return players_df, dvp_df, stats_df
+    return players_df, dvp_df, stats_df, dva_df
 
 def calculate_value_metrics(players_df):
     """Calculate player value metrics."""
@@ -543,8 +547,19 @@ def _american_to_implied_prob(odds):
     else:
         return abs(odds) / (abs(odds) + 100.0)
 
-def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n=50):
-    """Generate prop bet recommendations based on player averages + DVP matchups + book lines."""
+def _get_season_pct():
+    """Calculate how far into the NBA season we are (0.0 to 1.0)."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    now = datetime.now(ZoneInfo("America/New_York"))
+    season_start = datetime(now.year if now.month >= 10 else now.year - 1, 10, 22, tzinfo=ZoneInfo("America/New_York"))
+    season_end = datetime(now.year if now.month <= 6 else now.year + 1, 4, 13, tzinfo=ZoneInfo("America/New_York"))
+    elapsed = (now - season_start).days
+    total = (season_end - season_start).days
+    return max(0.0, min(1.0, elapsed / total))
+
+def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_value=4.0, top_n=50):
+    """Generate prop bet recommendations based on player averages + blended DVP/DVA matchups + book lines."""
     import unicodedata, re
 
     valued_df = calculate_value_metrics(players_df)
@@ -567,16 +582,32 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n
         'blk': ('blk_pg', 'BLK', 3.0, 0.5, 1.2)
     }
 
+    dva_stat_map = {
+        'pts': 'pts_pm_diff',
+        'reb': 'reb_pm_diff',
+        'ast': 'ast_pm_diff',
+        'stl': 'stl_pm_diff',
+        'blk': 'blk_pm_diff',
+    }
+
+    has_dva = dva_df is not None and len(dva_df) > 0
+    season_pct = _get_season_pct()
+    dvp_blend = 0.70 - (0.40 * season_pct)
+    dva_blend = 1.0 - dvp_blend
+    blend_label = f"{int(dvp_blend*100)}/{int(dva_blend*100)} DVP/DVA"
+
     book_props = _load_book_props()
     has_book = len(book_props) > 0
     
     props = []
+    dva_hits = 0
     
     for _, player in high_value.iterrows():
         player_name = player['player_name']
         opponent = player.get('opponent')
         position = player.get('true_position')
         team = player['team']
+        archetype = player.get('archetype')
         
         if pd.isna(opponent) or pd.isna(position):
             continue
@@ -592,6 +623,12 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n
             continue
         opp_dvp = opp_dvp.iloc[0]
 
+        opp_dva = None
+        if has_dva and archetype and not pd.isna(archetype):
+            dva_match = dva_df[(dva_df['opp_team'] == opponent) & (dva_df['archetype'] == archetype)]
+            if len(dva_match) > 0:
+                opp_dva = dva_match.iloc[0]
+
         player_norm = _normalize_prop_name(player_name)
         
         for stat_key, (col, label, fp_mult, min_under, min_over) in stat_config.items():
@@ -605,7 +642,27 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n
                 continue
             
             league_avg = all_pos_dvp[stat_key].mean()
-            diff_stat = opp_allows - league_avg
+            dvp_diff = opp_allows - league_avg
+
+            dva_diff = 0.0
+            dva_source = None
+            if opp_dva is not None:
+                dva_col = dva_stat_map.get(stat_key)
+                if dva_col and dva_col in opp_dva.index:
+                    raw_pm_diff = opp_dva[dva_col]
+                    if pd.notna(raw_pm_diff):
+                        proj_min = player.get('proj_min', 30)
+                        if pd.isna(proj_min) or proj_min <= 0:
+                            proj_min = 30
+                        dva_diff = raw_pm_diff * proj_min
+                        dva_source = archetype
+
+            if opp_dva is not None and dva_source:
+                diff_stat = (dvp_diff * dvp_blend) + (dva_diff * dva_blend)
+                dva_hits += 1
+            else:
+                diff_stat = dvp_diff
+
             diff_fp = diff_stat * fp_mult
 
             book_key = (player_norm, label)
@@ -638,7 +695,7 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n
                     should_include = True
 
             if should_include:
-                props.append({
+                prop_entry = {
                     'player': player_name,
                     'team': team,
                     'opponent': opponent,
@@ -654,7 +711,15 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, min_value=4.0, top_n
                     'book_over': book_over,
                     'book_under': book_under,
                     'vs_book_edge': edge,
-                })
+                    'archetype': dva_source if dva_source else '',
+                    'dva_edge': round(dva_diff, 2) if dva_source else None,
+                    'dvp_edge': round(dvp_diff, 2),
+                    'blend': blend_label if dva_source else 'DVP only',
+                }
+                props.append(prop_entry)
+    
+    if has_dva:
+        print(f"  DVA Integration: {dva_hits} prop edges enhanced with archetype matchups ({blend_label}, season {season_pct*100:.0f}%)")
     
     props_df = pd.DataFrame(props)
     if len(props_df) > 0:
@@ -777,9 +842,11 @@ def get_targeted_plays(players_df, stats_df, dvp_df):
 def run_analysis():
     """Run full analysis and generate all outputs."""
     print("Loading data...")
-    players_df, dvp_df, per100_df = load_data()
+    players_df, dvp_df, per100_df, dva_df = load_data()
     
     print(f"Loaded {len(players_df)} players")
+    if len(dva_df) > 0:
+        print(f"Loaded {len(dva_df)} DVA matchup records ({dva_df['archetype'].nunique()} archetypes)")
     
     print("Calculating value metrics...")
     valued_df = calculate_value_metrics(players_df)
@@ -795,11 +862,11 @@ def run_analysis():
     top_upside = valued_df.nlargest(5, 'upside_ratio')[['player_name', 'salary', 'proj_fp', 'ceiling', 'upside_ratio']]
     print(top_upside.to_string(index=False))
     
-    print("\nGenerating prop recommendations...")
-    props_df = get_prop_recommendations(valued_df, dvp_df, per100_df)
+    print("\nGenerating prop recommendations (DVP + DVA blend)...")
+    props_df = get_prop_recommendations(valued_df, dvp_df, per100_df, dva_df=dva_df)
     
     if len(props_df) > 0:
-        print("\n=== PROP RECOMMENDATIONS (DVP EDGE) ===")
+        print("\n=== PROP RECOMMENDATIONS (DVP + DVA BLENDED) ===")
         print(props_df.head(15).to_string(index=False))
         props_df.to_csv("prop_recommendations.csv", index=False)
         print("\nSaved prop recommendations to prop_recommendations.csv")

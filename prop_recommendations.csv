@@ -1,47 +1,48 @@
-player,team,opponent,salary,value,stat,player_avg,adjusted_avg,extra_fp,edge_pct,recommendation,book_line,book_over,book_under,vs_book_edge
-Kam Jones,IND,BKN,3900,6.09,PTS,2.6,2.4,-0.2,-0.7,UNDER,11.5,-113.0,-113.0,-78.8
-Kam Jones,IND,BKN,3900,6.09,REB,1.0,1.1,0.1,0.9,UNDER,3.5,-102.0,-125.0,-69.8
-Paul Reed,DET,TOR,5100,10.17,PTS,5.9,4.0,-1.9,-8.8,UNDER,11.5,-122.0,-104.0,-65.2
-Kam Jones,IND,BKN,3900,6.09,AST,1.2,1.7,0.8,9.3,UNDER,4.5,-142.0,112.0,-62.1
-Paul Reed,DET,TOR,5100,10.17,REB,4.2,4.2,0.0,0.1,UNDER,9.5,100.0,-128.0,-55.6
-Luka Garza,BOS,CHI,4100,6.69,PTS,7.9,9.6,1.7,7.9,OVER,6.5,-106.0,-120.0,47.8
-Ben Sheppard,IND,BKN,3800,6.75,PTS,6.4,6.2,-0.2,-0.7,UNDER,10.5,102.0,-130.0,-40.5
-Jalen Suggs,ORL,MIL,7800,5.74,STL,1.9,2.1,0.6,9.6,OVER,1.5,-146.0,110.0,39.6
-Jay Huff,IND,BKN,5100,5.96,REB,3.8,3.5,-0.3,-1.9,UNDER,5.5,130.0,-166.0,-36.0
-Jay Huff,IND,BKN,5100,5.96,PTS,8.6,8.4,-0.2,-0.9,UNDER,12.5,-113.0,-113.0,-32.7
-Sandro Mamukelashvili,TOR,DET,5600,7.21,REB,5.0,3.8,-1.4,-8.2,UNDER,5.5,-150.0,118.0,-30.5
-Sandro Mamukelashvili,TOR,DET,5600,7.21,PTS,11.5,8.1,-3.4,-15.8,UNDER,11.5,-128.0,100.0,-29.5
-Caris LeVert,DET,TOR,3900,6.05,PTS,7.7,5.6,-2.1,-9.2,UNDER,7.5,-106.0,-120.0,-25.3
-Jaylon Tyson,CLE,WAS,5500,6.42,PTS,14.0,15.5,1.5,6.6,OVER,12.5,-125.0,-102.0,24.0
-Jalen Suggs,ORL,MIL,7800,5.74,PTS,14.0,16.6,2.6,10.7,OVER,13.5,-128.0,100.0,22.8
-Davion Mitchell,MIA,NO,5000,7.97,AST,7.1,7.9,1.2,9.9,OVER,6.5,-120.0,-106.0,21.9
-Anthony Black,ORL,MIL,7200,6.45,PTS,16.1,18.7,2.6,10.7,OVER,15.5,-128.0,100.0,20.5
-Zaccharie Risacher,ATL,CHA,4100,5.75,PTS,10.7,10.2,-0.5,-2.2,OVER,8.5,102.0,-130.0,20.0
-Donte DiVincenzo,MIN,POR,6000,5.81,PTS,13.0,13.4,0.4,1.9,OVER,11.5,-104.0,-122.0,16.9
-Tre Johnson,WAS,CLE,5200,6.06,PTS,12.9,12.2,-0.7,-2.8,UNDER,14.5,-113.0,-113.0,-15.6
-Tobias Harris,DET,TOR,5200,6.08,PTS,13.5,12.4,-1.1,-5.0,UNDER,14.5,-128.0,100.0,-14.8
-Landry Shamet,NY,PHI,3800,7.27,PTS,9.6,9.8,0.2,1.0,UNDER,11.5,-111.0,-115.0,-14.4
-Jalen Johnson,ATL,CHA,11400,5.92,AST,8.2,8.6,0.5,8.4,OVER,7.5,-113.0,-113.0,14.0
-Tyrese Maxey,PHI,NY,10000,5.84,PTS,28.8,26.4,-2.4,-10.1,UNDER,30.5,-122.0,-104.0,-13.5
-Kris Dunn,LAC,HOU,5100,6.17,PTS,7.8,6.7,-1.1,-4.7,UNDER,7.5,-108.0,-118.0,-11.0
-Kel'el Ware,MIA,NO,5400,6.41,REB,9.2,10.3,1.3,7.8,OVER,9.5,-140.0,112.0,8.6
-RJ Barrett,TOR,DET,6400,5.74,PTS,18.6,18.9,0.3,1.5,OVER,17.5,-120.0,-106.0,8.2
-Jalen Johnson,ATL,CHA,11400,5.92,PTS,23.4,24.2,0.8,3.3,OVER,22.5,-113.0,-113.0,7.4
-Bam Adebayo,MIA,NO,8400,6.18,REB,9.8,10.9,1.3,7.8,OVER,10.5,100.0,-128.0,4.0
-Bam Adebayo,MIA,NO,8400,6.18,PTS,18.3,20.9,2.6,12.1,OVER,20.5,-113.0,-113.0,2.0
-Kris Dunn,LAC,HOU,5100,6.17,REB,2.9,2.5,-0.5,-6.8,UNDER,2.5,-178.0,138.0,-0.5
-Sandro Mamukelashvili,TOR,DET,5600,7.21,AST,2.0,1.4,-0.9,-14.4,UNDER,,,,
-Landry Shamet,NY,PHI,3800,7.27,STL,0.5,0.2,-0.9,-17.8,UNDER,,,,
-Landry Shamet,NY,PHI,3800,7.27,BLK,0.2,0.1,-0.3,-17.6,UNDER,,,,
-Anthony Gill,WAS,CLE,4100,7.84,BLK,0.2,-0.0,-0.7,-19.1,UNDER,,,,
-Myron Gardner,MIA,NO,4000,13.07,STL,0.5,0.4,-0.3,-5.9,UNDER,,,,
-Quenton Jackson,IND,BKN,3900,11.32,BLK,0.2,0.1,-0.4,-24.1,UNDER,,,,
-Paul Reed,DET,TOR,5100,10.17,AST,1.2,0.2,-1.5,-24.5,UNDER,,,,
-Jabari Walker,PHI,NY,3500,6.9,PTS,3.7,3.0,-0.7,-3.2,UNDER,,,,
-Duncan Robinson,DET,TOR,4200,6.36,AST,1.9,1.6,-0.5,-7.5,UNDER,,,,
-Micah Potter,IND,BKN,3800,6.34,AST,1.5,1.1,-0.6,-9.4,UNDER,,,,
-Jabari Walker,PHI,NY,3500,6.9,STL,0.4,0.3,-0.3,-7.3,UNDER,,,,
-Jay Huff,IND,BKN,5100,5.96,AST,1.3,0.9,-0.6,-9.4,UNDER,,,,
-Tre Johnson,WAS,CLE,5200,6.06,BLK,0.3,0.2,-0.3,-17.6,UNDER,,,,
-Jalen Johnson,ATL,CHA,11400,5.92,BLK,0.5,0.4,-0.4,-11.1,UNDER,,,,
-Zaccharie Risacher,ATL,CHA,4100,5.75,AST,1.3,1.1,-0.3,-5.3,UNDER,,,,
+player,team,opponent,salary,value,stat,player_avg,adjusted_avg,extra_fp,edge_pct,recommendation,book_line,book_over,book_under,vs_book_edge,archetype,dva_edge,dvp_edge,blend
+Kam Jones,IND,BKN,3900,6.09,PTS,2.6,2.3,-0.3,-1.4,UNDER,11.5,-113.0,-113.0,-80.2,Combo Guard,-0.45,-0.16,44/55 DVP/DVA
+Kam Jones,IND,BKN,3900,6.09,REB,1.0,1.1,0.1,0.9,UNDER,3.5,-102.0,-125.0,-69.8,Combo Guard,0.06,0.06,44/55 DVP/DVA
+Kam Jones,IND,BKN,3900,6.09,AST,1.2,1.4,0.3,4.2,UNDER,4.5,-142.0,112.0,-68.3,Combo Guard,0.01,0.5,44/55 DVP/DVA
+Paul Reed,DET,TOR,5100,10.17,PTS,5.9,3.7,-2.2,-10.2,UNDER,11.5,-122.0,-104.0,-67.8,Traditional Big,-2.43,-1.89,44/55 DVP/DVA
+Luka Garza,BOS,CHI,4100,6.69,PTS,7.9,10.3,2.4,11.3,OVER,6.5,-106.0,-120.0,58.7,Stretch Big,2.98,1.71,44/55 DVP/DVA
+Paul Reed,DET,TOR,5100,10.17,REB,4.2,4.7,0.5,3.1,UNDER,9.5,100.0,-128.0,-51.0,Traditional Big,0.79,0.02,44/55 DVP/DVA
+Jay Huff,IND,BKN,5100,5.96,PTS,8.6,8.0,-0.6,-2.8,UNDER,12.5,-113.0,-113.0,-36.1,Stretch Big,-0.94,-0.19,44/55 DVP/DVA
+Ausar Thompson,DET,TOR,6500,6.05,STL,1.9,2.0,0.4,7.4,OVER,1.5,-130.0,-102.0,35.1,3-and-D Wing,0.15,0.1,44/55 DVP/DVA
+Jay Huff,IND,BKN,5100,5.96,REB,3.8,3.6,-0.2,-1.4,UNDER,5.5,130.0,-166.0,-34.5,Stretch Big,-0.13,-0.28,44/55 DVP/DVA
+Ben Sheppard,IND,BKN,3800,6.75,PTS,6.4,7.1,0.7,2.8,UNDER,10.5,102.0,-130.0,-32.8,Combo Guard (Role),1.29,-0.16,44/55 DVP/DVA
+Sandro Mamukelashvili,TOR,DET,5600,7.21,REB,5.0,3.8,-1.4,-8.2,UNDER,5.5,-150.0,118.0,-30.7,Stretch Big,-1.19,-1.18,44/55 DVP/DVA
+Sandro Mamukelashvili,TOR,DET,5600,7.21,PTS,11.5,8.3,-3.2,-14.8,UNDER,11.5,-128.0,100.0,-27.7,Stretch Big,-3.02,-3.39,44/55 DVP/DVA
+Davion Mitchell,MIA,NO,5000,7.97,AST,7.1,8.3,1.8,14.1,OVER,6.5,-120.0,-106.0,27.4,Playmaker,1.46,0.83,44/55 DVP/DVA
+Davion Mitchell,MIA,NO,5000,7.97,PTS,9.0,11.8,2.8,11.8,OVER,9.5,102.0,-130.0,24.5,Playmaker,4.52,0.68,44/55 DVP/DVA
+Jaylon Tyson,CLE,WAS,5500,6.42,PTS,14.0,15.4,1.4,6.3,OVER,12.5,-125.0,-102.0,23.5,3-and-D Wing (Role),1.4,1.5,44/55 DVP/DVA
+Zaccharie Risacher,ATL,CHA,4100,5.75,PTS,10.7,10.4,-0.3,-1.5,OVER,8.5,102.0,-130.0,21.8,3-and-D Wing (Role),-0.23,-0.5,44/55 DVP/DVA
+Donte DiVincenzo,MIN,POR,6000,5.81,PTS,13.0,13.9,0.9,4.0,OVER,11.5,-104.0,-122.0,21.2,Combo Guard (Role),1.33,0.44,44/55 DVP/DVA
+Landry Shamet,NY,PHI,3800,7.27,PTS,9.6,9.3,-0.3,-1.1,UNDER,11.5,-111.0,-115.0,-18.8,Combo Guard (Role),-0.66,0.24,44/55 DVP/DVA
+Jalen Suggs,ORL,MIL,7800,5.74,PTS,14.0,15.8,1.8,7.7,OVER,13.5,-128.0,100.0,17.3,Combo Guard,1.26,2.58,44/55 DVP/DVA
+Clint Capela,HOU,LAC,3900,5.78,PTS,3.7,2.9,-0.8,-3.6,UNDER,3.5,-128.0,100.0,-16.6,Traditional Big,-1.16,-0.29,44/55 DVP/DVA
+VJ Edgecombe,PHI,NY,6500,6.24,PTS,14.9,14.6,-0.3,-1.1,UNDER,17.5,-104.0,-122.0,-16.4,3-and-D Wing,-1.37,1.14,44/55 DVP/DVA
+Jalen Johnson,ATL,CHA,11400,5.92,PTS,23.4,26.2,2.8,12.0,OVER,22.5,-113.0,-113.0,16.2,Scoring Wing,4.32,0.76,44/55 DVP/DVA
+Anthony Black,ORL,MIL,7200,6.45,PTS,16.1,17.9,1.8,7.7,OVER,15.5,-128.0,100.0,15.8,Combo Guard,1.26,2.58,44/55 DVP/DVA
+Jalen Johnson,ATL,CHA,11400,5.92,AST,8.2,8.5,0.4,6.7,OVER,7.5,-113.0,-113.0,13.1,Scoring Wing,0.22,0.35,44/55 DVP/DVA
+Tyrese Maxey,PHI,NY,10000,5.84,PTS,28.8,26.8,-2.0,-8.3,UNDER,30.5,-122.0,-104.0,-12.1,Combo Guard,-1.67,-2.42,44/55 DVP/DVA
+Kris Dunn,LAC,HOU,5100,6.17,STL,1.5,1.7,0.5,8.7,OVER,1.5,-114.0,-114.0,11.7,3-and-D Wing,0.48,-0.21,44/55 DVP/DVA
+RJ Barrett,TOR,DET,6400,5.74,PTS,18.6,19.4,0.8,3.6,OVER,17.5,-120.0,-106.0,11.1,Scoring Wing,1.24,0.34,44/55 DVP/DVA
+Tre Johnson,WAS,CLE,5200,6.06,PTS,12.9,12.9,0.0,0.0,UNDER,14.5,-113.0,-113.0,-11.0,Combo Guard (Role),0.54,-0.66,44/55 DVP/DVA
+Kel'el Ware,MIA,NO,5400,6.41,REB,9.2,10.3,1.3,7.5,OVER,9.5,-140.0,112.0,8.1,Stretch Big,1.03,1.12,44/55 DVP/DVA
+Caris LeVert,DET,TOR,3900,6.05,PTS,7.7,6.9,-0.8,-3.5,UNDER,7.5,-106.0,-120.0,-7.9,3-and-D Wing,0.24,-2.1,44/55 DVP/DVA
+Kris Dunn,LAC,HOU,5100,6.17,PTS,7.8,7.0,-0.8,-3.2,UNDER,7.5,-108.0,-118.0,-6.3,3-and-D Wing,-0.5,-1.12,44/55 DVP/DVA
+Bam Adebayo,MIA,NO,8400,6.18,REB,9.8,10.9,1.3,7.5,OVER,10.5,100.0,-128.0,3.5,Stretch Big,1.03,1.12,44/55 DVP/DVA
+Bam Adebayo,MIA,NO,8400,6.18,PTS,18.3,20.7,2.4,11.1,OVER,20.5,-113.0,-113.0,0.9,Stretch Big,2.21,2.61,44/55 DVP/DVA
+Sandro Mamukelashvili,TOR,DET,5600,7.21,AST,2.0,1.6,-0.5,-9.1,UNDER,,,,,Stretch Big,-0.2,-0.57,44/55 DVP/DVA
+Landry Shamet,NY,PHI,3800,7.27,STL,0.5,0.3,-0.7,-12.7,UNDER,,,,,Combo Guard (Role),-0.15,-0.3,44/55 DVP/DVA
+Anthony Gill,WAS,CLE,4100,7.84,BLK,0.2,0.0,-0.5,-12.6,UNDER,,,,,Athletic Wing,-0.09,-0.24,44/55 DVP/DVA
+Myron Gardner,MIA,NO,4000,13.07,STL,0.5,0.4,-0.4,-7.1,UNDER,,,,,Athletic Wing,-0.14,-0.1,44/55 DVP/DVA
+Paul Reed,DET,TOR,5100,10.17,AST,1.2,0.4,-1.2,-19.4,UNDER,,,,,Traditional Big,-0.61,-0.97,44/55 DVP/DVA
+Anthony Gill,WAS,CLE,4100,7.84,PTS,2.3,2.0,-0.3,-1.5,UNDER,,,,,Athletic Wing,-0.8,0.26,44/55 DVP/DVA
+Jabari Walker,PHI,NY,3500,6.9,AST,0.5,0.2,-0.5,-7.9,UNDER,,,,,Athletic Wing,-0.47,-0.15,44/55 DVP/DVA
+Jabari Walker,PHI,NY,3500,6.9,PTS,3.7,2.4,-1.3,-5.5,UNDER,,,,,Athletic Wing,-1.66,-0.74,44/55 DVP/DVA
+Micah Potter,IND,BKN,3800,6.34,PTS,7.0,6.4,-0.6,-2.8,UNDER,,,,,Stretch Big,-0.94,-0.19,44/55 DVP/DVA
+Jabari Walker,PHI,NY,3500,6.9,STL,0.4,0.3,-0.4,-9.7,UNDER,,,,,Athletic Wing,-0.18,-0.11,44/55 DVP/DVA
+Duncan Robinson,DET,TOR,4200,6.36,AST,1.9,1.7,-0.3,-5.0,UNDER,,,,,3-and-D Wing (Role),-0.13,-0.33,44/55 DVP/DVA
+Caris LeVert,DET,TOR,3900,6.05,REB,1.8,0.9,-1.1,-11.4,UNDER,,,,,3-and-D Wing,-1.44,-0.2,44/55 DVP/DVA
+Tre Johnson,WAS,CLE,5200,6.06,REB,2.7,2.3,-0.4,-5.5,UNDER,,,,,Combo Guard (Role),-0.55,-0.14,44/55 DVP/DVA
+Tre Johnson,WAS,CLE,5200,6.06,BLK,0.3,0.2,-0.4,-24.4,UNDER,,,,,Combo Guard (Role),-0.18,-0.11,44/55 DVP/DVA
