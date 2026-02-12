@@ -208,21 +208,33 @@ function playCoinSound() {
     const ctx = _coinAudioCtx;
     const now = ctx.currentTime;
     const master = ctx.createGain();
-    master.gain.setValueAtTime(0.18, now);
+    master.gain.setValueAtTime(0.25, now);
     master.connect(ctx.destination);
-    [0, 0.04, 0.09].forEach((offset, i) => {
-        const osc = ctx.createOscillator();
-        const g = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime([2400, 3200, 2800][i], now + offset);
-        osc.frequency.exponentialRampToValueAtTime([1800, 2400, 2000][i], now + offset + 0.08);
-        g.gain.setValueAtTime(0.3 - i * 0.08, now + offset);
-        g.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.12);
-        osc.connect(g);
-        g.connect(master);
-        osc.start(now + offset);
-        osc.stop(now + offset + 0.13);
-    });
+    function coinHit(t, vol) {
+        const dur = 0.15;
+        const buf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < data.length; i++) {
+            const env = Math.exp(-i / (ctx.sampleRate * 0.025));
+            const f1 = Math.sin(2 * Math.PI * 800 * i / ctx.sampleRate);
+            const f2 = Math.sin(2 * Math.PI * 1200 * i / ctx.sampleRate) * 0.6;
+            const f3 = Math.sin(2 * Math.PI * 1600 * i / ctx.sampleRate) * 0.3;
+            const noise = (Math.random() * 2 - 1) * 0.15;
+            data[i] = env * (f1 + f2 + f3 + noise) * vol;
+        }
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        const hp = ctx.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.value = 400;
+        src.connect(hp);
+        hp.connect(master);
+        src.start(t);
+    }
+    coinHit(now, 0.7);
+    coinHit(now + 0.06, 0.5);
+    coinHit(now + 0.13, 0.3);
+    coinHit(now + 0.2, 0.15);
 }
 
 function addPlayerToNextSlot(btn) {
