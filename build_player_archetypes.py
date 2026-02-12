@@ -290,6 +290,36 @@ def save_archetypes(df):
     save_df = df[['player_name', 'team', 'true_position', 'archetype', 'cluster']].copy()
     save_df['computed_at'] = now
 
+    multi_team = save_df['team'].isin(['2TM', '3TM', 'TOT'])
+    if multi_team.any():
+        game_logs = pd.read_sql_query("""
+            SELECT player_name, matchup, game_date
+            FROM player_game_logs
+            ORDER BY game_date DESC
+        """, conn)
+        game_logs['_mk'] = game_logs['player_name'].apply(_ascii_key)
+        latest = game_logs.drop_duplicates(subset='_mk', keep='first')
+
+        def extract_team(matchup):
+            if not matchup or not isinstance(matchup, str):
+                return None
+            parts = matchup.replace('@', 'vs.').split('vs.')
+            return parts[0].strip() if len(parts) >= 2 else None
+
+        latest['current_team'] = latest['matchup'].apply(extract_team)
+        team_map = dict(zip(latest['_mk'], latest['current_team']))
+
+        save_df.loc[multi_team, '_mk'] = save_df.loc[multi_team, 'player_name'].apply(_ascii_key)
+        save_df.loc[multi_team, 'team'] = save_df.loc[multi_team, '_mk'].map(team_map)
+        if '_mk' in save_df.columns:
+            save_df = save_df.drop(columns=['_mk'])
+
+        resolved = save_df.loc[multi_team & save_df['team'].notna()]
+        if len(resolved):
+            print(f"  Resolved current team for {len(resolved)} traded players")
+            for _, row in resolved.iterrows():
+                print(f"    {row['player_name']} -> {row['team']}")
+
     save_df.to_sql('player_archetypes', conn, if_exists='replace', index=False)
 
     print(f"\nSaved {len(save_df)} archetypes to player_archetypes table")
