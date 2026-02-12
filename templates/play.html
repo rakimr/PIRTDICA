@@ -214,49 +214,11 @@ function findBestSlot(playerPos) {
     return primary || eligible[0];
 }
 
-const _coinAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+const _coinSound = new Audio('/static/sounds/coin-clink.mp3');
+_coinSound.volume = 0.5;
 function playCoinSound() {
-    const ctx = _coinAudioCtx;
-    const now = ctx.currentTime;
-    const master = ctx.createGain();
-    master.gain.value = 0.35;
-    master.connect(ctx.destination);
-    const hits = [
-        {t: 0,    vol: 1.0,  freqs: [3800, 5700, 7600], decay: 0.012},
-        {t: 0.035, vol: 0.7, freqs: [4100, 6200, 8100], decay: 0.010},
-        {t: 0.07, vol: 0.5,  freqs: [3600, 5400, 7200], decay: 0.009},
-        {t: 0.11, vol: 0.35, freqs: [4300, 6500, 8500], decay: 0.008},
-        {t: 0.14, vol: 0.2,  freqs: [3900, 5900, 7800], decay: 0.007},
-    ];
-    hits.forEach(h => {
-        const dur = 0.1;
-        const buf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
-        const d = buf.getChannelData(0);
-        for (let i = 0; i < d.length; i++) {
-            const s = i / ctx.sampleRate;
-            const env = Math.exp(-s / h.decay);
-            let val = 0;
-            h.freqs.forEach((f, fi) => {
-                val += Math.sin(2 * Math.PI * f * s) * (1.0 - fi * 0.3);
-            });
-            val += (Math.random() * 2 - 1) * 0.3 * Math.exp(-s / 0.003);
-            d[i] = env * val * h.vol * 0.25;
-        }
-        const src = ctx.createBufferSource();
-        src.buffer = buf;
-        const hp = ctx.createBiquadFilter();
-        hp.type = 'highpass';
-        hp.frequency.value = 2000;
-        const peak = ctx.createBiquadFilter();
-        peak.type = 'peaking';
-        peak.frequency.value = 5000;
-        peak.gain.value = 6;
-        peak.Q.value = 1.5;
-        src.connect(hp);
-        hp.connect(peak);
-        peak.connect(master);
-        src.start(now + h.t);
-    });
+    _coinSound.currentTime = 0;
+    _coinSound.play().catch(() => {});
 }
 
 function addPlayerToNextSlot(btn) {
