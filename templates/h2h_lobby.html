@@ -35,6 +35,8 @@
 .result-tie { color: #6b7280; font-weight: 700; }
 .empty-state { color: #6b7280; font-style: italic; padding: 1rem 0; }
 .score-display { font-size: 0.9rem; color: #6b7280; }
+.h2h-error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 0.75rem 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; font-weight: 600; font-size: 0.95rem; }
+select option:disabled { color: #9ca3af; }
 </style>
 
 <div class="h2h-page">
@@ -43,21 +45,21 @@
         <p>Challenge other coaches head-to-head. Build your best lineup and put your coins on the line.</p>
     </div>
 
+    {% if error %}
+    <div class="h2h-error">{{ error }}</div>
+    {% endif %}
+
     {% if contest %}
     <div class="h2h-section">
         <h2>Create Challenge</h2>
-        <form class="create-form" method="POST" action="/h2h/create">
+        <form class="create-form" method="POST" action="/h2h/create" id="createChallengeForm">
             <label for="wager">Wager:</label>
             <select name="wager" id="wager">
-                <option value="5">5 coins</option>
-                <option value="10" selected>10 coins</option>
-                <option value="25">25 coins</option>
-                <option value="50">50 coins</option>
-                <option value="100">100 coins</option>
-                <option value="250">250 coins</option>
-                <option value="500">500 coins</option>
+                {% for val in [5, 10, 25, 50, 100, 250, 500] %}
+                <option value="{{ val }}" {{ 'disabled' if val > user.coins else '' }} {{ 'selected' if val == 10 and user.coins >= 10 else '' }}>{{ val }} coins{{ ' (insufficient)' if val > user.coins else '' }}</option>
+                {% endfor %}
             </select>
-            <button type="submit" class="btn btn-primary">Create Challenge</button>
+            <button type="submit" class="btn btn-primary" id="createBtn">Create Challenge</button>
             <span class="coin-balance">Balance: {{ user.coins }} coins</span>
         </form>
     </div>
@@ -167,4 +169,31 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+const userCoins = {{ user.coins }};
+const form = document.getElementById('createChallengeForm');
+if (form) {
+    form.addEventListener('submit', function(e) {
+        const wager = parseInt(document.getElementById('wager').value);
+        if (wager > userCoins) {
+            e.preventDefault();
+            alert('Not enough coins. You have ' + userCoins + ' coins but tried to wager ' + wager + '.');
+        }
+    });
+}
+document.querySelectorAll('form[action^="/h2h/accept/"]').forEach(function(f) {
+    f.addEventListener('submit', function(e) {
+        const card = f.closest('.challenge-card');
+        const wagerText = card ? card.querySelector('.challenge-wager') : null;
+        if (wagerText) {
+            const wager = parseInt(wagerText.textContent);
+            if (wager > userCoins) {
+                e.preventDefault();
+                alert('Not enough coins. You have ' + userCoins + ' coins but need ' + wager + ' to accept.');
+            }
+        }
+    });
+});
+</script>
 {% endblock %}

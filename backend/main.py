@@ -1516,6 +1516,8 @@ async def h2h_lobby(request: Request, db: Session = Depends(get_db)):
         (models.H2HChallenge.challenger_id == user.id) | (models.H2HChallenge.opponent_id == user.id)
     ).order_by(desc(models.H2HChallenge.created_at)).limit(20).all()
 
+    error_msg = request.query_params.get("error", "")
+
     return templates.TemplateResponse("h2h_lobby.html", {
         "request": request,
         "user": user,
@@ -1523,6 +1525,7 @@ async def h2h_lobby(request: Request, db: Session = Depends(get_db)):
         "open_challenges": open_challenges,
         "active_challenges": active_challenges,
         "history_challenges": history_challenges,
+        "error": error_msg,
     })
 
 @app.post("/h2h/create")
@@ -1537,10 +1540,10 @@ async def h2h_create(request: Request, wager: int = Form(...), db: Session = Dep
         raise HTTPException(status_code=400, detail="No active contest today")
 
     if wager < 5 or wager > 500:
-        raise HTTPException(status_code=400, detail="Wager must be between 5 and 500 coins")
+        return RedirectResponse(url="/h2h?error=Wager+must+be+between+5+and+500+coins", status_code=303)
 
     if user.coins < wager:
-        raise HTTPException(status_code=400, detail="Not enough coins")
+        return RedirectResponse(url=f"/h2h?error=Not+enough+coins.+You+have+{user.coins}+coins+but+tried+to+wager+{wager}.", status_code=303)
 
     user.coins -= wager
     db.add(models.CurrencyTransaction(
@@ -1571,11 +1574,11 @@ async def h2h_accept(request: Request, challenge_id: int, db: Session = Depends(
     if not challenge:
         raise HTTPException(status_code=404, detail="Challenge not found")
     if challenge.status != "open":
-        raise HTTPException(status_code=400, detail="Challenge is no longer open")
+        return RedirectResponse(url="/h2h?error=Challenge+is+no+longer+open", status_code=303)
     if challenge.challenger_id == user.id:
-        raise HTTPException(status_code=400, detail="Cannot accept your own challenge")
+        return RedirectResponse(url="/h2h?error=Cannot+accept+your+own+challenge", status_code=303)
     if user.coins < challenge.wager:
-        raise HTTPException(status_code=400, detail="Not enough coins")
+        return RedirectResponse(url=f"/h2h?error=Not+enough+coins.+You+have+{user.coins}+coins+but+need+{challenge.wager}+to+accept.", status_code=303)
 
     user.coins -= challenge.wager
     db.add(models.CurrencyTransaction(
