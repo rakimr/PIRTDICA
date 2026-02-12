@@ -126,9 +126,11 @@ class ShopItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     description = Column(Text)
+    pillar = Column(String(50), nullable=False, default="identity")
     category = Column(String(50), nullable=False)
     price = Column(Integer, nullable=False)
     item_data = Column(Text)
+    rarity = Column(String(20), default="common")
     is_active = Column(Boolean, default=True)
 
 class UserItem(Base):

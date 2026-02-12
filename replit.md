@@ -42,6 +42,46 @@ The system employs an ETL (Extract-Transform-Load) pattern using a SQLite databa
 -   **Contest History Page:** Displays past contest entries, win/loss records, and earnings.
 -   **Admin Control Panel:** Web-based interface for data refresh and injury overrides.
 
+### Play-to-Earn (P2E) Coin Economy
+The platform uses a layered coin spending system organized into **4 pillars** to drive long-term retention without compromising competitive integrity:
+
+1.  **Identity** — Profile customization and personalization
+    - Avatars (archetype-themed, animated, glitch rare, seasonal, H2H streak frames)
+    - Themes (team-colored, dark mode, neon esports, minimal pro, champion milestone)
+    - Badges (stackable, visible status markers — win streaks, Giant Killer, 6x King, Archetype Specialist, Sharp Modeler)
+    - Rarity tiers for all cosmetic items
+
+2.  **Prestige** — Competitive ranking and progression
+    - ELO title ranks
+    - Ranked ladder entry fees
+    - High-stakes H2H rooms
+    - Elite-only contests
+    - Seasonal Battle Pass (tier progression, exclusive cosmetics, profile flairs, advanced stats access)
+
+3.  **Access** — Strategic unlocks (non-pay-to-win, tools not boosts)
+    - Advanced matchup visualizations
+    - Archetype heatmaps
+    - Opponent scouting reports
+    - Historical matchup explorer
+    - Ceiling probability charts
+
+4.  **Analytics** — Lineup customization features
+    - Custom lineup naming
+    - Save lineup templates
+    - Advanced optimizer presets
+    - Custom projection weight uploads
+    - Custom DVS weighting sliders (ties into DVA/DVS engine)
+
+**Design rules:** Coins NEVER increase projections, salary cap, optimizer iterations, or allow lineup edits after lock. Competitive integrity is paramount.
+
+**Future monetization path:** Free players earn coins slowly; power users can eventually buy cosmetic packs, season passes, and coin bundles.
+
+**Archetype-Based Progression:** Users earn XP per archetype track (e.g., Stretch Big Level 1→4 unlocking badge → frame → animated emblem → title). Archetypes become identity.
+
+**Social & Flex Economy:** Chat emojis, custom reactions, challenge animations, victory/defeat screens.
+
+**Scarcity & Limited Drops:** Playoff edition themes, All-Star badges, Rookie class editions — seasonal scarcity drives value perception.
+
 ## External Dependencies
 
 ### Web Scraping Targets

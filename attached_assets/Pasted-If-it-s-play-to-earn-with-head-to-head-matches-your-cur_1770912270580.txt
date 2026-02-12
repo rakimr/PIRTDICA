@@ -1,0 +1,228 @@
+If it’s play-to-earn with head-to-head matches, your currency needs to do one thing:
+
+👉 Increase status
+👉 Increase personalization
+👉 Increase competitive edge (carefully)
+👉 Increase progression
+
+If coins only buy cosmetics, engagement dies.
+If coins buy performance advantage, integrity dies.
+
+So you need layered spending categories.
+
+🔥 1️⃣ Profile Identity (Go WAY Deeper)
+
+Instead of 3 per reward, create tiers and rarity levels.
+
+Avatars
+
+Archetype-themed avatars (Stretch Big badge art, Combo Guard Elite crown)
+
+Animated avatars
+
+“Glitch” rare avatars
+
+Limited-time seasonal avatars
+
+H2H win streak avatar frames
+
+Themes
+
+Team-colored themes
+
+Dark mode variants
+
+Neon esports themes
+
+Minimal pro themes
+
+“Champion” theme unlocked at rank milestones
+
+Badges
+
+10-Game Win Streak
+
+Giant Killer (beat higher ranked opponent)
+
+6x King (hit 6x value 20 times)
+
+Archetype Specialist (won 10 matches using Stretch Big core)
+
+Sharp Modeler (positive ROI 30 days)
+
+Make badges stackable and visible.
+
+Status = engagement.
+
+🏆 2️⃣ Competitive Prestige Systems
+
+This is where it gets addictive.
+
+ELO Title Ranks
+
+Spend coins to:
+
+Enter ranked ladders
+
+Enter high-stakes H2H rooms
+
+Unlock “Elite Only” contests
+
+Seasonal Battle Pass
+
+Coins unlock:
+
+Tier progression
+
+Exclusive cosmetics
+
+Profile flairs
+
+Advanced stats access
+
+🧠 3️⃣ Strategic Unlocks (Non-Pay-To-Win)
+
+Careful here — no raw projection boosts.
+
+Instead:
+
+Analytics Unlocks
+
+Advanced matchup visualizations
+
+Archetype heatmaps
+
+Opponent scouting reports
+
+Historical matchup explorer
+
+Ceiling probability charts
+
+Coins unlock tools, not projection boosts.
+
+That keeps competitive integrity intact.
+
+🎯 4️⃣ Lineup Customization Features
+
+Custom lineup naming
+
+Save lineup templates
+
+Advanced optimizer presets
+
+Upload your own projection weights
+
+Custom DVS weighting sliders
+
+This aligns perfectly with your DVA/DVS engine.
+
+🏟 5️⃣ Arena / Match Customization
+
+Let users spend coins to:
+
+Create private H2H arenas
+
+Set custom rules (salary cap variation, archetype-only builds)
+
+Host tournaments
+
+Boost prize pools
+
+Sponsor matches (their username displayed)
+
+Now it becomes social.
+
+🧬 6️⃣ Archetype-Based Progression
+
+This ties into your clustering model beautifully.
+
+Let users earn XP per archetype.
+
+Stretch Big XP Track:
+
+Level 1: Stretch Big badge
+
+Level 2: Stretch Big profile frame
+
+Level 3: Stretch Big animated emblem
+
+Level 4: “Stretch Architect” title
+
+Now archetypes become identity.
+
+This is incredibly sticky.
+
+💎 7️⃣ Limited Drops & Scarcity
+
+Seasonal:
+
+Playoff edition themes
+
+All-Star edition badges
+
+Rookie class editions
+
+Scarcity drives value perception.
+
+🧩 8️⃣ Social & Flex Economy
+
+Chat emojis
+
+Custom reactions
+
+“Challenge” animations when entering H2H
+
+Victory screens
+
+Defeat animations
+
+Let players flex.
+
+🚨 What NOT To Do
+
+Do NOT:
+
+Let coins increase projections
+
+Let coins increase salary cap
+
+Let coins increase optimizer iterations
+
+Let coins buy lineup edits after lock
+
+That destroys competitive legitimacy.
+
+The Best Structure IMO
+
+Break coin spending into 4 pillars:
+
+Identity
+
+Prestige
+
+Access
+
+Analytics
+
+That creates long-term retention.
+
+The Real Monetization Opportunity
+
+Eventually:
+
+Free players earn coins slowly.
+Power users:
+
+Buy cosmetic packs
+
+Buy season passes
+
+Buy coin bundles
+
+But even if monetization is later — build the economy structure now.
+
+You’re building something that could feel like:
+
+Chess.com meets DFS meets esports ladder.
+
+That’s powerful.

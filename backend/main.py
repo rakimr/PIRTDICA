@@ -583,11 +583,24 @@ async def shop(request: Request, db: Session = Depends(get_db)):
     ).all()
     owned_ids = [i[0] for i in owned_items]
     
+    pillars = {
+        "identity": {"label": "Identity", "description": "Customize your Coach profile — avatars, themes, and badges that show who you are.", "items": []},
+        "prestige": {"label": "Prestige", "description": "Climb the ranks — ranked ladders, high-stakes rooms, and seasonal battle passes.", "items": []},
+        "access": {"label": "Access", "description": "Unlock advanced tools — matchup visualizations, scouting reports, and ceiling charts.", "items": []},
+        "analytics": {"label": "Analytics", "description": "Fine-tune your game — custom lineup templates, optimizer presets, and DVS sliders.", "items": []},
+    }
+    for item in items:
+        p = item.pillar or "identity"
+        if p in pillars:
+            pillars[p]["items"].append(item)
+    
     return templates.TemplateResponse("shop.html", {
         "request": request,
         "user": user,
         "items": items,
-        "owned_ids": owned_ids
+        "owned_ids": owned_ids,
+        "pillars": pillars,
+        "active_pillar": "identity"
     })
 
 @app.post("/shop/buy/{item_id}")
