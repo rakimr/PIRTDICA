@@ -109,10 +109,15 @@ a:hover {
 }
 
 .btn-play {
-    background: var(--primary);
-    color: white !important;
+    background: var(--bg-card);
+    color: var(--text) !important;
     padding: 0.5rem 1.25rem;
     border-radius: 8px;
+    border: 1px solid var(--border);
+    font-family: 'Marvel', sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.03em;
 }
 
 .btn-register {
