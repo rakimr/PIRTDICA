@@ -84,6 +84,22 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
             return db.query(models.User).filter(models.User.id == user_id).first()
     return None
 
+def get_coach_rank(wins: int) -> dict:
+    """Calculate coach rank based on total wins."""
+    ranks = [
+        {"name": "Champion", "min_wins": 500, "frame": "/static/avatars/frames/frame_champion.png"},
+        {"name": "Grandmaster", "min_wins": 300, "frame": "/static/avatars/frames/frame_grandmaster.png"},
+        {"name": "Master", "min_wins": 150, "frame": "/static/avatars/frames/frame_master.png"},
+        {"name": "Diamond", "min_wins": 75, "frame": "/static/avatars/frames/frame_diamond.png"},
+        {"name": "Gold", "min_wins": 35, "frame": "/static/avatars/frames/frame_gold.png"},
+        {"name": "Silver", "min_wins": 15, "frame": "/static/avatars/frames/frame_silver.png"},
+        {"name": "Bronze", "min_wins": 1, "frame": "/static/avatars/frames/frame_bronze.png"},
+    ]
+    for rank in ranks:
+        if wins >= rank["min_wins"]:
+            return rank
+    return {"name": "Unranked", "frame": None}
+
 def set_session_cookie(response: Response, token: str):
     response.set_cookie(
         "session_token", 
@@ -429,10 +445,24 @@ async def leaderboard(request: Request, period: str = "daily", db: Session = Dep
         desc("wins")
     ).limit(50).all()
     
+    leaderboard_with_ranks = []
+    for entry in leaderboard_data:
+        rank = get_coach_rank(entry.wins or 0)
+        leaderboard_with_ranks.append({
+            "id": entry.id,
+            "username": entry.username,
+            "display_name": entry.display_name,
+            "avatar_url": entry.avatar_url,
+            "entries": entry.entries,
+            "wins": entry.wins,
+            "avg_score": entry.avg_score,
+            "rank": rank,
+        })
+
     return templates.TemplateResponse("leaderboard.html", {
         "request": request,
         "user": user,
-        "leaderboard": leaderboard_data,
+        "leaderboard": leaderboard_with_ranks,
         "period": period
     })
 
@@ -558,6 +588,9 @@ async def profile(request: Request, username: str, db: Session = Depends(get_db)
     error_msg = request.query_params.get("error", "")
     success_msg = request.query_params.get("success", "")
 
+    total_wins = (stats.wins or 0) if stats else 0
+    coach_rank = get_coach_rank(total_wins)
+
     return templates.TemplateResponse("profile.html", {
         "request": request,
         "user": current_user,
@@ -569,6 +602,7 @@ async def profile(request: Request, username: str, db: Session = Depends(get_db)
         "h2h_history": h2h_history,
         "cash_transactions": cash_transactions,
         "coin_transactions": coin_transactions,
+        "coach_rank": coach_rank,
         "error": error_msg,
         "success": success_msg,
     })

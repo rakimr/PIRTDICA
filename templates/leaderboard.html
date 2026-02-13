@@ -42,8 +42,14 @@
                         {% endif %}
                     </td>
                     <td class="coach">
-                        <a href="/profile/{{ entry.username }}">
-                            {{ entry.display_name or entry.username }}
+                        <a href="/profile/{{ entry.username }}" class="coach-link">
+                            <div class="leaderboard-avatar">
+                                <img src="{{ entry.avatar_url or '/static/avatars/default.png' }}" alt="" class="lb-avatar-img">
+                                {% if entry.rank and entry.rank.frame %}
+                                <img src="{{ entry.rank.frame }}" alt="" class="lb-rank-frame">
+                                {% endif %}
+                            </div>
+                            <span>{{ entry.display_name or entry.username }}</span>
                         </a>
                     </td>
                     <td class="wins">{{ entry.wins or 0 }}</td>

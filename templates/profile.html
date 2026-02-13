@@ -5,8 +5,16 @@
 {% block content %}
 <div class="profile-page">
     <div class="profile-header">
-        <div class="avatar">
-            <img src="{{ profile.avatar_url }}" alt="{{ profile.username }}">
+        <div class="avatar-container">
+            <div class="avatar-emblem">
+                <img src="{{ profile.avatar_url or '/static/avatars/default.png' }}" alt="{{ profile.username }}" class="avatar-img">
+                {% if coach_rank and coach_rank.frame %}
+                <img src="{{ coach_rank.frame }}" alt="{{ coach_rank.name }}" class="rank-frame">
+                {% endif %}
+            </div>
+            {% if coach_rank and coach_rank.name != 'Unranked' %}
+            <span class="rank-label rank-{{ coach_rank.name|lower }}">{{ coach_rank.name }}</span>
+            {% endif %}
         </div>
         <div class="profile-info">
             <h1>{{ profile.display_name or profile.username }}</h1>
