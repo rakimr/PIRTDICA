@@ -10,14 +10,19 @@
 .h2h-header p { color: #6b7280; margin-top: 0.5rem; }
 .h2h-section { margin-bottom: 2.5rem; }
 .h2h-section h2 { font-family: 'Marvel', sans-serif; font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
-.create-form { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+.create-form { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
 .create-form label { font-weight: 600; }
 .create-form select { padding: 0.6rem 1rem; border-radius: 6px; border: 1px solid #e5e7eb; background: #fff; font-size: 1rem; }
-.coin-balance { color: #1a1a1a; font-weight: 700; font-size: 1.1rem; margin-left: auto; }
+.wallet-display { margin-left: auto; display: flex; gap: 1rem; flex-wrap: wrap; }
+.wallet-badge { font-weight: 700; font-size: 0.95rem; padding: 0.3rem 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-input); }
+.wallet-badge.active { border-color: #1a1a1a; background: #f3f4f6; }
 .challenge-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
 .challenge-info { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
 .challenge-user { font-weight: 600; font-size: 1rem; }
 .challenge-wager { background: var(--bg-input); color: var(--text); padding: 0.25rem 0.75rem; border-radius: 12px; font-weight: 700; font-size: 0.85rem; border: 1px solid var(--border); }
+.challenge-mode { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.15rem 0.5rem; border-radius: 4px; }
+.mode-coin { background: #f3f4f6; color: #374151; }
+.mode-cash { background: #fef3c7; color: #92400e; }
 .challenge-status { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.2rem 0.6rem; border-radius: 4px; }
 .status-open { background: #dbeafe; color: #1d4ed8; }
 .status-accepted { background: #fef3c7; color: #92400e; }
@@ -37,12 +42,17 @@
 .score-display { font-size: 0.9rem; color: #6b7280; }
 .h2h-error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 0.75rem 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; font-weight: 600; font-size: 0.95rem; }
 select option:disabled { color: #9ca3af; }
+.mode-toggle { display: flex; border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden; }
+.mode-toggle label { padding: 0.5rem 1rem; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: background 0.15s; }
+.mode-toggle label:hover { background: #f3f4f6; }
+.mode-toggle input[type="radio"] { display: none; }
+.mode-toggle input[type="radio"]:checked + label { background: #1a1a1a; color: #fff; }
 </style>
 
 <div class="h2h-page">
     <div class="h2h-header">
         <h1>COACH VS COACH</h1>
-        <p>Challenge other coaches head-to-head. Build your best lineup and put your coins on the line.</p>
+        <p>Challenge other coaches head-to-head. Coin Mode for fun, Cash Mode for competitive stakes.</p>
     </div>
 
     {% if error %}
@@ -53,14 +63,23 @@ select option:disabled { color: #9ca3af; }
     <div class="h2h-section">
         <h2>Create Challenge</h2>
         <form class="create-form" method="POST" action="/h2h/create" id="createChallengeForm">
+            <div class="mode-toggle">
+                <input type="radio" name="currency_mode" value="coin" id="mode-coin" checked>
+                <label for="mode-coin">Coin Mode</label>
+                <input type="radio" name="currency_mode" value="cash" id="mode-cash">
+                <label for="mode-cash">Cash Mode</label>
+            </div>
             <label for="wager">Wager:</label>
             <select name="wager" id="wager">
                 {% for val in [5, 10, 25, 50, 100, 250, 500] %}
-                <option value="{{ val }}" {{ 'disabled' if val > user.coins else '' }} {{ 'selected' if val == 10 and user.coins >= 10 else '' }}>{{ val }} coins{{ ' (insufficient)' if val > user.coins else '' }}</option>
+                <option value="{{ val }}" data-coin-ok="{{ 'yes' if val <= user.coins else 'no' }}" data-cash-ok="{{ 'yes' if val <= user.coach_cash else 'no' }}" {{ 'selected' if val == 10 else '' }}>{{ val }}</option>
                 {% endfor %}
             </select>
             <button type="submit" class="btn btn-primary" id="createBtn">Create Challenge</button>
-            <span class="coin-balance">Balance: {{ user.coins }} coins</span>
+            <div class="wallet-display">
+                <span class="wallet-badge active" id="coinBadge">{{ user.coins }} Coach Coin</span>
+                <span class="wallet-badge" id="cashBadge">{{ user.coach_cash }} Coach Cash</span>
+            </div>
         </form>
     </div>
     {% else %}
@@ -76,10 +95,11 @@ select option:disabled { color: #9ca3af; }
             <div class="challenge-card">
                 <div class="challenge-info">
                     <span class="challenge-user">{{ c.challenger.display_name or c.challenger.username }}</span>
-                    <span class="challenge-wager">{{ c.wager }} coins</span>
+                    <span class="challenge-wager">{{ c.wager }}</span>
+                    <span class="challenge-mode mode-{{ c.currency_mode or 'coin' }}">{{ (c.currency_mode or 'coin')|upper }} MODE</span>
                 </div>
                 <div class="challenge-actions">
-                    <form method="POST" action="/h2h/accept/{{ c.id }}" style="display:inline;">
+                    <form method="POST" action="/h2h/accept/{{ c.id }}" style="display:inline;" class="accept-form" data-wager="{{ c.wager }}" data-mode="{{ c.currency_mode or 'coin' }}">
                         <button type="submit" class="btn-accept">Accept</button>
                     </form>
                 </div>
@@ -105,7 +125,8 @@ select option:disabled { color: #9ca3af; }
                         <span>vs</span>
                         <span class="challenge-user">You</span>
                     {% endif %}
-                    <span class="challenge-wager">{{ c.wager }} coins</span>
+                    <span class="challenge-wager">{{ c.wager }}</span>
+                    <span class="challenge-mode mode-{{ c.currency_mode or 'coin' }}">{{ (c.currency_mode or 'coin')|upper }}</span>
                     <span class="challenge-status status-{{ c.status }}">{{ c.status }}</span>
                 </div>
                 <div class="challenge-actions">
@@ -150,7 +171,8 @@ select option:disabled { color: #9ca3af; }
                         <span class="score-display">{{ "%.1f"|format(c.opponent_score) }}</span>
                         <span class="challenge-user">You</span>
                     {% endif %}
-                    <span class="challenge-wager">{{ c.wager }} coins</span>
+                    <span class="challenge-wager">{{ c.wager }}</span>
+                    <span class="challenge-mode mode-{{ c.currency_mode or 'coin' }}">{{ (c.currency_mode or 'coin')|upper }}</span>
                 </div>
                 <div class="challenge-actions">
                     {% if c.winner_id == user.id %}
@@ -172,26 +194,70 @@ select option:disabled { color: #9ca3af; }
 
 <script>
 const userCoins = {{ user.coins }};
-const form = document.getElementById('createChallengeForm');
+const userCash = {{ user.coach_cash }};
+const modeRadios = document.querySelectorAll('input[name="currency_mode"]');
+const wagerSelect = document.getElementById('wager');
+const coinBadge = document.getElementById('coinBadge');
+const cashBadge = document.getElementById('cashBadge');
+
+function getSelectedMode() {
+    const checked = document.querySelector('input[name="currency_mode"]:checked');
+    return checked ? checked.value : 'coin';
+}
+
+function updateWagerOptions() {
+    const mode = getSelectedMode();
+    const balance = mode === 'coin' ? userCoins : userCash;
+    const options = wagerSelect.querySelectorAll('option');
+    options.forEach(function(opt) {
+        const val = parseInt(opt.value);
+        if (val > balance) {
+            opt.disabled = true;
+            opt.textContent = val + ' (insufficient)';
+        } else {
+            opt.disabled = false;
+            opt.textContent = val;
+        }
+    });
+    if (coinBadge && cashBadge) {
+        if (mode === 'coin') {
+            coinBadge.classList.add('active');
+            cashBadge.classList.remove('active');
+        } else {
+            cashBadge.classList.add('active');
+            coinBadge.classList.remove('active');
+        }
+    }
+}
+
+modeRadios.forEach(function(r) {
+    r.addEventListener('change', updateWagerOptions);
+});
+updateWagerOptions();
+
+var form = document.getElementById('createChallengeForm');
 if (form) {
     form.addEventListener('submit', function(e) {
-        const wager = parseInt(document.getElementById('wager').value);
-        if (wager > userCoins) {
+        var mode = getSelectedMode();
+        var wager = parseInt(wagerSelect.value);
+        var balance = mode === 'coin' ? userCoins : userCash;
+        var label = mode === 'coin' ? 'Coach Coin' : 'Coach Cash';
+        if (wager > balance) {
             e.preventDefault();
-            alert('Not enough coins. You have ' + userCoins + ' coins but tried to wager ' + wager + '.');
+            alert('Not enough ' + label + '. You have ' + balance + ' but tried to wager ' + wager + '.');
         }
     });
 }
-document.querySelectorAll('form[action^="/h2h/accept/"]').forEach(function(f) {
+
+document.querySelectorAll('.accept-form').forEach(function(f) {
     f.addEventListener('submit', function(e) {
-        const card = f.closest('.challenge-card');
-        const wagerText = card ? card.querySelector('.challenge-wager') : null;
-        if (wagerText) {
-            const wager = parseInt(wagerText.textContent);
-            if (wager > userCoins) {
-                e.preventDefault();
-                alert('Not enough coins. You have ' + userCoins + ' coins but need ' + wager + ' to accept.');
-            }
+        var wager = parseInt(f.dataset.wager);
+        var mode = f.dataset.mode || 'coin';
+        var balance = mode === 'coin' ? userCoins : userCash;
+        var label = mode === 'coin' ? 'Coach Coin' : 'Coach Cash';
+        if (wager > balance) {
+            e.preventDefault();
+            alert('Not enough ' + label + '. You have ' + balance + ' but need ' + wager + ' to accept.');
         }
     });
 });

@@ -138,6 +138,19 @@ a:hover {
     font-weight: 600;
 }
 
+.nav-wallet {
+    font-family: 'Marvel', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    padding: 0.25rem 0.75rem;
+    border-radius: 6px;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+}
+
 .container {
     max-width: 1200px;
     margin: 0 auto;

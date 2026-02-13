@@ -36,11 +36,73 @@
     </div>
     
     {% if user and user.id == profile.id %}
-    <div class="profile-wallet">
-        <h3>Your Wallet</h3>
-        <p class="coin-balance">{{ profile.coins }} coins</p>
-        <a href="/shop" class="btn btn-secondary">Visit Shop</a>
+    {% if error %}
+    <div style="background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 0.75rem 1.25rem; border-radius: 8px; margin-bottom: 1rem; font-weight: 600;">{{ error }}</div>
+    {% endif %}
+    {% if success %}
+    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 0.75rem 1.25rem; border-radius: 8px; margin-bottom: 1rem; font-weight: 600;">{{ success }}</div>
+    {% endif %}
+    <div class="profile-wallet" style="display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
+        <div style="flex: 1; min-width: 200px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem;">
+            <h3 style="font-family: 'Marvel', sans-serif; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem;">COACH COIN</h3>
+            <p style="font-size: 2rem; font-weight: 700; margin: 0;">{{ profile.coins }}</p>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Cosmetics, Analytics, Identity</p>
+            <a href="/shop" class="btn btn-secondary" style="margin-top: 0.75rem; display: inline-block; font-size: 0.85rem;">Visit Shop</a>
+        </div>
+        <div style="flex: 1; min-width: 200px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem;">
+            <h3 style="font-family: 'Marvel', sans-serif; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem;">COACH CASH</h3>
+            <p style="font-size: 2rem; font-weight: 700; margin: 0;">{{ profile.coach_cash }}</p>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Competitive H2H, Tournaments</p>
+            {% if profile.coach_cash > 0 %}
+            <form method="POST" action="/convert-cash" style="margin-top: 0.75rem; display: flex; gap: 0.5rem; align-items: center;">
+                <input type="number" name="amount" min="1" max="{{ profile.coach_cash }}" value="1" style="width: 60px; padding: 0.4rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-input); color: var(--text); font-size: 0.85rem;">
+                <button type="submit" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.4rem 0.75rem;" title="1 Coach Cash = 5 Coach Coin">Convert to Coin (1:5)</button>
+            </form>
+            {% endif %}
+        </div>
     </div>
+    {% if user and user.id == profile.id and (coin_transactions or cash_transactions) %}
+    <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
+        {% if coin_transactions %}
+        <div style="flex: 1; min-width: 280px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem;">
+            <h3 style="font-family: 'Marvel', sans-serif; font-size: 0.95rem; margin-bottom: 0.75rem;">Recent Coach Coin Activity</h3>
+            <div class="table-scroll-wrapper">
+            <table class="entries-table" style="font-size: 0.82rem;">
+                <thead><tr><th>Date</th><th>Amount</th><th>Type</th></tr></thead>
+                <tbody>
+                {% for t in coin_transactions[:10] %}
+                <tr>
+                    <td>{{ t.created_at.strftime('%m/%d') }}</td>
+                    <td style="color: {{ '#00ff88' if t.amount > 0 else '#ff4444' }}; font-weight: 700;">{{ '+' if t.amount > 0 else '' }}{{ t.amount }}</td>
+                    <td style="font-size: 0.78rem; color: var(--text-muted);">{{ t.description or t.transaction_type }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+        {% endif %}
+        {% if cash_transactions %}
+        <div style="flex: 1; min-width: 280px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem;">
+            <h3 style="font-family: 'Marvel', sans-serif; font-size: 0.95rem; margin-bottom: 0.75rem;">Recent Coach Cash Activity</h3>
+            <div class="table-scroll-wrapper">
+            <table class="entries-table" style="font-size: 0.82rem;">
+                <thead><tr><th>Date</th><th>Amount</th><th>Type</th></tr></thead>
+                <tbody>
+                {% for t in cash_transactions[:10] %}
+                <tr>
+                    <td>{{ t.created_at.strftime('%m/%d') }}</td>
+                    <td style="color: {{ '#00ff88' if t.amount > 0 else '#ff4444' }}; font-weight: 700;">{{ '+' if t.amount > 0 else '' }}{{ t.amount }}</td>
+                    <td style="font-size: 0.78rem; color: var(--text-muted);">{{ t.description or t.transaction_type }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
     {% endif %}
     
     {% if h2h_stats and h2h_stats.total > 0 %}

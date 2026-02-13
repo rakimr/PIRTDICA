@@ -540,6 +540,24 @@ async def profile(request: Request, username: str, db: Session = Depends(get_db)
             "date": c.created_at,
         })
     
+    cash_transactions = db.query(models.CashTransaction).filter(
+        models.CashTransaction.user_id == profile_user.id
+    ).order_by(desc(models.CashTransaction.created_at)).limit(20).all()
+
+    coin_transactions = db.query(models.CurrencyTransaction).filter(
+        models.CurrencyTransaction.user_id == profile_user.id
+    ).order_by(desc(models.CurrencyTransaction.created_at)).limit(20).all()
+
+    h2h_cash_earnings = 0
+    for c in h2h_completed:
+        if c.winner_id == profile_user.id and (c.currency_mode or "coin") == "cash":
+            total_pot = c.wager * 2
+            house_cut = max(1, int(total_pot * 0.1))
+            h2h_cash_earnings += (total_pot - house_cut - c.wager)
+
+    error_msg = request.query_params.get("error", "")
+    success_msg = request.query_params.get("success", "")
+
     return templates.TemplateResponse("profile.html", {
         "request": request,
         "user": current_user,
@@ -547,8 +565,12 @@ async def profile(request: Request, username: str, db: Session = Depends(get_db)
         "entries": entries,
         "stats": stats,
         "badge_groups": ordered_badge_groups,
-        "h2h_stats": {"wins": h2h_wins, "losses": h2h_losses, "ties": h2h_ties, "total": len(h2h_completed), "earnings": h2h_earnings},
+        "h2h_stats": {"wins": h2h_wins, "losses": h2h_losses, "ties": h2h_ties, "total": len(h2h_completed), "earnings": h2h_earnings, "cash_earnings": h2h_cash_earnings},
         "h2h_history": h2h_history,
+        "cash_transactions": cash_transactions,
+        "coin_transactions": coin_transactions,
+        "error": error_msg,
+        "success": success_msg,
     })
 
 @app.get("/history")
@@ -1485,6 +1507,40 @@ async def api_player_trend(player_name: str, stat: str, n: int = 10):
     except Exception as e:
         return {"error": str(e), "games": []}
 
+CASH_TO_COIN_RATE = 5
+
+@app.post("/convert-cash")
+async def convert_cash_to_coin(request: Request, amount: int = Form(...), db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    
+    if amount < 1:
+        return RedirectResponse(url=f"/profile/{user.username}?error=Minimum+conversion+is+1+Coach+Cash", status_code=303)
+    
+    if user.coach_cash < amount:
+        return RedirectResponse(url=f"/profile/{user.username}?error=Not+enough+Coach+Cash", status_code=303)
+    
+    coin_gain = amount * CASH_TO_COIN_RATE
+    user.coach_cash -= amount
+    user.coins += coin_gain
+    
+    db.add(models.CashTransaction(
+        user_id=user.id,
+        amount=-amount,
+        transaction_type="convert_to_coin",
+        description=f"Converted {amount} Coach Cash to {coin_gain} Coach Coin"
+    ))
+    db.add(models.CurrencyTransaction(
+        user_id=user.id,
+        amount=coin_gain,
+        transaction_type="convert_from_cash",
+        description=f"Converted from {amount} Coach Cash (1:{CASH_TO_COIN_RATE} rate)"
+    ))
+    db.commit()
+    
+    return RedirectResponse(url=f"/profile/{user.username}?success=Converted+{amount}+Coach+Cash+to+{coin_gain}+Coach+Coin", status_code=303)
+
 @app.get("/h2h")
 async def h2h_lobby(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
@@ -1529,7 +1585,7 @@ async def h2h_lobby(request: Request, db: Session = Depends(get_db)):
     })
 
 @app.post("/h2h/create")
-async def h2h_create(request: Request, wager: int = Form(...), db: Session = Depends(get_db)):
+async def h2h_create(request: Request, wager: int = Form(...), currency_mode: str = Form("coin"), db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     if not user:
         raise HTTPException(status_code=401, detail="Not logged in")
@@ -1539,24 +1595,39 @@ async def h2h_create(request: Request, wager: int = Form(...), db: Session = Dep
     if not contest or contest.status != "open":
         raise HTTPException(status_code=400, detail="No active contest today")
 
+    if currency_mode not in ("coin", "cash"):
+        currency_mode = "coin"
+
     if wager < 5 or wager > 500:
-        return RedirectResponse(url="/h2h?error=Wager+must+be+between+5+and+500+coins", status_code=303)
+        label = "Coach Coin" if currency_mode == "coin" else "Coach Cash"
+        return RedirectResponse(url=f"/h2h?error=Wager+must+be+between+5+and+500+{label}", status_code=303)
 
-    if user.coins < wager:
-        return RedirectResponse(url=f"/h2h?error=Not+enough+coins.+You+have+{user.coins}+coins+but+tried+to+wager+{wager}.", status_code=303)
-
-    user.coins -= wager
-    db.add(models.CurrencyTransaction(
-        user_id=user.id,
-        amount=-wager,
-        transaction_type="h2h_wager",
-        description=f"H2H challenge wager ({wager} coins)"
-    ))
+    if currency_mode == "coin":
+        if user.coins < wager:
+            return RedirectResponse(url=f"/h2h?error=Not+enough+Coach+Coin.+You+have+{user.coins}+but+tried+to+wager+{wager}.", status_code=303)
+        user.coins -= wager
+        db.add(models.CurrencyTransaction(
+            user_id=user.id,
+            amount=-wager,
+            transaction_type="h2h_wager",
+            description=f"H2H challenge wager ({wager} Coach Coin)"
+        ))
+    else:
+        if user.coach_cash < wager:
+            return RedirectResponse(url=f"/h2h?error=Not+enough+Coach+Cash.+You+have+{user.coach_cash}+but+tried+to+wager+{wager}.", status_code=303)
+        user.coach_cash -= wager
+        db.add(models.CashTransaction(
+            user_id=user.id,
+            amount=-wager,
+            transaction_type="h2h_wager",
+            description=f"H2H challenge wager ({wager} Coach Cash)"
+        ))
 
     challenge = models.H2HChallenge(
         contest_id=contest.id,
         challenger_id=user.id,
         wager=wager,
+        currency_mode=currency_mode,
         status="open"
     )
     db.add(challenge)
@@ -1577,16 +1648,28 @@ async def h2h_accept(request: Request, challenge_id: int, db: Session = Depends(
         return RedirectResponse(url="/h2h?error=Challenge+is+no+longer+open", status_code=303)
     if challenge.challenger_id == user.id:
         return RedirectResponse(url="/h2h?error=Cannot+accept+your+own+challenge", status_code=303)
-    if user.coins < challenge.wager:
-        return RedirectResponse(url=f"/h2h?error=Not+enough+coins.+You+have+{user.coins}+coins+but+need+{challenge.wager}+to+accept.", status_code=303)
 
-    user.coins -= challenge.wager
-    db.add(models.CurrencyTransaction(
-        user_id=user.id,
-        amount=-challenge.wager,
-        transaction_type="h2h_wager",
-        description=f"Accepted H2H challenge ({challenge.wager} coins)"
-    ))
+    mode = challenge.currency_mode or "coin"
+    if mode == "coin":
+        if user.coins < challenge.wager:
+            return RedirectResponse(url=f"/h2h?error=Not+enough+Coach+Coin.+You+have+{user.coins}+but+need+{challenge.wager}+to+accept.", status_code=303)
+        user.coins -= challenge.wager
+        db.add(models.CurrencyTransaction(
+            user_id=user.id,
+            amount=-challenge.wager,
+            transaction_type="h2h_wager",
+            description=f"Accepted H2H challenge ({challenge.wager} Coach Coin)"
+        ))
+    else:
+        if user.coach_cash < challenge.wager:
+            return RedirectResponse(url=f"/h2h?error=Not+enough+Coach+Cash.+You+have+{user.coach_cash}+but+need+{challenge.wager}+to+accept.", status_code=303)
+        user.coach_cash -= challenge.wager
+        db.add(models.CashTransaction(
+            user_id=user.id,
+            amount=-challenge.wager,
+            transaction_type="h2h_wager",
+            description=f"Accepted H2H challenge ({challenge.wager} Coach Cash)"
+        ))
 
     challenge.opponent_id = user.id
     challenge.status = "accepted"
@@ -1608,13 +1691,23 @@ async def h2h_cancel(request: Request, challenge_id: int, db: Session = Depends(
     if challenge.status != "open":
         raise HTTPException(status_code=400, detail="Can only cancel open challenges")
 
-    user.coins += challenge.wager
-    db.add(models.CurrencyTransaction(
-        user_id=user.id,
-        amount=challenge.wager,
-        transaction_type="h2h_refund",
-        description=f"H2H challenge cancelled - refund ({challenge.wager} coins)"
-    ))
+    mode = challenge.currency_mode or "coin"
+    if mode == "coin":
+        user.coins += challenge.wager
+        db.add(models.CurrencyTransaction(
+            user_id=user.id,
+            amount=challenge.wager,
+            transaction_type="h2h_refund",
+            description=f"H2H challenge cancelled - refund ({challenge.wager} Coach Coin)"
+        ))
+    else:
+        user.coach_cash += challenge.wager
+        db.add(models.CashTransaction(
+            user_id=user.id,
+            amount=challenge.wager,
+            transaction_type="h2h_refund",
+            description=f"H2H challenge cancelled - refund ({challenge.wager} Coach Cash)"
+        ))
     challenge.status = "cancelled"
     db.commit()
 
@@ -1982,6 +2075,7 @@ def settle_h2h_challenges(db: Session):
         challenge.challenger_score = round(c_total, 1)
         challenge.opponent_score = round(o_total, 1)
 
+        mode = challenge.currency_mode or "coin"
         total_pot = challenge.wager * 2
         house_cut = max(1, int(total_pot * 0.1))
         winnings = total_pot - house_cut
@@ -1995,33 +2089,48 @@ def settle_h2h_challenges(db: Session):
         else:
             challenger_user = db.query(models.User).filter(models.User.id == challenge.challenger_id).first()
             opponent_user = db.query(models.User).filter(models.User.id == challenge.opponent_id).first()
-            if challenger_user:
-                challenger_user.coins += challenge.wager
-                db.add(models.CurrencyTransaction(
-                    user_id=challenger_user.id,
-                    amount=challenge.wager,
-                    transaction_type="h2h_tie_refund",
-                    description="H2H tie - wager refunded"
-                ))
-            if opponent_user:
-                opponent_user.coins += challenge.wager
-                db.add(models.CurrencyTransaction(
-                    user_id=opponent_user.id,
-                    amount=challenge.wager,
-                    transaction_type="h2h_tie_refund",
-                    description="H2H tie - wager refunded"
-                ))
+            if mode == "coin":
+                if challenger_user:
+                    challenger_user.coins += challenge.wager
+                    db.add(models.CurrencyTransaction(
+                        user_id=challenger_user.id, amount=challenge.wager,
+                        transaction_type="h2h_tie_refund", description="H2H tie - Coach Coin refunded"
+                    ))
+                if opponent_user:
+                    opponent_user.coins += challenge.wager
+                    db.add(models.CurrencyTransaction(
+                        user_id=opponent_user.id, amount=challenge.wager,
+                        transaction_type="h2h_tie_refund", description="H2H tie - Coach Coin refunded"
+                    ))
+            else:
+                if challenger_user:
+                    challenger_user.coach_cash += challenge.wager
+                    db.add(models.CashTransaction(
+                        user_id=challenger_user.id, amount=challenge.wager,
+                        transaction_type="h2h_tie_refund", description="H2H tie - Coach Cash refunded"
+                    ))
+                if opponent_user:
+                    opponent_user.coach_cash += challenge.wager
+                    db.add(models.CashTransaction(
+                        user_id=opponent_user.id, amount=challenge.wager,
+                        transaction_type="h2h_tie_refund", description="H2H tie - Coach Cash refunded"
+                    ))
             challenge.status = "completed"
             continue
 
         if winner:
-            winner.coins += winnings
-            db.add(models.CurrencyTransaction(
-                user_id=winner.id,
-                amount=winnings,
-                transaction_type="h2h_win",
-                description=f"H2H challenge won! (+{winnings} coins)"
-            ))
+            if mode == "coin":
+                winner.coins += winnings
+                db.add(models.CurrencyTransaction(
+                    user_id=winner.id, amount=winnings,
+                    transaction_type="h2h_win", description=f"H2H challenge won! (+{winnings} Coach Coin)"
+                ))
+            else:
+                winner.coach_cash += winnings
+                db.add(models.CashTransaction(
+                    user_id=winner.id, amount=winnings,
+                    transaction_type="h2h_win", description=f"H2H challenge won! (+{winnings} Coach Cash)"
+                ))
 
         challenge.status = "completed"
 

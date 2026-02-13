@@ -14,11 +14,13 @@ class User(Base):
     avatar_url = Column(String(255), default="/static/avatars/default.png")
     theme = Column(String(50), default="default")
     coins = Column(Integer, default=100)
+    coach_cash = Column(Integer, default=0)
     created_at = Column(DateTime, server_default=func.now())
     
     entries = relationship("ContestEntry", back_populates="user")
     achievements = relationship("UserAchievement", back_populates="user")
     currency_transactions = relationship("CurrencyTransaction", back_populates="user")
+    cash_transactions = relationship("CashTransaction", back_populates="user")
     h2h_challenges_created = relationship("H2HChallenge", foreign_keys="H2HChallenge.challenger_id", back_populates="challenger")
 
 class Contest(Base):
@@ -120,6 +122,18 @@ class CurrencyTransaction(Base):
     
     user = relationship("User", back_populates="currency_transactions")
 
+class CashTransaction(Base):
+    __tablename__ = "cash_transactions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    amount = Column(Integer, nullable=False)
+    transaction_type = Column(String(50), nullable=False)
+    description = Column(String(255))
+    created_at = Column(DateTime, server_default=func.now())
+    
+    user = relationship("User", back_populates="cash_transactions")
+
 class ShopItem(Base):
     __tablename__ = "shop_items"
     
@@ -210,6 +224,7 @@ class H2HChallenge(Base):
     challenger_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     opponent_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     wager = Column(Integer, default=10)
+    currency_mode = Column(String(10), default="coin")
     status = Column(String(20), default="open")
     winner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     challenger_score = Column(Float, default=0)
