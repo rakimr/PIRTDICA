@@ -147,7 +147,7 @@
                             <span class="hidden-player">{{ p.position }} - Upcoming</span>
                             {% else %}
                             <div style="display: flex; align-items: center; gap: 6px;">
-                                <img src="{{ headshots.get(p.player_name, '') }}" alt="" style="width: 24px; height: 24px; border-radius: 4px; object-fit: contain; background: #e5e7eb; flex-shrink: 0;" onerror="this.style.display='none'">
+                                <img src="{{ headshots.get(p.player_name, '') }}" alt="" style="width: 28px; height: 28px; border-radius: 0; object-fit: contain; flex-shrink: 0; mix-blend-mode: multiply;" onerror="this.style.display='none'">
                                 <span>{{ p.player_name }}</span>
                             </div>
                             {% endif %}
@@ -222,7 +222,7 @@
                             <span class="hidden-player">{{ p.position }} - Upcoming</span>
                             {% else %}
                             <div style="display: flex; align-items: center; gap: 6px;">
-                                <img src="{{ headshots.get(p.player_name, '') }}" alt="" style="width: 24px; height: 24px; border-radius: 4px; object-fit: contain; background: #e5e7eb; flex-shrink: 0;" onerror="this.style.display='none'">
+                                <img src="{{ headshots.get(p.player_name, '') }}" alt="" style="width: 28px; height: 28px; border-radius: 0; object-fit: contain; flex-shrink: 0; mix-blend-mode: multiply;" onerror="this.style.display='none'">
                                 <span>{{ p.player_name }}</span>
                             </div>
                             {% endif %}
