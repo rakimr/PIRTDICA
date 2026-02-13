@@ -188,6 +188,7 @@ async def home(request: Request, db: Session = Depends(get_db)):
             no_games_today = True
     
     next_game_iso = None
+    games_started = False
     try:
         import sqlite3 as sl3
         from zoneinfo import ZoneInfo
@@ -199,21 +200,26 @@ async def home(request: Request, db: Session = Depends(get_db)):
         game_times_raw = [row[0] for row in cur2.fetchall()]
         conn2.close()
         
-        upcoming = []
-        for gt in game_times_raw:
-            try:
-                parsed = datetime.strptime(gt, "%I:%M%p")
-                game_dt = parsed.replace(year=now_et.year, month=now_et.month, day=now_et.day, tzinfo=eastern)
-                if game_dt > now_et:
-                    upcoming.append(game_dt)
-            except:
-                pass
-        
-        if upcoming:
-            next_game = min(upcoming)
-            next_game_iso = next_game.isoformat()
+        if not game_times_raw:
+            no_games_today = True
+        else:
+            upcoming = []
+            for gt in game_times_raw:
+                try:
+                    parsed = datetime.strptime(gt, "%I:%M%p")
+                    game_dt = parsed.replace(year=now_et.year, month=now_et.month, day=now_et.day, tzinfo=eastern)
+                    if game_dt > now_et:
+                        upcoming.append(game_dt)
+                except:
+                    pass
+            
+            if upcoming:
+                next_game = min(upcoming)
+                next_game_iso = next_game.isoformat()
+            else:
+                games_started = True
     except Exception as e:
-        pass
+        no_games_today = True
     
     slate_games = []
     try:
@@ -275,6 +281,7 @@ async def home(request: Request, db: Session = Depends(get_db)):
         "no_games_today": no_games_today,
         "is_todays_contest": is_todays_contest,
         "next_game_iso": next_game_iso,
+        "games_started": games_started,
         "slate_games": slate_games
     })
 

@@ -4,15 +4,25 @@
 
 {% block content %}
 <div class="hero">
-    {% if next_game_iso %}
+    {% if no_games_today %}
+    <h1>NO SLATE TODAY</h1>
+    <div class="countdown-display">
+        <span>OFF DAY</span>
+    </div>
+    {% elif next_game_iso %}
     <h1>GAME STARTS IN</h1>
     <div id="countdown-timer" class="countdown-display" data-target="{{ next_game_iso }}">
         <span id="countdown-hours">00</span>:<span id="countdown-minutes">00</span>:<span id="countdown-seconds">00</span>
     </div>
-    {% else %}
+    {% elif games_started %}
     <h1>GAMES IN PROGRESS</h1>
     <div class="countdown-display">
         <span>LIVE</span>
+    </div>
+    {% else %}
+    <h1>NO SLATE TODAY</h1>
+    <div class="countdown-display">
+        <span>OFF DAY</span>
     </div>
     {% endif %}
     {% if not user %}
@@ -91,13 +101,8 @@
 </section>
 {% elif no_games_today %}
 <section class="no-contest">
-    <h2>No Games Today</h2>
+    <h2>No Slate Today</h2>
     <p>The NBA schedule has no games today. Check back tomorrow!</p>
-</section>
-{% else %}
-<section class="no-contest">
-    <h2>Lineup Coming Soon</h2>
-    <p>Pirtdica is analyzing today's matchups. Check back shortly!</p>
 </section>
 {% endif %}
 
