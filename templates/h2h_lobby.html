@@ -102,14 +102,13 @@ select option:disabled { color: #9ca3af; }
     {% if contest %}
     <div class="ranked-section">
         <h2>RANKED COMPETITION</h2>
-        <p>Queue for a ranked match. You'll be paired with a coach near your skill level. Win to climb divisions and earn prestige.</p>
+        <p>Compete for rank, prestige, and leaderboard position. Free to enter. Prove you're the best coach.</p>
         <div class="ranked-actions">
             <form method="POST" action="/h2h/queue" style="display:inline;">
                 <input type="hidden" name="match_type" value="ranked">
-                <input type="hidden" name="currency_mode" value="coin">
-                <button type="submit" class="btn-ranked">Enter Ranked Queue (10 CC)</button>
+                <button type="submit" class="btn-ranked">Enter Ranked Queue</button>
             </form>
-            <span class="ranked-info">Entry fee: 10 Coach Coin | MMR-based matchmaking</span>
+            <span class="ranked-info">Free entry | MMR-based matchmaking | Climb the ladder</span>
         </div>
     </div>
 

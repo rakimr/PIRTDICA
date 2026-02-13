@@ -2104,7 +2104,7 @@ async def api_live_h2h(request: Request, challenge_id: int, db: Session = Depend
     }
 
 @app.post("/h2h/queue")
-async def h2h_ranked_queue(request: Request, currency_mode: str = Form("coin"), match_type: str = Form("ranked"), db: Session = Depends(get_db)):
+async def h2h_ranked_queue(request: Request, match_type: str = Form("ranked"), db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     if not user:
         raise HTTPException(status_code=401, detail="Not logged in")
@@ -2114,20 +2114,8 @@ async def h2h_ranked_queue(request: Request, currency_mode: str = Form("coin"), 
     if not contest or contest.status != "open":
         return RedirectResponse(url="/h2h?error=No+active+contest+today", status_code=303)
     
-    if match_type not in ("ranked", "match_night", "casual"):
+    if match_type not in ("ranked", "match_night"):
         match_type = "ranked"
-    
-    if currency_mode not in ("coin", "cash"):
-        currency_mode = "coin"
-    
-    entry_fee = 10 if match_type == "ranked" else 25 if match_type == "match_night" else 5
-    
-    if currency_mode == "coin":
-        if user.coins < entry_fee:
-            return RedirectResponse(url=f"/h2h?error=Need+{entry_fee}+Coach+Coin+to+enter+ranked+queue", status_code=303)
-    else:
-        if user.coach_cash < entry_fee:
-            return RedirectResponse(url=f"/h2h?error=Need+{entry_fee}+Coach+Cash+to+enter+ranked+queue", status_code=303)
     
     existing = db.query(models.H2HChallenge).filter(
         models.H2HChallenge.contest_id == contest.id,
@@ -2144,7 +2132,6 @@ async def h2h_ranked_queue(request: Request, currency_mode: str = Form("coin"), 
         models.H2HChallenge.contest_id == contest.id,
         models.H2HChallenge.status == "open",
         models.H2HChallenge.match_type == match_type,
-        models.H2HChallenge.currency_mode == currency_mode,
         models.H2HChallenge.challenger_id != user.id
     ).join(models.User, models.User.id == models.H2HChallenge.challenger_id).filter(
         models.User.mmr >= mmr_low,
@@ -2152,46 +2139,16 @@ async def h2h_ranked_queue(request: Request, currency_mode: str = Form("coin"), 
     ).order_by(func.abs(models.User.mmr - (user.mmr or 1000))).first()
     
     if match:
-        if currency_mode == "coin":
-            user.coins -= entry_fee
-            db.add(models.CurrencyTransaction(
-                user_id=user.id, amount=-entry_fee,
-                transaction_type="h2h_entry_fee",
-                description=f"Ranked match entry fee ({entry_fee} Coach Coin)"
-            ))
-        else:
-            user.coach_cash -= entry_fee
-            db.add(models.CashTransaction(
-                user_id=user.id, amount=-entry_fee,
-                transaction_type="h2h_entry_fee",
-                description=f"Ranked match entry fee ({entry_fee} Coach Cash)"
-            ))
-        
         match.opponent_id = user.id
         match.status = "accepted"
         db.commit()
         return RedirectResponse(url=f"/h2h/match/{match.id}", status_code=303)
     else:
-        if currency_mode == "coin":
-            user.coins -= entry_fee
-            db.add(models.CurrencyTransaction(
-                user_id=user.id, amount=-entry_fee,
-                transaction_type="h2h_entry_fee",
-                description=f"Ranked queue entry fee ({entry_fee} Coach Coin)"
-            ))
-        else:
-            user.coach_cash -= entry_fee
-            db.add(models.CashTransaction(
-                user_id=user.id, amount=-entry_fee,
-                transaction_type="h2h_entry_fee",
-                description=f"Ranked queue entry fee ({entry_fee} Coach Cash)"
-            ))
-        
         challenge = models.H2HChallenge(
             contest_id=contest.id,
             challenger_id=user.id,
-            wager=entry_fee,
-            currency_mode=currency_mode,
+            wager=0,
+            currency_mode="coin",
             match_type=match_type,
             status="open"
         )
@@ -2242,10 +2199,8 @@ def settle_h2h_challenges(db: Session):
         challenge.challenger_score = round(c_total, 1)
         challenge.opponent_score = round(o_total, 1)
 
+        is_ranked = (challenge.match_type or "casual") in ("ranked", "match_night")
         mode = challenge.currency_mode or "coin"
-        total_pot = challenge.wager * 2
-        house_cut = max(1, int(total_pot * 0.1))
-        winnings = total_pot - house_cut
 
         if c_total > o_total:
             challenge.winner_id = challenge.challenger_id
@@ -2254,53 +2209,56 @@ def settle_h2h_challenges(db: Session):
             challenge.winner_id = challenge.opponent_id
             winner = db.query(models.User).filter(models.User.id == challenge.opponent_id).first()
         else:
-            challenger_user = db.query(models.User).filter(models.User.id == challenge.challenger_id).first()
-            opponent_user = db.query(models.User).filter(models.User.id == challenge.opponent_id).first()
-            if mode == "coin":
-                if challenger_user:
-                    challenger_user.coins += challenge.wager
-                    db.add(models.CurrencyTransaction(
-                        user_id=challenger_user.id, amount=challenge.wager,
-                        transaction_type="h2h_tie_refund", description="H2H tie - Coach Coin refunded"
-                    ))
-                if opponent_user:
-                    opponent_user.coins += challenge.wager
-                    db.add(models.CurrencyTransaction(
-                        user_id=opponent_user.id, amount=challenge.wager,
-                        transaction_type="h2h_tie_refund", description="H2H tie - Coach Coin refunded"
-                    ))
-            else:
-                if challenger_user:
-                    challenger_user.coach_cash += challenge.wager
-                    db.add(models.CashTransaction(
-                        user_id=challenger_user.id, amount=challenge.wager,
-                        transaction_type="h2h_tie_refund", description="H2H tie - Coach Cash refunded"
-                    ))
-                if opponent_user:
-                    opponent_user.coach_cash += challenge.wager
-                    db.add(models.CashTransaction(
-                        user_id=opponent_user.id, amount=challenge.wager,
-                        transaction_type="h2h_tie_refund", description="H2H tie - Coach Cash refunded"
-                    ))
-            # No MMR change on ties
-            if (challenge.match_type or "casual") in ("ranked", "match_night"):
+            if not is_ranked and challenge.wager > 0:
+                challenger_user = db.query(models.User).filter(models.User.id == challenge.challenger_id).first()
+                opponent_user = db.query(models.User).filter(models.User.id == challenge.opponent_id).first()
+                if mode == "coin":
+                    if challenger_user:
+                        challenger_user.coins += challenge.wager
+                        db.add(models.CurrencyTransaction(
+                            user_id=challenger_user.id, amount=challenge.wager,
+                            transaction_type="h2h_tie_refund", description="H2H tie - Coach Coin refunded"
+                        ))
+                    if opponent_user:
+                        opponent_user.coins += challenge.wager
+                        db.add(models.CurrencyTransaction(
+                            user_id=opponent_user.id, amount=challenge.wager,
+                            transaction_type="h2h_tie_refund", description="H2H tie - Coach Coin refunded"
+                        ))
+                else:
+                    if challenger_user:
+                        challenger_user.coach_cash += challenge.wager
+                        db.add(models.CashTransaction(
+                            user_id=challenger_user.id, amount=challenge.wager,
+                            transaction_type="h2h_tie_refund", description="H2H tie - Coach Cash refunded"
+                        ))
+                    if opponent_user:
+                        opponent_user.coach_cash += challenge.wager
+                        db.add(models.CashTransaction(
+                            user_id=opponent_user.id, amount=challenge.wager,
+                            transaction_type="h2h_tie_refund", description="H2H tie - Coach Cash refunded"
+                        ))
+            if is_ranked:
                 challenge.mmr_change_challenger = 0
                 challenge.mmr_change_opponent = 0
             challenge.status = "completed"
             continue
 
-        if winner:
+        if not is_ranked and challenge.wager > 0 and winner:
+            total_pot = challenge.wager * 2
+            house_cut = max(1, int(total_pot * 0.1))
+            winnings = total_pot - house_cut
             if mode == "coin":
                 winner.coins += winnings
                 db.add(models.CurrencyTransaction(
                     user_id=winner.id, amount=winnings,
-                    transaction_type="h2h_win", description=f"H2H challenge won! (+{winnings} Coach Coin)"
+                    transaction_type="h2h_win", description=f"H2H match won! (+{winnings} Coach Coin)"
                 ))
             else:
                 winner.coach_cash += winnings
                 db.add(models.CashTransaction(
                     user_id=winner.id, amount=winnings,
-                    transaction_type="h2h_win", description=f"H2H challenge won! (+{winnings} Coach Cash)"
+                    transaction_type="h2h_win", description=f"H2H match won! (+{winnings} Coach Cash)"
                 ))
 
         challenge.status = "completed"

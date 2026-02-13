@@ -56,7 +56,13 @@
 <div class="h2h-match-page">
     <div class="h2h-match-header">
         <h1>{{ challenge.challenger.display_name or challenge.challenger.username }} vs {{ challenge.opponent.display_name or challenge.opponent.username if challenge.opponent else 'Waiting...' }}</h1>
-        <div class="match-badge">{{ challenge.wager }} {{ 'CC' if (challenge.currency_mode or 'coin') == 'coin' else 'Coach Cash' }} | {{ (match_type or 'casual')|upper }}</div>
+        <div class="match-badge">
+            {% if match_type in ['ranked', 'match_night'] %}
+                {{ (match_type or 'ranked')|upper }} MATCH
+            {% else %}
+                {{ challenge.wager }} {{ 'CC' if (challenge.currency_mode or 'coin') == 'coin' else 'Coach Cash' }} | CUSTOM
+            {% endif %}
+        </div>
     </div>
 
     {% if needs_lineup %}
@@ -76,19 +82,31 @@
         {% if challenge.winner_id == user.id %}
         <div class="result-banner win">
             <h2>You Won!</h2>
+            {% if match_type in ['ranked', 'match_night'] %}
+            <p>Victory! Your rank has been updated.</p>
+            {% else %}
             {% set total_pot = challenge.wager * 2 %}
             {% set house_cut = [1, (total_pot * 0.1)|int]|max %}
             <p>You earned {{ total_pot - house_cut }} {{ 'Coach Coin' if (challenge.currency_mode or 'coin') == 'coin' else 'Coach Cash' }}!</p>
+            {% endif %}
         </div>
         {% elif challenge.winner_id %}
         <div class="result-banner loss">
             <h2>You Lost</h2>
+            {% if match_type in ['ranked', 'match_night'] %}
+            <p>Keep competing to climb back up.</p>
+            {% else %}
             <p>Better luck next time!</p>
+            {% endif %}
         </div>
         {% else %}
         <div class="result-banner tie">
             <h2>It's a Tie!</h2>
+            {% if match_type in ['ranked', 'match_night'] %}
+            <p>No rank change. Try again!</p>
+            {% else %}
             <p>Entry fees refunded.</p>
+            {% endif %}
         </div>
         {% endif %}
         {% if match_type in ['ranked', 'match_night'] and challenge.status == 'completed' %}
