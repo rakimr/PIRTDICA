@@ -61,48 +61,6 @@
             {% endif %}
         </div>
     </div>
-    {% if user and user.id == profile.id and (coin_transactions or cash_transactions) %}
-    <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
-        {% if coin_transactions %}
-        <div style="flex: 1; min-width: 280px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem;">
-            <h3 style="font-family: 'Marvel', sans-serif; font-size: 0.95rem; margin-bottom: 0.75rem;">Recent Coach Coin Activity</h3>
-            <div class="table-scroll-wrapper">
-            <table class="entries-table" style="font-size: 0.82rem;">
-                <thead><tr><th>Date</th><th>Amount</th><th>Type</th></tr></thead>
-                <tbody>
-                {% for t in coin_transactions[:10] %}
-                <tr>
-                    <td>{{ t.created_at.strftime('%m/%d') }}</td>
-                    <td style="color: {{ '#00ff88' if t.amount > 0 else '#ff4444' }}; font-weight: 700;">{{ '+' if t.amount > 0 else '' }}{{ t.amount }}</td>
-                    <td style="font-size: 0.78rem; color: var(--text-muted);">{{ t.description or t.transaction_type }}</td>
-                </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-            </div>
-        </div>
-        {% endif %}
-        {% if cash_transactions %}
-        <div style="flex: 1; min-width: 280px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem;">
-            <h3 style="font-family: 'Marvel', sans-serif; font-size: 0.95rem; margin-bottom: 0.75rem;">Recent Coach Cash Activity</h3>
-            <div class="table-scroll-wrapper">
-            <table class="entries-table" style="font-size: 0.82rem;">
-                <thead><tr><th>Date</th><th>Amount</th><th>Type</th></tr></thead>
-                <tbody>
-                {% for t in cash_transactions[:10] %}
-                <tr>
-                    <td>{{ t.created_at.strftime('%m/%d') }}</td>
-                    <td style="color: {{ '#00ff88' if t.amount > 0 else '#ff4444' }}; font-weight: 700;">{{ '+' if t.amount > 0 else '' }}{{ t.amount }}</td>
-                    <td style="font-size: 0.78rem; color: var(--text-muted);">{{ t.description or t.transaction_type }}</td>
-                </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-            </div>
-        </div>
-        {% endif %}
-    </div>
-    {% endif %}
     {% endif %}
     
     {% if h2h_stats and h2h_stats.total > 0 %}
@@ -194,43 +152,5 @@
         {% endif %}
     </div>
     
-    <div class="history-section">
-        <h2>Recent Entries</h2>
-        {% if entries %}
-        <div class="table-scroll-wrapper">
-        <table class="entries-table">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Projected</th>
-                    <th>Actual</th>
-                    <th>Result</th>
-                    <th>Coins</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for entry in entries %}
-                <tr>
-                    <td>{{ entry.created_at.strftime('%m/%d/%Y') }}</td>
-                    <td>{{ "%.1f"|format(entry.proj_score) }}</td>
-                    <td>{{ "%.1f"|format(entry.actual_score) }}</td>
-                    <td class="{% if entry.beat_house %}win{% else %}loss{% endif %}">
-                        {% if entry.beat_house %}Win{% else %}Loss{% endif %}
-                    </td>
-                    <td>+{{ entry.coins_earned }}</td>
-                    <td><a href="/entry/{{ entry.id }}" class="btn btn-secondary btn-sm">View</a></td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        </div>
-        {% if user and user.id == profile.id %}
-        <a href="/history" class="btn btn-secondary" style="margin-top: 1rem;">View Full History</a>
-        {% endif %}
-        {% else %}
-        <p class="no-data">No entries yet. <a href="/play">Play your first contest!</a></p>
-        {% endif %}
-    </div>
 </div>
 {% endblock %}
