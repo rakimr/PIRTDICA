@@ -1,0 +1,212 @@
+🔥 Good catch.
+
+The fact that you’re thinking about this now — before scale — is massive.
+
+Yes, that’s called win-trading, and in a play-to-earn ecosystem it will absolutely happen unless you design against it from day one.
+
+Let’s break this down properly.
+
+🎯 The Core Problem
+
+If:
+
+Users can create unlimited accounts
+
+Users can choose their opponent
+
+Winners earn currency
+
+Then:
+Alt Account A vs Main Account
+Alt account submits dead lineup
+Main account farms coins
+
+Game over.
+
+So you need structural prevention, not manual moderation.
+
+🛡️ Layered Defense Strategy (You Need Multiple Layers)
+
+No single solution fixes this. It’s a systems problem.
+
+1️⃣ Don’t Allow Direct Opponent Selection (Public Queue Only)
+
+If users can challenge specific usernames → abuse is easy.
+
+Instead:
+
+H2H goes into a matchmaking queue
+
+Opponent assigned randomly (ELO based)
+
+This alone kills most casual win-trading.
+
+Private matches?
+Make them non-rewarded.
+
+2️⃣ Only Reward Ranked Matchmaking
+
+Have two modes:
+
+🟢 Ranked (Rewards Coins)
+
+Random matchmaking
+
+Entry fee (coin stake)
+
+Anti-smurf protections
+
+⚪ Casual / Friendly
+
+Invite friends
+
+No rewards
+
+This is industry standard for a reason.
+
+3️⃣ Require Entry Fees (Even Small Ones)
+
+If every ranked match costs:
+
+5 coins entry
+
+Winner takes 8
+
+2 coin rake
+
+Win-trading suddenly has cost.
+
+Alt account farming now burns coins.
+
+4️⃣ Anti-Smurf & Alt Detection Signals
+
+Even without KYC, you can detect patterns:
+
+Red flags:
+
+Same IP repeatedly matching
+
+Same device fingerprint
+
+One account never winning except against one user
+
+Lineups that are 0 salary or obviously dead
+
+100% matchup frequency between two users
+
+Flag automatically.
+
+You don’t need perfection.
+You need deterrence.
+
+5️⃣ ELO Gap Restrictions
+
+Don’t allow:
+
+2000 ELO user vs 900 ELO user
+
+Require matchmaking within band.
+
+Smurf accounts won’t climb fast enough to feed main account consistently.
+
+6️⃣ Win Quality Filter
+
+This is powerful:
+
+Don’t award full rewards for:
+
+Opponent lineup below X projection
+
+Lineup missing players
+
+Salary under 90% cap
+
+If opponent submits garbage:
+→ reduced payout
+→ no payout
+
+Now dead-lineup farming stops working.
+
+7️⃣ Diminishing Returns vs Same Opponent
+
+If two users face off repeatedly:
+
+1st match → full reward
+
+2nd → 50%
+
+3rd → 0%
+
+Simple.
+Effective.
+Hard to exploit.
+
+8️⃣ Daily Coin Caps
+
+Put:
+
+Daily earning caps
+
+Weekly earning caps
+
+Now win-trading becomes inefficient.
+
+9️⃣ Delay Reward Distribution
+
+Instead of instant payout:
+
+Rewards settle after slate review
+
+Fraud model checks patterns
+
+Suspicious matches voided
+
+Adds friction to abusers.
+
+💡 The Best Structure IMO
+
+Here’s the cleanest system:
+
+Ranked Queue Only
+Random ELO-based matchmaking
+Entry Fee Required
+Minimum lineup quality threshold
+Opponent frequency cap
+Device/IP pattern flagging
+Daily earning caps
+
+That alone will eliminate 95% of abuse.
+
+⚠️ Important Psychological Factor
+
+If people THINK they can cheat, they will try.
+
+If they see:
+
+Strong matchmaking
+
+Leaderboards
+
+Visible ELO
+
+Fraud enforcement
+
+Most won’t bother.
+
+Security is partly perception.
+
+🚨 Brutal Truth
+
+Play-to-earn always attracts:
+
+Smurfs
+
+Multi-accounts
+
+Exploit hunters
+
+The difference between success and collapse is whether:
+The system is exploitable by design.
+
+Right now you caught it early.
+That’s excellent.

@@ -1,0 +1,281 @@
+Yes. This is exactly the right time to design it — before users touch it.
+
+If the economy is wrong, everything breaks:
+
+Too inflationary → coins become meaningless
+
+Too restrictive → no one cares
+
+Too pay-to-win → competitive integrity dies
+
+Too cosmetic-only → engagement dies
+
+You want skill-driven earnings + meaningful sinks + prestige layering.
+
+Let’s architect this properly.
+
+🧱 Step 1: Define What Coach Coins Actually Are
+
+Coach Coins should be:
+
+✔️ Earned primarily through skill
+✔️ Spent on status, access, and tools
+✔️ Limited in inflation
+✔️ Non-transferable (initially)
+
+Do NOT make them tradeable at first.
+Marketplaces introduce exploit vectors immediately.
+
+🏦 Step 2: The Core Economy Loop
+
+Here’s the loop you want:
+
+Play Ranked → Earn Coins → Spend Coins → Unlock More Competitive Play → Repeat
+
+Not:
+
+Play → Farm → Hoard → Nothing to spend on
+
+💰 Step 3: Coin Sources (Controlled Inflows)
+
+Coins should enter the system through:
+
+1️⃣ Ranked Match Winnings
+
+Entry Fee: 10 coins
+
+Winner gets: 18 coins
+
+Platform rake: 2 coins
+
+Important:
+Coins are recycled, not printed.
+
+This is the healthiest source.
+
+2️⃣ Seasonal Rewards
+
+End-of-season:
+
+Top 10% → 500 coins
+
+Top 25% → 250 coins
+
+Participation tier → 50 coins
+
+This is new coin minting — must be controlled.
+
+3️⃣ Achievement Unlocks
+
+One-time rewards:
+
+10 win streak → 25 coins
+
+100 wins → 100 coins
+
+Archetype mastery → 50 coins
+
+One-time only.
+No repeat farming.
+
+4️⃣ Daily Skill Challenges
+
+But structured carefully:
+
+Must win ranked match with 3 archetypes
+
+Must beat projection by 10%
+
+Skill-gated.
+
+🚿 Step 4: Coin Sinks (This Is Critical)
+
+Without sinks, inflation kills value.
+
+You need coins constantly leaving circulation.
+
+🏆 1️⃣ Entry Fees (Primary Sink)
+
+This is the most important one.
+Every ranked match burns rake.
+
+🎟 2️⃣ Tournament Buy-ins
+
+High-stakes tournaments:
+
+100 coin entry
+
+Top 10% paid
+
+Bigger buy-in = stronger sink.
+
+🎨 3️⃣ Cosmetic Store (Tiered Pricing)
+
+Low-tier:
+
+50 coin avatars
+
+75 coin themes
+
+Mid-tier:
+
+250 coin animated frames
+
+300 coin archetype mastery skins
+
+High-tier:
+
+1000 coin seasonal exclusives
+
+2000 coin legendary badge
+
+Have rotating inventory.
+
+Scarcity drives spending.
+
+🧠 4️⃣ Analytics Subscriptions (Time-Based)
+
+Example:
+
+7-day advanced stats access → 75 coins
+
+30-day DVS dashboard unlock → 250 coins
+
+Temporary unlocks = recurring sink.
+
+Very powerful.
+
+🏟 5️⃣ Arena Hosting Fees
+
+Want to:
+
+Create private tournament?
+
+Customize scoring?
+
+Boost prize pool?
+
+Charge coin fee.
+
+📊 Step 5: Inflation Control
+
+You must track:
+
+Total coins in circulation
+
+Coins minted weekly
+
+Coins burned weekly
+
+Average user balance
+
+Target:
+Coins burned ≥ Coins minted
+
+If minting exceeds burning → value collapses.
+
+🏅 Step 6: Progression Layers (Engagement Multiplier)
+
+Add non-coin progression too.
+
+ELO Ranking
+
+Coins don’t buy ELO.
+Skill does.
+
+Seasonal Prestige
+
+At season reset:
+
+ELO resets partially
+
+Cosmetic prestige retained
+
+Now coins support prestige, not replace skill.
+
+🧬 Step 7: Archetype Integration (Your Edge)
+
+This is unique to you.
+
+Users earn:
+
+Stretch Big XP
+
+Combo Guard XP
+
+Scoring Wing XP
+
+Unlock:
+
+Archetype titles
+
+Archetype frames
+
+Archetype animations
+
+Coins can accelerate cosmetic unlocks — not performance.
+
+🛡 Step 8: Anti-Exploit Safeguards
+
+To protect economy:
+
+Ranked rewards only via matchmaking
+
+Entry fee required
+
+Diminishing returns vs same opponent
+
+Daily earning caps
+
+No coin gifting between users
+
+No peer-to-peer transfer initially.
+
+📈 Step 9: Monetization Layer (Optional Later)
+
+If you ever monetize:
+
+Users can buy:
+
+Cosmetic packs
+
+Battle pass
+
+Coin bundles
+
+But coins must remain earnable via skill or community revolts.
+
+🔥 The Ideal Coach Coin Pillars
+
+Your economy should revolve around:
+
+Competition (entry fees)
+
+Prestige (cosmetics)
+
+Access (advanced tools)
+
+Progression (season ladders)
+
+If coins touch projections directly → you lose legitimacy.
+
+⚖️ The Hard Question
+
+Is Coach Coin:
+
+A competitive currency?
+Or a cosmetic currency?
+Or a hybrid?
+
+My recommendation:
+
+Hybrid — but skill-weighted.
+
+Coins buy access and identity.
+Skill determines ranking.
+
+You’re basically building:
+
+Chess.com rating + Fortnite cosmetics + DFS optimizer.
+
+That can be sticky if structured correctly.

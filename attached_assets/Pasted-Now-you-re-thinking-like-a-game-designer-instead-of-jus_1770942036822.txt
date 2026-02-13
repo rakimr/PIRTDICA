@@ -1,0 +1,244 @@
+Now you’re thinking like a game designer instead of just a feature builder.
+
+Yes — splitting into Coach Coin and Coach Cash can be extremely powerful.
+
+But only if you define them very clearly and never let them blur.
+
+Let’s architect this cleanly.
+
+🪙 Coach Coin vs 💵 Coach Cash
+
+You’re essentially separating:
+
+Soft currency (engagement currency)
+
+Hard currency (competitive currency)
+
+That’s how most successful game economies are structured.
+
+🪙 Coach Coin (Soft Currency)
+
+Earned through:
+
+Playing ranked
+
+Daily challenges
+
+Achievements
+
+Season rewards
+
+Spent on:
+
+Cosmetics
+
+Profile themes
+
+Archetype badges
+
+Animations
+
+Seasonal unlocks
+
+Limited edition drops
+
+Coach Coin = Identity + Status
+
+It should NOT:
+
+Enter staking pools
+
+Be transferable
+
+Be convertible to cash
+
+This prevents abuse.
+
+💵 Coach Cash (Hard Currency)
+
+This is where things get serious.
+
+Coach Cash should be:
+
+Used for entry fees in competitive matches
+
+Used in tournaments
+
+Used for staking H2H contests
+
+Potentially withdrawable (if you ever go that route)
+
+Coach Cash = Competitive fuel
+
+Why This Split Is Powerful
+
+If you keep one hybrid currency:
+
+Win-trading affects everything.
+Inflation affects everything.
+Monetization affects everything.
+
+By separating:
+
+Coach Coin economy = engagement loop
+Coach Cash economy = competitive loop
+
+Now you can tune each independently.
+
+🧠 The Smart Structure
+Ranked Modes
+🟢 Coin Mode (Free Play Ladder)
+
+Entry: 0 Coach Cash
+
+Earn Coach Coins
+
+Cosmetic rewards
+
+ELO ranking
+
+Low stakes. Low risk. High engagement.
+
+🔥 Cash Mode (Competitive Arena)
+
+Entry fee in Coach Cash
+
+Winner takes % of pot
+
+Small platform rake
+
+Strict anti-cheat
+
+Serious competition.
+
+🚨 Important Legal Note
+
+If Coach Cash:
+
+Is purchased
+
+Is staked
+
+Is withdrawable
+
+You’re entering real-money gaming territory.
+
+That changes compliance requirements.
+
+If Coach Cash is NOT withdrawable and only used in-app:
+Much safer structurally.
+
+⚖️ Best Hybrid Model (If You Want Controlled Risk)
+
+Coach Cash:
+
+Can be purchased
+
+Can be earned in small amounts
+
+Cannot be withdrawn
+
+Used for high-tier contests
+
+That keeps you out of full gambling territory.
+
+🏦 How Coins & Cash Interact (Careful Here)
+
+Do NOT allow:
+Coach Coin → Coach Cash conversion
+
+That creates farming exploits.
+
+You MAY allow:
+Coach Cash → Coach Coin conversion
+(at bad exchange rate)
+
+Why?
+
+Cash buyers can get cosmetics.
+Grinders cannot farm cash.
+
+🔄 The Full Loop
+
+User starts:
+
+Plays free ranked
+
+Earns Coach Coins
+
+Unlocks identity
+
+Gets competitive:
+
+Buys or earns Coach Cash
+
+Enters cash arena
+
+Wins bigger stakes
+
+Climbs prestige ladder
+
+Two parallel economies.
+
+🎯 The Hidden Advantage
+
+This also solves your win-trading issue partially.
+
+If:
+Cash matches require:
+
+Entry fee
+
+ELO matching
+
+Quality lineup validation
+
+Win-trading becomes expensive.
+
+🧬 Where This Gets Really Powerful For You
+
+You already built:
+
+Archetypes
+
+DVA/DVS engine
+
+Advanced analytics
+
+Imagine:
+
+Coach Cash Arena:
+“Archetype Specialist Tournament”
+Only Scoring Wings count.
+$50 Coach Cash entry.
+
+Now your data model becomes a competitive theme engine.
+
+🚫 What You Must Avoid
+
+Letting Coach Coin influence Cash matches
+
+Letting Cash buy projection boosts
+
+Letting Coin convert to Cash
+
+Printing too much Coach Cash
+
+Hard currency must feel scarce.
+
+🏗 Clean Structure Summary
+
+Coach Coin:
+Engagement currency
+Cosmetics + XP + themes
+
+Coach Cash:
+Competitive entry currency
+Used for staking
+High integrity
+
+Separate wallets.
+Separate ledgers.
+Separate inflation controls.
+
+This structure scales.
