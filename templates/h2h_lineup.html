@@ -143,7 +143,7 @@
                             <td class="col-pos"><span class="pos-badge">{{ p.fd_position }}</span></td>
                             <td class="col-name">
                                 <div style="display: flex; align-items: center; gap: 6px;">
-                                    <img src="{{ headshots.get(p.player_name, '') }}" alt="" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; background: #e5e7eb; flex-shrink: 0;" onerror="this.style.display='none'">
+                                    <img src="{{ headshots.get(p.player_name, '') }}" alt="" style="width: 28px; height: 28px; border-radius: 4px; object-fit: contain; background: #e5e7eb; flex-shrink: 0;" onerror="this.style.display='none'">
                                     <span>{{ p.player_name }}</span>
                                 </div>
                             </td>
@@ -299,7 +299,7 @@ function updateDisplay() {
             el.innerHTML = `
                 <span class="slot-label">${slot.pos}</span>
                 <div class="slot-filled" style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0;">
-                    ${player.headshot ? `<img src="${player.headshot}" alt="" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; background: #e5e7eb; flex-shrink: 0;" onerror="this.style.display='none'">` : ''}
+                    ${player.headshot ? `<img src="${player.headshot}" alt="" style="width: 24px; height: 24px; border-radius: 4px; object-fit: contain; background: #e5e7eb; flex-shrink: 0;" onerror="this.style.display='none'">` : ''}
                     <span class="slot-player-name">${player.name}</span>
                     <span class="slot-player-info">
                         ${player.injury ? '<span class="injury-tag tag-' + player.injury.toLowerCase() + '">' + player.injury + '</span>' : ''}
