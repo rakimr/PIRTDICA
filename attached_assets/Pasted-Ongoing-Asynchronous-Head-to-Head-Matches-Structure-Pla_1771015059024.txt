@@ -1,0 +1,223 @@
+Ongoing Asynchronous Head-to-Head Matches
+Structure
+
+Players queue anytime
+
+Matched instantly
+
+Each match tied to upcoming slate
+
+Ladder updates continuously
+
+No fixed competition window
+
+🧠 What It Feels Like
+
+Like Chess.com.
+Like ladder-based 1v1 esports.
+
+Always available.
+Skill-focused.
+Flexible.
+
+✅ Strengths
+
+Strong MMR integrity
+
+Smooth matchmaking
+
+Controlled rating adjustments
+
+Easy to gate by division
+
+Works for global time zones
+
+Very scalable.
+
+❌ Weaknesses
+
+Harder to create event hype
+
+Feels less “big stage”
+
+May fragment player pool
+
+Less communal feeling
+
+🎯 Who This Appeals To
+
+Pure competitors
+
+Strategy-first players
+
+Ladder climbers
+
+Players who like rating precision
+
+🏟 Identity Outcome
+
+Feels like:
+“DFS is a skill ladder sport”
+
+Very esport-aligned.
+Very legitimate.
+
+🅲 C) Scheduled Match Windows (Esports Match Days)
+Structure
+
+Ranked match days (e.g., Tue/Thu/Sat)
+
+Fixed entry window (e.g., 2 hours before slate)
+
+Locked bracket or structured pairings
+
+Broadcast leaderboard updates
+
+Structured divisions compete simultaneously
+
+🧠 What It Feels Like
+
+Big.
+Intentional.
+Event-based.
+Competitive theater.
+
+This feels like an esport.
+
+✅ Strengths
+
+Creates hype
+
+Encourages preparation
+
+Reduces spam entries
+
+Allows broadcast features
+
+Strong seasonal storytelling
+
+Easier to build playoffs
+
+This is what real esports use.
+
+❌ Weaknesses
+
+Less frequent engagement
+
+Requires scheduling commitment
+
+Harder for casuals
+
+More operational complexity
+
+🎯 Who This Appeals To
+
+Serious players
+
+Competitive personalities
+
+Content creators
+
+Spectators
+
+🏟 Identity Outcome
+
+Feels like:
+“DFS Match Night”
+
+Much closer to esports than gambling.
+
+🔥 The Real Answer: Hybrid Model
+
+If you want legitimacy AND engagement:
+
+You combine B + C.
+
+🧠 Recommended Structure
+🔹 Core Ladder = Asynchronous H2H (Option B)
+
+Always-on queue
+
+Clean MMR system
+
+Rating integrity
+
+Foundation of skill legitimacy
+
+This is your backbone.
+
+🔹 Weekly Match Days = Structured Windows (Option C)
+
+One or two nights per week
+
+Higher MMR impact
+
+Featured matches
+
+Division-specific brackets
+
+Prize pool boost
+
+Public leaderboard
+
+This builds hype.
+
+🔹 Daily Slate Mode = Casual Ranked (Optional A)
+
+Lower MMR impact
+
+Coach Coin rewards
+
+Entry-level competition
+
+Good for onboarding.
+
+🏆 Why Hybrid Is Superior
+
+If you only do A:
+Feels like DFS with points.
+
+If you only do B:
+Feels competitive but lacks spectacle.
+
+If you only do C:
+Engagement too sparse.
+
+Hybrid gives you:
+
+Always-on skill ladder
+
+Event-based intensity
+
+Daily engagement
+
+That’s esports architecture.
+
+📊 Competitive Integrity Comparison
+Format	Variance Control	Smurf Resistance	Hype	Skill Expression
+A	Low	Medium	Low	Medium
+B	High	High	Medium	High
+C	High	High	Very High	Very High
+🎮 My Strong Recommendation
+
+Make:
+
+Primary Ranked = Ongoing Asynchronous (B)
+
+Add:
+
+Weekly Division Match Nights (C)
+
+That combination gives you:
+
+Precision rating
+
+Skill legitimacy
+
+Broadcast potential
+
+Seasonal narratives
+
+Championship structure
+
+That’s real esport structure.

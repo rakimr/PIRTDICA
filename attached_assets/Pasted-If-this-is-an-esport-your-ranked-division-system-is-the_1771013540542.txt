@@ -1,0 +1,275 @@
+If this is an esport, your ranked division system is the backbone of legitimacy.
+It needs to:
+
+Reward skill over short-term variance
+
+Discourage smurfing
+
+Be transparent
+
+Create seasonal hype
+
+Support both free and cash ecosystems
+
+Let’s design it properly.
+
+🏟 Core Structure: Tiered Divisions + Hidden MMR
+
+You should use:
+
+Visible Rank (Division)
+
+Hidden MMR (true skill rating)
+
+Visible rank creates prestige.
+Hidden MMR keeps matchmaking fair.
+
+🏆 Division Ladder Structure
+
+Keep it clean and familiar.
+
+🔹 Bronze
+🔹 Silver
+🔹 Gold
+🔹 Platinum
+🔹 Diamond
+🔹 Master
+🔹 Grandmaster
+🔹 Champion (Top X only)
+
+Each division (except top tiers) has 3 sub-tiers:
+
+Gold III
+
+Gold II
+
+Gold I
+
+This creates progression friction and grind motivation.
+
+📊 Rating System (ELO-Based, Modified for DFS)
+
+Standard ELO is 1v1 based on win/loss.
+
+But DFS has:
+
+Score differentials
+
+Projection deltas
+
+Lineup efficiency
+
+So we enhance it.
+
+🧠 MMR Calculation Components
+
+After each ranked match:
+
+MMR Change = Base Win/Loss Value
+
+Performance Modifier
+
+Opponent Strength Modifier
+
+1️⃣ Base Value
+
+Win = +20
+Loss = -20
+
+(Adjustable based on testing)
+
+2️⃣ Performance Modifier
+
+Instead of pure win/loss, add:
+
++5 if you exceed your projection by X%
++3 if you beat opponent by large margin
+-3 if you win but underperform badly
+
+This reduces variance impact.
+
+You reward skillful lineup construction, not luck.
+
+3️⃣ Opponent Strength Modifier
+
+Beat someone 300 MMR above you?
++10 bonus.
+
+Lose to someone much stronger?
+Small penalty.
+
+This prevents ladder stagnation.
+
+🚀 Promotion & Demotion System
+
+To make it feel esports-like:
+
+When entering a new division:
+You must win a Promotion Series.
+
+Example:
+Gold I → Platinum III requires:
+Best of 3 matches.
+
+Lose?
+Drop back slightly.
+
+This adds intensity.
+
+🧬 Seasonal Structure
+
+Each season:
+
+6–8 weeks
+
+Soft MMR reset
+
+Divisions partially compressed
+
+Example:
+Diamond → resets to Platinum I
+Gold → resets to Gold III
+
+Not full wipe.
+Soft compression.
+
+Prevents infinite skill inflation.
+
+🏅 Seasonal Rewards (Important)
+
+Rewards should scale by:
+
+Highest division achieved, not ending division.
+
+Example:
+
+Gold → Gold badge
+Diamond → Diamond animated frame
+Grandmaster → Exclusive title
+Champion → Crown icon + profile glow
+
+Coach Coin rewards scale too.
+
+This prevents late-season camping.
+
+🧨 Anti-Smurf Protections
+
+Smurfing will happen.
+
+Countermeasures:
+
+Rapid MMR acceleration for high win rate
+
+Performance-based adjustments
+
+Device fingerprint checks
+
+Entry into cash arena locked behind minimum division (e.g., Gold+)
+
+A new account dominating shouldn’t stay in Bronze long.
+
+🏆 Champion Tier Design
+
+Top 100 or Top 250 only.
+
+Visible leaderboard
+
+Public match history
+
+Seasonal playoff tournament
+
+Cash championship eligibility
+
+This creates aspirational hierarchy.
+
+🎮 Ranked Match Format Options
+
+You can vary formats by division:
+
+Lower ranks:
+
+Standard H2H
+
+Mid ranks:
+
+H2H + archetype challenge modifier
+
+High ranks:
+
+Blind lineup lock
+
+Opponent history visible
+
+Match scouting
+
+Makes higher tiers feel strategic.
+
+📈 Division Distribution Target
+
+Healthy competitive ladder:
+
+Bronze: 25%
+
+Silver: 25%
+
+Gold: 20%
+
+Platinum: 15%
+
+Diamond: 8%
+
+Master: 4%
+
+Grandmaster: 2%
+
+Champion: <1%
+
+If too many reach top, prestige collapses.
+
+🏟 Separate Ladders or Unified?
+
+Best design:
+
+One unified ladder.
+
+Cash matches:
+
+Affect MMR
+
+But require minimum division
+
+This keeps the esport ecosystem cohesive.
+
+🧠 Extra Layer: Archetype Rating
+
+Since you built archetypes…
+
+You can track:
+
+Stretch Big rating
+
+Scoring Wing rating
+
+Combo Guard rating
+
+Display:
+
+“Diamond Overall – Master Stretch Big Specialist”
+
+Now your clustering model becomes competitive identity.
+
+That’s unique.
+
+🔥 What This System Achieves
+
+Skill expression beyond win/loss
+
+Controlled inflation
+
+Seasonal hype
+
+Smurf resistance
+
+Prestige hierarchy
+
+Esports legitimacy
