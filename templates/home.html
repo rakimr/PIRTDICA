@@ -5,9 +5,9 @@
 {% block content %}
 <div class="hero">
     {% if no_games_today %}
-    <h1>NO SLATE TODAY</h1>
+    <h1>NO CONTESTS TODAY</h1>
     <div class="countdown-display">
-        <span>OFF DAY</span>
+        <span></span>
     </div>
     {% elif next_game_iso %}
     <h1>GAME STARTS IN</h1>
@@ -20,9 +20,9 @@
         <span>LIVE</span>
     </div>
     {% else %}
-    <h1>NO SLATE TODAY</h1>
+    <h1>NO CONTESTS TODAY</h1>
     <div class="countdown-display">
-        <span>OFF DAY</span>
+        <span></span>
     </div>
     {% endif %}
     {% if not user %}
@@ -101,7 +101,7 @@
 </section>
 {% elif no_games_today %}
 <section class="no-contest">
-    <h2>No Slate Today</h2>
+    <h2>No Contests Today</h2>
     <p>The NBA schedule has no games today. Check back tomorrow!</p>
 </section>
 {% endif %}
