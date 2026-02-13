@@ -15,6 +15,17 @@ class User(Base):
     theme = Column(String(50), default="default")
     coins = Column(Integer, default=100)
     coach_cash = Column(Integer, default=0)
+    mmr = Column(Integer, default=1000)
+    division = Column(String(20), default="Bronze")
+    division_tier = Column(Integer, default=3)  # 3=III, 2=II, 1=I
+    season_high_division = Column(String(20), default="Bronze")
+    season_high_tier = Column(Integer, default=3)
+    promotion_wins = Column(Integer, default=0)
+    promotion_losses = Column(Integer, default=0)
+    in_promotion = Column(Boolean, default=False)
+    ranked_wins = Column(Integer, default=0)
+    ranked_losses = Column(Integer, default=0)
+    ranked_streak = Column(Integer, default=0)  # positive = win streak, negative = loss streak
     created_at = Column(DateTime, server_default=func.now())
     
     entries = relationship("ContestEntry", back_populates="user")
@@ -225,6 +236,9 @@ class H2HChallenge(Base):
     opponent_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     wager = Column(Integer, default=10)
     currency_mode = Column(String(10), default="coin")
+    match_type = Column(String(20), default="casual")  # "casual", "ranked", "match_night"
+    mmr_change_challenger = Column(Integer, default=0)
+    mmr_change_opponent = Column(Integer, default=0)
     status = Column(String(20), default="open")
     winner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     challenger_score = Column(Float, default=0)

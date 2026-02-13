@@ -21,6 +21,7 @@
                 <tr>
                     <th>Rank</th>
                     <th>Coach</th>
+                    <th>Division</th>
                     <th>Wins</th>
                     <th>Entries</th>
                     <th>Win Rate</th>
@@ -51,6 +52,15 @@
                             </div>
                             <span>{{ entry.display_name or entry.username }}</span>
                         </a>
+                    </td>
+                    <td class="division" style="white-space: nowrap;">
+                        {% set e_div = entry.division or 'Bronze' %}
+                        {% set e_tier = entry.division_tier or 3 %}
+                        {% set e_tier_map = {1: 'I', 2: 'II', 3: 'III'} %}
+                        {% set e_div_colors = {'Bronze': '#CD7F32', 'Silver': '#A8A9AD', 'Gold': '#D4AF37', 'Platinum': '#E5E4E2', 'Diamond': '#00BFFF', 'Master': '#6D28D9', 'Grandmaster': '#D72638', 'Champion': '#D4AF37'} %}
+                        <span style="color: {{ e_div_colors.get(e_div, '#CD7F32') }}; font-weight: 700; font-size: 0.85rem;">
+                            {{ e_div if e_div in ['Master', 'Grandmaster', 'Champion'] else e_div ~ ' ' ~ e_tier_map.get(e_tier, 'III') }}
+                        </span>
                     </td>
                     <td class="wins">{{ entry.wins or 0 }}</td>
                     <td class="entries">{{ entry.entries or 0 }}</td>

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Coach vs Coach - PIRTDICA{% endblock %}
+{% block title %}Coach vs Coach Arena - PIRTDICA{% endblock %}
 
 {% block content %}
 <style>
@@ -8,6 +8,20 @@
 .h2h-header { text-align: center; margin-bottom: 2rem; }
 .h2h-header h1 { letter-spacing: -0.01em; }
 .h2h-header p { color: #6b7280; margin-top: 0.5rem; }
+.division-badge { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.4rem 1rem; border-radius: 20px; font-weight: 700; font-size: 0.95rem; border: 2px solid; margin-top: 0.75rem; }
+.mmr-display { font-size: 0.8rem; color: #6b7280; margin-top: 0.25rem; }
+.ranked-section { background: #f9fafb; border: 2px solid #e5e7eb; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; }
+.ranked-section h2 { font-family: 'Marvel', sans-serif; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem; }
+.ranked-section p { color: #6b7280; font-size: 0.9rem; margin-bottom: 1rem; }
+.ranked-actions { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+.btn-ranked { background: #1a1a1a; color: #fff; border: none; padding: 0.7rem 1.5rem; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 1rem; letter-spacing: 0.02em; }
+.btn-ranked:hover { background: #000; }
+.btn-match-night { background: #D72638; color: #fff; border: none; padding: 0.7rem 1.5rem; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 1rem; }
+.btn-match-night:hover { background: #b8202f; }
+.ranked-info { font-size: 0.85rem; color: #6b7280; }
+.queued-banner { background: #dbeafe; border: 1px solid #93c5fd; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem; }
+.queued-dot { width: 10px; height: 10px; background: #3b82f6; border-radius: 50%; animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 .h2h-section { margin-bottom: 2.5rem; }
 .h2h-section h2 { font-family: 'Marvel', sans-serif; font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
 .create-form { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
@@ -19,10 +33,14 @@
 .challenge-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
 .challenge-info { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
 .challenge-user { font-weight: 600; font-size: 1rem; }
-.challenge-wager { background: var(--bg-input); color: var(--text); padding: 0.25rem 0.75rem; border-radius: 12px; font-weight: 700; font-size: 0.85rem; border: 1px solid var(--border); }
+.challenge-fee { background: var(--bg-input); color: var(--text); padding: 0.25rem 0.75rem; border-radius: 12px; font-weight: 700; font-size: 0.85rem; border: 1px solid var(--border); }
 .challenge-mode { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.15rem 0.5rem; border-radius: 4px; }
 .mode-coin { background: #f3f4f6; color: #374151; }
 .mode-cash { background: #fef3c7; color: #92400e; }
+.match-type-badge { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.15rem 0.5rem; border-radius: 4px; }
+.type-ranked { background: #dbeafe; color: #1d4ed8; }
+.type-match_night { background: #fce7f3; color: #9d174d; }
+.type-casual { background: #f3f4f6; color: #6b7280; }
 .challenge-status { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.2rem 0.6rem; border-radius: 4px; }
 .status-open { background: #dbeafe; color: #1d4ed8; }
 .status-accepted { background: #fef3c7; color: #92400e; }
@@ -38,6 +56,9 @@
 .result-win { color: #00ff88; font-weight: 700; }
 .result-loss { color: #ff4444; font-weight: 700; }
 .result-tie { color: #6b7280; font-weight: 700; }
+.mmr-change { font-size: 0.8rem; font-weight: 700; }
+.mmr-up { color: #065f46; }
+.mmr-down { color: #991b1b; }
 .empty-state { color: #6b7280; font-style: italic; padding: 1rem 0; }
 .score-display { font-size: 0.9rem; color: #6b7280; }
 .h2h-error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 0.75rem 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; font-weight: 600; font-size: 0.95rem; }
@@ -47,21 +68,53 @@ select option:disabled { color: #9ca3af; }
 .mode-toggle label:hover { background: #f3f4f6; }
 .mode-toggle input[type="radio"] { display: none; }
 .mode-toggle input[type="radio"]:checked + label { background: #1a1a1a; color: #fff; }
+.promo-banner { background: linear-gradient(135deg, #1a1a1a 0%, #374151 100%); color: #fff; border-radius: 8px; padding: 0.75rem 1.25rem; margin-bottom: 1rem; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem; }
+.promo-banner .promo-icon { font-size: 1.1rem; }
 </style>
 
 <div class="h2h-page">
     <div class="h2h-header">
-        <h1>COACH VS COACH</h1>
-        <p>Challenge other coaches head-to-head. Coin Mode for fun, Cash Mode for competitive stakes.</p>
+        <h1>COACH VS COACH ARENA</h1>
+        <p>Compete head-to-head. Build the best lineup. Climb the ranks.</p>
+        <div class="division-badge" style="border-color: {{ division_color }}; color: {{ division_color }};">
+            {{ user_division }}
+        </div>
+        <div class="mmr-display">Rating: {{ user_mmr }} MMR</div>
+        {% if user.in_promotion %}
+        <div class="promo-banner">
+            <span class="promo-icon">&#9650;</span>
+            Promotion Series: {{ user.promotion_wins or 0 }}W - {{ user.promotion_losses or 0 }}L (Best of 3)
+        </div>
+        {% endif %}
     </div>
 
     {% if error %}
     <div class="h2h-error">{{ error }}</div>
     {% endif %}
 
+    {% if queued %}
+    <div class="queued-banner">
+        <span class="queued-dot"></span>
+        <span>You're in the ranked queue. You'll be matched with an opponent in your skill range. Check back shortly!</span>
+    </div>
+    {% endif %}
+
     {% if contest %}
+    <div class="ranked-section">
+        <h2>RANKED COMPETITION</h2>
+        <p>Queue for a ranked match. You'll be paired with a coach near your skill level. Win to climb divisions and earn prestige.</p>
+        <div class="ranked-actions">
+            <form method="POST" action="/h2h/queue" style="display:inline;">
+                <input type="hidden" name="match_type" value="ranked">
+                <input type="hidden" name="currency_mode" value="coin">
+                <button type="submit" class="btn-ranked">Enter Ranked Queue (10 CC)</button>
+            </form>
+            <span class="ranked-info">Entry fee: 10 Coach Coin | MMR-based matchmaking</span>
+        </div>
+    </div>
+
     <div class="h2h-section">
-        <h2>Create Challenge</h2>
+        <h2>Create Custom Match</h2>
         <form class="create-form" method="POST" action="/h2h/create" id="createChallengeForm">
             <div class="mode-toggle">
                 <input type="radio" name="currency_mode" value="coin" id="mode-coin" checked>
@@ -69,13 +122,13 @@ select option:disabled { color: #9ca3af; }
                 <input type="radio" name="currency_mode" value="cash" id="mode-cash">
                 <label for="mode-cash">Cash Mode</label>
             </div>
-            <label for="wager">Wager:</label>
+            <label for="wager">Entry Fee:</label>
             <select name="wager" id="wager">
                 {% for val in [5, 10, 25, 50, 100, 250, 500] %}
                 <option value="{{ val }}" data-coin-ok="{{ 'yes' if val <= user.coins else 'no' }}" data-cash-ok="{{ 'yes' if val <= user.coach_cash else 'no' }}" {{ 'selected' if val == 10 else '' }}>{{ val }}</option>
                 {% endfor %}
             </select>
-            <button type="submit" class="btn btn-primary" id="createBtn">Create Challenge</button>
+            <button type="submit" class="btn btn-primary" id="createBtn">Create Match</button>
             <div class="wallet-display">
                 <span class="wallet-badge active" id="coinBadge">{{ user.coins }} Coach Coin</span>
                 <span class="wallet-badge" id="cashBadge">{{ user.coach_cash }} Coach Cash</span>
@@ -89,14 +142,15 @@ select option:disabled { color: #9ca3af; }
     {% endif %}
 
     <div class="h2h-section">
-        <h2>Open Challenges</h2>
+        <h2>Open Matches</h2>
         {% if open_challenges %}
             {% for c in open_challenges %}
             <div class="challenge-card">
                 <div class="challenge-info">
                     <span class="challenge-user">{{ c.challenger.display_name or c.challenger.username }}</span>
-                    <span class="challenge-wager">{{ c.wager }}</span>
+                    <span class="challenge-fee">{{ c.wager }} {{ 'CC' if (c.currency_mode or 'coin') == 'coin' else '$' }}</span>
                     <span class="challenge-mode mode-{{ c.currency_mode or 'coin' }}">{{ (c.currency_mode or 'coin')|upper }} MODE</span>
+                    <span class="match-type-badge type-{{ c.match_type or 'casual' }}">{{ (c.match_type or 'casual')|upper }}</span>
                 </div>
                 <div class="challenge-actions">
                     <form method="POST" action="/h2h/accept/{{ c.id }}" style="display:inline;" class="accept-form" data-wager="{{ c.wager }}" data-mode="{{ c.currency_mode or 'coin' }}">
@@ -106,7 +160,7 @@ select option:disabled { color: #9ca3af; }
             </div>
             {% endfor %}
         {% else %}
-            <p class="empty-state">No open challenges right now. Create one!</p>
+            <p class="empty-state">No open matches right now. Create one or join the ranked queue!</p>
         {% endif %}
     </div>
 
@@ -119,14 +173,15 @@ select option:disabled { color: #9ca3af; }
                     {% if c.challenger_id == user.id %}
                         <span class="challenge-user">You</span>
                         <span>vs</span>
-                        <span class="challenge-user">{{ c.opponent.display_name or c.opponent.username if c.opponent else 'Waiting...' }}</span>
+                        <span class="challenge-user">{{ c.opponent.display_name or c.opponent.username if c.opponent else 'Searching...' }}</span>
                     {% else %}
                         <span class="challenge-user">{{ c.challenger.display_name or c.challenger.username }}</span>
                         <span>vs</span>
                         <span class="challenge-user">You</span>
                     {% endif %}
-                    <span class="challenge-wager">{{ c.wager }}</span>
+                    <span class="challenge-fee">{{ c.wager }} {{ 'CC' if (c.currency_mode or 'coin') == 'coin' else '$' }}</span>
                     <span class="challenge-mode mode-{{ c.currency_mode or 'coin' }}">{{ (c.currency_mode or 'coin')|upper }}</span>
+                    <span class="match-type-badge type-{{ c.match_type or 'casual' }}">{{ (c.match_type or 'casual')|upper }}</span>
                     <span class="challenge-status status-{{ c.status }}">{{ c.status }}</span>
                 </div>
                 <div class="challenge-actions">
@@ -164,15 +219,26 @@ select option:disabled { color: #9ca3af; }
                         <span>vs</span>
                         <span class="score-display">{{ "%.1f"|format(c.opponent_score) }}</span>
                         <span class="challenge-user">{{ c.opponent.display_name or c.opponent.username if c.opponent else '?' }}</span>
+                        {% if c.mmr_change_challenger and c.mmr_change_challenger != 0 %}
+                        <span class="mmr-change {% if c.mmr_change_challenger > 0 %}mmr-up{% else %}mmr-down{% endif %}">
+                            {{ '+' if c.mmr_change_challenger > 0 else '' }}{{ c.mmr_change_challenger }} MMR
+                        </span>
+                        {% endif %}
                     {% else %}
                         <span class="challenge-user">{{ c.challenger.display_name or c.challenger.username }}</span>
                         <span class="score-display">{{ "%.1f"|format(c.challenger_score) }}</span>
                         <span>vs</span>
                         <span class="score-display">{{ "%.1f"|format(c.opponent_score) }}</span>
                         <span class="challenge-user">You</span>
+                        {% if c.mmr_change_opponent and c.mmr_change_opponent != 0 %}
+                        <span class="mmr-change {% if c.mmr_change_opponent > 0 %}mmr-up{% else %}mmr-down{% endif %}">
+                            {{ '+' if c.mmr_change_opponent > 0 else '' }}{{ c.mmr_change_opponent }} MMR
+                        </span>
+                        {% endif %}
                     {% endif %}
-                    <span class="challenge-wager">{{ c.wager }}</span>
+                    <span class="challenge-fee">{{ c.wager }}</span>
                     <span class="challenge-mode mode-{{ c.currency_mode or 'coin' }}">{{ (c.currency_mode or 'coin')|upper }}</span>
+                    <span class="match-type-badge type-{{ c.match_type or 'casual' }}">{{ (c.match_type or 'casual')|upper }}</span>
                 </div>
                 <div class="challenge-actions">
                     {% if c.winner_id == user.id %}
@@ -239,25 +305,25 @@ var form = document.getElementById('createChallengeForm');
 if (form) {
     form.addEventListener('submit', function(e) {
         var mode = getSelectedMode();
-        var wager = parseInt(wagerSelect.value);
+        var entryFee = parseInt(wagerSelect.value);
         var balance = mode === 'coin' ? userCoins : userCash;
         var label = mode === 'coin' ? 'Coach Coin' : 'Coach Cash';
-        if (wager > balance) {
+        if (entryFee > balance) {
             e.preventDefault();
-            alert('Not enough ' + label + '. You have ' + balance + ' but tried to wager ' + wager + '.');
+            alert('Not enough ' + label + '. You have ' + balance + ' but need ' + entryFee + '.');
         }
     });
 }
 
 document.querySelectorAll('.accept-form').forEach(function(f) {
     f.addEventListener('submit', function(e) {
-        var wager = parseInt(f.dataset.wager);
+        var entryFee = parseInt(f.dataset.wager);
         var mode = f.dataset.mode || 'coin';
         var balance = mode === 'coin' ? userCoins : userCash;
         var label = mode === 'coin' ? 'Coach Coin' : 'Coach Cash';
-        if (wager > balance) {
+        if (entryFee > balance) {
             e.preventDefault();
-            alert('Not enough ' + label + '. You have ' + balance + ' but need ' + wager + ' to accept.');
+            alert('Not enough ' + label + '. You have ' + balance + ' but need ' + entryFee + ' to accept.');
         }
     });
 });

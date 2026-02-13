@@ -38,6 +38,57 @@ Preferred communication style: Simple, everyday language.
 - Tier 2 (250-400 CC): Rare, dual accent, thicker lines
 - Tier 3 (800-1500 CC): Legendary, animated, division-reactive
 
+## Esports Competitive Architecture
+
+### Core Philosophy
+PIRTDICA is a **skill-based esports competition platform**, not a gambling site. Lineup construction is the game. Money functions as entry fees and prize pool fuel, not wagers/bets. All prize pools are peer-funded only (no house risk).
+
+### Language Rules (Critical)
+**USE:** Entry Fee, Prize Pool, Competition, Tournament, Match, Arena
+**NEVER USE:** Bet, Wager, Gamble, Odds (in competitive context)
+
+### Three-Layer Structure
+1. **Ranked Esports Ladder (Free)** - Foundation. ELO/MMR rating, seasonal rankings, public leaderboards. Rewards: Coach Coins, cosmetic unlocks, titles, seasonal prestige frames.
+2. **Coach Cash Arena (Esports Prize Pool)** - Peer-funded prize competitions. H2H matches, tournaments, bracket competitions. Small transparent platform rake. Cash does not affect gameplay mechanics.
+3. **Status Economy (Coach Coin)** - Cosmetics, analytics access, identity items. No pay-to-win.
+
+### Division System (Tiered + Hidden MMR)
+**Visible Divisions:** Bronze, Silver, Gold, Platinum, Diamond, Master, Grandmaster, Champion (Top X only)
+- Each division (except top tiers) has 3 sub-tiers (e.g., Gold III, Gold II, Gold I)
+- Hidden MMR keeps matchmaking fair; visible rank creates prestige
+
+**MMR Calculation (Modified ELO for DFS):**
+- Base: Win = +20, Loss = -20
+- Performance Modifier: +5 if exceed projection by X%, +3 for large margin win, -3 for underperforming win
+- Opponent Strength Modifier: +10 bonus for beating someone 300+ MMR above, small penalty for losing to much stronger
+- Starting MMR: 1000
+
+**Promotion/Demotion:** Best-of-3 promotion series at division boundaries. Lose = drop back slightly.
+
+**Seasonal Structure:** 6-8 week seasons, soft MMR reset (Diamond resets to Platinum I, Gold resets to Gold III). Rewards based on highest division achieved, not ending division.
+
+**Anti-Smurf:** Rapid MMR acceleration for high win rate, performance-based adjustments, Cash Arena locked behind minimum division (Gold+).
+
+**Target Distribution:** Bronze 25%, Silver 25%, Gold 20%, Platinum 15%, Diamond 8%, Master 4%, Grandmaster 2%, Champion <1%
+
+### Hybrid Match Format
+**Primary: Async H2H (Always-On Ladder)** - Chess.com-style. Queue anytime, matched instantly by MMR band, ladder updates continuously. Foundation of skill legitimacy.
+**Secondary: Scheduled Match Windows (Match Nights)** - 1-2 nights/week. Fixed entry window, structured division pairings, higher MMR impact (1.5x multiplier), broadcast leaderboard updates. Creates hype and spectacle.
+**Tertiary: Daily Slate Mode (Casual)** - Lower MMR impact, Coach Coin rewards, entry-level competition, good for onboarding.
+
+### Competitive Integrity (Brand Pillar)
+- Strong matchmaking with ELO band restrictions
+- Anti-collusion detection
+- Lineup validity thresholds
+- Withdrawal KYC (future)
+- Win-trading treated as cheating
+
+### Monetization (Clean Esports Model)
+1. Small rake on Coach Cash competitions (10%)
+2. Premium analytics subscriptions (future)
+3. Cosmetic sales (Coach Coin)
+4. Seasonal battle passes (future)
+
 ## System Architecture
 The system uses an ETL pattern with SQLite for data storage, orchestrated by `run_daily_update.py`. Core projection models include minutes projection, usage-based FPPM adjustment, and robust name normalization. Advanced models like Phillips Archetype Classification (K-means clustering for secondary positions) and Salary-Tier Volatility Model (regularizing fantasy point standard deviation) enhance projection accuracy. The Ceiling/Floor Model transforms point projections into full distributions for strategic decision-making. The Blended DVP and Defense vs Archetype (DVA) systems provide reactive matchup ratings, adapting throughout the season. A Team Incentive Score adjusts volatility based on team standings, and a Prop Trend Analysis Modal offers OVER/UNDER calls based on blended DVP/DVA edges.
 

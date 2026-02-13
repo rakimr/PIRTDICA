@@ -18,6 +18,10 @@ from utils.timezone import get_eastern_today, get_eastern_now
 
 from backend.database import engine, get_db, Base
 from backend import models, auth
+from backend.ranking import (
+    calculate_mmr_change, update_user_ranking, get_matchmaking_range,
+    format_division, DIVISION_COLORS, DIVISIONS
+)
 
 Base.metadata.create_all(bind=engine)
 
@@ -445,6 +449,9 @@ async def leaderboard(request: Request, period: str = "daily", db: Session = Dep
         models.User.username,
         models.User.display_name,
         models.User.avatar_url,
+        models.User.division,
+        models.User.division_tier,
+        models.User.mmr,
         func.count(models.ContestEntry.id).label("entries"),
         func.sum(models.ContestEntry.beat_house.cast(Integer)).label("wins"),
         func.avg(models.ContestEntry.actual_score).label("avg_score")
@@ -460,6 +467,9 @@ async def leaderboard(request: Request, period: str = "daily", db: Session = Dep
             "username": entry.username,
             "display_name": entry.display_name,
             "avatar_url": entry.avatar_url,
+            "division": entry.division or "Bronze",
+            "division_tier": entry.division_tier or 3,
+            "mmr": entry.mmr or 1000,
             "entries": entry.entries,
             "wins": entry.wins,
             "avg_score": entry.avg_score,
@@ -1618,6 +1628,10 @@ async def h2h_lobby(request: Request, db: Session = Depends(get_db)):
     ).order_by(desc(models.H2HChallenge.created_at)).limit(20).all()
 
     error_msg = request.query_params.get("error", "")
+    queued = request.query_params.get("queued", "")
+
+    user_division = format_division(user.division or "Bronze", user.division_tier or 3)
+    division_color = DIVISION_COLORS.get(user.division or "Bronze", "#CD7F32")
 
     return templates.TemplateResponse("h2h_lobby.html", {
         "request": request,
@@ -1627,6 +1641,10 @@ async def h2h_lobby(request: Request, db: Session = Depends(get_db)):
         "active_challenges": active_challenges,
         "history_challenges": history_challenges,
         "error": error_msg,
+        "queued": queued,
+        "user_division": user_division,
+        "division_color": division_color,
+        "user_mmr": user.mmr or 1000,
     })
 
 @app.post("/h2h/create")
@@ -1645,7 +1663,7 @@ async def h2h_create(request: Request, wager: int = Form(...), currency_mode: st
 
     if wager < 5 or wager > 500:
         label = "Coach Coin" if currency_mode == "coin" else "Coach Cash"
-        return RedirectResponse(url=f"/h2h?error=Wager+must+be+between+5+and+500+{label}", status_code=303)
+        return RedirectResponse(url=f"/h2h?error=Entry+fee+must+be+between+5+and+500+{label}", status_code=303)
 
     if currency_mode == "coin":
         if user.coins < wager:
@@ -1654,8 +1672,8 @@ async def h2h_create(request: Request, wager: int = Form(...), currency_mode: st
         db.add(models.CurrencyTransaction(
             user_id=user.id,
             amount=-wager,
-            transaction_type="h2h_wager",
-            description=f"H2H challenge wager ({wager} Coach Coin)"
+            transaction_type="h2h_entry_fee",
+            description=f"H2H match entry fee ({wager} Coach Coin)"
         ))
     else:
         if user.coach_cash < wager:
@@ -1664,8 +1682,8 @@ async def h2h_create(request: Request, wager: int = Form(...), currency_mode: st
         db.add(models.CashTransaction(
             user_id=user.id,
             amount=-wager,
-            transaction_type="h2h_wager",
-            description=f"H2H challenge wager ({wager} Coach Cash)"
+            transaction_type="h2h_entry_fee",
+            description=f"H2H match entry fee ({wager} Coach Cash)"
         ))
 
     challenge = models.H2HChallenge(
@@ -1673,6 +1691,7 @@ async def h2h_create(request: Request, wager: int = Form(...), currency_mode: st
         challenger_id=user.id,
         wager=wager,
         currency_mode=currency_mode,
+        match_type="casual",
         status="open"
     )
     db.add(challenge)
@@ -1702,8 +1721,8 @@ async def h2h_accept(request: Request, challenge_id: int, db: Session = Depends(
         db.add(models.CurrencyTransaction(
             user_id=user.id,
             amount=-challenge.wager,
-            transaction_type="h2h_wager",
-            description=f"Accepted H2H challenge ({challenge.wager} Coach Coin)"
+            transaction_type="h2h_entry_fee",
+            description=f"Accepted H2H match ({challenge.wager} Coach Coin)"
         ))
     else:
         if user.coach_cash < challenge.wager:
@@ -1712,8 +1731,8 @@ async def h2h_accept(request: Request, challenge_id: int, db: Session = Depends(
         db.add(models.CashTransaction(
             user_id=user.id,
             amount=-challenge.wager,
-            transaction_type="h2h_wager",
-            description=f"Accepted H2H challenge ({challenge.wager} Coach Cash)"
+            transaction_type="h2h_entry_fee",
+            description=f"Accepted H2H match ({challenge.wager} Coach Cash)"
         ))
 
     challenge.opponent_id = user.id
@@ -2005,6 +2024,9 @@ async def h2h_match(request: Request, challenge_id: int, db: Session = Depends(g
         "is_opponent": is_opponent,
         "needs_lineup": needs_lineup,
         "headshots": headshots,
+        "match_type": challenge.match_type or "casual",
+        "mmr_change_challenger": challenge.mmr_change_challenger or 0,
+        "mmr_change_opponent": challenge.mmr_change_opponent or 0,
     })
 
 @app.get("/api/live-h2h/{challenge_id}")
@@ -2080,6 +2102,102 @@ async def api_live_h2h(request: Request, challenge_id: int, db: Session = Depend
         'status': challenge.status,
         'any_game_started': any_started,
     }
+
+@app.post("/h2h/queue")
+async def h2h_ranked_queue(request: Request, currency_mode: str = Form("coin"), match_type: str = Form("ranked"), db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not logged in")
+    
+    today = get_eastern_today()
+    contest = db.query(models.Contest).filter(models.Contest.slate_date == today).first()
+    if not contest or contest.status != "open":
+        return RedirectResponse(url="/h2h?error=No+active+contest+today", status_code=303)
+    
+    if match_type not in ("ranked", "match_night", "casual"):
+        match_type = "ranked"
+    
+    if currency_mode not in ("coin", "cash"):
+        currency_mode = "coin"
+    
+    entry_fee = 10 if match_type == "ranked" else 25 if match_type == "match_night" else 5
+    
+    if currency_mode == "coin":
+        if user.coins < entry_fee:
+            return RedirectResponse(url=f"/h2h?error=Need+{entry_fee}+Coach+Coin+to+enter+ranked+queue", status_code=303)
+    else:
+        if user.coach_cash < entry_fee:
+            return RedirectResponse(url=f"/h2h?error=Need+{entry_fee}+Coach+Cash+to+enter+ranked+queue", status_code=303)
+    
+    existing = db.query(models.H2HChallenge).filter(
+        models.H2HChallenge.contest_id == contest.id,
+        models.H2HChallenge.challenger_id == user.id,
+        models.H2HChallenge.match_type.in_(["ranked", "match_night"]),
+        models.H2HChallenge.status == "open"
+    ).first()
+    if existing:
+        return RedirectResponse(url="/h2h?error=Already+in+ranked+queue", status_code=303)
+    
+    mmr_low, mmr_high = get_matchmaking_range(user.mmr or 1000)
+    
+    match = db.query(models.H2HChallenge).filter(
+        models.H2HChallenge.contest_id == contest.id,
+        models.H2HChallenge.status == "open",
+        models.H2HChallenge.match_type == match_type,
+        models.H2HChallenge.currency_mode == currency_mode,
+        models.H2HChallenge.challenger_id != user.id
+    ).join(models.User, models.User.id == models.H2HChallenge.challenger_id).filter(
+        models.User.mmr >= mmr_low,
+        models.User.mmr <= mmr_high
+    ).order_by(func.abs(models.User.mmr - (user.mmr or 1000))).first()
+    
+    if match:
+        if currency_mode == "coin":
+            user.coins -= entry_fee
+            db.add(models.CurrencyTransaction(
+                user_id=user.id, amount=-entry_fee,
+                transaction_type="h2h_entry_fee",
+                description=f"Ranked match entry fee ({entry_fee} Coach Coin)"
+            ))
+        else:
+            user.coach_cash -= entry_fee
+            db.add(models.CashTransaction(
+                user_id=user.id, amount=-entry_fee,
+                transaction_type="h2h_entry_fee",
+                description=f"Ranked match entry fee ({entry_fee} Coach Cash)"
+            ))
+        
+        match.opponent_id = user.id
+        match.status = "accepted"
+        db.commit()
+        return RedirectResponse(url=f"/h2h/match/{match.id}", status_code=303)
+    else:
+        if currency_mode == "coin":
+            user.coins -= entry_fee
+            db.add(models.CurrencyTransaction(
+                user_id=user.id, amount=-entry_fee,
+                transaction_type="h2h_entry_fee",
+                description=f"Ranked queue entry fee ({entry_fee} Coach Coin)"
+            ))
+        else:
+            user.coach_cash -= entry_fee
+            db.add(models.CashTransaction(
+                user_id=user.id, amount=-entry_fee,
+                transaction_type="h2h_entry_fee",
+                description=f"Ranked queue entry fee ({entry_fee} Coach Cash)"
+            ))
+        
+        challenge = models.H2HChallenge(
+            contest_id=contest.id,
+            challenger_id=user.id,
+            wager=entry_fee,
+            currency_mode=currency_mode,
+            match_type=match_type,
+            status="open"
+        )
+        db.add(challenge)
+        db.commit()
+        return RedirectResponse(url="/h2h?queued=1", status_code=303)
 
 def settle_h2h_challenges(db: Session):
     locked_challenges = db.query(models.H2HChallenge).filter(
@@ -2164,6 +2282,10 @@ def settle_h2h_challenges(db: Session):
                         user_id=opponent_user.id, amount=challenge.wager,
                         transaction_type="h2h_tie_refund", description="H2H tie - Coach Cash refunded"
                     ))
+            # No MMR change on ties
+            if (challenge.match_type or "casual") in ("ranked", "match_night"):
+                challenge.mmr_change_challenger = 0
+                challenge.mmr_change_opponent = 0
             challenge.status = "completed"
             continue
 
@@ -2182,6 +2304,39 @@ def settle_h2h_challenges(db: Session):
                 ))
 
         challenge.status = "completed"
+
+        # Apply MMR changes for ranked matches
+        match_type = challenge.match_type or "casual"
+        if match_type in ("ranked", "match_night"):
+            challenger_user_r = db.query(models.User).filter(models.User.id == challenge.challenger_id).first()
+            opponent_user_r = db.query(models.User).filter(models.User.id == challenge.opponent_id).first()
+            
+            if challenger_user_r and opponent_user_r and challenge.winner_id:
+                winner_is_challenger = challenge.winner_id == challenge.challenger_id
+                w_mmr = challenger_user_r.mmr if winner_is_challenger else opponent_user_r.mmr
+                l_mmr = opponent_user_r.mmr if winner_is_challenger else challenger_user_r.mmr
+                w_score = challenge.challenger_score if winner_is_challenger else challenge.opponent_score
+                l_score = challenge.opponent_score if winner_is_challenger else challenge.challenger_score
+                
+                w_proj = sum(p.proj_fp or 0 for p in challenger_ps) if winner_is_challenger else sum(p.proj_fp or 0 for p in opponent_ps)
+                l_proj = sum(p.proj_fp or 0 for p in opponent_ps) if winner_is_challenger else sum(p.proj_fp or 0 for p in challenger_ps)
+                
+                w_change, l_change = calculate_mmr_change(
+                    w_mmr or 1000, l_mmr or 1000, w_score, l_score, w_proj, l_proj, match_type
+                )
+                
+                winner_user = challenger_user_r if winner_is_challenger else opponent_user_r
+                loser_user = opponent_user_r if winner_is_challenger else challenger_user_r
+                
+                update_user_ranking(winner_user, challenge.winner_id, w_change)
+                update_user_ranking(loser_user, challenge.winner_id, l_change)
+                
+                if winner_is_challenger:
+                    challenge.mmr_change_challenger = w_change
+                    challenge.mmr_change_opponent = l_change
+                else:
+                    challenge.mmr_change_challenger = l_change
+                    challenge.mmr_change_opponent = w_change
 
         try:
             from backend.achievements import check_h2h_achievements

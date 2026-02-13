@@ -71,6 +71,64 @@
     </div>
     {% endif %}
     
+    <div class="rank-section" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 24px; margin-bottom: 24px;">
+        <h2 style="font-family: 'Righteous', cursive; margin-bottom: 16px;">Competitive Rank</h2>
+        <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
+            <div style="text-align: center;">
+                {% set div_colors = {'Bronze': '#CD7F32', 'Silver': '#A8A9AD', 'Gold': '#D4AF37', 'Platinum': '#E5E4E2', 'Diamond': '#00BFFF', 'Master': '#6D28D9', 'Grandmaster': '#D72638', 'Champion': '#D4AF37'} %}
+                {% set div = profile.division or 'Bronze' %}
+                {% set tier = profile.division_tier or 3 %}
+                {% set tier_map = {1: 'I', 2: 'II', 3: 'III'} %}
+                {% set div_display = div if div in ['Master', 'Grandmaster', 'Champion'] else div ~ ' ' ~ tier_map.get(tier, 'III') %}
+                <div style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1.25rem; border-radius: 20px; font-weight: 700; font-size: 1.1rem; border: 2px solid {{ div_colors.get(div, '#CD7F32') }}; color: {{ div_colors.get(div, '#CD7F32') }};">
+                    {{ div_display }}
+                </div>
+                <div style="font-size: 0.85rem; color: #6b7280; margin-top: 0.25rem;">{{ profile.mmr or 1000 }} MMR</div>
+            </div>
+            <div class="profile-stats-summary" style="flex: 1;">
+                <div class="stat">
+                    <span class="value" style="color: #065f46;">{{ profile.ranked_wins or 0 }}</span>
+                    <span class="label">Ranked Wins</span>
+                </div>
+                <div class="stat">
+                    <span class="value" style="color: #991b1b;">{{ profile.ranked_losses or 0 }}</span>
+                    <span class="label">Ranked Losses</span>
+                </div>
+                <div class="stat">
+                    <span class="value">
+                        {% set rw = profile.ranked_wins or 0 %}
+                        {% set rl = profile.ranked_losses or 0 %}
+                        {% if rw + rl > 0 %}
+                            {{ "%.0f"|format(rw / (rw + rl) * 100) }}%
+                        {% else %}
+                            0%
+                        {% endif %}
+                    </span>
+                    <span class="label">Win Rate</span>
+                </div>
+                <div class="stat">
+                    <span class="value" style="{% if (profile.ranked_streak or 0) > 0 %}color: #065f46;{% elif (profile.ranked_streak or 0) < 0 %}color: #991b1b;{% endif %}">
+                        {% if (profile.ranked_streak or 0) > 0 %}{{ profile.ranked_streak }}W{% elif (profile.ranked_streak or 0) < 0 %}{{ profile.ranked_streak|abs }}L{% else %}0{% endif %}
+                    </span>
+                    <span class="label">Streak</span>
+                </div>
+            </div>
+        </div>
+        {% if profile.in_promotion %}
+        <div style="background: linear-gradient(135deg, #1a1a1a 0%, #374151 100%); color: #fff; border-radius: 8px; padding: 0.75rem 1.25rem; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
+            <span>&#9650;</span> Promotion Series: {{ profile.promotion_wins or 0 }}W - {{ profile.promotion_losses or 0 }}L
+        </div>
+        {% endif %}
+        {% if profile.season_high_division and profile.season_high_division != 'Bronze' %}
+        <div style="margin-top: 0.75rem; font-size: 0.85rem; color: #6b7280;">
+            {% set sh_div = profile.season_high_division %}
+            {% set sh_tier = profile.season_high_tier or 3 %}
+            {% set sh_display = sh_div if sh_div in ['Master', 'Grandmaster', 'Champion'] else sh_div ~ ' ' ~ tier_map.get(sh_tier, 'III') %}
+            Season High: <span style="color: {{ div_colors.get(sh_div, '#CD7F32') }}; font-weight: 700;">{{ sh_display }}</span>
+        </div>
+        {% endif %}
+    </div>
+
     {% if h2h_stats and h2h_stats.total > 0 %}
     <div class="h2h-stats-section" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 24px; margin-bottom: 24px;">
         <h2 style="font-family: 'Righteous', cursive; margin-bottom: 16px;">Coach vs Coach Record</h2>
@@ -111,7 +169,7 @@
                     <th>Date</th>
                     <th>Opponent</th>
                     <th>Score</th>
-                    <th>Wager</th>
+                    <th>Entry Fee</th>
                     <th>Result</th>
                     <th></th>
                 </tr>
@@ -122,7 +180,7 @@
                     <td>{{ h.date.strftime('%m/%d/%Y') }}</td>
                     <td>{{ h.opponent }}</td>
                     <td>{{ "%.1f"|format(h.my_score or 0) }} - {{ "%.1f"|format(h.opp_score or 0) }}</td>
-                    <td>{{ h.wager }} coins</td>
+                    <td>{{ h.wager }} CC</td>
                     <td class="{% if h.won %}win{% elif h.tied %}{% else %}loss{% endif %}">
                         {% if h.won %}Win{% elif h.tied %}Tie{% else %}Loss{% endif %}
                     </td>

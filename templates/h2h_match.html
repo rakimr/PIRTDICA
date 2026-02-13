@@ -7,7 +7,7 @@
 .h2h-match-page { max-width: 1100px; margin: 0 auto; }
 .h2h-match-header { text-align: center; margin-bottom: 1.5rem; }
 .h2h-match-header h1 { font-family: 'Righteous', cursive; font-size: 2rem; }
-.h2h-match-header .wager-badge { background: var(--bg-input); color: var(--text); padding: 0.3rem 1rem; border-radius: 16px; font-weight: 700; display: inline-block; margin-top: 0.5rem; border: 1px solid var(--border); }
+.h2h-match-header .match-badge { background: var(--bg-input); color: var(--text); padding: 0.3rem 1rem; border-radius: 16px; font-weight: 700; display: inline-block; margin-top: 0.5rem; border: 1px solid var(--border); }
 .result-banner { text-align: center; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; }
 .result-banner.win { background: rgba(0, 255, 136, 0.08); border: 1px solid rgba(0, 255, 136, 0.3); }
 .result-banner.win h2 { color: #00ff88; }
@@ -56,7 +56,7 @@
 <div class="h2h-match-page">
     <div class="h2h-match-header">
         <h1>{{ challenge.challenger.display_name or challenge.challenger.username }} vs {{ challenge.opponent.display_name or challenge.opponent.username if challenge.opponent else 'Waiting...' }}</h1>
-        <div class="wager-badge">{{ challenge.wager }} coins</div>
+        <div class="match-badge">{{ challenge.wager }} {{ 'CC' if (challenge.currency_mode or 'coin') == 'coin' else 'Coach Cash' }} | {{ (match_type or 'casual')|upper }}</div>
     </div>
 
     {% if needs_lineup %}
@@ -78,7 +78,7 @@
             <h2>You Won!</h2>
             {% set total_pot = challenge.wager * 2 %}
             {% set house_cut = [1, (total_pot * 0.1)|int]|max %}
-            <p>You earned {{ total_pot - house_cut }} coins!</p>
+            <p>You earned {{ total_pot - house_cut }} {{ 'Coach Coin' if (challenge.currency_mode or 'coin') == 'coin' else 'Coach Cash' }}!</p>
         </div>
         {% elif challenge.winner_id %}
         <div class="result-banner loss">
@@ -88,7 +88,24 @@
         {% else %}
         <div class="result-banner tie">
             <h2>It's a Tie!</h2>
-            <p>Wagers refunded.</p>
+            <p>Entry fees refunded.</p>
+        </div>
+        {% endif %}
+        {% if match_type in ['ranked', 'match_night'] and challenge.status == 'completed' %}
+        <div style="text-align: center; margin-top: -0.5rem; margin-bottom: 1rem; font-size: 0.9rem;">
+            {% if challenge.challenger_id == user.id %}
+                {% if mmr_change_challenger > 0 %}
+                <span style="color: #065f46; font-weight: 700;">+{{ mmr_change_challenger }} MMR</span>
+                {% elif mmr_change_challenger < 0 %}
+                <span style="color: #991b1b; font-weight: 700;">{{ mmr_change_challenger }} MMR</span>
+                {% endif %}
+            {% else %}
+                {% if mmr_change_opponent > 0 %}
+                <span style="color: #065f46; font-weight: 700;">+{{ mmr_change_opponent }} MMR</span>
+                {% elif mmr_change_opponent < 0 %}
+                <span style="color: #991b1b; font-weight: 700;">{{ mmr_change_opponent }} MMR</span>
+                {% endif %}
+            {% endif %}
         </div>
         {% endif %}
     {% elif challenge.status in ['open', 'accepted'] %}
