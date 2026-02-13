@@ -131,6 +131,7 @@
                             data-injury="{{ p.injury_status|default('') }}"
                             data-locked="{{ p.is_locked|default(false)|lower }}"
                             data-game-time="{{ p.game_time|default('') }}"
+                            data-headshot="{{ headshots.get(p.player_name, '') }}"
                             class="{% if p.is_locked %}locked{% endif %} {% if p.injury_status == 'OUT' %}player-out{% endif %}">
                             <td class="col-action">
                                 {% if p.is_locked %}
@@ -140,7 +141,12 @@
                                 {% endif %}
                             </td>
                             <td class="col-pos"><span class="pos-badge">{{ p.fd_position }}</span></td>
-                            <td class="col-name">{{ p.player_name }}</td>
+                            <td class="col-name">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <img src="{{ headshots.get(p.player_name, '') }}" alt="" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; background: #e5e7eb; flex-shrink: 0;" onerror="this.style.display='none'">
+                                    <span>{{ p.player_name }}</span>
+                                </div>
+                            </td>
                             <td class="col-status">
                                 {% if p.injury_status == 'OUT' %}
                                 <span class="injury-tag tag-out">OUT</span>
@@ -218,7 +224,8 @@ function addPlayerToNextSlot(btn) {
         team: row.dataset.team,
         salary: parseInt(row.dataset.salary),
         proj: parseFloat(row.dataset.proj),
-        injury: row.dataset.injury
+        injury: row.dataset.injury,
+        headshot: row.dataset.headshot
     };
 
     if (Object.keys(roster).length >= MAX_PLAYERS) { showToast('Lineup full!'); return; }
@@ -291,7 +298,8 @@ function updateDisplay() {
         if (player) {
             el.innerHTML = `
                 <span class="slot-label">${slot.pos}</span>
-                <div class="slot-filled">
+                <div class="slot-filled" style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0;">
+                    ${player.headshot ? `<img src="${player.headshot}" alt="" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; background: #e5e7eb; flex-shrink: 0;" onerror="this.style.display='none'">` : ''}
                     <span class="slot-player-name">${player.name}</span>
                     <span class="slot-player-info">
                         ${player.injury ? '<span class="injury-tag tag-' + player.injury.toLowerCase() + '">' + player.injury + '</span>' : ''}

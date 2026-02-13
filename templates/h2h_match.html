@@ -146,7 +146,10 @@
                             {% if is_live and not game_started %}
                             <span class="hidden-player">{{ p.position }} - Upcoming</span>
                             {% else %}
-                            {{ p.player_name }}
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <img src="{{ headshots.get(p.player_name, '') }}" alt="" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; background: #e5e7eb; flex-shrink: 0;" onerror="this.style.display='none'">
+                                <span>{{ p.player_name }}</span>
+                            </div>
                             {% endif %}
                         </td>
                         <td>{{ team }}</td>
@@ -218,7 +221,10 @@
                             {% if is_live and not game_started %}
                             <span class="hidden-player">{{ p.position }} - Upcoming</span>
                             {% else %}
-                            {{ p.player_name }}
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <img src="{{ headshots.get(p.player_name, '') }}" alt="" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; background: #e5e7eb; flex-shrink: 0;" onerror="this.style.display='none'">
+                                <span>{{ p.player_name }}</span>
+                            </div>
                             {% endif %}
                         </td>
                         <td>{{ team }}</td>

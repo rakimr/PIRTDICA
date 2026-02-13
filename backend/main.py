@@ -831,13 +831,15 @@ async def play(request: Request, db: Session = Depends(get_db)):
     ).all()
     house_proj_total = sum(hp.proj_fp or 0 for hp in house_players)
     
+    headshots = get_player_headshots()
     return templates.TemplateResponse("play.html", {
         "request": request,
         "user": user,
         "contest": contest,
         "players": players,
         "house_players": house_players,
-        "house_proj_total": house_proj_total
+        "house_proj_total": house_proj_total,
+        "headshots": headshots
     })
 
 @app.post("/submit-lineup")
@@ -971,6 +973,7 @@ async def view_entry(request: Request, entry_id: int, db: Session = Depends(get_
     
     is_live = any_started and entry.contest.status in ('open', 'active')
     
+    headshots = get_player_headshots()
     return templates.TemplateResponse("entry.html", {
         "request": request,
         "user": user,
@@ -982,6 +985,7 @@ async def view_entry(request: Request, entry_id: int, db: Session = Depends(get_
         "any_started": any_started,
         "is_live": is_live,
         "team_game_times": team_game_times,
+        "headshots": headshots,
     })
 
 from sqlalchemy import Integer
@@ -1820,12 +1824,14 @@ async def h2h_lineup(request: Request, challenge_id: int, db: Session = Depends(
         traceback.print_exc()
         players = []
 
+    headshots = get_player_headshots()
     return templates.TemplateResponse("h2h_lineup.html", {
         "request": request,
         "user": user,
         "challenge": challenge,
         "opponent_name": opponent_name,
         "players": players,
+        "headshots": headshots,
     })
 
 @app.post("/h2h/submit-lineup")
@@ -1943,6 +1949,7 @@ async def h2h_match(request: Request, challenge_id: int, db: Session = Depends(g
     elif is_opponent and not challenge.opponent_lineup_submitted:
         needs_lineup = True
 
+    headshots = get_player_headshots()
     return templates.TemplateResponse("h2h_match.html", {
         "request": request,
         "user": user,
@@ -1956,6 +1963,7 @@ async def h2h_match(request: Request, challenge_id: int, db: Session = Depends(g
         "is_challenger": is_challenger,
         "is_opponent": is_opponent,
         "needs_lineup": needs_lineup,
+        "headshots": headshots,
     })
 
 @app.get("/api/live-h2h/{challenge_id}")
