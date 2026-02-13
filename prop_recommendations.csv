@@ -1,5 +1,2 @@
 player,team,opponent,salary,value,stat,player_avg,adjusted_avg,extra_fp,edge_pct,recommendation,book_line,book_over,book_under,vs_book_edge,archetype,dva_edge,dvp_edge,blend
-Cason Wallace,OKC,MIL,5200,4.46,AST,2.2,1.9,-0.5,-6.1,UNDER,4.5,114,-152,-58.4,3-and-D Wing,-0.34,-0.31,43/56 DVP/DVA
-Cason Wallace,OKC,MIL,5200,4.46,STL,2.1,2.3,0.6,12.3,OVER,1.5,-146,110,53.9,3-and-D Wing,0.45,-0.1,43/56 DVP/DVA
-Cason Wallace,OKC,MIL,5200,4.46,PTS,8.2,8.1,-0.1,-0.5,UNDER,12.5,-130,-102,-35.3,3-and-D Wing,0.06,-0.33,43/56 DVP/DVA
-Chet Holmgren,OKC,MIL,7700,4.94,PTS,17.5,15.4,-2.1,-9.6,UNDER,18.5,-130,-102,-16.6,Stretch Big,-1.83,-2.37,43/56 DVP/DVA
+Jaylin Williams,OKC,MIL,4500,5.89,PTS,6.3,5.8,-0.5,-2.3,UNDER,,,,,3-and-D Wing,0.88,-2.28,43/56 DVP/DVA

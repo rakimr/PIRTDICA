@@ -1,0 +1,237 @@
+All concepts assume:
+	•	White background
+	•	Black primary vector
+	•	3–4px line weight (strong outline)
+	•	Single accent color max (unless legendary)
+	•	Circular 1:1 badge format (clean in leaderboards)
+
+⸻
+
+🎯 10 Launch-Ready PIRTDICA Avatar Concepts
+
+⸻
+
+1️⃣ THE ARCHITECT
+
+Category: Tactical Silhouette
+Vibe: Cerebral. Strategic. Founder energy.
+
+Shape Breakdown:
+	•	Solid black side-profile silhouette
+	•	Clean angular jawline
+	•	Minimal hair detail (flat block)
+	•	Thin horizontal accent line cutting through eye level
+	•	Small 3-node stat dot cluster embedded in neck area
+
+Accent Placement:
+	•	Neon Red, Royal Blue, or Gold eye-line
+
+Premium Version:
+	•	Eye-line pulses left to right slowly
+
+⸻
+
+2️⃣ THE ANALYST
+
+Category: Tactical Silhouette
+Vibe: Data-driven assassin.
+
+Shape Breakdown:
+	•	Front-facing minimalist face silhouette
+	•	Sharp rectangular glasses outline (empty interior)
+	•	Inside lenses: tiny stat bar pattern (3 vertical bars)
+
+Accent Placement:
+	•	Bars inside glasses in accent color
+
+Legendary Version:
+	•	Bars animate subtly up/down like live stats
+
+⸻
+
+3️⃣ STRETCH BIG EMBLEM
+
+Category: Archetype Symbol
+Vibe: Length + spacing dominance
+
+Shape Breakdown:
+	•	Tall vertical rectangle (center)
+	•	Thin arc halo behind top half (3-point arc reference)
+	•	Two small outward lines at base (spacing arrows)
+
+Accent Placement:
+	•	Arc halo in accent color
+
+Premium Version:
+	•	Arc line slowly sweeps like radar
+
+⸻
+
+4️⃣ COMBO GUARD ELITE SIGIL
+
+Category: Archetype Symbol
+Vibe: Dual-threat explosiveness
+
+Shape Breakdown:
+	•	Split lightning bolt down center
+	•	Left half straight edges
+	•	Right half curved edges
+	•	Subtle circle behind (playmaking ring)
+
+Accent Placement:
+	•	One half in accent color, other black
+
+Elite Version:
+	•	Thin outline glow around bolt
+
+⸻
+
+5️⃣ PLAYMAKER NODE
+
+Category: Archetype Symbol
+Vibe: Orchestrator
+
+Shape Breakdown:
+	•	Central solid black circle
+	•	4 thin connecting lines branching outward
+	•	Each branch ends in small circle nodes
+	•	Slight asymmetry (feels organic)
+
+Accent Placement:
+	•	Nodes in accent color
+
+Premium Version:
+	•	Nodes softly pulse in sequence
+
+⸻
+
+6️⃣ THE GENERAL
+
+Category: Tactical Identity
+
+Shape Breakdown:
+	•	Forward-facing bold silhouette
+	•	Thick neck + squared shoulders
+	•	Minimal crown line integrated into hair shape
+	•	One vertical stripe down center of face
+
+Accent Placement:
+	•	Stripe in division color
+
+Champion Version:
+	•	Stripe splits into 3 thin lines near bottom
+
+⸻
+
+7️⃣ SCORING WING MARK
+
+Category: Archetype Symbol
+
+Shape Breakdown:
+	•	Sharp V shape (like wings angled upward)
+	•	Thin arc intersecting mid-section (shot arc reference)
+	•	Slight taper at tips
+
+Accent Placement:
+	•	Arc in accent color
+
+Premium Version:
+	•	Arc thickens briefly on hover
+
+⸻
+
+8️⃣ THE STRATEGIST CLIPBOARD
+
+Category: Tactical Object Icon
+
+Shape Breakdown:
+	•	Bold rectangle (clipboard)
+	•	Small circular clip top center
+	•	Inside: minimalist half-court diagram
+	•	Arc line
+	•	3 dot positions
+
+Accent Placement:
+	•	Court lines in accent color
+
+Legendary Version:
+	•	Court lines animate drawing themselves once
+
+⸻
+
+9️⃣ DATA MASK
+
+Category: Hybrid Identity
+
+Shape Breakdown:
+	•	Half face silhouette (left side solid black)
+	•	Right side composed of 5 thin vertical bars
+	•	Bars vary in height (stat pattern)
+	•	Sharp dividing line center
+
+Accent Placement:
+	•	Bars in accent color
+
+Elite Version:
+	•	Bars shift slightly in height
+
+⸻
+
+🔟 FOUNDERS BADGE (Season 1 Exclusive)
+
+Category: Prestige Emblem
+
+Shape Breakdown:
+	•	Thick outer black circle
+	•	Inner thin accent ring
+	•	Roman numeral “I” in Righteous font
+	•	Subtle grid lines faintly inside circle (very light grey)
+
+Accent Placement:
+	•	Inner ring in gold
+
+Special Feature:
+	•	Only purchasable Season 1
+	•	Never re-released
+
+⸻
+
+🏅 Rank Frame System (Universal Overlay)
+
+Every avatar sits inside:
+
+Bronze → Thin bronze outline
+Silver → Slight thicker grey ring
+Gold → Gold ring with 4 notch cuts
+Diamond → 8 angular points
+Master → Double ring
+Grandmaster → Thin crown notch at top
+Champion → Crown silhouette integrated into frame
+
+Frame changes automatically based on rank.
+
+⸻
+
+🎨 Accent Color System Suggestion
+
+Keep it minimal.
+
+Default palette:
+	•	Crimson (#D72638)
+	•	Royal Blue (#1E3A8A)
+	•	Emerald (#0F9D58)
+	•	Gold (#D4AF37)
+	•	Violet (#6D28D9)
+
+Avoid gradients.
+Keep flat.
+
+⸻
+
+🧠 Why This Works
+	•	Scales well at small sizes
+	•	Clean on white background
+	•	Feels esport-professional
+	•	Works next to Righteous font
+	•	Avoids cartoon aesthetic
+	•	Feels collectible
