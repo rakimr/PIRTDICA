@@ -93,6 +93,7 @@
                         {% if item.is_seasonal %}<span class="seasonal-tag">Limited</span>{% endif %}
                         <p class="description">{{ item.description }}</p>
                         <p class="price">{{ item.price }} coins</p>
+                        <button type="button" class="btn btn-outline btn-small preview-btn">Preview</button>
                         {% if item.id in owned_ids %}
                             {% if item.code == active_theme_code %}
                                 <span class="equipped-badge">Equipped</span>
@@ -142,6 +143,7 @@
                         {% endif %}
                         <p class="description">{{ item.description }}</p>
                         <p class="price">{{ item.price }} coins</p>
+                        <button type="button" class="btn btn-outline btn-small preview-btn">Preview</button>
                         {% if item.id in owned_ids %}
                             {% if item.code in equipped_badge_codes %}
                                 <span class="equipped-badge">Equipped</span>
@@ -328,16 +330,18 @@
         var d = el.closest('.shop-item').dataset;
         var category = d.category;
         var name = d.name;
-        var data = d.itemData;
+        var rawData = d.itemData;
         var description = d.description;
         var price = d.price;
         var itemId = d.itemId;
         var owned = d.owned === 'true';
         var canAfford = d.canAfford === 'true';
+        var equipped = d.equipped === 'true';
+        var rarity = d.rarity || 'common';
 
         nameEl.textContent = name;
         descEl.textContent = description;
-        priceEl.textContent = price + ' coins';
+        priceEl.textContent = price + ' Coach Coin';
         content.innerHTML = '';
 
         if (category === 'avatar') {
@@ -346,7 +350,7 @@
             var wrap = document.createElement('div');
             wrap.className = 'preview-avatar-wrap';
             var img = document.createElement('img');
-            img.src = data;
+            img.src = rawData;
             img.alt = name;
             wrap.appendChild(img);
             var info = document.createElement('div');
@@ -362,53 +366,125 @@
             card.appendChild(wrap);
             card.appendChild(info);
             content.appendChild(card);
+
         } else if (category === 'theme') {
-            var demo = document.createElement('div');
-            demo.className = 'preview-theme-demo';
-            demo.style.background = data;
-            var tcard = document.createElement('div');
-            tcard.className = 'preview-theme-card';
-            var ttitle = document.createElement('span');
-            ttitle.className = 'preview-theme-title';
-            ttitle.textContent = 'Your Profile';
-            var tsub = document.createElement('span');
-            tsub.className = 'preview-theme-sub';
-            tsub.textContent = 'Theme applied to your page accent';
-            tcard.appendChild(ttitle);
-            tcard.appendChild(tsub);
-            demo.appendChild(tcard);
-            content.appendChild(demo);
+            try {
+                var t = JSON.parse(rawData);
+            } catch(e) { var t = {}; }
+            var mock = document.createElement('div');
+            mock.className = 'preview-theme-mockup';
+            mock.style.cssText = 'background:' + (t.bg||'#1a1a1a') + ';border-radius:12px;padding:24px;min-height:260px;position:relative;overflow:hidden;';
+
+            var headerBar = document.createElement('div');
+            headerBar.style.cssText = 'display:flex;align-items:center;gap:12px;margin-bottom:20px;';
+            var avatarCircle = document.createElement('div');
+            avatarCircle.style.cssText = 'width:56px;height:56px;border-radius:50%;background:' + (t.card_bg||'#333') + ';border:3px solid ' + (t.accent||'#fff') + ';box-shadow:0 0 16px ' + (t.glow||'transparent') + ';display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:' + (t.text||'#fff') + ';';
+            avatarCircle.textContent = username.charAt(0).toUpperCase();
+            var headerInfo = document.createElement('div');
+            headerInfo.innerHTML = '<div style="font-weight:700;font-size:1.1rem;color:' + (t.text||'#fff') + ';">' + username + '</div>' +
+                '<div style="font-size:0.75rem;color:' + (t.accent||'#aaa') + ';font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">' + name + '</div>';
+            headerBar.appendChild(avatarCircle);
+            headerBar.appendChild(headerInfo);
+            mock.appendChild(headerBar);
+
+            var statsRow = document.createElement('div');
+            statsRow.style.cssText = 'display:flex;gap:12px;margin-bottom:16px;';
+            var statLabels = ['Entries', 'Wins', 'Win Rate'];
+            var statValues = ['24', '18', '75%'];
+            for (var i = 0; i < 3; i++) {
+                var statBox = document.createElement('div');
+                statBox.style.cssText = 'flex:1;background:' + (t.card_bg||'#333') + ';border:1px solid ' + (t.border||'#444') + ';border-radius:8px;padding:10px;text-align:center;';
+                statBox.innerHTML = '<div style="font-size:1.2rem;font-weight:700;color:' + (t.text||'#fff') + ';">' + statValues[i] + '</div>' +
+                    '<div style="font-size:0.65rem;color:' + (t.accent||'#aaa') + ';text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">' + statLabels[i] + '</div>';
+                statsRow.appendChild(statBox);
+            }
+            mock.appendChild(statsRow);
+
+            var rankCard = document.createElement('div');
+            rankCard.style.cssText = 'background:' + (t.card_bg||'#333') + ';border:1px solid ' + (t.border||'#444') + ';border-radius:8px;padding:12px;';
+            rankCard.innerHTML = '<div style="font-size:0.7rem;color:' + (t.accent||'#aaa') + ';text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:6px;">Competitive Rank</div>' +
+                '<div style="display:inline-block;padding:4px 14px;border:2px solid ' + (t.accent||'#aaa') + ';border-radius:16px;color:' + (t.accent||'#aaa') + ';font-weight:700;font-size:0.9rem;">Gold I</div>' +
+                '<span style="margin-left:8px;font-size:0.8rem;color:' + (t.text||'#fff') + '50;">1250 MMR</span>';
+            mock.appendChild(rankCard);
+
+            var hint = document.createElement('div');
+            hint.style.cssText = 'text-align:center;margin-top:16px;font-size:0.75rem;color:' + (t.text||'#fff') + '80;';
+            hint.textContent = 'Preview of how your profile page will look with this theme';
+            mock.appendChild(hint);
+
+            content.appendChild(mock);
+
         } else if (category === 'badge') {
-            var bdemo = document.createElement('div');
-            bdemo.className = 'preview-badge-demo';
-            var blarge = document.createElement('div');
-            blarge.className = 'preview-badge-large';
-            blarge.textContent = data;
-            bdemo.appendChild(blarge);
-            var ctx = document.createElement('div');
-            ctx.className = 'preview-badge-context';
-            var cu = document.createElement('span');
-            cu.className = 'preview-username';
-            cu.textContent = username;
-            var tag = document.createElement('span');
-            tag.className = 'preview-badge-tag';
-            tag.textContent = data;
-            ctx.appendChild(cu);
-            ctx.appendChild(tag);
-            bdemo.appendChild(ctx);
-            var blabel = document.createElement('span');
-            blabel.className = 'preview-label';
-            blabel.textContent = 'This badge appears on your profile and leaderboard';
-            bdemo.appendChild(blabel);
-            content.appendChild(bdemo);
+            try {
+                var b = JSON.parse(rawData);
+            } catch(e) { var b = {}; }
+
+            var badgeMock = document.createElement('div');
+            badgeMock.style.cssText = 'text-align:center;padding:20px;';
+
+            var bigPreview = document.createElement('div');
+            bigPreview.style.cssText = 'width:120px;height:120px;border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;background:#f9fafb;';
+            if (b.type === 'frame_accent') {
+                bigPreview.style.border = '4px solid ' + (b.color||'#D4AF37');
+                if (b.animated) bigPreview.style.boxShadow = '0 0 20px ' + (b.color||'#D4AF37') + ', 0 0 40px ' + (b.color||'#D4AF37') + '40';
+                bigPreview.innerHTML = '<span style="font-size:2rem;color:' + (b.color||'#D4AF37') + ';">&#9733;</span>';
+            } else if (b.type === 'signature') {
+                bigPreview.style.border = '2px dashed #e5e7eb';
+                var sigStyle = 'font-weight:800;font-size:1.3rem;color:' + (b.color||'#1a1a1a') + ';letter-spacing:0.12em;';
+                if (b.animated) sigStyle += 'animation:pulse-glow 2s ease-in-out infinite;';
+                bigPreview.innerHTML = '<span style="' + sigStyle + '">' + (b.text||'') + '</span>';
+            } else if (b.type === 'divider') {
+                bigPreview.style.borderRadius = '12px';
+                bigPreview.innerHTML = '<div style="width:80%;height:3px;background:' + (b.color||'#1a1a1a') + ';border-radius:4px;"></div>';
+            } else if (b.type === 'aura') {
+                bigPreview.style.boxShadow = '0 0 25px ' + (b.color||'#f97316') + ', 0 0 50px ' + (b.color||'#f97316') + '50';
+                bigPreview.innerHTML = '<span style="font-size:2rem;">&#10024;</span>';
+            }
+            badgeMock.appendChild(bigPreview);
+
+            var profileMock = document.createElement('div');
+            profileMock.style.cssText = 'background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px;max-width:280px;margin:0 auto;text-align:left;';
+            var mockHeader = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">' +
+                '<div style="width:36px;height:36px;border-radius:50%;background:#e5e7eb;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;">' + username.charAt(0).toUpperCase() + '</div>' +
+                '<div><div style="font-weight:700;font-size:0.95rem;">' + username + '</div>';
+            if (b.type === 'signature') {
+                var tagStyle = 'display:inline-block;padding:1px 6px;border-radius:8px;font-size:0.6rem;font-weight:700;letter-spacing:0.06em;border:1.5px solid ' + (b.color||'#1a1a1a') + ';color:' + (b.color||'#1a1a1a') + ';';
+                if (b.animated) tagStyle += 'animation:pulse-glow 2s ease-in-out infinite;';
+                mockHeader += '<span style="' + tagStyle + '">' + (b.text||'') + '</span>';
+            } else {
+                var tagStyle2 = 'display:inline-block;padding:1px 6px;border-radius:8px;font-size:0.6rem;font-weight:700;letter-spacing:0.06em;border:1.5px solid ' + (b.color||'#6b7280') + ';color:' + (b.color||'#6b7280') + ';';
+                mockHeader += '<span style="' + tagStyle2 + '">' + name + '</span>';
+            }
+            mockHeader += '</div></div>';
+            profileMock.innerHTML = mockHeader +
+                '<div style="font-size:0.7rem;color:#6b7280;margin-top:4px;">This is how the badge appears on your profile</div>';
+            badgeMock.appendChild(profileMock);
+
+            content.appendChild(badgeMock);
         }
 
         actionEl.innerHTML = '';
-        if (owned) {
+        if (owned && equipped) {
+            var eqSpan = document.createElement('span');
+            eqSpan.className = 'equipped-badge';
+            eqSpan.textContent = 'Currently Equipped';
+            actionEl.appendChild(eqSpan);
+        } else if (owned) {
             var span = document.createElement('span');
             span.className = 'owned-badge';
             span.textContent = 'You own this';
             actionEl.appendChild(span);
+            var eqForm = document.createElement('form');
+            eqForm.method = 'POST';
+            eqForm.action = '/shop/equip/' + itemId;
+            eqForm.style.display = 'inline-block';
+            eqForm.style.marginLeft = '8px';
+            var eqBtn = document.createElement('button');
+            eqBtn.type = 'submit';
+            eqBtn.className = 'btn btn-primary btn-small';
+            eqBtn.textContent = 'Equip';
+            eqForm.appendChild(eqBtn);
+            actionEl.appendChild(eqForm);
         } else if (canAfford) {
             var form = document.createElement('form');
             form.method = 'POST';
