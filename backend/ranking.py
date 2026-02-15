@@ -183,6 +183,9 @@ def update_user_ranking(user, winner_id, mmr_change):
         else:
             user.promotion_losses = (user.promotion_losses or 0) + 1
         
+        promo_wins_at_decide = user.promotion_wins
+        promo_losses_at_decide = user.promotion_losses
+        
         # Check if promotion decided (best of 3)
         if user.promotion_wins >= 2:
             # Promoted!
@@ -231,15 +234,25 @@ def update_user_ranking(user, winner_id, mmr_change):
         user.season_high_division = user.division
         user.season_high_tier = user.division_tier
     
+    promoted = user.division != old_division and DIVISIONS.index(user.division) > DIVISIONS.index(old_division)
+    promo_clutch_eligible = False
+    if promoted:
+        try:
+            if promo_wins_at_decide >= 2 and promo_losses_at_decide == 0:
+                promo_clutch_eligible = True
+        except (NameError, UnboundLocalError):
+            pass
+    
     return {
         "old_mmr": old_mmr,
         "new_mmr": new_mmr,
         "mmr_change": mmr_change,
         "old_division": format_division(old_division, old_tier),
         "new_division": format_division(user.division, user.division_tier),
-        "promoted": user.division != old_division and DIVISIONS.index(user.division) > DIVISIONS.index(old_division),
+        "promoted": promoted,
         "demoted": user.division != old_division and DIVISIONS.index(user.division) < DIVISIONS.index(old_division),
         "in_promotion": user.in_promotion,
+        "promo_clutch": promo_clutch_eligible,
     }
 
 

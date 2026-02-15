@@ -120,6 +120,9 @@ class Achievement(Base):
     icon = Column(String(50), default="trophy")
     coin_reward = Column(Integer, default=0)
     category = Column(String(50), default="competitive")
+    badge_type = Column(String(30), default="competitive_earned")
+    rarity = Column(String(20), default="common")
+    is_hidden = Column(Boolean, default=False)
 
 class CurrencyTransaction(Base):
     __tablename__ = "currency_transactions"
@@ -157,6 +160,11 @@ class ShopItem(Base):
     item_data = Column(Text)
     rarity = Column(String(20), default="common")
     is_active = Column(Boolean, default=True)
+    is_seasonal = Column(Boolean, default=False)
+    season_id = Column(String(20), nullable=True)
+    available_from = Column(DateTime, nullable=True)
+    available_until = Column(DateTime, nullable=True)
+    is_returnable = Column(Boolean, default=True)
 
 class UserItem(Base):
     __tablename__ = "user_items"

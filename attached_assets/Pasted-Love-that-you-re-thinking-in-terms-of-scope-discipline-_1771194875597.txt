@@ -1,0 +1,221 @@
+Love that you’re thinking in terms of scope discipline. This is how platforms don’t spiral.
+
+Let’s answer each one strategically — not just technically.
+
+1️⃣ Achievement Engine vs Shop First?
+Build the achievement tracking engine first.
+
+Here’s why:
+
+🎯 Competitive platforms must anchor in earned status before cosmetic monetization.
+
+If you launch shop-heavy before earned-badge infrastructure:
+
+Platform feels cosmetic-first
+
+Identity feels purchasable
+
+Competitive credibility weakens
+
+Early adopters don’t get rewarded properly
+
+But if you launch with:
+
+Auto-tracked wins
+
+Streak tracking
+
+Division milestones
+
+Hidden achievements framework
+
+You establish:
+
+“This is a skill platform.”
+
+Then shop cosmetics feel additive, not foundational.
+
+🧠 Implementation Strategy
+
+You don’t need the full badge library yet.
+
+Build:
+
+Achievement event tracker system
+
+Trigger-based badge engine
+
+Database schema for:
+
+achievement_id
+
+unlocked_at
+
+visibility
+
+rarity tier
+
+Even if you only launch with 10 badges, build the infrastructure properly.
+
+Because retroactively awarding badges later is messy.
+
+✅ Decision:
+
+Achievement engine now.
+Shop items layered on top after.
+
+2️⃣ Seasonal / Limited Rotation System Now or Later?
+
+Build it structurally now — even if you don’t activate full rotation yet.
+
+Why?
+
+Because retrofitting time-based availability into a live shop is painful.
+
+All you need is:
+
+is_seasonal boolean
+
+season_id
+
+available_from
+
+available_until
+
+is_returnable
+
+Even if you don’t auto-rotate monthly yet.
+
+This lets you:
+
+Manually toggle items off
+
+Run first “Season 1” cleanly
+
+Avoid DB migration headaches later
+
+But:
+
+Do NOT build full automated rotation logic yet.
+
+Just build the schema and admin control.
+
+✅ Decision:
+
+Structure now. Automate later.
+
+3️⃣ Profile Entrance Animations — First Pass or Later?
+
+Later. 100%.
+
+Here’s why:
+
+Entrance animations require:
+
+Match pre-render layer
+
+Opponent client sync
+
+Animation timing control
+
+Fallback handling
+
+Performance optimization
+
+Cross-device consistency
+
+This is polish-layer engineering.
+
+It does NOT affect:
+
+Competitive integrity
+
+Economy structure
+
+Rank credibility
+
+It’s a prestige enhancement.
+
+More importantly:
+
+Entrance animations only feel powerful once:
+
+Rank prestige exists
+
+Achievements exist
+
+Profile identity depth exists
+
+Otherwise it’s just flair.
+
+✅ Decision:
+
+Phase 2 feature.
+
+🚀 Clean Implementation Roadmap
+
+Here’s your optimal order:
+
+Phase 1 — Competitive Foundation
+
+Achievement tracking engine
+
+Earned badge auto-awarding
+
+Badge display hierarchy
+
+Profile badge slots (earned vs cosmetic separation)
+
+Seasonal flag schema
+
+Phase 2 — Cosmetic Layer
+
+Profile themes
+
+Frames
+
+Decorative badge line
+
+Seasonal shop drops
+
+Phase 3 — Prestige Enhancements
+
+Entrance animations
+
+Animated division auras
+
+Champion-exclusive cosmetics
+
+Seasonal animated effects
+
+🧠 Why This Order Matters
+
+You’re building:
+
+Skill → Identity → Spectacle
+
+Not:
+
+Spectacle → Monetization → Skill
+
+That order determines long-term legitimacy.
+
+⚖️ One More Strategic Note
+
+When you build the achievement engine:
+
+Separate badge types at database level:
+
+competitive_earned
+
+statistical_earned
+
+event_limited
+
+cosmetic_purchased
+
+Never let purchased badges mix visually with earned competitive ones.
+
+That separation protects your esport identity.
+
+You’re scoping this correctly.

@@ -508,36 +508,57 @@ async def profile(request: Request, username: str, db: Session = Depends(get_db)
     
     all_achievements = db.query(models.Achievement).all()
     
-    category_order = ["competitive", "coach_vs_coach", "archetype", "prestige", "engagement"]
-    category_labels = {
-        "competitive": "Competitive",
-        "coach_vs_coach": "Coach vs Coach",
-        "archetype": "Archetype",
-        "prestige": "Prestige",
-        "engagement": "Engagement",
+    badge_type_order = ["competitive_earned", "statistical_earned", "event_limited", "secret_earned"]
+    badge_type_labels = {
+        "competitive_earned": "Competitive Milestones",
+        "statistical_earned": "Statistical Achievements",
+        "event_limited": "Division Achievements",
+        "secret_earned": "Secret Badges",
     }
     badge_groups = {}
     for a in all_achievements:
-        cat = a.category or "competitive"
-        if cat not in badge_groups:
-            badge_groups[cat] = []
-        badge_groups[cat].append({
-            "code": a.code,
-            "name": a.name,
-            "description": a.description,
-            "icon": a.icon,
-            "coin_reward": a.coin_reward,
-            "earned": a.code in earned_codes,
-            "achieved_at": earned_codes.get(a.code),
-        })
+        bt = getattr(a, 'badge_type', None) or "competitive_earned"
+        if bt == "cosmetic_purchased":
+            continue
+        is_hidden = getattr(a, 'is_hidden', False)
+        is_earned = a.code in earned_codes
+        if is_hidden and not is_earned:
+            badge_entry = {
+                "code": a.code,
+                "name": "???",
+                "description": "Hidden achievement — keep competing to discover it!",
+                "icon": "?",
+                "coin_reward": 0,
+                "rarity": getattr(a, 'rarity', 'common'),
+                "badge_type": bt,
+                "earned": False,
+                "achieved_at": None,
+                "is_hidden": True,
+            }
+        else:
+            badge_entry = {
+                "code": a.code,
+                "name": a.name,
+                "description": a.description,
+                "icon": a.icon,
+                "coin_reward": a.coin_reward,
+                "rarity": getattr(a, 'rarity', 'common'),
+                "badge_type": bt,
+                "earned": is_earned,
+                "achieved_at": earned_codes.get(a.code),
+                "is_hidden": is_hidden,
+            }
+        if bt not in badge_groups:
+            badge_groups[bt] = []
+        badge_groups[bt].append(badge_entry)
     
     ordered_badge_groups = []
-    for cat in category_order:
-        if cat in badge_groups:
+    for bt in badge_type_order:
+        if bt in badge_groups:
             ordered_badge_groups.append({
-                "category": cat,
-                "label": category_labels.get(cat, cat.replace("_", " ").title()),
-                "badges": badge_groups[cat],
+                "category": bt,
+                "label": badge_type_labels.get(bt, bt.replace("_", " ").title()),
+                "badges": badge_groups[bt],
             })
     
     from sqlalchemy import or_
@@ -2286,8 +2307,8 @@ def settle_h2h_challenges(db: Session):
                 winner_user = challenger_user_r if winner_is_challenger else opponent_user_r
                 loser_user = opponent_user_r if winner_is_challenger else challenger_user_r
                 
-                update_user_ranking(winner_user, challenge.winner_id, w_change)
-                update_user_ranking(loser_user, challenge.winner_id, l_change)
+                winner_result = update_user_ranking(winner_user, challenge.winner_id, w_change)
+                loser_result = update_user_ranking(loser_user, challenge.winner_id, l_change)
                 
                 if winner_is_challenger:
                     challenge.mmr_change_challenger = w_change
@@ -2295,6 +2316,13 @@ def settle_h2h_challenges(db: Session):
                 else:
                     challenge.mmr_change_challenger = l_change
                     challenge.mmr_change_opponent = w_change
+
+                try:
+                    from backend.achievements import check_ranked_achievements
+                    check_ranked_achievements(db, winner_user.id, challenge, winner_result)
+                    check_ranked_achievements(db, loser_user.id, challenge, loser_result)
+                except Exception as e:
+                    print(f"Ranked achievement check error: {e}")
 
         try:
             from backend.achievements import check_h2h_achievements

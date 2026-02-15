@@ -38,6 +38,46 @@ Preferred communication style: Simple, everyday language.
 - Tier 2 (250-400 CC): Rare, dual accent, thicker lines
 - Tier 3 (800-1500 CC): Legendary, animated, division-reactive
 
+### Coach Shop - Identity Cosmetics Framework
+
+**Core Rule:** Every cosmetic must communicate Skill, Status, or Story. If it doesn't, it won't sell.
+
+**Critical Integrity Rules:**
+- Purchasable cosmetics must NEVER mimic rank colors, division badge shapes, or Champion aesthetics
+- Purchased badges must be decorative (animated borders, metallic trims, signatures) — never mimic earned achievement badges
+- Skill must remain sacred. No one should ever think "they won because they bought something."
+- Shop positioning = "Identity customization", NOT "Power boost store"
+
+**Profile Themes (Modify header, accent color, profile frame, texture overlays, rank badge pedestal):**
+- Dark Competitive: Obsidian Arena (matte black, red glow), Frost Division (white marble, silver), Inferno Circuit (ember particles, orange/gold)
+- Prestige (locked behind division OR expensive): Champion's Hall (white marble, gold trim), Grandmaster Aura (navy, purple halo)
+- Analytical (PIRTDICA identity): Data Grid (graph grid, green/white), Neural Network (connecting nodes, pulsing dots)
+- Seasonal (rotating, creates urgency): Shadow Ascension (gothic crest), Eclipse Season (eclipse animation)
+
+**Badge System (5 Layers — separated at DB level):**
+1. competitive_earned: 100 Ranked Wins, 10 Win Streak, 60%+ Win Rate, Promotion Series Clutch
+2. statistical_earned: Projection Crusher, Efficiency King, Slate Dominator, Consistency Award
+3. event_limited: Division-specific (Gold Conqueror, Diamond Veteran, Master Slayer)
+4. secret_earned: Upset Artist (beat 400+ MMR above), Giant Killer, Perfect Slate, Redemption Arc (hidden until unlocked)
+5. cosmetic_purchased: Animated border rings, metallic trims, profile dividers, signatures (decorative only)
+
+**Price Tiers (Coach Coin):**
+- Low (50-150 CC): Static profile frames, simple header textures, basic decorative badges
+- Mid (200-400 CC): Animated header accents, metallic trims, particle effects
+- High (500-1000 CC): Prestige animated themes, seasonal limited themes, division aura effects
+
+**Profile Entrance Animation (Phase 2):**
+- Opponent sees your name, division, and a subtle animation when matched in H2H
+- Deferred until rank prestige + achievements + identity depth all exist
+
+**Limited Item Strategy:** Monthly rotation creates scarcity. Schema supports is_seasonal, season_id, available_from/until, is_returnable. Manual toggle for now, automated rotation later.
+
+### Implementation Roadmap
+**Phase 1 — Competitive Foundation (CURRENT):** Achievement tracking engine, earned badge auto-awarding, badge display hierarchy, profile badge slots (earned vs cosmetic separation), seasonal flag schema
+**Phase 2 — Cosmetic Layer:** Profile themes, frames, decorative badge line, seasonal shop drops
+**Phase 3 — Prestige Enhancements:** Entrance animations, animated division auras, Champion-exclusive cosmetics, seasonal animated effects
+**Order principle:** Skill → Identity → Spectacle (not Spectacle → Monetization → Skill)
+
 ## Esports Competitive Architecture
 
 ### Core Philosophy
