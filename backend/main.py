@@ -629,6 +629,33 @@ async def profile(request: Request, username: str, db: Session = Depends(get_db)
     total_wins = (stats.wins or 0) if stats else 0
     coach_rank = get_coach_rank(total_wins)
 
+    import json as _json
+    theme_data = None
+    if profile_user.active_theme:
+        theme_item = db.query(models.ShopItem).filter(models.ShopItem.code == profile_user.active_theme).first()
+        if theme_item and theme_item.item_data:
+            try:
+                theme_data = _json.loads(theme_item.item_data)
+                theme_data["name"] = theme_item.name
+            except:
+                pass
+    
+    equipped_badge_codes = _json.loads(profile_user.equipped_badges or "[]")
+    cosmetic_badges = []
+    if equipped_badge_codes:
+        badge_items = db.query(models.ShopItem).filter(models.ShopItem.code.in_(equipped_badge_codes)).all()
+        for bi in badge_items:
+            try:
+                bd = _json.loads(bi.item_data) if bi.item_data else {}
+            except:
+                bd = {}
+            cosmetic_badges.append({
+                "code": bi.code,
+                "name": bi.name,
+                "rarity": bi.rarity,
+                "data": bd,
+            })
+    
     return templates.TemplateResponse("profile.html", {
         "request": request,
         "user": current_user,
@@ -643,6 +670,8 @@ async def profile(request: Request, username: str, db: Session = Depends(get_db)
         "coach_rank": coach_rank,
         "error": error_msg,
         "success": success_msg,
+        "theme_data": theme_data,
+        "cosmetic_badges": cosmetic_badges,
     })
 
 @app.get("/history")
@@ -728,6 +757,9 @@ async def shop(request: Request, db: Session = Depends(get_db)):
     ).all()
     owned_ids = [i[0] for i in owned_items]
     
+    import json as _json
+    equipped_badge_codes = _json.loads(user.equipped_badges or "[]")
+    
     pillars = {
         "identity": {"label": "Identity", "description": "Customize your Coach profile — avatars, themes, and badges that show who you are.", "shop_items": []},
         "prestige": {"label": "Prestige", "description": "Climb the ranks — ranked ladders, high-stakes rooms, and seasonal battle passes.", "shop_items": []},
@@ -745,7 +777,9 @@ async def shop(request: Request, db: Session = Depends(get_db)):
         "items": items,
         "owned_ids": owned_ids,
         "pillars": pillars,
-        "active_pillar": "identity"
+        "active_pillar": "identity",
+        "active_theme_code": user.active_theme,
+        "equipped_badge_codes": equipped_badge_codes,
     })
 
 @app.post("/shop/buy/{item_id}")
@@ -776,8 +810,64 @@ async def buy_item(request: Request, item_id: int, db: Session = Depends(get_db)
         transaction_type="purchase",
         description=f"Purchased {item.name}"
     ))
+    if item.category == "theme" and item.code:
+        user.active_theme = item.code
+    
     db.commit()
     
+    return RedirectResponse(url="/shop", status_code=303)
+
+@app.post("/shop/equip/{item_id}")
+async def equip_item(request: Request, item_id: int, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not logged in")
+    
+    owned = db.query(models.UserItem).filter(
+        models.UserItem.user_id == user.id,
+        models.UserItem.item_id == item_id
+    ).first()
+    if not owned:
+        raise HTTPException(status_code=400, detail="You don't own this item")
+    
+    item = db.query(models.ShopItem).filter(models.ShopItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    if item.category == "theme":
+        user.active_theme = item.code
+    elif item.category == "badge":
+        import json
+        current = json.loads(user.equipped_badges or "[]")
+        if item.code not in current:
+            if len(current) >= 3:
+                current.pop(0)
+            current.append(item.code)
+        user.equipped_badges = json.dumps(current)
+    
+    db.commit()
+    return RedirectResponse(url="/shop", status_code=303)
+
+@app.post("/shop/unequip/{item_id}")
+async def unequip_item(request: Request, item_id: int, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not logged in")
+    
+    item = db.query(models.ShopItem).filter(models.ShopItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    if item.category == "theme":
+        user.active_theme = None
+    elif item.category == "badge":
+        import json
+        current = json.loads(user.equipped_badges or "[]")
+        if item.code in current:
+            current.remove(item.code)
+        user.equipped_badges = json.dumps(current)
+    
+    db.commit()
     return RedirectResponse(url="/shop", status_code=303)
 
 @app.get("/play")

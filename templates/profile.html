@@ -3,6 +3,20 @@
 {% block title %}{{ profile.display_name or profile.username }} - PIRTDICA{% endblock %}
 
 {% block content %}
+{% if theme_data %}
+<style>
+    .profile-page { --theme-bg: {{ theme_data.bg }}; --theme-accent: {{ theme_data.accent }}; --theme-text: {{ theme_data.text }}; --theme-card-bg: {{ theme_data.card_bg }}; --theme-border: {{ theme_data.border }}; --theme-glow: {{ theme_data.glow }}; }
+    .profile-page { background: var(--theme-bg); color: var(--theme-text); border-radius: 12px; padding: 2rem; }
+    .profile-page .profile-header { border-color: var(--theme-border); }
+    .profile-page h1, .profile-page h2, .profile-page h3 { color: var(--theme-text); }
+    .profile-page .username { color: var(--theme-accent) !important; }
+    .profile-page .rank-section, .profile-page .h2h-stats-section, .profile-page .achievements-section, .profile-page .profile-wallet > div { background: var(--theme-card-bg) !important; border-color: var(--theme-border) !important; color: var(--theme-text) !important; }
+    .profile-page .profile-stats-summary .stat .label { color: var(--theme-accent); }
+    .profile-page .profile-stats-summary .stat .value { color: var(--theme-text); }
+    .profile-page .avatar-emblem { box-shadow: 0 0 20px var(--theme-glow); }
+    .profile-page .theme-badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid var(--theme-accent); color: var(--theme-accent); margin-top: 0.25rem; }
+</style>
+{% endif %}
 <div class="profile-page">
     <div class="profile-header">
         <div class="avatar-container">
@@ -19,6 +33,18 @@
         <div class="profile-info">
             <h1>{{ profile.display_name or profile.username }}</h1>
             <p class="username">@{{ profile.username }}</p>
+            {% if theme_data %}
+            <span class="theme-badge">{{ theme_data.name }}</span>
+            {% endif %}
+            {% if cosmetic_badges %}
+            <div class="cosmetic-badge-row">
+                {% for cb in cosmetic_badges %}
+                <span class="cosmetic-tag rarity-{{ cb.rarity }}" title="{{ cb.name }}">
+                    {% if cb.data.type == 'signature' %}{{ cb.data.text }}{% else %}{{ cb.name }}{% endif %}
+                </span>
+                {% endfor %}
+            </div>
+            {% endif %}
             <p class="member-since">Member since {{ profile.created_at.strftime('%B %Y') }}</p>
         </div>
         <div class="profile-stats-summary">

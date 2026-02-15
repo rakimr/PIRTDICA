@@ -68,29 +68,42 @@
             </div>
             
             <div class="identity-section">
-                <h3>Themes</h3>
+                <h3>Profile Themes</h3>
+                <p class="section-hint">Themes change the look of your entire profile page. Equip one to make your profile stand out.</p>
                 <div class="items-grid">
                     {% for item in pillar.shop_items if item.category == 'theme' %}
-                    <div class="shop-item {% if item.id in owned_ids %}owned{% endif %}"
+                    {% set theme_json = item.item_data|default('{}') %}
+                    <div class="shop-item {% if item.id in owned_ids %}owned{% endif %} {% if item.code == active_theme_code %}equipped{% endif %}"
                          data-category="theme"
                          data-name="{{ item.name }}"
                          data-item-data="{{ item.item_data }}"
                          data-description="{{ item.description or '' }}"
                          data-price="{{ item.price }}"
                          data-item-id="{{ item.id }}"
+                         data-item-code="{{ item.code or '' }}"
                          data-owned="{{ 'true' if item.id in owned_ids else 'false' }}"
                          data-can-afford="{{ 'true' if user.coins >= item.price else 'false' }}"
-                         data-rarity="{{ item.rarity or 'common' }}">
-                        <div class="item-preview theme-preview" style="background: {{ item.item_data }}"></div>
+                         data-rarity="{{ item.rarity or 'common' }}"
+                         data-equipped="{{ 'true' if item.code == active_theme_code else 'false' }}">
+                        <div class="item-preview theme-swatch" id="theme-swatch-{{ item.id }}"></div>
                         <h3>{{ item.name }}</h3>
                         {% if item.rarity and item.rarity != 'common' %}
                         <span class="rarity-tag rarity-{{ item.rarity }}">{{ item.rarity }}</span>
                         {% endif %}
+                        {% if item.is_seasonal %}<span class="seasonal-tag">Limited</span>{% endif %}
                         <p class="description">{{ item.description }}</p>
                         <p class="price">{{ item.price }} coins</p>
-                        <button type="button" class="btn btn-outline btn-small preview-btn">Preview</button>
                         {% if item.id in owned_ids %}
-                            <span class="owned-badge">Owned</span>
+                            {% if item.code == active_theme_code %}
+                                <span class="equipped-badge">Equipped</span>
+                                <form method="POST" action="/shop/unequip/{{ item.id }}">
+                                    <button type="submit" class="btn btn-secondary btn-small">Unequip</button>
+                                </form>
+                            {% else %}
+                                <form method="POST" action="/shop/equip/{{ item.id }}">
+                                    <button type="submit" class="btn btn-primary btn-small">Equip</button>
+                                </form>
+                            {% endif %}
                         {% elif user.coins >= item.price %}
                             <form method="POST" action="/shop/buy/{{ item.id }}">
                                 <button type="submit" class="btn btn-primary btn-small">Buy</button>
@@ -106,29 +119,40 @@
             </div>
             
             <div class="identity-section">
-                <h3>Badges</h3>
+                <h3>Cosmetic Badges</h3>
+                <p class="section-hint">Decorative badges appear on your profile. Equip up to 3 at a time. These are purely cosmetic and never mimic earned achievement badges.</p>
                 <div class="items-grid">
                     {% for item in pillar.shop_items if item.category == 'badge' %}
-                    <div class="shop-item {% if item.id in owned_ids %}owned{% endif %}"
+                    <div class="shop-item {% if item.id in owned_ids %}owned{% endif %} {% if item.code in equipped_badge_codes %}equipped{% endif %}"
                          data-category="badge"
                          data-name="{{ item.name }}"
                          data-item-data="{{ item.item_data }}"
                          data-description="{{ item.description or '' }}"
                          data-price="{{ item.price }}"
                          data-item-id="{{ item.id }}"
+                         data-item-code="{{ item.code or '' }}"
                          data-owned="{{ 'true' if item.id in owned_ids else 'false' }}"
                          data-can-afford="{{ 'true' if user.coins >= item.price else 'false' }}"
-                         data-rarity="{{ item.rarity or 'common' }}">
-                        <div class="item-preview badge-preview">{{ item.item_data }}</div>
+                         data-rarity="{{ item.rarity or 'common' }}"
+                         data-equipped="{{ 'true' if item.code in equipped_badge_codes else 'false' }}">
+                        <div class="item-preview badge-preview-card" id="badge-preview-{{ item.id }}"></div>
                         <h3>{{ item.name }}</h3>
                         {% if item.rarity and item.rarity != 'common' %}
                         <span class="rarity-tag rarity-{{ item.rarity }}">{{ item.rarity }}</span>
                         {% endif %}
                         <p class="description">{{ item.description }}</p>
                         <p class="price">{{ item.price }} coins</p>
-                        <button type="button" class="btn btn-outline btn-small preview-btn">Preview</button>
                         {% if item.id in owned_ids %}
-                            <span class="owned-badge">Owned</span>
+                            {% if item.code in equipped_badge_codes %}
+                                <span class="equipped-badge">Equipped</span>
+                                <form method="POST" action="/shop/unequip/{{ item.id }}">
+                                    <button type="submit" class="btn btn-secondary btn-small">Unequip</button>
+                                </form>
+                            {% else %}
+                                <form method="POST" action="/shop/equip/{{ item.id }}">
+                                    <button type="submit" class="btn btn-primary btn-small">Equip</button>
+                                </form>
+                            {% endif %}
                         {% elif user.coins >= item.price %}
                             <form method="POST" action="/shop/buy/{{ item.id }}">
                                 <button type="submit" class="btn btn-primary btn-small">Buy</button>
@@ -250,6 +274,39 @@
 <script>
 (function() {
     var username = {{ user.username|tojson }};
+
+    document.querySelectorAll('.shop-item[data-category="theme"]').forEach(function(el) {
+        var swatch = el.querySelector('.theme-swatch');
+        if (!swatch) return;
+        try {
+            var d = JSON.parse(el.dataset.itemData);
+            swatch.style.background = d.bg || '#1a1a1a';
+            swatch.style.borderLeft = '4px solid ' + (d.accent || '#fff');
+            swatch.style.position = 'relative';
+            swatch.innerHTML = '<span style="position:absolute;top:8px;left:12px;font-size:0.7rem;font-weight:700;color:' + (d.text || '#fff') + ';letter-spacing:0.05em;">THEME</span>' +
+                '<span style="position:absolute;bottom:8px;right:12px;width:20px;height:20px;border-radius:50%;background:' + (d.accent || '#fff') + ';box-shadow:0 0 8px ' + (d.glow || 'transparent') + ';"></span>';
+        } catch(e) {}
+    });
+
+    document.querySelectorAll('.shop-item[data-category="badge"]').forEach(function(el) {
+        var preview = el.querySelector('.badge-preview-card');
+        if (!preview) return;
+        try {
+            var d = JSON.parse(el.dataset.itemData);
+            if (d.type === 'signature') {
+                preview.innerHTML = '<span style="font-weight:700;font-size:1rem;color:' + (d.color || '#1a1a1a') + ';letter-spacing:0.1em;' + (d.animated ? 'animation:pulse-glow 2s ease-in-out infinite;' : '') + '">' + (d.text || '') + '</span>';
+            } else if (d.type === 'frame_accent') {
+                preview.style.border = '3px solid ' + (d.color || '#D4AF37');
+                if (d.animated) preview.style.boxShadow = '0 0 10px ' + (d.color || '#D4AF37');
+                preview.innerHTML = '<span style="font-size:0.7rem;color:' + (d.color || '#1a1a1a') + ';font-weight:600;text-transform:uppercase;">' + (d.style || 'accent') + '</span>';
+            } else if (d.type === 'divider') {
+                preview.innerHTML = '<div style="width:80%;height:2px;background:' + (d.color || '#1a1a1a') + ';margin:auto;border-radius:2px;"></div>';
+            } else if (d.type === 'aura') {
+                preview.style.boxShadow = '0 0 15px ' + (d.color || '#f97316') + ', 0 0 30px ' + (d.color || '#f97316') + '40';
+                preview.innerHTML = '<span style="font-size:0.7rem;color:' + (d.color || '#f97316') + ';font-weight:600;">AURA</span>';
+            }
+        } catch(e) {}
+    });
 
     document.querySelectorAll('.pillar-tab').forEach(function(tab) {
         tab.addEventListener('click', function() {

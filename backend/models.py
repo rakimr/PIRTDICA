@@ -13,6 +13,9 @@ class User(Base):
     display_name = Column(String(100))
     avatar_url = Column(String(255), default="/static/avatars/default.png")
     theme = Column(String(50), default="default")
+    active_theme = Column(String(50), default=None, nullable=True)
+    active_frame = Column(String(50), default=None, nullable=True)
+    equipped_badges = Column(Text, default=None, nullable=True)
     coins = Column(Integer, default=100)
     coach_cash = Column(Integer, default=0)
     mmr = Column(Integer, default=1000)
@@ -152,6 +155,7 @@ class ShopItem(Base):
     __tablename__ = "shop_items"
     
     id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(50), unique=True, nullable=True, index=True)
     name = Column(String(100), nullable=False)
     description = Column(Text)
     pillar = Column(String(50), nullable=False, default="identity")

@@ -3333,4 +3333,101 @@ th[data-sortable].sort-desc::after {
 /* Rarity tag colors */
 .rarity-uncommon { color: #0F9D58; border-color: #0F9D58; }
 .rarity-rare { color: #1E3A8A; border-color: #1E3A8A; }
+.rarity-epic { color: #6D28D9; border-color: #6D28D9; }
 .rarity-legendary { color: #D4AF37; border-color: #D4AF37; }
+
+/* Theme Swatch Preview */
+.theme-swatch {
+    width: 100%;
+    height: 80px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+/* Badge Preview Card */
+.badge-preview-card {
+    width: 100%;
+    height: 80px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-input);
+}
+
+/* Equipped State */
+.shop-item.equipped {
+    border: 2px solid #0F9D58;
+    position: relative;
+}
+
+.equipped-badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 8px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: #0F9D58;
+    color: #fff;
+    margin-bottom: 0.25rem;
+}
+
+/* Seasonal Tag */
+.seasonal-tag {
+    display: inline-block;
+    padding: 0.1rem 0.4rem;
+    border-radius: 6px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: #6D28D9;
+    color: #fff;
+    margin-left: 0.25rem;
+}
+
+/* Section Hint */
+.section-hint {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    margin-top: -0.25rem;
+}
+
+/* Cosmetic Badge Row on Profile */
+.cosmetic-badge-row {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-top: 0.35rem;
+    margin-bottom: 0.25rem;
+}
+
+.cosmetic-tag {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border: 1.5px solid var(--text-muted);
+    color: var(--text-muted);
+}
+
+.cosmetic-tag.rarity-common { border-color: #6b7280; color: #6b7280; }
+.cosmetic-tag.rarity-uncommon { border-color: #0F9D58; color: #0F9D58; }
+.cosmetic-tag.rarity-rare { border-color: #1E3A8A; color: #1E3A8A; }
+.cosmetic-tag.rarity-epic { border-color: #6D28D9; color: #6D28D9; }
+.cosmetic-tag.rarity-legendary { border-color: #D4AF37; color: #D4AF37; background: rgba(212,175,55,0.08); }
+
+/* Pulse glow animation for animated badges */
+@keyframes pulse-glow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}

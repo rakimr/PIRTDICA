@@ -73,9 +73,9 @@ Preferred communication style: Simple, everyday language.
 **Limited Item Strategy:** Monthly rotation creates scarcity. Schema supports is_seasonal, season_id, available_from/until, is_returnable. Manual toggle for now, automated rotation later.
 
 ### Implementation Roadmap
-**Phase 1 — Competitive Foundation (CURRENT):** Achievement tracking engine, earned badge auto-awarding, badge display hierarchy, profile badge slots (earned vs cosmetic separation), seasonal flag schema
-**Phase 2 — Cosmetic Layer:** Profile themes, frames, decorative badge line, seasonal shop drops
-**Phase 3 — Prestige Enhancements:** Entrance animations, animated division auras, Champion-exclusive cosmetics, seasonal animated effects
+**Phase 1 — Competitive Foundation (COMPLETE):** Achievement tracking engine, earned badge auto-awarding, badge display hierarchy, profile badge slots (earned vs cosmetic separation), seasonal flag schema. 58 achievements across 4 earned badge types.
+**Phase 2 — Cosmetic Layer (COMPLETE):** 9 profile themes (Dark Competitive, Analytical, Seasonal, Prestige tiers), 15 cosmetic badges (frame accents, signatures, dividers, auras across 3 price tiers). Equip/unequip system with max 3 cosmetic badges. Theme applies via CSS variables to profile page. active_frame field ready for Phase 3.
+**Phase 3 — Prestige Enhancements:** Entrance animations, animated division auras, Champion-exclusive cosmetics, seasonal animated effects, profile frame equip system
 **Order principle:** Skill → Identity → Spectacle (not Spectacle → Monetization → Skill)
 
 ## Esports Competitive Architecture
