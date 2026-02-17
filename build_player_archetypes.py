@@ -58,7 +58,7 @@ FEATURES = [
     'ast_to_reb_ratio', 'scoring_versatility',
 ]
 
-TARGET_K = 9
+TARGET_K = 6
 
 
 def load_feature_data():
@@ -140,6 +140,16 @@ def engineer_features(df):
 
 
 def label_cluster_scored(centroid, feature_names):
+    """Label a cluster centroid as one of 6 archetypes.
+
+    Target archetypes (k=6):
+      1. Playmaker       - High-assist guards (pure PGs, floor generals)
+      2. Combo Guard     - Scoring guards (high pts, guard-heavy)
+      3. 3-and-D Wing    - Role forwards/wings (moderate stats, forward-heavy)
+      4. Scoring Wing    - High-usage elite forwards (KD, Kawhi, LeBron, Giannis)
+      5. Stretch Big     - Bigs who shoot 3s or play versatile roles
+      6. Traditional Big - Rim protectors, rebounders, paint-dominant bigs
+    """
     c = dict(zip(feature_names, centroid))
 
     pts = c.get('pts_per100', 0)
@@ -154,58 +164,28 @@ def label_cluster_scored(centroid, feature_names):
     bpct = c.get('big_pct', 0)
     ast_reb = c.get('ast_to_reb_ratio', 0)
 
-    is_big_cluster = bpct > 30
-    is_forward_cluster = fpct > 50 and bpct < 20
-    is_guard_cluster = gpct > 50
-
-    if is_big_cluster:
-        if ast > 5 and reb > 8:
-            return 'Point Center'
-        if fg3m > 3:
+    if bpct > 40:
+        if fg3m > 4:
             return 'Stretch Big'
-        if reb > 10 and blk > 1.5 and fg3m < 2:
-            return 'Traditional Big'
-        if pts > 20 or (reb > 8 and ast > 3):
-            return 'Versatile Big'
         return 'Traditional Big'
 
-    if is_forward_cluster:
-        if ast > 6.5:
-            return 'Point Forward'
-        if pts > 27 and usg > 24:
-            return 'Scoring Wing'
-        if fg3m > 4 and stl > 1.8 and pts < 20:
-            return '3-and-D Wing'
-        if fg3m > 4 and pts < 22:
-            return '3-and-D Wing'
-        if pts > 22:
-            return 'Scoring Wing'
-        if reb > 8 and blk > 0.8:
-            return 'Athletic Wing'
-        return 'Athletic Wing'
-
-    if is_guard_cluster:
-        if ast > 8 and pts < 24:
-            return 'Playmaker'
-        if pts > 25 and ast > 5:
-            return 'Combo Guard'
-        if pts > 25:
-            return 'Combo Guard'
+    if gpct > 60:
         if ast > 7:
-            return 'Combo Guard'
-        if fg3m > 4 and stl > 1.8 and pts < 20:
-            return '3-and-D Wing'
-        if ast > 5:
-            return 'Combo Guard'
+            return 'Playmaker'
         return 'Combo Guard'
 
-    if ast > 6:
-        return 'Point Forward' if fpct > gpct else 'Playmaker'
+    if fpct > 40:
+        if pts > 25 and usg > 22:
+            return 'Scoring Wing'
+        return '3-and-D Wing'
+
+    if ast > 7:
+        return 'Playmaker'
     if pts > 25:
         return 'Scoring Wing'
-    if fg3m > 4 and stl > 1.5:
-        return '3-and-D Wing'
-    return 'Athletic Wing'
+    if bpct > 20:
+        return 'Stretch Big' if fg3m > 4 else 'Traditional Big'
+    return 'Combo Guard'
 
 
 def run_clustering(df, k=TARGET_K):
@@ -257,30 +237,50 @@ def run_clustering(df, k=TARGET_K):
 
 def validate_archetypes(df):
     known_players = {
-        'Nikola Jok': 'Point Center',
-        'Karl-Anthony Towns': 'Stretch Big',
-        'Stephen Curry': 'Combo Guard',
-        'LeBron James': 'Point Forward',
+        'Nikola Jok': 'Scoring Wing',
+        'Karl-Anthony Towns': 'Traditional Big',
+        'Stephen Curry': 'Playmaker',
+        'LeBron James': 'Scoring Wing',
         'Rudy Gobert': 'Traditional Big',
-        'Mikal Bridges': '3-and-D',
-        'Anthony Davis': 'Versatile Big',
-        'James Harden': 'Combo Guard',
-        'Giannis Ante': 'Point Forward',
+        'Mikal Bridges': '3-and-D Wing',
+        'Anthony Davis': 'Traditional Big',
+        'James Harden': 'Playmaker',
+        'Giannis Ante': 'Scoring Wing',
         'Kevin Durant': 'Scoring Wing',
         'Kawhi Leonard': 'Scoring Wing',
         'Victor Wembanyama': 'Traditional Big',
-        'Draymond Green': 'Point Forward',
+        'Draymond Green': '3-and-D Wing',
+        'Trae Young': 'Playmaker',
+        'Luka Don': 'Playmaker',
+        'Shai Gilgeous': 'Playmaker',
+        'Jalen Brunson': 'Playmaker',
+        'Jaylen Brown': 'Scoring Wing',
+        'Donovan Mitchell': 'Playmaker',
+        'Norman Powell': 'Combo Guard',
     }
 
     print("\nValidation against known archetypes:")
+    ok_count = 0
+    review_count = 0
+    found_count = 0
     for player_fragment, expected in known_players.items():
         match = df[df['player_name'].str.contains(player_fragment, case=False, na=False)]
         if not match.empty:
             actual = match.iloc[0]['archetype']
-            status = "OK" if expected.lower() in actual.lower() else "REVIEW"
+            is_match = expected.lower() in actual.lower()
+            status = "OK" if is_match else "REVIEW"
+            if is_match:
+                ok_count += 1
+            else:
+                review_count += 1
+            found_count += 1
             print(f"  {match.iloc[0]['player_name']}: expected={expected}, got={actual} [{status}]")
         else:
             print(f"  {player_fragment}: NOT IN TODAY'S SLATE")
+
+    if found_count > 0:
+        error_rate = review_count / found_count * 100
+        print(f"\n  Results: {ok_count}/{found_count} correct, {review_count}/{found_count} mismatched ({error_rate:.0f}% error rate)")
 
 
 def save_archetypes(df):

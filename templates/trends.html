@@ -220,18 +220,13 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 const ARCHETYPE_COLORS = {
-    'Combo Guard': '#1a1a2e',
-    'Combo Guard (Elite)': '#16213e',
     'Playmaker': '#0f3460',
-    'Scoring Wing': '#e94560',
+    'Combo Guard': '#16213e',
+    'Combo Guard (Role)': '#1a1a2e',
     '3-and-D Wing': '#533483',
-    '3-and-D Wing (Role)': '#7b2d8e',
-    'Point Forward': '#2d6a4f',
+    'Scoring Wing': '#e94560',
     'Stretch Big': '#d4a373',
     'Traditional Big': '#6c757d',
-    'Versatile Big': '#495057',
-    'Athletic Wing': '#264653',
-    'Point Center': '#e76f51',
 };
 
 let dvaMode = 'dvs';
@@ -311,9 +306,9 @@ function renderDVA() {
     const container = document.getElementById('dva-table-container');
     const isMobile = window.innerWidth < 768;
     const shortNames = {
-        '3-and-D Wing': '3&D', '3-and-D Wing (Role)': '3&D-R', 'Athletic Wing': 'Ath W',
-        'Combo Guard': 'CG', 'Combo Guard (Elite)': 'CG-E', 'Playmaker': 'PM',
-        'Scoring Wing': 'SC W', 'Stretch Big': 'Str B', 'Traditional Big': 'Trd B'
+        'Playmaker': 'PM', 'Combo Guard': 'CG', 'Combo Guard (Role)': 'CG-R',
+        '3-and-D Wing': '3&D', 'Scoring Wing': 'SC W',
+        'Stretch Big': 'Str B', 'Traditional Big': 'Trd B'
     };
 
     let html = '<table class="dva-table"><thead><tr><th class="dva-team-col">Team</th>';
