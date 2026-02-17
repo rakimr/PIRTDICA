@@ -129,6 +129,16 @@ PIRTDICA is a **skill-based esports competition platform**, not a gambling site.
 3. Cosmetic sales (Coach Coin)
 4. Seasonal battle passes (future)
 
+## Archetype Clustering Notes (K-Means Tuning)
+**Current state (Feb 2026):** Dropped from K=9 to K=6. 359 players in dataset.
+**Silhouette scores:** k=6: 0.2226 (best), k=7: 0.2144, k=8: 0.2105, k=9: 0.1869 (old). Scores 0.2–0.35 are normal for NBA behavioral data — don't chase 0.5, it doesn't exist in this feature space.
+**Root cause of k=9 issues:** Feature dominance — usage%, assist rate, 3PA rate overpower size/role differentiation. K-Means spherical cluster assumption splits wide-variance groups (Combo Guard, 3-and-D Wing) into artificial sub-clusters. Not a clustering failure — a geometry problem.
+**Why k=6:** Domain likely has ~6 truly separable statistical archetypes. Broader, stable clusters give cleaner DVS matchup signal. Purpose is DVS modeling, not academic purity.
+**Future improvements:**
+1. Add role-separating features: % shots at rim, post-up frequency, ORB/DRB rate, screen assists, paint touches
+2. Consider Gaussian Mixture Model (GMM) for probabilistic assignment (e.g., Jokic = 65% Point Center / 35% Point Forward) — could weight DVS multipliers by archetype probability
+3. Tighten feature scaling once new features added
+
 ## System Architecture
 The system uses an ETL pattern with SQLite for data storage, orchestrated by `run_daily_update.py`. Core projection models include minutes projection, usage-based FPPM adjustment, and robust name normalization. Advanced models like Phillips Archetype Classification (K-means clustering for secondary positions) and Salary-Tier Volatility Model (regularizing fantasy point standard deviation) enhance projection accuracy. The Ceiling/Floor Model transforms point projections into full distributions for strategic decision-making. The Blended DVP and Defense vs Archetype (DVA) systems provide reactive matchup ratings, adapting throughout the season. A Team Incentive Score adjusts volatility based on team standings, and a Prop Trend Analysis Modal offers OVER/UNDER calls based on blended DVP/DVA edges.
 
