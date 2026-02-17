@@ -2614,9 +2614,10 @@ th[data-sortable].sort-desc::after {
 .scheme-bar-legend {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px 16px;
+    gap: 8px 20px;
     justify-content: center;
-    padding: 8px 0 2px;
+    padding: 12px 0;
+    margin: 4px 0;
 }
 
 .sbl-item {
