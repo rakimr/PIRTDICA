@@ -1,15 +1,21 @@
 """
-Scrape NBA.com shot zone data and shot creation data for archetype classification.
+Scrape NBA.com shot zone data, shot creation data, and hustle stats for archetype classification.
 
-Two data sources:
+Three data sources:
 1. leaguedashplayershotlocations - Shot zone distribution (Restricted Area, Paint, Mid-Range, 3PT zones)
 2. leaguedashplayerptshot - Shot creation type (Catch-and-Shoot, Pull-Up, Less Than 10ft)
+3. leaguehustlestatsplayer - Defensive hustle stats (Deflections, Contested Shots, Loose Balls, Charges)
 
-These enable precise big man classification:
+Shot data enables big man classification:
 - Traditional Big: High rim/paint %, near-zero 3PT
 - Stretch Big: High 3PT %, mostly catch-and-shoot (spot-up)
 - Scoring Wing: High 3PT % but mostly pull-up/off-dribble (self-creator)
 - Point Center: High assists + decent scoring from paint, facilitator hub
+
+Hustle data enables guard/wing classification:
+- 3-and-D Wing: High deflections + contested shots per minute (active defender)
+- Scoring Wing: Low defensive activity, high USG (offensive-first)
+- Combo Guard: Moderate defensive activity
 """
 
 import sqlite3
@@ -197,7 +203,80 @@ def scrape_shot_creation():
     return df
 
 
-def save_to_db(zones_df, creation_df):
+def scrape_hustle_stats():
+    from nba_api.stats.endpoints import leaguehustlestatsplayer
+
+    print("\nFetching hustle stats from NBA.com (leaguehustlestatsplayer)...")
+    time.sleep(1)
+
+    hustle = leaguehustlestatsplayer.LeagueHustleStatsPlayer(
+        season=SEASON,
+        season_type_all_star='Regular Season',
+        per_mode_time='Totals'
+    )
+
+    raw = hustle.get_data_frames()[0]
+    print(f"  Got data for {len(raw)} players")
+
+    rows = []
+    for _, r in raw.iterrows():
+        player_name = r.get('PLAYER_NAME', '')
+        player_id = r.get('PLAYER_ID', '')
+        team = r.get('TEAM_ABBREVIATION', '')
+        gp = int(r.get('G', 0))
+        minutes = float(r.get('MIN', 0))
+
+        if gp < 5 or minutes < 50:
+            continue
+
+        contested = float(r.get('CONTESTED_SHOTS', 0) or 0)
+        contested_2pt = float(r.get('CONTESTED_SHOTS_2PT', 0) or 0)
+        contested_3pt = float(r.get('CONTESTED_SHOTS_3PT', 0) or 0)
+        deflections = float(r.get('DEFLECTIONS', 0) or 0)
+        charges = float(r.get('CHARGES_DRAWN', 0) or 0)
+        screen_assists = float(r.get('SCREEN_ASSISTS', 0) or 0)
+        loose_off = float(r.get('OFF_LOOSE_BALLS_RECOVERED', 0) or 0)
+        loose_def = float(r.get('DEF_LOOSE_BALLS_RECOVERED', 0) or 0)
+        loose_total = float(r.get('LOOSE_BALLS_RECOVERED', 0) or 0)
+        box_outs = float(r.get('BOX_OUTS', 0) or 0)
+
+        defl_per_min = deflections / minutes * 48 if minutes > 0 else 0
+        contested_per_min = contested / minutes * 48 if minutes > 0 else 0
+        loose_per_min = loose_total / minutes * 48 if minutes > 0 else 0
+        charges_per_min = charges / minutes * 48 if minutes > 0 else 0
+        screen_ast_per_min = screen_assists / minutes * 48 if minutes > 0 else 0
+        box_outs_per_min = box_outs / minutes * 48 if minutes > 0 else 0
+
+        rows.append({
+            'player_name': player_name,
+            'player_id': int(player_id),
+            'team': team,
+            'gp': gp,
+            'minutes': round(minutes, 1),
+            'contested_shots': int(contested),
+            'contested_2pt': int(contested_2pt),
+            'contested_3pt': int(contested_3pt),
+            'deflections': int(deflections),
+            'charges_drawn': int(charges),
+            'screen_assists': int(screen_assists),
+            'loose_balls_off': int(loose_off),
+            'loose_balls_def': int(loose_def),
+            'loose_balls_total': int(loose_total),
+            'box_outs': int(box_outs),
+            'deflections_per48': round(defl_per_min, 2),
+            'contested_per48': round(contested_per_min, 2),
+            'loose_per48': round(loose_per_min, 2),
+            'charges_per48': round(charges_per_min, 2),
+            'screen_ast_per48': round(screen_ast_per_min, 2),
+            'box_outs_per48': round(box_outs_per_min, 2),
+        })
+
+    df = pd.DataFrame(rows)
+    print(f"  Processed {len(df)} players with 5+ GP and 50+ MIN")
+    return df
+
+
+def save_to_db(zones_df, creation_df, hustle_df=None):
     conn = sqlite3.connect(DB_PATH)
     now = datetime.now().isoformat()
 
@@ -208,6 +287,11 @@ def save_to_db(zones_df, creation_df):
     creation_df['scraped_at'] = now
     creation_df.to_sql('player_shot_creation', conn, if_exists='replace', index=False)
     print(f"Saved {len(creation_df)} players to player_shot_creation table")
+
+    if hustle_df is not None:
+        hustle_df['scraped_at'] = now
+        hustle_df.to_sql('player_hustle_stats', conn, if_exists='replace', index=False)
+        print(f"Saved {len(hustle_df)} players to player_hustle_stats table")
 
     conn.close()
 
@@ -247,14 +331,25 @@ def show_big_man_audit(zones_df, creation_df):
 
 def main():
     print("=" * 60)
-    print("NBA.COM SHOT ZONE & CREATION SCRAPER")
+    print("NBA.COM SHOT ZONE, CREATION & HUSTLE STATS SCRAPER")
     print(f"Season: {SEASON}")
     print("=" * 60)
 
     zones_df = scrape_shot_locations()
     creation_df = scrape_shot_creation()
-    save_to_db(zones_df, creation_df)
+    hustle_df = scrape_hustle_stats()
+    save_to_db(zones_df, creation_df, hustle_df)
     show_big_man_audit(zones_df, creation_df)
+
+    print("\n" + "=" * 80)
+    print("DEFENSIVE HUSTLE LEADERS (per 48 min)")
+    print("=" * 80)
+    top = hustle_df.nlargest(15, 'deflections_per48')
+    print(f"{'Player':<25} {'Defl/48':>8} {'Contest/48':>11} {'Loose/48':>9} {'Charges/48':>11}")
+    print('-' * 70)
+    for _, r in top.iterrows():
+        print(f"{r['player_name']:<25} {r['deflections_per48']:>8.2f} {r['contested_per48']:>11.2f} "
+              f"{r['loose_per48']:>9.2f} {r['charges_per48']:>11.2f}")
 
     print("\nDone!")
 

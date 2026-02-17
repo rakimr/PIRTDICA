@@ -44,7 +44,7 @@ Position classification: C%+PF% >= 50% → Hybrid Big, SF%+PF% > guard% → Hybr
 **Current Hybrids:** Jokic (Big), Giannis (Big), Luka (Guard), SGA (Guard), Curry (Guard), LaMelo (Guard), LeBron (Forward)
 
 ## System Architecture
-The system employs an ETL pattern, primarily using SQLite for data staging and PostgreSQL for the web platform's operational data. Core projection models include minutes projection and usage-based FPPM adjustment, supported by advanced analytics such as Phillips Archetype Classification (K-means clustering) and a Salary-Tier Volatility Model. A Ceiling/Floor Model converts point projections into full distributions, and Blended DVP (Defense vs. Position) and Defense vs. Archetype (DVA) systems provide dynamic matchup ratings. A Team Incentive Score adjusts volatility based on team standings, and a Prop Trend Analysis Modal offers OVER/UNDER calls.
+The system employs an ETL pattern, primarily using SQLite for data staging and PostgreSQL for the web platform's operational data. Core projection models include minutes projection and usage-based FPPM adjustment, supported by advanced analytics such as Phillips Archetype Classification (K-means clustering with 18 features: per-100 stats, position %, shot zones, shot creation, and defensive hustle stats) and a Salary-Tier Volatility Model. A Ceiling/Floor Model converts point projections into full distributions, and Blended DVP (Defense vs. Position) and Defense vs. Archetype (DVA) systems provide dynamic matchup ratings. A Team Incentive Score adjusts volatility based on team standings, and a Prop Trend Analysis Modal offers OVER/UNDER calls.
 
 Lineup optimization is achieved via a PuLP linear programming optimizer and a Monte Carlo optimizer. The platform supports a "Beat the House" game against AI and "Coach vs Coach" (H2H) competitive play with a lobby, coin escrow, and live scoring.
 
@@ -59,7 +59,7 @@ The web platform is built with FastAPI (Python) for the backend, SQLAlchemy for 
 -   **TeamRankings:** Game odds/spreads
 -   **HashtagBasketball:** Defense vs Position stats
 -   **Basketball Reference:** Per-100 possession stats, player positions, foul rates
--   **NBA.com Stats API:** Player game logs, minutes volatility, referee assignments
+-   **NBA.com Stats API:** Player game logs, minutes volatility, referee assignments, shot zone distribution, shot creation types, hustle stats (deflections, contested shots, loose balls)
 -   **NBAStuffer:** Historical referee statistics
 -   **SportsDatabase:** Historic betting lines
 -   **FantasyTeamAdvice.com:** FanDuel NBA ownership data

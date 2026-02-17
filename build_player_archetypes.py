@@ -61,6 +61,7 @@ FEATURES = [
     'ast_to_reb_ratio', 'scoring_versatility',
     'rim_paint_pct', 'three_pct',
     'cs_pct', 'pu_pct',
+    'deflections_per48', 'contested_per48',
 ]
 
 TARGET_K = 6
@@ -131,9 +132,15 @@ def load_feature_data():
         FROM player_shot_creation
     """, conn)
 
+    hustle = pd.read_sql_query("""
+        SELECT player_name, deflections_per48, contested_per48, loose_per48,
+               charges_per48, screen_ast_per48, box_outs_per48
+        FROM player_hustle_stats
+    """, conn)
+
     conn.close()
 
-    for tbl in [per100, positions, game_logs, usage, shot_zones, shot_creation]:
+    for tbl in [per100, positions, game_logs, usage, shot_zones, shot_creation, hustle]:
         tbl['_merge_key'] = tbl['player_name'].apply(_ascii_key)
 
     df = per100.merge(positions.drop(columns=['player_name']), on='_merge_key', how='inner')
@@ -141,6 +148,7 @@ def load_feature_data():
     df = df.merge(usage.drop(columns=['player_name']), on='_merge_key', how='left')
     df = df.merge(shot_zones.drop(columns=['player_name']), on='_merge_key', how='left')
     df = df.merge(shot_creation.drop(columns=['player_name']), on='_merge_key', how='left')
+    df = df.merge(hustle.drop(columns=['player_name']), on='_merge_key', how='left')
     df = df.drop(columns=['_merge_key'])
 
     df['usg_pct'] = df['usg_pct'].fillna(df['usg_pct'].median())
@@ -155,8 +163,17 @@ def load_feature_data():
     df['sc_paint_pct'] = df['sc_paint_pct'].fillna(40.0)
     df['cs_3_share'] = df['cs_3_share'].fillna(50.0)
 
+    df['deflections_per48'] = df['deflections_per48'].fillna(df['deflections_per48'].median() if df['deflections_per48'].notna().any() else 3.0)
+    df['contested_per48'] = df['contested_per48'].fillna(df['contested_per48'].median() if df['contested_per48'].notna().any() else 8.0)
+    df['loose_per48'] = df['loose_per48'].fillna(1.0)
+    df['charges_per48'] = df['charges_per48'].fillna(0.2)
+    df['screen_ast_per48'] = df['screen_ast_per48'].fillna(1.0)
+    df['box_outs_per48'] = df['box_outs_per48'].fillna(2.0)
+
     shot_merged = df['rim_paint_pct'].notna().sum()
+    hustle_merged = df['deflections_per48'].notna().sum()
     print(f"  Shot zone data merged for {shot_merged}/{len(df)} players")
+    print(f"  Hustle stats merged for {hustle_merged}/{len(df)} players")
 
     return df
 
@@ -207,6 +224,8 @@ def label_cluster_scored(centroid, feature_names):
     three = c.get('three_pct', 0)
     cs = c.get('cs_pct', 0)
     pu = c.get('pu_pct', 0)
+    defl = c.get('deflections_per48', 0)
+    contest = c.get('contested_per48', 0)
 
     if bpct > 40 or (reb > 12 and blk > 1.5):
         if rim_paint > 75 and three < 15:
@@ -220,12 +239,18 @@ def label_cluster_scored(centroid, feature_names):
     if gpct > 60:
         if ast > 7:
             return 'Playmaker'
+        if defl > 4.5 and stl > 1.8:
+            return '3-and-D Wing'
         return 'Combo Guard'
 
     if fpct > 40:
         if pts > 25 and usg > 22:
             return 'Scoring Wing'
-        return '3-and-D Wing'
+        if (defl > 4.0 or stl > 1.8) and contest > 6:
+            return '3-and-D Wing'
+        if pts > 20 and usg > 18:
+            return 'Scoring Wing'
+        return 'Combo Guard'
 
     if ast > 7:
         return 'Playmaker'
@@ -237,6 +262,8 @@ def label_cluster_scored(centroid, feature_names):
         if three > 30:
             return 'Stretch Big'
         return 'Traditional Big'
+    if defl > 4.0 and stl > 1.5:
+        return '3-and-D Wing'
     return 'Combo Guard'
 
 
@@ -268,8 +295,14 @@ def run_clustering(df, k=TARGET_K):
         label_counts[label] = label_counts.get(label, 0) + 1
         if label_counts[label] > 1:
             c = dict(zip(FEATURES, centroids_orig[i]))
-            if c['stl_per100'] > 2.0 or c['usg_pct'] < 17:
-                label = "3-and-D Guard"
+            defl = c.get('deflections_per48', 0)
+            contest = c.get('contested_per48', 0)
+            stl = c.get('stl_per100', 0)
+            if '3-and-D' in label:
+                if defl > 4.0 and stl > 1.8:
+                    label = "3-and-D Guard" if c['guard_pct'] > 50 else "3-and-D Wing"
+                else:
+                    label = "Combo Guard"
             elif c['fg3m_per100'] > 6:
                 label = "Scoring Guard"
             elif c['pts_per100'] > 25 or c['usg_pct'] > 25:
@@ -287,7 +320,8 @@ def run_clustering(df, k=TARGET_K):
               f"STL={c['stl_per100']:.1f} BLK={c['blk_per100']:.1f} 3PM={c['fg3m_per100']:.1f} "
               f"USG={c['usg_pct']:.1f} G%={c['guard_pct']:.0f} F%={c['forward_pct']:.0f} C%={c['big_pct']:.0f} "
               f"RimPaint={c['rim_paint_pct']:.1f} 3PT%={c['three_pct']:.1f} "
-              f"C&S={c['cs_pct']:.1f} PU={c['pu_pct']:.1f}")
+              f"C&S={c['cs_pct']:.1f} PU={c['pu_pct']:.1f} "
+              f"DEFL={c['deflections_per48']:.1f} CONTEST={c['contested_per48']:.1f}")
 
     df['archetype'] = df['cluster'].map(cluster_labels)
 
@@ -633,10 +667,10 @@ def save_archetypes(df):
 def main():
     print("=" * 60)
     print("PHILLIPS-STYLE PLAYER ARCHETYPE CLASSIFICATION")
-    print("K-Means + Shot Zones + Shot Creation")
+    print("K-Means + Shot Zones + Shot Creation + Hustle Stats")
     print("=" * 60)
 
-    print("\n1. Loading feature data (per-100 + positions + shot zones + shot creation)...")
+    print("\n1. Loading feature data (per-100 + positions + shot zones + shot creation + hustle)...")
     df = load_feature_data()
     print(f"   Loaded {len(df)} players with complete data")
 
@@ -669,6 +703,25 @@ def main():
         avg_cs = subset['cs_pct'].mean()
         avg_pu = subset['pu_pct'].mean()
         print(f"  {arch} (n={n}): RimPaint={avg_rp:.1f}% 3PT={avg_tp:.1f}% C&S={avg_cs:.1f}% PullUp={avg_pu:.1f}%")
+
+    print("\n8. Defensive Hustle Profile Summary (per 48 min):")
+    all_archetypes = ['3-and-D Wing', '3-and-D Guard', 'Combo Guard', 'Scoring Guard',
+                      'Playmaker', 'Scoring Wing',
+                      'Traditional Big', 'Stretch Big', 'Versatile Big',
+                      'Point Center', 'Point Forward',
+                      'Hybrid Guard', 'Hybrid Forward', 'Hybrid Big']
+    print(f"  {'Archetype':<20} {'N':>3} {'STL/100':>8} {'BLK/100':>8} {'DEFL/48':>8} {'CONTEST/48':>11}")
+    print(f"  {'-'*62}")
+    for arch in all_archetypes:
+        subset = df[df['archetype'] == arch]
+        if subset.empty:
+            continue
+        n = len(subset)
+        avg_stl = subset['stl_per100'].mean()
+        avg_blk = subset['blk_per100'].mean()
+        avg_defl = subset['deflections_per48'].mean()
+        avg_contest = subset['contested_per48'].mean()
+        print(f"  {arch:<20} {n:>3} {avg_stl:>8.1f} {avg_blk:>8.1f} {avg_defl:>8.1f} {avg_contest:>11.1f}")
 
     print("\nDone!")
     return df
