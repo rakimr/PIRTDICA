@@ -65,7 +65,7 @@ def build_dva():
     df = pd.read_sql_query('''
         SELECT g.player_name, g.matchup, g.min, g.pts, g.reb, g.ast,
                g.stl, g.blk, g.fg3m, g.tov, g.fp, g.game_date,
-               a.archetype
+               COALESCE(a.base_archetype, a.archetype) as archetype
         FROM player_game_logs g
         JOIN player_archetypes a ON g.player_name = a.player_name
         WHERE g.min > 5

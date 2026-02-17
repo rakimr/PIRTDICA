@@ -342,6 +342,8 @@ def run_clustering(df, k=TARGET_K):
         print(f"  Reclassified: {point_center_count} -> Point Center, {versatile_big_count} -> Versatile Big")
         df = df.drop(columns=['_mk', 'height_inches'])
 
+    df['base_archetype'] = df['archetype'].copy()
+
     print("\n  Hybrid archetype reclassification (elite transcendent players only)...")
 
     path_a_mask = (
@@ -454,7 +456,7 @@ def save_archetypes(df):
     conn = sqlite3.connect(DB_PATH)
     now = datetime.now().isoformat()
 
-    save_df = df[['player_name', 'team', 'true_position', 'archetype', 'cluster']].copy()
+    save_df = df[['player_name', 'team', 'true_position', 'archetype', 'base_archetype', 'cluster']].copy()
     save_df['computed_at'] = now
 
     BREF_TO_ESPN = {
