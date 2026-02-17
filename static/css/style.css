@@ -2611,6 +2611,38 @@ th[data-sortable].sort-desc::after {
     margin-top: 8px;
 }
 
+.scheme-bar-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    justify-content: center;
+    padding: 8px 0 2px;
+}
+
+.sbl-item {
+    font-family: 'Marvel', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.sbl-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.sbl-line {
+    width: 16px;
+    height: 3px;
+    border-radius: 2px;
+}
+
 .scheme-insight {
     font-family: 'Marvel', sans-serif;
     font-size: 0.95rem;

@@ -85,6 +85,12 @@
             </div>
             <div class="scheme-bar-wrap">
                 <canvas id="scheme-bar-chart"></canvas>
+                <div class="scheme-bar-legend">
+                    <span class="sbl-item"><span class="sbl-dot" style="background:#0f9d58"></span> Elite (75th+)</span>
+                    <span class="sbl-item"><span class="sbl-dot" style="background:#1e3a8a"></span> Above Avg (50th+)</span>
+                    <span class="sbl-item"><span class="sbl-dot" style="background:#d4af37"></span> Below Avg (25th+)</span>
+                    <span class="sbl-item"><span class="sbl-dot" style="background:#d72638"></span> Poor (Below 25th)</span>
+                </div>
             </div>
         </div>
         <div id="scheme-summary" class="scheme-summary"></div>
@@ -100,6 +106,12 @@
         </div>
         <div class="def-scheme-chart-wrap">
             <canvas id="def-scheme-chart"></canvas>
+            <div class="scheme-bar-legend">
+                <span class="sbl-item"><span class="sbl-dot" style="background:rgba(215,38,56,0.75)"></span> Weakness (allows more PPP than avg)</span>
+                <span class="sbl-item"><span class="sbl-dot" style="background:rgba(15,157,88,0.75)"></span> Strength (allows less PPP than avg)</span>
+                <span class="sbl-item"><span class="sbl-dot" style="background:rgba(107,114,128,0.5)"></span> Neutral</span>
+                <span class="sbl-item"><span class="sbl-dot sbl-line" style="background:#9ca3af"></span> League Average</span>
+            </div>
         </div>
         <div id="def-scheme-summary" class="def-scheme-summary"></div>
     </div>
@@ -776,6 +788,7 @@ function renderSchemeRadar(team) {
             maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
+                title: { display: true, text: 'Efficiency Percentile by Play Type', font: { family: 'Marvel', size: 14, weight: 'bold' }, color: '#111827', padding: { bottom: 8 } },
                 tooltip: {
                     backgroundColor: '#111',
                     titleFont: { family: 'Marvel', size: 13 },
@@ -845,7 +858,7 @@ function renderDefScheme(team) {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { position: 'bottom', labels: { font: { family: 'Marvel', size: 12 }, usePointStyle: true, padding: 14 } },
+                legend: { display: false },
                 tooltip: {
                     backgroundColor: '#111',
                     titleFont: { family: 'Marvel', size: 13 },
