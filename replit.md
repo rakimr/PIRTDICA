@@ -130,13 +130,29 @@ PIRTDICA is a **skill-based esports competition platform**, not a gambling site.
 4. Seasonal battle passes (future)
 
 ## Archetype Clustering Notes (K-Means Tuning)
-**Current state (Feb 2026):** Dropped from K=9 to K=6. 359 players in dataset.
-**Silhouette scores:** k=6: 0.2226 (best), k=7: 0.2144, k=8: 0.2105, k=9: 0.1869 (old). Scores 0.2–0.35 are normal for NBA behavioral data — don't chase 0.5, it doesn't exist in this feature space.
-**Root cause of k=9 issues:** Feature dominance — usage%, assist rate, 3PA rate overpower size/role differentiation. K-Means spherical cluster assumption splits wide-variance groups (Combo Guard, 3-and-D Wing) into artificial sub-clusters. Not a clustering failure — a geometry problem.
-**Why k=6:** Domain likely has ~6 truly separable statistical archetypes. Broader, stable clusters give cleaner DVS matchup signal. Purpose is DVS modeling, not academic purity.
+**Current state (Feb 2026):** K=6 clusters + multi-layer player-level reclassification. 359 players, 9 final archetypes.
+**Silhouette scores:** k=6: 0.2226 (best). Scores 0.2–0.35 are normal for NBA behavioral data.
+**9 Archetypes (K=6 clusters + 3 reclassification layers):**
+1. Playmaker — High-assist guards (Curry, Harden, Trae Young, Luka, SGA)
+2. Combo Guard — Scoring guards with some creator tendencies
+3. 3-and-D Guard — Defensive-minded guards, low usage
+4. Scoring Guard — Pure scoring guards (Norman Powell)
+5. 3-and-D Wing — Perimeter role players (Mikal Bridges, Draymond Green)
+6. Scoring Wing — Elite offensive forwards (KD, LeBron, Kawhi, Jaylen Brown)
+7. Stretch Big — Bigs with high 3PM/100 >= 4.0 (Wembanyama, KAT, Myles Turner, Brook Lopez)
+8. Point Center — 6'9"+, C/PF position, high AST/100 >= 5.0 (Jokic, Giannis, Embiid, Banchero)
+9. Versatile Big — 6'9"+, C/PF position, well-rounded but not primary facilitator (Sabonis, Randle-type without high ast, Lauri Markkanen)
+10. Traditional Big — Paint-focused, low perimeter activity (Gobert, AD, Zach Edey)
+
+**Reclassification hierarchy (applied in order after K-Means):**
+1. Stretch Big: Traditional Big cluster + 3PM/100 >= 4.0
+2. Traditional Big → Point Center/Versatile Big: AST/100 >= 5.0 + PTS/100 >= 18.0
+3. Height-based wing correction: 6'9"+ with C%+PF% >= 40% → Point Center (high AST) or Versatile Big
+**Height data source:** nba_api LeagueDashPlayerBioStats (bulk endpoint, PLAYER_HEIGHT_INCHES)
+**Validation:** 23/23 known players correct (0% error rate)
 **Future improvements:**
 1. Add role-separating features: % shots at rim, post-up frequency, ORB/DRB rate, screen assists, paint touches
-2. Consider Gaussian Mixture Model (GMM) for probabilistic assignment (e.g., Jokic = 65% Point Center / 35% Point Forward) — could weight DVS multipliers by archetype probability
+2. Consider Gaussian Mixture Model (GMM) for probabilistic assignment — could weight DVS multipliers by archetype probability
 3. Tighten feature scaling once new features added
 
 ## System Architecture

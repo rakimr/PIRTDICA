@@ -51,6 +51,32 @@ def _ascii_key(name):
 
 DB_PATH = 'dfs_nba.db'
 
+HEIGHT_THRESHOLD_INCHES = 81  # 6'9" = 81 inches
+POINT_CENTER_AST_THRESHOLD = 5.0
+POINT_CENTER_3PM_THRESHOLD = 2.0
+
+
+def fetch_player_heights():
+    """Fetch player heights from NBA API in bulk."""
+    try:
+        from nba_api.stats.endpoints import leaguedashplayerbiostats
+        import time
+        time.sleep(0.6)
+        bio = leaguedashplayerbiostats.LeagueDashPlayerBioStats(season='2024-25')
+        df = bio.get_data_frames()[0]
+        height_map = {}
+        for _, row in df.iterrows():
+            name = row.get('PLAYER_NAME', '')
+            height_inches = row.get('PLAYER_HEIGHT_INCHES')
+            if name and height_inches and not pd.isna(height_inches):
+                key = _ascii_key(name)
+                height_map[key] = int(height_inches)
+        print(f"  Fetched height data for {len(height_map)} players from NBA API")
+        return height_map
+    except Exception as e:
+        print(f"  WARNING: Could not fetch height data: {e}")
+        return {}
+
 FEATURES = [
     'pts_per100', 'reb_per100', 'ast_per100', 'stl_per100', 'blk_per100',
     'fg3m_per100', 'usg_pct',
@@ -245,12 +271,83 @@ def run_clustering(df, k=TARGET_K):
         df.loc[stretch_mask, 'archetype'] = 'Stretch Big'
         print(f"\n  Player-level reclassification: {reclassed} bigs with 3PM/100 >= {STRETCH_BIG_3PM_THRESHOLD} -> Stretch Big")
 
+    VERSATILE_BIG_PTS_THRESHOLD = 18.0
+    trad_big_archetypes = ['Traditional Big']
+    trad_mask = df['archetype'].isin(trad_big_archetypes)
+    versatile_from_trad = 0
+    pc_from_trad = 0
+    for idx in df[trad_mask].index:
+        player = df.loc[idx]
+        ast = player.get('ast_per100', 0)
+        pts = player.get('pts_per100', 0)
+        fg3m = player.get('fg3m_per100', 0)
+        if ast >= POINT_CENTER_AST_THRESHOLD and pts >= VERSATILE_BIG_PTS_THRESHOLD:
+            if fg3m >= POINT_CENTER_3PM_THRESHOLD:
+                df.at[idx, 'archetype'] = 'Point Center'
+                pc_from_trad += 1
+                print(f"    {player['player_name']}: Traditional Big -> Point Center "
+                      f"(AST/100={ast:.1f}, PTS/100={pts:.1f}, 3PM/100={fg3m:.1f})")
+            else:
+                df.at[idx, 'archetype'] = 'Versatile Big'
+                versatile_from_trad += 1
+                print(f"    {player['player_name']}: Traditional Big -> Versatile Big "
+                      f"(AST/100={ast:.1f}, PTS/100={pts:.1f})")
+    if pc_from_trad or versatile_from_trad:
+        print(f"  From Traditional Bigs: {pc_from_trad} -> Point Center, {versatile_from_trad} -> Versatile Big")
+
+    print("\n  Height-based reclassification for bigs misclassified as wings...")
+    height_map = fetch_player_heights()
+    if height_map:
+        df['_mk'] = df['player_name'].apply(_ascii_key)
+        df['height_inches'] = df['_mk'].map(height_map)
+
+        wing_archetypes = ['Scoring Wing', 'Scoring Guard', '3-and-D Wing', '3-and-D Guard',
+                           'Scoring Wing (Elite)', 'Scoring Wing (Role)', 'Combo Guard']
+
+        big_position_threshold = 40
+        tall_big_mask = (
+            df['height_inches'].notna() &
+            (df['height_inches'] >= HEIGHT_THRESHOLD_INCHES) &
+            df['archetype'].isin(wing_archetypes) &
+            ((df['c_pct'] + df['pf_pct']) >= big_position_threshold)
+        )
+
+        point_center_count = 0
+        versatile_big_count = 0
+        for idx in df[tall_big_mask].index:
+            player = df.loc[idx]
+            ast = player.get('ast_per100', 0)
+            fg3m = player.get('fg3m_per100', 0)
+            c_pct = player.get('c_pct', 0)
+            pf_pct = player.get('pf_pct', 0)
+            height = int(player['height_inches'])
+            ft_in = f"{height // 12}'{height % 12}\""
+
+            if ast >= POINT_CENTER_AST_THRESHOLD and fg3m >= POINT_CENTER_3PM_THRESHOLD:
+                df.at[idx, 'archetype'] = 'Point Center'
+                point_center_count += 1
+                print(f"    {player['player_name']} ({ft_in}, C%={c_pct:.0f} PF%={pf_pct:.0f}): "
+                      f"{player['archetype']} -> Point Center (AST/100={ast:.1f}, 3PM/100={fg3m:.1f})")
+            elif ast >= POINT_CENTER_AST_THRESHOLD:
+                df.at[idx, 'archetype'] = 'Point Center'
+                point_center_count += 1
+                print(f"    {player['player_name']} ({ft_in}, C%={c_pct:.0f} PF%={pf_pct:.0f}): "
+                      f"{player['archetype']} -> Point Center (AST/100={ast:.1f}, high facilitator)")
+            else:
+                df.at[idx, 'archetype'] = 'Versatile Big'
+                versatile_big_count += 1
+                print(f"    {player['player_name']} ({ft_in}, C%={c_pct:.0f} PF%={pf_pct:.0f}): "
+                      f"{player['archetype']} -> Versatile Big (AST/100={ast:.1f}, 3PM/100={fg3m:.1f})")
+
+        print(f"  Reclassified: {point_center_count} -> Point Center, {versatile_big_count} -> Versatile Big")
+        df = df.drop(columns=['_mk', 'height_inches'])
+
     return df, km, scaler, cluster_labels
 
 
 def validate_archetypes(df):
     known_players = {
-        'Nikola Jok': 'Scoring Wing',
+        'Nikola Jok': 'Point Center',
         'Karl-Anthony Towns': 'Stretch Big',
         'Stephen Curry': 'Playmaker',
         'LeBron James': 'Scoring Wing',
@@ -258,7 +355,7 @@ def validate_archetypes(df):
         'Mikal Bridges': '3-and-D Wing',
         'Anthony Davis': 'Traditional Big',
         'James Harden': 'Playmaker',
-        'Giannis Ante': 'Scoring Wing',
+        'Giannis Ante': 'Point Center',
         'Kevin Durant': 'Scoring Wing',
         'Kawhi Leonard': 'Scoring Wing',
         'Victor Wembanyama': 'Stretch Big',
@@ -272,7 +369,7 @@ def validate_archetypes(df):
         'Norman Powell': 'Scoring Guard',
         'Myles Turner': 'Stretch Big',
         'Brook Lopez': 'Stretch Big',
-        'Rudy Gobert': 'Traditional Big',
+        'Domantas Sabonis': 'Versatile Big',
     }
 
     print("\nValidation against known archetypes:")
