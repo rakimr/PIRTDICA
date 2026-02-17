@@ -215,7 +215,11 @@ def run_clustering(df, k=TARGET_K):
         label_counts[label] = label_counts.get(label, 0) + 1
         if label_counts[label] > 1:
             c = dict(zip(FEATURES, centroids_orig[i]))
-            if c['pts_per100'] > 25 or c['usg_pct'] > 25:
+            if c['stl_per100'] > 2.0 or c['usg_pct'] < 17:
+                label = "3-and-D Guard"
+            elif c['fg3m_per100'] > 6:
+                label = "Scoring Guard"
+            elif c['pts_per100'] > 25 or c['usg_pct'] > 25:
                 label = f"{label} (Elite)"
             else:
                 label = f"{label} (Role)"
@@ -232,13 +236,22 @@ def run_clustering(df, k=TARGET_K):
 
     df['archetype'] = df['cluster'].map(cluster_labels)
 
+    STRETCH_BIG_3PM_THRESHOLD = 4.0
+    big_cluster_ids = [i for i, lbl in cluster_labels.items() if lbl == 'Traditional Big']
+    if big_cluster_ids:
+        big_mask = df['cluster'].isin(big_cluster_ids)
+        stretch_mask = big_mask & (df['fg3m_per100'] >= STRETCH_BIG_3PM_THRESHOLD)
+        reclassed = stretch_mask.sum()
+        df.loc[stretch_mask, 'archetype'] = 'Stretch Big'
+        print(f"\n  Player-level reclassification: {reclassed} bigs with 3PM/100 >= {STRETCH_BIG_3PM_THRESHOLD} -> Stretch Big")
+
     return df, km, scaler, cluster_labels
 
 
 def validate_archetypes(df):
     known_players = {
         'Nikola Jok': 'Scoring Wing',
-        'Karl-Anthony Towns': 'Traditional Big',
+        'Karl-Anthony Towns': 'Stretch Big',
         'Stephen Curry': 'Playmaker',
         'LeBron James': 'Scoring Wing',
         'Rudy Gobert': 'Traditional Big',
@@ -248,7 +261,7 @@ def validate_archetypes(df):
         'Giannis Ante': 'Scoring Wing',
         'Kevin Durant': 'Scoring Wing',
         'Kawhi Leonard': 'Scoring Wing',
-        'Victor Wembanyama': 'Traditional Big',
+        'Victor Wembanyama': 'Stretch Big',
         'Draymond Green': '3-and-D Wing',
         'Trae Young': 'Playmaker',
         'Luka Don': 'Playmaker',
@@ -256,7 +269,10 @@ def validate_archetypes(df):
         'Jalen Brunson': 'Playmaker',
         'Jaylen Brown': 'Scoring Wing',
         'Donovan Mitchell': 'Playmaker',
-        'Norman Powell': 'Combo Guard',
+        'Norman Powell': 'Scoring Guard',
+        'Myles Turner': 'Stretch Big',
+        'Brook Lopez': 'Stretch Big',
+        'Rudy Gobert': 'Traditional Big',
     }
 
     print("\nValidation against known archetypes:")

@@ -222,7 +222,8 @@
 const ARCHETYPE_COLORS = {
     'Playmaker': '#0f3460',
     'Combo Guard': '#16213e',
-    'Combo Guard (Role)': '#1a1a2e',
+    '3-and-D Guard': '#2a4365',
+    'Scoring Guard': '#1a1a2e',
     '3-and-D Wing': '#533483',
     'Scoring Wing': '#e94560',
     'Stretch Big': '#d4a373',
@@ -306,7 +307,7 @@ function renderDVA() {
     const container = document.getElementById('dva-table-container');
     const isMobile = window.innerWidth < 768;
     const shortNames = {
-        'Playmaker': 'PM', 'Combo Guard': 'CG', 'Combo Guard (Role)': 'CG-R',
+        'Playmaker': 'PM', 'Combo Guard': 'CG', '3-and-D Guard': '3&D-G', 'Scoring Guard': 'SG',
         '3-and-D Wing': '3&D', 'Scoring Wing': 'SC W',
         'Stretch Big': 'Str B', 'Traditional Big': 'Trd B'
     };
