@@ -342,102 +342,72 @@ def run_clustering(df, k=TARGET_K):
         print(f"  Reclassified: {point_center_count} -> Point Center, {versatile_big_count} -> Versatile Big")
         df = df.drop(columns=['_mk', 'height_inches'])
 
-    print("\n  Hybrid archetype reclassification (position-split tweeners)...")
+    print("\n  Hybrid archetype reclassification (elite transcendent players only)...")
 
-    HYBRID_GUARD_SG_MIN = 25
-    HYBRID_GUARD_SF_MIN = 25
-    HYBRID_GUARD_PG_MAX = 25
-    HYBRID_GUARD_MAX_DOMINANT = 60
-    HYBRID_GUARD_SOURCE = ['Combo Guard', '3-and-D Guard', '3-and-D Wing', 'Scoring Guard']
+    path_a_mask = (
+        (df['pts_per100'] >= 41.5) &
+        (df['ast_per100'] >= 7.5) &
+        (df['usg_pct'] >= 30.0)
+    )
 
-    HYBRID_FORWARD_SF_MIN = 25
-    HYBRID_FORWARD_PF_MIN = 25
-    HYBRID_FORWARD_C_MAX = 20
-    HYBRID_FORWARD_SG_MAX = 25
-    HYBRID_FORWARD_MAX_DOMINANT = 70
-    HYBRID_FORWARD_SOURCE = ['3-and-D Wing', 'Scoring Wing', 'Scoring Wing (Elite)', 'Scoring Wing (Role)']
+    path_b_mask = (
+        (df['pts_per100'] >= 32.0) &
+        (df['ast_per100'] >= 9.5) &
+        (df['reb_per100'] >= 8.0) &
+        (df['usg_pct'] >= 28.0)
+    )
 
-    HYBRID_BIG_PF_MIN = 25
-    HYBRID_BIG_C_MIN = 25
-    HYBRID_BIG_SF_MAX = 15
-    HYBRID_BIG_MAX_DOMINANT = 65
-    HYBRID_BIG_SOURCE = ['Traditional Big', 'Versatile Big']
+    elite_mask = path_a_mask | path_b_mask
 
     hybrid_guard_count = 0
-    hg_mask = (
-        df['archetype'].isin(HYBRID_GUARD_SOURCE) &
-        (df['sg_pct'] >= HYBRID_GUARD_SG_MIN) &
-        (df['sf_pct'] >= HYBRID_GUARD_SF_MIN) &
-        (df['pg_pct'] < HYBRID_GUARD_PG_MAX) &
-        (df['sg_pct'] < HYBRID_GUARD_MAX_DOMINANT) &
-        (df['sf_pct'] < HYBRID_GUARD_MAX_DOMINANT)
-    )
-    for idx in df[hg_mask].index:
-        player = df.loc[idx]
-        old_arch = player['archetype']
-        df.at[idx, 'archetype'] = 'Hybrid Guard'
-        hybrid_guard_count += 1
-        print(f"    {player['player_name']}: {old_arch} -> Hybrid Guard "
-              f"(SG%={player['sg_pct']:.0f}, SF%={player['sf_pct']:.0f})")
-
     hybrid_forward_count = 0
-    hf_mask = (
-        df['archetype'].isin(HYBRID_FORWARD_SOURCE) &
-        (df['sf_pct'] >= HYBRID_FORWARD_SF_MIN) &
-        (df['pf_pct'] >= HYBRID_FORWARD_PF_MIN) &
-        (df['c_pct'] < HYBRID_FORWARD_C_MAX) &
-        (df['sg_pct'] < HYBRID_FORWARD_SG_MAX) &
-        (df['sf_pct'] < HYBRID_FORWARD_MAX_DOMINANT) &
-        (df['pf_pct'] < HYBRID_FORWARD_MAX_DOMINANT)
-    )
-    for idx in df[hf_mask].index:
-        player = df.loc[idx]
-        old_arch = player['archetype']
-        df.at[idx, 'archetype'] = 'Hybrid Forward'
-        hybrid_forward_count += 1
-        print(f"    {player['player_name']}: {old_arch} -> Hybrid Forward "
-              f"(SF%={player['sf_pct']:.0f}, PF%={player['pf_pct']:.0f})")
-
     hybrid_big_count = 0
-    hb_mask = (
-        df['archetype'].isin(HYBRID_BIG_SOURCE) &
-        (df['pf_pct'] >= HYBRID_BIG_PF_MIN) &
-        (df['c_pct'] >= HYBRID_BIG_C_MIN) &
-        (df['sf_pct'] < HYBRID_BIG_SF_MAX) &
-        (df['pf_pct'] < HYBRID_BIG_MAX_DOMINANT) &
-        (df['c_pct'] < HYBRID_BIG_MAX_DOMINANT)
-    )
-    for idx in df[hb_mask].index:
+
+    for idx in df[elite_mask].index:
         player = df.loc[idx]
         old_arch = player['archetype']
-        df.at[idx, 'archetype'] = 'Hybrid Big'
-        hybrid_big_count += 1
-        print(f"    {player['player_name']}: {old_arch} -> Hybrid Big "
-              f"(PF%={player['pf_pct']:.0f}, C%={player['c_pct']:.0f})")
+        pts = player['pts_per100']
+        ast = player['ast_per100']
+        reb = player['reb_per100']
+        usg = player['usg_pct']
+        c_pct = player.get('c_pct', 0)
+        pf_pct = player.get('pf_pct', 0)
+        sf_pct = player.get('sf_pct', 0)
+        guard = player['guard_pct']
 
-    print(f"  Hybrid totals: {hybrid_guard_count} Hybrid Guard, "
-          f"{hybrid_forward_count} Hybrid Forward, {hybrid_big_count} Hybrid Big")
+        if (c_pct + pf_pct) >= 50:
+            hybrid_type = 'Hybrid Big'
+            hybrid_big_count += 1
+        elif (sf_pct + pf_pct) > guard:
+            hybrid_type = 'Hybrid Forward'
+            hybrid_forward_count += 1
+        else:
+            hybrid_type = 'Hybrid Guard'
+            hybrid_guard_count += 1
+
+        path = 'A+B' if path_a_mask[idx] and path_b_mask[idx] else ('A' if path_a_mask[idx] else 'B')
+        df.at[idx, 'archetype'] = hybrid_type
+        print(f"    {player['player_name']}: {old_arch} -> {hybrid_type} [{path}] "
+              f"(PTS={pts:.1f} AST={ast:.1f} REB={reb:.1f} USG={usg:.1f})")
+
+    total = hybrid_guard_count + hybrid_forward_count + hybrid_big_count
+    print(f"  Hybrid totals: {total} elite hybrids "
+          f"({hybrid_guard_count} Guard, {hybrid_forward_count} Forward, {hybrid_big_count} Big)")
 
     return df, km, scaler, cluster_labels
 
 
 def validate_archetypes(df):
     known_players = {
-        'Nikola Jok': 'Point Center',
         'Karl-Anthony Towns': 'Stretch Big',
-        'Stephen Curry': 'Playmaker',
-        'LeBron James': 'Scoring Wing',
         'Rudy Gobert': 'Traditional Big',
         'Anthony Davis': 'Traditional Big',
         'James Harden': 'Playmaker',
-        'Giannis Ante': 'Point Center',
         'Kevin Durant': 'Scoring Wing',
         'Kawhi Leonard': 'Scoring Wing',
         'Victor Wembanyama': 'Stretch Big',
         'Draymond Green': '3-and-D Wing',
         'Trae Young': 'Playmaker',
-        'Luka Don': 'Playmaker',
-        'Shai Gilgeous': 'Playmaker',
         'Jalen Brunson': 'Playmaker',
         'Jaylen Brown': 'Scoring Wing',
         'Donovan Mitchell': 'Playmaker',
@@ -445,16 +415,15 @@ def validate_archetypes(df):
         'Myles Turner': 'Stretch Big',
         'Brook Lopez': 'Stretch Big',
         'Domantas Sabonis': 'Versatile Big',
-        'Dyson Daniels': 'Hybrid Guard',
-        'Isaac Okoro': 'Hybrid Guard',
-        'Klay Thompson': 'Hybrid Guard',
-        'Bilal Coulibaly': 'Hybrid Guard',
-        'Paul George': 'Hybrid Forward',
-        'Mikal Bridges': 'Hybrid Forward',
-        'Cameron Johnson': 'Hybrid Forward',
-        'Jalen Williams': 'Hybrid Forward',
-        'DeMar DeRozan': 'Hybrid Forward',
-        'Jaren Jackson': 'Hybrid Big',
+        'Mikal Bridges': '3-and-D Wing',
+        'Klay Thompson': 'Scoring Guard',
+        'Stephen Curry': 'Hybrid Guard',
+        'Luka Don': 'Hybrid Guard',
+        'Shai Gilgeous': 'Hybrid Guard',
+        'LaMelo Ball': 'Hybrid Guard',
+        'LeBron James': 'Hybrid Forward',
+        'Nikola Jok': 'Hybrid Big',
+        'Giannis Ante': 'Hybrid Big',
     }
 
     print("\nValidation against known archetypes:")

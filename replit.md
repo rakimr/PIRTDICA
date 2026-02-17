@@ -27,6 +27,20 @@ Preferred communication style: Simple, everyday language.
 - Skill must remain sacred. No one should ever think "they won because they bought something."
 - Shop positioning = "Identity customization", NOT "Power boost store"
 
+## Player Archetype System
+13 total archetypes: 10 specialist + 3 elite hybrid categories.
+
+**Specialist Archetypes:** Playmaker, Combo Guard, 3-and-D Guard, Scoring Guard, 3-and-D Wing, Scoring Wing, Stretch Big, Point Center, Versatile Big, Traditional Big
+
+**Elite Hybrid Archetypes (Hybrid Guard / Hybrid Forward / Hybrid Big):**
+Reserved for truly transcendent players who break the archetype system through multi-domain statistical dominance. Only ~7 players league-wide qualify via two paths:
+- **Path A (Extreme Scorer-Facilitator):** PTS/100 >= 41.5 AND AST/100 >= 7.5 AND USG >= 30%
+- **Path B (Triple-Threat):** PTS/100 >= 32 AND AST/100 >= 9.5 AND REB/100 >= 8 AND USG >= 28%
+
+Position classification: C%+PF% >= 50% → Hybrid Big, SF%+PF% > guard% → Hybrid Forward, else → Hybrid Guard
+
+**Current Hybrids:** Jokic (Big), Giannis (Big), Luka (Guard), SGA (Guard), Curry (Guard), LaMelo (Guard), LeBron (Forward)
+
 ## System Architecture
 The system employs an ETL pattern, primarily using SQLite for data staging and PostgreSQL for the web platform's operational data. Core projection models include minutes projection and usage-based FPPM adjustment, supported by advanced analytics such as Phillips Archetype Classification (K-means clustering) and a Salary-Tier Volatility Model. A Ceiling/Floor Model converts point projections into full distributions, and Blended DVP (Defense vs. Position) and Defense vs. Archetype (DVA) systems provide dynamic matchup ratings. A Team Incentive Score adjusts volatility based on team standings, and a Prop Trend Analysis Modal offers OVER/UNDER calls.
 
