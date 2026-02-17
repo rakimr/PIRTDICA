@@ -68,6 +68,43 @@
     </div>
 
     <div class="trends-section">
+        <h2>Team Offensive Scheme Profile</h2>
+        <p class="chart-description">How teams distribute their possessions across play types. Radar shows scheme shape vs league average. Select a team to explore its offensive identity.</p>
+        <div class="scheme-controls">
+            <select id="scheme-team-select" class="scheme-select">
+                <option value="">Loading teams...</option>
+            </select>
+            <div class="scheme-toggle">
+                <button class="scheme-mode-btn active" data-mode="poss">Possession %</button>
+                <button class="scheme-mode-btn" data-mode="ppp">Efficiency (PPP)</button>
+            </div>
+        </div>
+        <div class="scheme-chart-row">
+            <div class="scheme-radar-wrap">
+                <canvas id="scheme-radar-chart"></canvas>
+            </div>
+            <div class="scheme-bar-wrap">
+                <canvas id="scheme-bar-chart"></canvas>
+            </div>
+        </div>
+        <div id="scheme-summary" class="scheme-summary"></div>
+    </div>
+
+    <div class="trends-section">
+        <h2>Defensive Scheme Vulnerabilities</h2>
+        <p class="chart-description">How teams defend each play type. Green = they shut it down (low PPP allowed). Red = they bleed points. Use this to target opponents' weaknesses.</p>
+        <div class="scheme-controls">
+            <select id="def-scheme-team-select" class="scheme-select">
+                <option value="">Loading teams...</option>
+            </select>
+        </div>
+        <div class="def-scheme-chart-wrap">
+            <canvas id="def-scheme-chart"></canvas>
+        </div>
+        <div id="def-scheme-summary" class="def-scheme-summary"></div>
+    </div>
+
+    <div class="trends-section">
         <h2>Player Archetype Clusters</h2>
         <p class="chart-description">K-Means clustering groups players by how they actually play. Each dot is a player, positioned by PCA of 12 statistical features. Hover for details.</p>
         <div class="cluster-chart-wrapper">
@@ -598,5 +635,260 @@ function closeTrendModal() {
 document.getElementById('trend-modal').addEventListener('click', function(e) {
     if (e.target === this) closeTrendModal();
 });
+
+let schemeData = null;
+let schemeRadar = null;
+let schemeBar = null;
+let defSchemeChart = null;
+let schemeMode = 'poss';
+
+const SCHEME_COLORS = {
+    team: { bg: 'rgba(17,24,39,0.25)', border: '#111827' },
+    avg: { bg: 'rgba(107,114,128,0.12)', border: '#9ca3af' },
+};
+
+const PLAY_TYPE_ORDER = ['Isolation','Transition','PRBallHandler','PRRollman','Postup','Spotup','Handoff','Cut','OffScreen'];
+
+async function loadSchemeData() {
+    try {
+        const res = await fetch('/api/team-schemes');
+        schemeData = await res.json();
+        if (schemeData.error || !schemeData.teams || schemeData.teams.length === 0) {
+            document.getElementById('scheme-summary').textContent = schemeData.error || 'No scheme data available.';
+            document.getElementById('def-scheme-summary').textContent = schemeData.error || 'No scheme data available.';
+            return;
+        }
+        const sel = document.getElementById('scheme-team-select');
+        const defSel = document.getElementById('def-scheme-team-select');
+        sel.innerHTML = '';
+        defSel.innerHTML = '';
+        schemeData.teams.forEach(t => {
+            sel.innerHTML += '<option value="' + t + '">' + t + '</option>';
+            defSel.innerHTML += '<option value="' + t + '">' + t + '</option>';
+        });
+        sel.value = schemeData.teams.includes('OKC') ? 'OKC' : schemeData.teams[0];
+        defSel.value = schemeData.teams.includes('OKC') ? 'OKC' : schemeData.teams[0];
+        renderSchemeRadar(sel.value);
+        renderDefScheme(defSel.value);
+    } catch(e) {
+        document.getElementById('scheme-summary').textContent = 'Failed to load scheme data.';
+    }
+}
+
+function getPlayLabel(pt) {
+    const labels = {
+        'Isolation':'ISO','Transition':'TRANS','PRBallHandler':'PnR BH','PRRollman':'PnR RM',
+        'Postup':'POST','Spotup':'SPOT UP','Handoff':'DHO','Cut':'CUT','OffScreen':'OFF SCR'
+    };
+    return labels[pt] || pt;
+}
+
+function renderSchemeRadar(team) {
+    if (!schemeData || !schemeData.offense[team]) return;
+    const plays = schemeData.offense[team].filter(p => PLAY_TYPE_ORDER.includes(p.play_type));
+    plays.sort((a,b) => PLAY_TYPE_ORDER.indexOf(a.play_type) - PLAY_TYPE_ORDER.indexOf(b.play_type));
+    const labels = plays.map(p => getPlayLabel(p.play_type));
+    const isEff = schemeMode === 'ppp';
+    const teamVals = plays.map(p => isEff ? p.ppp : p.poss_pct);
+    const avgVals = plays.map(p => {
+        const avg = schemeData.league_avg[p.play_type];
+        return avg ? (isEff ? avg.ppp : avg.poss_pct) : 0;
+    });
+
+    const ctx = document.getElementById('scheme-radar-chart').getContext('2d');
+    if (schemeRadar) schemeRadar.destroy();
+    schemeRadar = new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: team,
+                    data: teamVals,
+                    backgroundColor: SCHEME_COLORS.team.bg,
+                    borderColor: SCHEME_COLORS.team.border,
+                    borderWidth: 2.5,
+                    pointBackgroundColor: SCHEME_COLORS.team.border,
+                    pointRadius: 4,
+                },
+                {
+                    label: 'League Avg',
+                    data: avgVals,
+                    backgroundColor: SCHEME_COLORS.avg.bg,
+                    borderColor: SCHEME_COLORS.avg.border,
+                    borderWidth: 1.5,
+                    borderDash: [5,3],
+                    pointBackgroundColor: SCHEME_COLORS.avg.border,
+                    pointRadius: 3,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { family: 'Marvel', size: 12 }, usePointStyle: true, padding: 14 } },
+                tooltip: {
+                    backgroundColor: '#111',
+                    titleFont: { family: 'Marvel', size: 13 },
+                    bodyFont: { family: 'Marvel', size: 12 },
+                    callbacks: {
+                        label: function(ctx) {
+                            return ctx.dataset.label + ': ' + (isEff ? ctx.raw.toFixed(3) + ' PPP' : ctx.raw.toFixed(1) + '%');
+                        }
+                    }
+                }
+            },
+            scales: {
+                r: {
+                    beginAtZero: true,
+                    pointLabels: { font: { family: 'Marvel', size: 11, weight: 'bold' }, color: '#374151' },
+                    ticks: { font: { family: 'Marvel', size: 9 }, backdropColor: 'transparent', stepSize: isEff ? 0.2 : 5 },
+                    grid: { color: '#e5e7eb' },
+                    angleLines: { color: '#e5e7eb' }
+                }
+            }
+        }
+    });
+
+    const barPlays = [...plays].sort((a,b) => b.poss_pct - a.poss_pct).slice(0, 7);
+    const barLabels = barPlays.map(p => getPlayLabel(p.play_type));
+    const barPctile = barPlays.map(p => p.percentile);
+    const barColors = barPctile.map(v => v >= 75 ? '#0f9d58' : v >= 50 ? '#1e3a8a' : v >= 25 ? '#d4af37' : '#d72638');
+
+    const bCtx = document.getElementById('scheme-bar-chart').getContext('2d');
+    if (schemeBar) schemeBar.destroy();
+    schemeBar = new Chart(bCtx, {
+        type: 'bar',
+        data: {
+            labels: barLabels,
+            datasets: [{
+                label: 'Percentile',
+                data: barPctile,
+                backgroundColor: barColors,
+                borderRadius: 4,
+                barPercentage: 0.65,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#111',
+                    titleFont: { family: 'Marvel', size: 13 },
+                    bodyFont: { family: 'Marvel', size: 12 },
+                    callbacks: {
+                        label: function(ctx) {
+                            const p = barPlays[ctx.dataIndex];
+                            return [ctx.raw + 'th percentile', p.poss_pct + '% of poss', p.ppp.toFixed(3) + ' PPP', p.efg_pct + '% eFG'];
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { min: 0, max: 100, title: { display: true, text: 'League Percentile', font: { family: 'Marvel', size: 12, weight: 'bold' }, color: '#374151' }, grid: { color: '#e5e7eb' }, ticks: { font: { family: 'Marvel', size: 10 } } },
+                y: { grid: { display: false }, ticks: { font: { family: 'Marvel', size: 11, weight: 'bold' }, color: '#374151' } }
+            }
+        }
+    });
+
+    const topPlay = plays.reduce((a,b) => a.poss_pct > b.poss_pct ? a : b);
+    const bestEff = plays.reduce((a,b) => a.ppp > b.ppp ? a : b);
+    document.getElementById('scheme-summary').innerHTML =
+        '<div class="scheme-insight"><strong>' + team + ' Offensive Identity:</strong> ' +
+        'Runs ' + getPlayLabel(topPlay.play_type) + ' most often (' + topPlay.poss_pct + '% of possessions). ' +
+        'Most efficient in ' + getPlayLabel(bestEff.play_type) + ' (' + bestEff.ppp.toFixed(3) + ' PPP, ' + bestEff.percentile + 'th percentile).</div>';
+}
+
+function renderDefScheme(team) {
+    if (!schemeData || !schemeData.defense[team]) return;
+    const plays = schemeData.defense[team].filter(p => PLAY_TYPE_ORDER.includes(p.play_type));
+    plays.sort((a,b) => PLAY_TYPE_ORDER.indexOf(a.play_type) - PLAY_TYPE_ORDER.indexOf(b.play_type));
+    const labels = plays.map(p => getPlayLabel(p.play_type));
+    const pppVals = plays.map(p => p.ppp);
+    const avgPPP = plays.map(p => { const a = schemeData.league_avg[p.play_type]; return a ? a.ppp : 0; });
+    const barColors = plays.map((p,i) => p.ppp > avgPPP[i] + 0.03 ? 'rgba(215,38,56,0.75)' : p.ppp < avgPPP[i] - 0.03 ? 'rgba(15,157,88,0.75)' : 'rgba(107,114,128,0.5)');
+
+    const ctx = document.getElementById('def-scheme-chart').getContext('2d');
+    if (defSchemeChart) defSchemeChart.destroy();
+    defSchemeChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: team + ' Allows',
+                    data: pppVals,
+                    backgroundColor: barColors,
+                    borderRadius: 4,
+                    barPercentage: 0.55,
+                    order: 1,
+                },
+                {
+                    label: 'League Avg',
+                    data: avgPPP,
+                    type: 'line',
+                    borderColor: '#9ca3af',
+                    borderWidth: 2,
+                    borderDash: [6,3],
+                    pointBackgroundColor: '#9ca3af',
+                    pointRadius: 4,
+                    fill: false,
+                    order: 0,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { family: 'Marvel', size: 12 }, usePointStyle: true, padding: 14 } },
+                tooltip: {
+                    backgroundColor: '#111',
+                    titleFont: { family: 'Marvel', size: 13 },
+                    bodyFont: { family: 'Marvel', size: 12 },
+                    callbacks: {
+                        label: function(ctx) {
+                            const idx = ctx.dataIndex;
+                            const p = plays[idx];
+                            if (ctx.dataset.label.includes('Avg')) return 'Avg: ' + ctx.raw.toFixed(3) + ' PPP';
+                            const diff = (p.ppp - avgPPP[idx]).toFixed(3);
+                            const sign = diff >= 0 ? '+' : '';
+                            return [p.ppp.toFixed(3) + ' PPP allowed', sign + diff + ' vs avg', p.percentile + 'th percentile', p.score_pct + '% scoring rate'];
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: { title: { display: true, text: 'Points Per Possession Allowed', font: { family: 'Marvel', size: 12, weight: 'bold' }, color: '#374151' }, grid: { color: '#e5e7eb' }, ticks: { font: { family: 'Marvel', size: 10 } } },
+                x: { grid: { display: false }, ticks: { font: { family: 'Marvel', size: 11, weight: 'bold' }, color: '#374151' } }
+            }
+        }
+    });
+
+    const worstDef = plays.reduce((a,b) => a.ppp > b.ppp ? a : b);
+    const bestDef = plays.reduce((a,b) => a.ppp < b.ppp ? a : b);
+    document.getElementById('def-scheme-summary').innerHTML =
+        '<div class="scheme-insight"><strong>' + team + ' Defensive Vulnerabilities:</strong> ' +
+        'Weakest vs ' + getPlayLabel(worstDef.play_type) + ' (' + worstDef.ppp.toFixed(3) + ' PPP allowed, ' + worstDef.percentile + 'th percentile). ' +
+        'Strongest vs ' + getPlayLabel(bestDef.play_type) + ' (' + bestDef.ppp.toFixed(3) + ' PPP allowed).</div>';
+}
+
+document.getElementById('scheme-team-select').addEventListener('change', function() { renderSchemeRadar(this.value); });
+document.getElementById('def-scheme-team-select').addEventListener('change', function() { renderDefScheme(this.value); });
+document.querySelectorAll('.scheme-mode-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.scheme-mode-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        schemeMode = this.dataset.mode;
+        const team = document.getElementById('scheme-team-select').value;
+        if (team) renderSchemeRadar(team);
+    });
+});
+
+loadSchemeData();
 </script>
 {% endblock %}

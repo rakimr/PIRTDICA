@@ -1,0 +1,130 @@
+import sqlite3
+import time
+from datetime import datetime
+from nba_api.stats.endpoints import synergyplaytypes
+
+PLAY_TYPES = [
+    "Isolation", "Transition", "PRBallHandler", "PRRollman",
+    "Postup", "Spotup", "Handoff", "Cut", "OffScreen", "OffRebound", "Misc"
+]
+
+PLAY_TYPE_LABELS = {
+    "Isolation": "Isolation",
+    "Transition": "Transition",
+    "PRBallHandler": "PnR Ball Handler",
+    "PRRollman": "PnR Roll Man",
+    "Postup": "Post Up",
+    "Spotup": "Spot Up",
+    "Handoff": "Handoff",
+    "Cut": "Cut",
+    "OffScreen": "Off Screen",
+    "OffRebound": "Putback",
+    "Misc": "Miscellaneous",
+}
+
+SEASON_YEAR = "2025-26"
+
+NBA_ABBREV_MAP = {
+    "ATL": "ATL", "BOS": "BOS", "BKN": "BKN", "CHA": "CHA",
+    "CHI": "CHI", "CLE": "CLE", "DAL": "DAL", "DEN": "DEN",
+    "DET": "DET", "GSW": "GS", "HOU": "HOU", "IND": "IND",
+    "LAC": "LAC", "LAL": "LAL", "MEM": "MEM", "MIA": "MIA",
+    "MIL": "MIL", "MIN": "MIN", "NOP": "NO", "NYK": "NY",
+    "OKC": "OKC", "ORL": "ORL", "PHI": "PHI", "PHX": "PHO",
+    "POR": "POR", "SAC": "SAC", "SAS": "SA", "TOR": "TOR",
+    "UTA": "UTA", "WAS": "WAS",
+}
+
+def normalize_team(nba_abbrev):
+    return NBA_ABBREV_MAP.get(nba_abbrev, nba_abbrev)
+
+def scrape_play_types():
+    conn = sqlite3.connect("dfs_nba.db")
+    cursor = conn.cursor()
+
+    cursor.execute("DROP TABLE IF EXISTS team_play_types")
+    cursor.execute("""
+    CREATE TABLE team_play_types (
+        team TEXT,
+        play_type TEXT,
+        play_type_label TEXT,
+        type_grouping TEXT,
+        gp INTEGER,
+        poss_pct REAL,
+        ppp REAL,
+        fg_pct REAL,
+        ft_poss_pct REAL,
+        tov_poss_pct REAL,
+        score_poss_pct REAL,
+        efg_pct REAL,
+        poss INTEGER,
+        pts REAL,
+        fgm REAL,
+        fga REAL,
+        percentile REAL,
+        scraped_at TEXT
+    )
+    """)
+
+    scraped_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    total_rows = 0
+
+    for grouping in ["Offensive", "Defensive"]:
+        for play_type in PLAY_TYPES:
+            try:
+                synergy = synergyplaytypes.SynergyPlayTypes(
+                    league_id='00',
+                    per_mode_simple='PerGame',
+                    play_type_nullable=play_type,
+                    player_or_team_abbreviation='T',
+                    season_type_all_star='Regular Season',
+                    season=SEASON_YEAR,
+                    type_grouping_nullable=grouping,
+                    timeout=60
+                )
+                df = synergy.get_data_frames()[0]
+
+                if df.empty:
+                    print(f"  Empty: {grouping} {play_type}")
+                    continue
+
+                for _, row in df.iterrows():
+                    team = normalize_team(row.get("TEAM_ABBREVIATION", ""))
+                    cursor.execute("""
+                    INSERT INTO team_play_types VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    """, (
+                        team,
+                        play_type,
+                        PLAY_TYPE_LABELS.get(play_type, play_type),
+                        grouping,
+                        int(row.get("GP", 0)),
+                        float(row.get("POSS_PCT", 0)),
+                        float(row.get("PPP", 0)),
+                        float(row.get("FG_PCT", 0)),
+                        float(row.get("FT_POSS_PCT", 0)),
+                        float(row.get("TOV_POSS_PCT", 0)),
+                        float(row.get("SCORE_POSS_PCT", 0)),
+                        float(row.get("EFG_PCT", 0)),
+                        int(row.get("POSS", 0)),
+                        float(row.get("PTS", 0)),
+                        float(row.get("FGM", 0)),
+                        float(row.get("FGA", 0)),
+                        float(row.get("PERCENTILE", 0)),
+                        scraped_at,
+                    ))
+                    total_rows += 1
+
+                print(f"  {grouping} {play_type}: {len(df)} teams")
+
+            except Exception as e:
+                print(f"  ERROR {grouping} {play_type}: {e}")
+
+            time.sleep(1.0)
+
+    conn.commit()
+    conn.close()
+    print(f"\nDone. {total_rows} total rows saved to team_play_types.")
+
+if __name__ == "__main__":
+    print("Scraping NBA Synergy play type data...")
+    scrape_play_types()

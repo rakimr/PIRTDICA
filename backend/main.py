@@ -434,6 +434,7 @@ async def refresh_trends(request: Request):
         subprocess.run(["python", "scrape_player_props.py"], timeout=60, capture_output=True)
         subprocess.run(["python", "analysis/player_value.py"], timeout=60, capture_output=True)
         subprocess.run(["python", "generate_house_lineup.py", "--force"], timeout=120, capture_output=True)
+        subprocess.run(["python", "scrape_play_types.py"], timeout=180, capture_output=True)
     except Exception as e:
         print(f"Refresh error: {e}")
     
@@ -1672,6 +1673,88 @@ async def api_player_trend(player_name: str, stat: str, n: int = 10):
         return {"player": player_name, "stat": stat.upper(), "games": games, "avg": avg}
     except Exception as e:
         return {"error": str(e), "games": []}
+
+@app.get("/api/team-schemes")
+async def api_team_schemes(team: str = None):
+    import sqlite3 as sqlite3_mod
+    try:
+        conn = sqlite3_mod.connect("dfs_nba.db")
+        conn.row_factory = sqlite3_mod.Row
+
+        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+        if "team_play_types" not in tables:
+            conn.close()
+            return {"error": "Play type data not yet available. Run the scheme scraper first.", "teams": []}
+
+        off_rows = conn.execute(
+            "SELECT team, play_type, play_type_label, poss_pct, ppp, fg_pct, tov_poss_pct, score_poss_pct, efg_pct, percentile FROM team_play_types WHERE type_grouping='Offensive' ORDER BY team, poss_pct DESC"
+        ).fetchall()
+
+        def_rows = conn.execute(
+            "SELECT team, play_type, play_type_label, poss_pct, ppp, fg_pct, tov_poss_pct, score_poss_pct, efg_pct, percentile FROM team_play_types WHERE type_grouping='Defensive' ORDER BY team, poss_pct DESC"
+        ).fetchall()
+
+        conn.close()
+
+        teams_set = sorted(set(r["team"] for r in off_rows))
+
+        offense = {}
+        for r in off_rows:
+            t = r["team"]
+            if t not in offense:
+                offense[t] = []
+            offense[t].append({
+                "play_type": r["play_type"],
+                "label": r["play_type_label"],
+                "poss_pct": round(r["poss_pct"] * 100, 1),
+                "ppp": round(r["ppp"], 3),
+                "fg_pct": round(r["fg_pct"] * 100, 1),
+                "tov_pct": round(r["tov_poss_pct"] * 100, 1),
+                "score_pct": round(r["score_poss_pct"] * 100, 1),
+                "efg_pct": round(r["efg_pct"] * 100, 1),
+                "percentile": round(r["percentile"] * 100),
+            })
+
+        defense = {}
+        for r in def_rows:
+            t = r["team"]
+            if t not in defense:
+                defense[t] = []
+            defense[t].append({
+                "play_type": r["play_type"],
+                "label": r["play_type_label"],
+                "poss_pct": round(r["poss_pct"] * 100, 1),
+                "ppp": round(r["ppp"], 3),
+                "fg_pct": round(r["fg_pct"] * 100, 1),
+                "tov_pct": round(r["tov_poss_pct"] * 100, 1),
+                "score_pct": round(r["score_poss_pct"] * 100, 1),
+                "efg_pct": round(r["efg_pct"] * 100, 1),
+                "percentile": round(r["percentile"] * 100),
+            })
+
+        league_avg_off = {}
+        for t_plays in offense.values():
+            for p in t_plays:
+                pt = p["play_type"]
+                if pt not in league_avg_off:
+                    league_avg_off[pt] = {"poss_pct": [], "ppp": []}
+                league_avg_off[pt]["poss_pct"].append(p["poss_pct"])
+                league_avg_off[pt]["ppp"].append(p["ppp"])
+        league_avg = {}
+        for pt, vals in league_avg_off.items():
+            league_avg[pt] = {
+                "poss_pct": round(sum(vals["poss_pct"]) / len(vals["poss_pct"]), 1),
+                "ppp": round(sum(vals["ppp"]) / len(vals["ppp"]), 3),
+            }
+
+        return {
+            "teams": teams_set,
+            "offense": offense,
+            "defense": defense,
+            "league_avg": league_avg,
+        }
+    except Exception as e:
+        return {"error": str(e), "teams": []}
 
 CASH_TO_COIN_RATE = 5
 
