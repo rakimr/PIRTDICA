@@ -28,9 +28,11 @@ Preferred communication style: Simple, everyday language.
 - Shop positioning = "Identity customization", NOT "Power boost store"
 
 ## Player Archetype System
-13 total archetypes: 10 specialist + 3 elite hybrid categories.
+14 total archetypes: 11 specialist + 3 elite hybrid categories.
 
-**Specialist Archetypes:** Playmaker, Combo Guard, 3-and-D Guard, Scoring Guard, 3-and-D Wing, Scoring Wing, Stretch Big, Point Center, Versatile Big, Traditional Big
+**Specialist Archetypes:** Playmaker, Combo Guard, 3-and-D Guard, Scoring Guard, 3-and-D Wing, Scoring Wing, Stretch Big, Point Forward, Point Center, Versatile Big, Traditional Big
+
+**Point Forward vs Point Center:** Both are facilitating bigs, distinguished by position: C% >= 50% → Point Center (Embiid, Sengun, Mobley, Nurkic), C% < 50% → Point Forward (Randle, Banchero, Wagner, Aldama, etc.)
 
 **Elite Hybrid Archetypes (Hybrid Guard / Hybrid Forward / Hybrid Big):**
 Reserved for truly transcendent players who break the archetype system through multi-domain statistical dominance. Only ~7 players league-wide qualify via two paths:

@@ -276,24 +276,32 @@ def run_clustering(df, k=TARGET_K):
     trad_mask = df['archetype'].isin(trad_big_archetypes)
     versatile_from_trad = 0
     pc_from_trad = 0
+    pf_from_trad = 0
     for idx in df[trad_mask].index:
         player = df.loc[idx]
         ast = player.get('ast_per100', 0)
         pts = player.get('pts_per100', 0)
         fg3m = player.get('fg3m_per100', 0)
+        c_pct = player.get('c_pct', 0)
         if ast >= POINT_CENTER_AST_THRESHOLD and pts >= VERSATILE_BIG_PTS_THRESHOLD:
             if fg3m >= POINT_CENTER_3PM_THRESHOLD:
-                df.at[idx, 'archetype'] = 'Point Center'
-                pc_from_trad += 1
-                print(f"    {player['player_name']}: Traditional Big -> Point Center "
-                      f"(AST/100={ast:.1f}, PTS/100={pts:.1f}, 3PM/100={fg3m:.1f})")
+                if c_pct >= 50:
+                    df.at[idx, 'archetype'] = 'Point Center'
+                    pc_from_trad += 1
+                    print(f"    {player['player_name']}: Traditional Big -> Point Center "
+                          f"(AST/100={ast:.1f}, PTS/100={pts:.1f}, 3PM/100={fg3m:.1f}, C%={c_pct:.0f})")
+                else:
+                    df.at[idx, 'archetype'] = 'Point Forward'
+                    pf_from_trad += 1
+                    print(f"    {player['player_name']}: Traditional Big -> Point Forward "
+                          f"(AST/100={ast:.1f}, PTS/100={pts:.1f}, 3PM/100={fg3m:.1f}, C%={c_pct:.0f})")
             else:
                 df.at[idx, 'archetype'] = 'Versatile Big'
                 versatile_from_trad += 1
                 print(f"    {player['player_name']}: Traditional Big -> Versatile Big "
                       f"(AST/100={ast:.1f}, PTS/100={pts:.1f})")
-    if pc_from_trad or versatile_from_trad:
-        print(f"  From Traditional Bigs: {pc_from_trad} -> Point Center, {versatile_from_trad} -> Versatile Big")
+    if pc_from_trad or pf_from_trad or versatile_from_trad:
+        print(f"  From Traditional Bigs: {pc_from_trad} -> Point Center, {pf_from_trad} -> Point Forward, {versatile_from_trad} -> Versatile Big")
 
     print("\n  Height-based reclassification for bigs misclassified as wings...")
     height_map = fetch_player_heights()
@@ -313,6 +321,7 @@ def run_clustering(df, k=TARGET_K):
         )
 
         point_center_count = 0
+        point_forward_count = 0
         versatile_big_count = 0
         for idx in df[tall_big_mask].index:
             player = df.loc[idx]
@@ -324,22 +333,32 @@ def run_clustering(df, k=TARGET_K):
             ft_in = f"{height // 12}'{height % 12}\""
 
             if ast >= POINT_CENTER_AST_THRESHOLD and fg3m >= POINT_CENTER_3PM_THRESHOLD:
-                df.at[idx, 'archetype'] = 'Point Center'
-                point_center_count += 1
+                if c_pct >= 50:
+                    new_arch = 'Point Center'
+                    point_center_count += 1
+                else:
+                    new_arch = 'Point Forward'
+                    point_forward_count += 1
+                df.at[idx, 'archetype'] = new_arch
                 print(f"    {player['player_name']} ({ft_in}, C%={c_pct:.0f} PF%={pf_pct:.0f}): "
-                      f"{player['archetype']} -> Point Center (AST/100={ast:.1f}, 3PM/100={fg3m:.1f})")
+                      f"{player['archetype']} -> {new_arch} (AST/100={ast:.1f}, 3PM/100={fg3m:.1f})")
             elif ast >= POINT_CENTER_AST_THRESHOLD:
-                df.at[idx, 'archetype'] = 'Point Center'
-                point_center_count += 1
+                if c_pct >= 50:
+                    new_arch = 'Point Center'
+                    point_center_count += 1
+                else:
+                    new_arch = 'Point Forward'
+                    point_forward_count += 1
+                df.at[idx, 'archetype'] = new_arch
                 print(f"    {player['player_name']} ({ft_in}, C%={c_pct:.0f} PF%={pf_pct:.0f}): "
-                      f"{player['archetype']} -> Point Center (AST/100={ast:.1f}, high facilitator)")
+                      f"{player['archetype']} -> {new_arch} (AST/100={ast:.1f}, high facilitator)")
             else:
                 df.at[idx, 'archetype'] = 'Versatile Big'
                 versatile_big_count += 1
                 print(f"    {player['player_name']} ({ft_in}, C%={c_pct:.0f} PF%={pf_pct:.0f}): "
                       f"{player['archetype']} -> Versatile Big (AST/100={ast:.1f}, 3PM/100={fg3m:.1f})")
 
-        print(f"  Reclassified: {point_center_count} -> Point Center, {versatile_big_count} -> Versatile Big")
+        print(f"  Reclassified: {point_center_count} -> Point Center, {point_forward_count} -> Point Forward, {versatile_big_count} -> Versatile Big")
         df = df.drop(columns=['_mk', 'height_inches'])
 
     df['base_archetype'] = df['archetype'].copy()
@@ -419,6 +438,9 @@ def validate_archetypes(df):
         'Domantas Sabonis': 'Versatile Big',
         'Mikal Bridges': '3-and-D Wing',
         'Klay Thompson': 'Scoring Guard',
+        'Julius Randle': 'Point Forward',
+        'Paolo Banchero': 'Point Forward',
+        'Franz Wagner': 'Point Forward',
         'Stephen Curry': 'Hybrid Guard',
         'Luka Don': 'Hybrid Guard',
         'Shai Gilgeous': 'Hybrid Guard',
