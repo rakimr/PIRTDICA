@@ -2180,7 +2180,13 @@ a:hover {
 
     .nav-links .btn-play {
         border-radius: 0;
+        border: none;
+        background: transparent;
         text-align: left;
+        font-size: inherit;
+        font-weight: 500;
+        color: var(--text-muted) !important;
+        padding: 0.75rem 1.5rem;
     }
 
     .user-menu {
