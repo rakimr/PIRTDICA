@@ -196,6 +196,7 @@ const POSITION_SLOTS = [
 ];
 
 let roster = {};
+let activeSlotId = null;
 
 function canFitPosition(playerPos, slotPos) {
     if (playerPos === slotPos) return true;
@@ -223,6 +224,58 @@ _coinSound.volume = 0.5;
 function playCoinSound() {
     _coinSound.currentTime = 0;
     _coinSound.play().catch(() => {});
+}
+
+function selectSlot(slotId) {
+    const slotData = POSITION_SLOTS.find(s => s.id === slotId);
+    if (!slotData) return;
+    if (roster[slotId]) return;
+
+    if (activeSlotId === slotId) {
+        clearActiveSlot();
+        return;
+    }
+
+    activeSlotId = slotId;
+
+    document.querySelectorAll('.roster-slot').forEach(el => el.classList.remove('active-slot'));
+    const slotEl = document.querySelector(`.roster-slot[data-slot="${slotId}"]`);
+    if (slotEl) slotEl.classList.add('active-slot');
+
+    document.getElementById('pos-filter').value = '';
+    filterPlayersForSlot(slotData.pos);
+
+    const poolHeader = document.querySelector('.pool-header h3');
+    if (poolHeader) poolHeader.textContent = `PLAYER POOL — ${slotData.pos}`;
+}
+
+function clearActiveSlot() {
+    activeSlotId = null;
+    document.querySelectorAll('.roster-slot').forEach(el => el.classList.remove('active-slot'));
+    filterPlayers();
+
+    const poolHeader = document.querySelector('.pool-header h3');
+    if (poolHeader) poolHeader.textContent = 'PLAYER POOL';
+}
+
+function filterPlayersForSlot(slotPos) {
+    const search = document.getElementById('search').value.toLowerCase();
+    const status = document.getElementById('status-filter').value;
+
+    document.querySelectorAll('#player-table tbody tr').forEach(row => {
+        const name = row.dataset.name.toLowerCase();
+        const playerPos = row.dataset.pos;
+        const injury = row.dataset.injury || '';
+
+        const matchSearch = name.includes(search);
+        const matchPos = canFitPosition(playerPos, slotPos);
+
+        let matchStatus = true;
+        if (status === 'healthy') matchStatus = !injury || injury === '';
+        else if (status) matchStatus = injury === status;
+
+        row.style.display = (matchSearch && matchPos && matchStatus) ? '' : 'none';
+    });
 }
 
 function addPlayerToNextSlot(btn) {
@@ -253,19 +306,41 @@ function addPlayerToNextSlot(btn) {
         return;
     }
 
-    const slot = findBestSlot(player.pos);
-    if (!slot) {
+    let targetSlot = null;
+
+    if (activeSlotId && !roster[activeSlotId]) {
+        const slotData = POSITION_SLOTS.find(s => s.id === activeSlotId);
+        if (slotData && canFitPosition(player.pos, slotData.pos)) {
+            targetSlot = slotData;
+        }
+    }
+
+    if (!targetSlot) {
+        targetSlot = findBestSlot(player.pos);
+    }
+
+    if (!targetSlot) {
         showToast('No eligible position slot available for ' + player.pos);
         return;
     }
 
-    roster[slot.id] = player;
+    roster[targetSlot.id] = player;
     row.classList.add('selected');
     btn.disabled = true;
     btn.textContent = '-';
     btn.classList.add('remove-mode');
     btn.onclick = function() { removePlayerFromRoster(player.name); };
     playCoinSound();
+
+    if (activeSlotId) {
+        const nextEmpty = POSITION_SLOTS.find(s => !roster[s.id] && s.id !== targetSlot.id);
+        if (nextEmpty) {
+            selectSlot(nextEmpty.id);
+        } else {
+            clearActiveSlot();
+        }
+    }
+
     updateDisplay();
 }
 
@@ -298,6 +373,7 @@ function addPlayerToSlot(slotId, playerName) {
         btn.classList.add('remove-mode');
         btn.onclick = function() { removePlayerFromRoster(player.name); };
     }
+    playCoinSound();
     updateDisplay();
 }
 
@@ -320,6 +396,12 @@ function removePlayerFromRoster(playerName) {
             btn.onclick = function() { addPlayerToNextSlot(this); };
         }
     }
+
+    if (activeSlotId) {
+        const slotData = POSITION_SLOTS.find(s => s.id === activeSlotId);
+        if (slotData) filterPlayersForSlot(slotData.pos);
+    }
+
     updateDisplay();
 }
 
@@ -374,15 +456,22 @@ function updateDisplay() {
                         $${player.salary.toLocaleString()} | ${player.proj.toFixed(1)} FP
                     </span>
                 </div>
-                <button type="button" class="slot-remove" onclick="removeFromSlot('${slot.id}')">x</button>
+                <button type="button" class="slot-remove" onclick="event.stopPropagation(); removeFromSlot('${slot.id}')">x</button>
             `;
             el.classList.add('filled');
+            el.classList.remove('active-slot');
+            el.onclick = null;
         } else {
             el.innerHTML = `
                 <span class="slot-label">${slot.pos}</span>
                 <span class="slot-empty">Select Player</span>
             `;
             el.classList.remove('filled');
+            el.onclick = function() { selectSlot(slot.id); };
+        }
+
+        if (activeSlotId === slot.id && !player) {
+            el.classList.add('active-slot');
         }
     });
 
@@ -410,9 +499,26 @@ function showToast(msg) {
     setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
-document.getElementById('search').addEventListener('input', filterPlayers);
-document.getElementById('pos-filter').addEventListener('change', filterPlayers);
-document.getElementById('status-filter').addEventListener('change', filterPlayers);
+document.getElementById('search').addEventListener('input', function() {
+    if (activeSlotId) {
+        const slotData = POSITION_SLOTS.find(s => s.id === activeSlotId);
+        if (slotData) filterPlayersForSlot(slotData.pos);
+    } else {
+        filterPlayers();
+    }
+});
+document.getElementById('pos-filter').addEventListener('change', function() {
+    if (activeSlotId) clearActiveSlot();
+    filterPlayers();
+});
+document.getElementById('status-filter').addEventListener('change', function() {
+    if (activeSlotId) {
+        const slotData = POSITION_SLOTS.find(s => s.id === activeSlotId);
+        if (slotData) filterPlayersForSlot(slotData.pos);
+    } else {
+        filterPlayers();
+    }
+});
 
 function filterPlayers() {
     const search = document.getElementById('search').value.toLowerCase();
@@ -423,17 +529,14 @@ function filterPlayers() {
         const name = row.dataset.name.toLowerCase();
         const playerPos = row.dataset.pos;
         const injury = row.dataset.injury || '';
-        
+
         const matchSearch = name.includes(search);
         const matchPos = !pos || playerPos.includes(pos);
-        
+
         let matchStatus = true;
-        if (status === 'healthy') {
-            matchStatus = !injury || injury === '';
-        } else if (status) {
-            matchStatus = injury === status;
-        }
-        
+        if (status === 'healthy') matchStatus = !injury || injury === '';
+        else if (status) matchStatus = injury === status;
+
         row.style.display = (matchSearch && matchPos && matchStatus) ? '' : 'none';
     });
 }
@@ -462,5 +565,7 @@ document.querySelectorAll('#player-table th[data-sort]').forEach(th => {
         rows.forEach(r => tbody.appendChild(r));
     });
 });
+
+updateDisplay();
 </script>
 {% endblock %}

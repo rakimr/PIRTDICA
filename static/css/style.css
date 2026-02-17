@@ -1177,6 +1177,30 @@ a:hover {
     flex-shrink: 0;
 }
 
+.roster-slot:not(.filled) {
+    cursor: pointer;
+}
+
+.roster-slot:not(.filled):hover {
+    border-color: var(--border);
+    background: var(--bg-card);
+}
+
+.roster-slot.active-slot {
+    border-color: #D72638;
+    background: rgba(215, 38, 56, 0.08);
+    box-shadow: 0 0 0 2px rgba(215, 38, 56, 0.15);
+}
+
+.roster-slot.active-slot .slot-label {
+    color: #D72638;
+}
+
+.roster-slot.active-slot .slot-empty {
+    color: #D72638;
+    opacity: 0.8;
+}
+
 .roster-slot .slot-empty {
     color: var(--text-muted);
     font-size: 0.82rem;
