@@ -28,20 +28,21 @@ Preferred communication style: Simple, everyday language.
 - Shop positioning = "Identity customization", NOT "Power boost store"
 
 ## Player Archetype System
-14 total archetypes: 11 specialist + 3 elite hybrid categories.
+9 total archetypes: 5 specialist + 4 hybrid branch categories.
 
-**Specialist Archetypes:** Playmaker, Combo Guard, 3-and-D Guard, Scoring Guard, 3-and-D Wing, Scoring Wing, Stretch Big, Point Forward, Point Center, Versatile Big, Traditional Big
+**Specialist Archetypes (5):** Playmaker, 3-and-D Wing, Scoring Wing, Versatile Big, Traditional Big
 
-**Point Forward vs Point Center:** Both are facilitating bigs, distinguished by position: C% >= 50% → Point Center (Embiid, Sengun, Mobley, Nurkic), C% < 50% → Point Forward (Randle, Banchero, Wagner, Aldama, etc.)
+**Hybrid Branch Archetypes (4):** Combo Guard, Stretch Big, Point Center, Point Forward
+These are players who break traditional position boundaries by blending skills from multiple roles, informed by the evolution toward positionless basketball.
 
-**Elite Hybrid Archetypes (Hybrid Guard / Hybrid Forward / Hybrid Big):**
-Reserved for truly transcendent players who break the archetype system through multi-domain statistical dominance. Only ~7 players league-wide qualify via two paths:
-- **Path A (Extreme Scorer-Facilitator):** PTS/100 >= 41.5 AND AST/100 >= 7.5 AND USG >= 30%
-- **Path B (Triple-Threat):** PTS/100 >= 32 AND AST/100 >= 9.5 AND REB/100 >= 8 AND USG >= 28%
+- **Combo Guard:** Blends PG/SG roles — elite scorers who also facilitate. Transcendent guards (PTS/100 >= 30, AST >= 7, USG >= 26) route here. Examples: SGA, Luka, Curry, Harden, LaMelo, Brunson, Donovan Mitchell.
+- **Stretch Big:** Big who shoots like a guard — high 3PT% with catch-and-shoot emphasis. Examples: Wembanyama, KAT, Lauri, Myles Turner, Brook Lopez.
+- **Point Center:** Center who facilitates like a PG — requires AST/100 >= 5.0, PTS/100 >= 24.0, C% >= 50%. Examples: Jokic, Embiid, Sabonis, Sengun, Mobley.
+- **Point Forward:** Forward who runs the offense — requires AST/100 >= 5.0 (or 7.5 for transcendent forwards), C% < 50%. Examples: Giannis, LeBron, Randle, Banchero, Wagner.
 
-Position classification: C%+PF% >= 50% → Hybrid Big, SF%+PF% > guard% → Hybrid Forward, else → Hybrid Guard
+**Height threshold for big classification:** 6'10" (82 inches) — players must be 6'10"+ with significant frontcourt minutes (C%+PF% >= 40%) to be reclassified as bigs.
 
-**Current Hybrids:** Jokic (Big), Giannis (Big), Luka (Guard), SGA (Guard), Curry (Guard), LaMelo (Guard), LeBron (Forward)
+**Classification pipeline:** K-means clustering (k=6, 18 features) → shot-zone reclassification → facilitating big detection → height-based correction → hybrid branch routing → playmaker reclassification
 
 ## System Architecture
 The system employs an ETL pattern, primarily using SQLite for data staging and PostgreSQL for the web platform's operational data. Core projection models include minutes projection and usage-based FPPM adjustment, supported by advanced analytics such as Phillips Archetype Classification (K-means clustering with 18 features: per-100 stats, position %, shot zones, shot creation, and defensive hustle stats) and a Salary-Tier Volatility Model. A Ceiling/Floor Model converts point projections into full distributions, and Blended DVP (Defense vs. Position) and Defense vs. Archetype (DVA) systems provide dynamic matchup ratings. A Team Incentive Score adjusts volatility based on team standings, and a Prop Trend Analysis Modal offers OVER/UNDER calls.

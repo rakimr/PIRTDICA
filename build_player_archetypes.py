@@ -50,7 +50,7 @@ def _ascii_key(name):
 
 DB_PATH = 'dfs_nba.db'
 
-HEIGHT_THRESHOLD_INCHES = 81
+HEIGHT_THRESHOLD_INCHES = 82
 POINT_CENTER_AST_THRESHOLD = 5.0
 POINT_CENTER_PTS_THRESHOLD = 24.0
 
@@ -475,29 +475,15 @@ def run_clustering(df, k=TARGET_K):
     if stretch_fix or trad_fix:
         print(f"  VB refinement: {stretch_fix} -> Stretch, {trad_fix} -> Traditional")
 
-    df['base_archetype'] = df['archetype'].copy()
-
-    print("\n  Hybrid archetype reclassification (elite transcendent players only)...")
-
-    path_a_mask = (
-        (df['pts_per100'] >= 41.5) &
-        (df['ast_per100'] >= 7.5) &
-        (df['usg_pct'] >= 30.0)
+    print("\n  Hybrid branch routing for transcendent players...")
+    elite_mask = (
+        (df['pts_per100'] >= 30.0) &
+        (df['ast_per100'] >= 7.0) &
+        (df['usg_pct'] >= 26.0)
     )
 
-    path_b_mask = (
-        (df['pts_per100'] >= 32.0) &
-        (df['ast_per100'] >= 9.5) &
-        (df['reb_per100'] >= 8.0) &
-        (df['usg_pct'] >= 28.0)
-    )
-
-    elite_mask = path_a_mask | path_b_mask
-
-    hybrid_guard_count = 0
-    hybrid_forward_count = 0
-    hybrid_big_count = 0
-
+    hybrid_routed = 0
+    hybrid_routed_indices = set()
     for idx in df[elite_mask].index:
         player = df.loc[idx]
         old_arch = player['archetype']
@@ -508,26 +494,55 @@ def run_clustering(df, k=TARGET_K):
         c_pct = player.get('c_pct', 0)
         pf_pct = player.get('pf_pct', 0)
         sf_pct = player.get('sf_pct', 0)
-        guard = player['guard_pct']
+        guard_pct = player['guard_pct']
+        fg3m = player.get('fg3m_per100', 0)
+        rp = player.get('rim_paint_pct', 50)
+        tp = player.get('three_pct', 25)
+        csp = player.get('cs_pct', 30)
 
         if (c_pct + pf_pct) >= 50:
-            hybrid_type = 'Hybrid Big'
-            hybrid_big_count += 1
-        elif (sf_pct + pf_pct) > guard:
-            hybrid_type = 'Hybrid Forward'
-            hybrid_forward_count += 1
+            if ast >= POINT_CENTER_AST_THRESHOLD and c_pct >= 50:
+                new_arch = 'Point Center'
+            elif ast >= POINT_CENTER_AST_THRESHOLD:
+                new_arch = 'Point Forward'
+            elif tp >= 30 and csp >= 30:
+                new_arch = 'Stretch Big'
+            else:
+                new_arch = 'Versatile Big'
+        elif (sf_pct + pf_pct) > guard_pct and ast >= 7.5:
+            new_arch = 'Point Forward'
         else:
-            hybrid_type = 'Hybrid Guard'
-            hybrid_guard_count += 1
+            new_arch = 'Combo Guard'
 
-        path = 'A+B' if path_a_mask[idx] and path_b_mask[idx] else ('A' if path_a_mask[idx] else 'B')
-        df.at[idx, 'archetype'] = hybrid_type
-        print(f"    {player['player_name']}: {old_arch} -> {hybrid_type} [{path}] "
-              f"(PTS={pts:.1f} AST={ast:.1f} REB={reb:.1f} USG={usg:.1f})")
+        if new_arch != old_arch:
+            df.at[idx, 'archetype'] = new_arch
+            hybrid_routed += 1
+            hybrid_routed_indices.add(idx)
+            print(f"    {player['player_name']}: {old_arch} -> {new_arch} "
+                  f"(PTS={pts:.1f} AST={ast:.1f} REB={reb:.1f} USG={usg:.1f} G%={guard_pct:.0f} F%={sf_pct+pf_pct:.0f})")
+        else:
+            hybrid_routed_indices.add(idx)
 
-    total = hybrid_guard_count + hybrid_forward_count + hybrid_big_count
-    print(f"  Hybrid totals: {total} elite hybrids "
-          f"({hybrid_guard_count} Guard, {hybrid_forward_count} Forward, {hybrid_big_count} Big)")
+    print(f"  Hybrid branch routing: {hybrid_routed} players rerouted")
+
+    print("\n  Guard playmaker reclassification (high-AST guards misclassified as Combo Guard)...")
+    playmaker_reclass = 0
+    combo_guard_mask = df['archetype'] == 'Combo Guard'
+    for idx in df[combo_guard_mask].index:
+        if idx in hybrid_routed_indices:
+            continue
+        player = df.loc[idx]
+        ast = player.get('ast_per100', 0)
+        guard_pct = player['guard_pct']
+        usg = player.get('usg_pct', 0)
+        if guard_pct > 50 and ast >= 8.0 and usg >= 22.0:
+            df.at[idx, 'archetype'] = 'Playmaker'
+            playmaker_reclass += 1
+            print(f"    {player['player_name']}: Combo Guard -> Playmaker "
+                  f"(AST/100={ast:.1f}, G%={guard_pct:.0f}, USG={usg:.1f})")
+    print(f"  Playmaker reclassification: {playmaker_reclass} guards reclassified")
+
+    df['base_archetype'] = df['archetype'].copy()
 
     return df, km, scaler, cluster_labels
 
@@ -537,34 +552,34 @@ def validate_archetypes(df):
         'Karl-Anthony Towns': 'Stretch Big',
         'Rudy Gobert': 'Traditional Big',
         'Anthony Davis': 'Traditional Big',
-        'James Harden': 'Playmaker',
+        'James Harden': 'Combo Guard',
         'Kevin Durant': 'Scoring Wing',
         'Kawhi Leonard': 'Scoring Wing',
         'Victor Wembanyama': 'Stretch Big',
         'Draymond Green': '3-and-D Wing',
-        'Trae Young': 'Playmaker',
-        'Jalen Brunson': 'Playmaker',
-        'Jaylen Brown': 'Scoring Wing',
-        'Donovan Mitchell': 'Playmaker',
-        'Norman Powell': 'Scoring Guard',
+        'Trae Young': 'Combo Guard',
+        'Jalen Brunson': 'Combo Guard',
+        'Jaylen Brown': 'Combo Guard',
+        'Donovan Mitchell': 'Combo Guard',
+        'Norman Powell': 'Combo Guard',
         'Myles Turner': 'Stretch Big',
         'Brook Lopez': 'Stretch Big',
         'Domantas Sabonis': 'Versatile Big',
         'Mikal Bridges': '3-and-D Wing',
-        'Klay Thompson': 'Scoring Guard',
+        'Klay Thompson': 'Combo Guard',
         'Julius Randle': 'Point Forward',
         'Paolo Banchero': 'Point Forward',
         'Franz Wagner': 'Point Forward',
         'Jabari Smith': 'Stretch Big',
         'Lauri Markka': 'Scoring Wing',
         'Alperen': 'Point Center',
-        'Stephen Curry': 'Hybrid Guard',
-        'Luka Don': 'Hybrid Guard',
-        'Shai Gilgeous': 'Hybrid Guard',
-        'LaMelo Ball': 'Hybrid Guard',
-        'LeBron James': 'Hybrid Forward',
-        'Nikola Jok': 'Hybrid Big',
-        'Giannis Ante': 'Hybrid Big',
+        'Stephen Curry': 'Combo Guard',
+        'Luka Don': 'Combo Guard',
+        'Shai Gilgeous': 'Combo Guard',
+        'LaMelo Ball': 'Combo Guard',
+        'LeBron James': 'Point Forward',
+        'Nikola Jok': 'Point Center',
+        'Giannis Ante': 'Point Forward',
     }
 
     print("\nValidation against known archetypes:")
