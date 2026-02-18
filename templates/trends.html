@@ -124,7 +124,35 @@
         </div>
         <div id="cluster-legend" class="cluster-legend"></div>
     </div>
-    
+
+    <div class="trends-section">
+        <h2>Defensive Shot Charts</h2>
+        <p class="chart-description">Where opponents shoot against each team. Red zones = opponents shoot there MORE than league average. Blue zones = opponents shoot there LESS. Reveals rim protection, perimeter defense, and mid-range tendencies.</p>
+        <div class="scheme-controls">
+            <select id="def-shot-team-select" class="scheme-select">
+                <option value="">Select a team...</option>
+            </select>
+        </div>
+        <div id="def-shot-chart-container" style="display:none;">
+            <div class="def-shot-header">
+                <span id="def-shot-team-name" class="def-shot-team-label"></span>
+                <span id="def-shot-total-fga" class="def-shot-fga-label"></span>
+            </div>
+            <div class="def-shot-canvas-wrap">
+                <canvas id="def-shot-chart-canvas" width="500" height="470"></canvas>
+            </div>
+            <div id="def-shot-zone-stats" class="def-shot-zone-stats"></div>
+            <div class="def-shot-legend">
+                <span class="dsl-item"><span class="dsl-dot" style="background:rgba(215,38,56,0.6)"></span> Opponents shoot here MORE than avg</span>
+                <span class="dsl-item"><span class="dsl-dot" style="background:rgba(30,58,138,0.6)"></span> Opponents shoot here LESS than avg</span>
+            </div>
+        </div>
+        <div id="def-shot-loading" style="display:none; text-align:center; padding:40px; color:#888;">Loading defensive shot chart...</div>
+        <div id="def-shot-empty" style="text-align:center; padding:40px 20px; color:#888; font-size:1.1rem;">
+            Select a team above to see where opponents like to shoot against them.
+        </div>
+    </div>
+
     {% if top_value %}
     <div class="trends-section">
         <h2>Top Value Plays</h2>
@@ -907,5 +935,271 @@ document.querySelectorAll('.scheme-mode-btn').forEach(btn => {
 });
 
 loadSchemeData();
+
+(function() {
+    var defShotSelect = document.getElementById('def-shot-team-select');
+    var defShotContainer = document.getElementById('def-shot-chart-container');
+    var defShotLoading = document.getElementById('def-shot-loading');
+    var defShotEmpty = document.getElementById('def-shot-empty');
+
+    fetch('/api/team-defense-shot-chart-teams')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.teams || data.teams.length === 0) return;
+            data.teams.forEach(function(t) {
+                var opt = document.createElement('option');
+                opt.value = t;
+                opt.textContent = t;
+                defShotSelect.appendChild(opt);
+            });
+        });
+
+    defShotSelect.addEventListener('change', function() {
+        var team = this.value;
+        if (!team) {
+            defShotContainer.style.display = 'none';
+            defShotEmpty.style.display = 'block';
+            return;
+        }
+        defShotEmpty.style.display = 'none';
+        defShotContainer.style.display = 'none';
+        defShotLoading.style.display = 'block';
+
+        fetch('/api/team-defense-shot-chart/' + encodeURIComponent(team))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                defShotLoading.style.display = 'none';
+                if (data.error || !data.zones) {
+                    defShotEmpty.style.display = 'block';
+                    defShotEmpty.textContent = data.error || 'No data available';
+                    return;
+                }
+                defShotContainer.style.display = 'block';
+                document.getElementById('def-shot-team-name').textContent = data.team_name + ' (' + data.team + ')';
+                document.getElementById('def-shot-total-fga').textContent = data.total_fga.toLocaleString() + ' Opponent FGA';
+                renderDefShotChart(document.getElementById('def-shot-chart-canvas'), data);
+                renderDefShotStats(data);
+            })
+            .catch(function() {
+                defShotLoading.style.display = 'none';
+                defShotEmpty.style.display = 'block';
+                defShotEmpty.textContent = 'Failed to load defensive shot chart';
+            });
+    });
+
+    function renderDefShotChart(canvas, data) {
+        var W = 500, H = 470;
+        var dpr = window.devicePixelRatio || 1;
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        canvas.style.width = W + 'px';
+        canvas.style.height = H + 'px';
+        var ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+        ctx.clearRect(0, 0, W, H);
+
+        var S = 9;
+        var bx = 250;
+        var baseY = 452;
+        var by = baseY - Math.round(5.25 * S);
+
+        var RA_R = Math.round(4 * S);
+        var LANE_HW = Math.round(8 * S);
+        var FT_DIST = Math.round(13.75 * S);
+        var FT_R = Math.round(6 * S);
+        var THREE_R = Math.round(23.75 * S);
+        var THREE_STRAIGHT_X = Math.round(22 * S);
+        var COURT_HW = Math.round(25 * S);
+        var THREE_ANG = Math.acos(THREE_STRAIGHT_X / THREE_R);
+        var CORNER_TOP_Y = by - Math.round(Math.sqrt(THREE_R * THREE_R - THREE_STRAIGHT_X * THREE_STRAIGHT_X));
+        var ftLineY = by - FT_DIST;
+        var rimR = Math.round(0.75 * S);
+        var bbW = Math.round(3 * S);
+
+        ctx.fillStyle = '#fafafa';
+        ctx.fillRect(0, 0, W, H);
+
+        var zones = data.zones || {};
+        var league = data.league_avg || {};
+
+        function getZoneColor(zoneKey) {
+            var tz = zones[zoneKey];
+            var lz = league[zoneKey];
+            if (!tz || !lz) return 'rgba(200,200,200,0.3)';
+            var freqDiff = tz.freq - lz.freq;
+            var intensity = Math.min(Math.abs(freqDiff) / 4, 1);
+            var alpha = 0.25 + intensity * 0.55;
+            if (freqDiff >= 0) {
+                var r = Math.round(215 * intensity + 240 * (1 - intensity));
+                var g = Math.round(38 * intensity + 200 * (1 - intensity));
+                var b = Math.round(56 * intensity + 200 * (1 - intensity));
+                return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha.toFixed(2) + ')';
+            } else {
+                var r2 = Math.round(30 * intensity + 200 * (1 - intensity));
+                var g2 = Math.round(58 * intensity + 200 * (1 - intensity));
+                var b2 = Math.round(138 * intensity + 220 * (1 - intensity));
+                return 'rgba(' + r2 + ',' + g2 + ',' + b2 + ',' + alpha.toFixed(2) + ')';
+            }
+        }
+
+        function drawZoneLabel(cx, cy, zoneKey) {
+            var tz = zones[zoneKey];
+            if (!tz || tz.fga === 0) return;
+            var lz = league[zoneKey];
+            ctx.fillStyle = '#111';
+            ctx.font = 'bold 13px system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(tz.fg_pct + '%', cx, cy - 8);
+            ctx.font = '10px system-ui, sans-serif';
+            ctx.fillStyle = '#555';
+            ctx.fillText(tz.fga + ' FGA', cx, cy + 8);
+            if (lz) {
+                var diff = tz.freq - lz.freq;
+                ctx.font = 'bold 9px system-ui, sans-serif';
+                ctx.fillStyle = diff > 0.3 ? '#d72638' : (diff < -0.3 ? '#1e3a8a' : '#888');
+                ctx.fillText((diff > 0 ? '+' : '') + diff.toFixed(1) + '% freq', cx, cy + 22);
+            }
+        }
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(bx - COURT_HW, 0, COURT_HW * 2, baseY);
+        ctx.clip();
+
+        ctx.fillStyle = getZoneColor('Above Break 3');
+        ctx.fillRect(bx - COURT_HW, 0, COURT_HW * 2, baseY);
+
+        ctx.fillStyle = getZoneColor('Corner 3');
+        ctx.beginPath();
+        ctx.rect(bx - COURT_HW, CORNER_TOP_Y, COURT_HW - THREE_STRAIGHT_X, baseY - CORNER_TOP_Y);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.rect(bx + THREE_STRAIGHT_X, CORNER_TOP_Y, COURT_HW - THREE_STRAIGHT_X, baseY - CORNER_TOP_Y);
+        ctx.fill();
+
+        ctx.fillStyle = getZoneColor('Mid-Range');
+        ctx.beginPath();
+        ctx.moveTo(bx - THREE_STRAIGHT_X, baseY);
+        ctx.lineTo(bx - THREE_STRAIGHT_X, CORNER_TOP_Y);
+        ctx.arc(bx, by, THREE_R, Math.PI + THREE_ANG, Math.PI * 2 - THREE_ANG);
+        ctx.lineTo(bx + THREE_STRAIGHT_X, baseY);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = getZoneColor('Paint (Non-RA)');
+        ctx.beginPath();
+        ctx.rect(bx - LANE_HW, ftLineY, LANE_HW * 2, baseY - ftLineY);
+        ctx.fill();
+
+        ctx.fillStyle = getZoneColor('Restricted Area');
+        ctx.beginPath();
+        ctx.arc(bx, by, RA_R, Math.PI, Math.PI * 2);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+
+        ctx.strokeStyle = '#444';
+        ctx.lineWidth = 1.5;
+
+        ctx.beginPath();
+        ctx.moveTo(bx - COURT_HW, baseY);
+        ctx.lineTo(bx + COURT_HW, baseY);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.rect(bx - COURT_HW, baseY - Math.round(47 * S), COURT_HW * 2, Math.round(47 * S));
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.rect(bx - LANE_HW, ftLineY, LANE_HW * 2, baseY - ftLineY);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(bx, ftLineY, FT_R, Math.PI, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.arc(bx, ftLineY, FT_R, 0, Math.PI);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.beginPath();
+        ctx.arc(bx, by, RA_R, Math.PI, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(bx - THREE_STRAIGHT_X, baseY);
+        ctx.lineTo(bx - THREE_STRAIGHT_X, CORNER_TOP_Y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(bx + THREE_STRAIGHT_X, baseY);
+        ctx.lineTo(bx + THREE_STRAIGHT_X, CORNER_TOP_Y);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(bx, by, THREE_R, Math.PI + THREE_ANG, Math.PI * 2 - THREE_ANG);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#333';
+        ctx.beginPath();
+        ctx.arc(bx, by, rimR, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(bx - bbW, baseY - Math.round(4 * S));
+        ctx.lineTo(bx + bbW, baseY - Math.round(4 * S));
+        ctx.stroke();
+
+        var mcY = baseY - Math.round(47 * S);
+        ctx.beginPath();
+        ctx.arc(bx, mcY, Math.round(2 * S), 0, Math.PI);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(bx, mcY, Math.round(6 * S), 0, Math.PI);
+        ctx.stroke();
+
+        drawZoneLabel(bx, by - RA_R / 2 - 5, 'Restricted Area');
+        drawZoneLabel(bx, by - RA_R - (FT_DIST - RA_R) / 2, 'Paint (Non-RA)');
+        drawZoneLabel(bx - LANE_HW - 55, by - FT_DIST / 2, 'Mid-Range');
+        drawZoneLabel(bx, by - THREE_R - 30, 'Above Break 3');
+        drawZoneLabel(bx - THREE_STRAIGHT_X - (COURT_HW - THREE_STRAIGHT_X) / 2, by + 10, 'Corner 3');
+        drawZoneLabel(bx + THREE_STRAIGHT_X + (COURT_HW - THREE_STRAIGHT_X) / 2, by + 10, 'Corner 3');
+    }
+
+    function renderDefShotStats(data) {
+        var container = document.getElementById('def-shot-zone-stats');
+        var zones = data.zones || {};
+        var league = data.league_avg || {};
+
+        var zoneOrder = ['Restricted Area', 'Paint (Non-RA)', 'Mid-Range', 'Above Break 3', 'Corner 3'];
+
+        var html = '<table><thead><tr><th>Zone</th><th>Opp FGA</th><th>Opp FGM</th><th>Opp FG%</th><th>Lg FG%</th><th>Freq%</th><th>Lg Freq%</th><th>vs Avg</th></tr></thead><tbody>';
+        for (var i = 0; i < zoneOrder.length; i++) {
+            var z = zoneOrder[i];
+            var tz = zones[z];
+            if (!tz) continue;
+            var lz = league[z] || {};
+            var freqDiff = tz.freq - (lz.freq || 0);
+            var fgDiff = tz.fg_pct - (lz.fg_pct || 0);
+            var freqClass = freqDiff > 0.3 ? 'freq-diff-pos' : (freqDiff < -0.3 ? 'freq-diff-neg' : '');
+            var fgClass = fgDiff > 0.5 ? 'fg-diff-pos' : (fgDiff < -0.5 ? 'fg-diff-neg' : '');
+            html += '<tr>';
+            html += '<td style="text-align:left;font-weight:600;">' + z + '</td>';
+            html += '<td>' + tz.fga.toLocaleString() + '</td>';
+            html += '<td>' + tz.fgm.toLocaleString() + '</td>';
+            html += '<td class="' + fgClass + '">' + tz.fg_pct + '%</td>';
+            html += '<td>' + (lz.fg_pct || 0) + '%</td>';
+            html += '<td>' + tz.freq + '%</td>';
+            html += '<td>' + (lz.freq || 0) + '%</td>';
+            html += '<td class="' + freqClass + '">' + (freqDiff > 0 ? '+' : '') + freqDiff.toFixed(1) + '%</td>';
+            html += '</tr>';
+        }
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+})();
 </script>
 {% endblock %}

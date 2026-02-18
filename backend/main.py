@@ -1847,6 +1847,101 @@ async def api_player_shot_chart(player_name: str):
         return {"error": str(e), "zones": {}}
 
 
+@app.get("/api/team-defense-shot-chart/{team}")
+async def api_team_defense_shot_chart(team: str):
+    import sqlite3 as sqlite3_mod
+    try:
+        conn = sqlite3_mod.connect("dfs_nba.db")
+        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+        if "team_defense_shot_zones" not in tables:
+            conn.close()
+            return {"error": "Team defensive shot zone data not yet available.", "zones": {}}
+
+        team_upper = team.upper()
+        row = conn.execute(
+            "SELECT team, team_name, total_fga, ra_fga, ra_fgm, paint_fga, paint_fgm, "
+            "mid_fga, mid_fgm, corner3_fga, corner3_fgm, atb3_fga, atb3_fgm, "
+            "ra_freq, paint_freq, mid_freq, corner3_freq, atb3_freq, "
+            "ra_fg_pct, paint_fg_pct, mid_fg_pct, corner3_fg_pct, atb3_fg_pct "
+            "FROM team_defense_shot_zones WHERE team = ?",
+            (team_upper,)
+        ).fetchone()
+
+        if not row:
+            conn.close()
+            return {"error": f"No data for team {team}", "zones": {}}
+
+        total_fga = row[2]
+        zones = {
+            "Restricted Area": {"fga": row[3], "fgm": row[4], "fg_pct": row[18], "freq": row[13]},
+            "Paint (Non-RA)": {"fga": row[5], "fgm": row[6], "fg_pct": row[19], "freq": row[14]},
+            "Mid-Range": {"fga": row[7], "fgm": row[8], "fg_pct": row[20], "freq": row[15]},
+            "Corner 3": {"fga": row[9], "fgm": row[10], "fg_pct": row[21], "freq": row[16]},
+            "Above Break 3": {"fga": row[11], "fgm": row[12], "fg_pct": row[22], "freq": row[17]},
+        }
+
+        all_teams = conn.execute(
+            "SELECT total_fga, ra_fga, ra_fgm, paint_fga, paint_fgm, mid_fga, mid_fgm, "
+            "corner3_fga, corner3_fgm, atb3_fga, atb3_fgm FROM team_defense_shot_zones"
+        ).fetchall()
+
+        league_avg = {}
+        if all_teams:
+            t_fga = sum(r[0] for r in all_teams)
+            t_ra = sum(r[1] for r in all_teams)
+            t_ra_m = sum(r[2] for r in all_teams)
+            t_paint = sum(r[3] for r in all_teams)
+            t_paint_m = sum(r[4] for r in all_teams)
+            t_mid = sum(r[5] for r in all_teams)
+            t_mid_m = sum(r[6] for r in all_teams)
+            t_c3 = sum(r[7] for r in all_teams)
+            t_c3_m = sum(r[8] for r in all_teams)
+            t_atb3 = sum(r[9] for r in all_teams)
+            t_atb3_m = sum(r[10] for r in all_teams)
+
+            def lg_z(fga, fgm, total):
+                return {
+                    "freq": round(fga / total * 100, 1) if total > 0 else 0,
+                    "fg_pct": round(fgm / fga * 100, 1) if fga > 0 else 0,
+                }
+
+            league_avg["Restricted Area"] = lg_z(t_ra, t_ra_m, t_fga)
+            league_avg["Paint (Non-RA)"] = lg_z(t_paint, t_paint_m, t_fga)
+            league_avg["Mid-Range"] = lg_z(t_mid, t_mid_m, t_fga)
+            league_avg["Corner 3"] = lg_z(t_c3, t_c3_m, t_fga)
+            league_avg["Above Break 3"] = lg_z(t_atb3, t_atb3_m, t_fga)
+
+        teams_list = [r[0] for r in conn.execute("SELECT DISTINCT team FROM team_defense_shot_zones ORDER BY team").fetchall()]
+
+        conn.close()
+        return {
+            "team": row[0],
+            "team_name": row[1],
+            "total_fga": total_fga,
+            "zones": zones,
+            "league_avg": league_avg,
+            "teams": teams_list,
+        }
+    except Exception as e:
+        return {"error": str(e), "zones": {}}
+
+
+@app.get("/api/team-defense-shot-chart-teams")
+async def api_team_defense_teams():
+    import sqlite3 as sqlite3_mod
+    try:
+        conn = sqlite3_mod.connect("dfs_nba.db")
+        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+        if "team_defense_shot_zones" not in tables:
+            conn.close()
+            return {"teams": []}
+        teams = [r[0] for r in conn.execute("SELECT DISTINCT team FROM team_defense_shot_zones ORDER BY team").fetchall()]
+        conn.close()
+        return {"teams": teams}
+    except Exception:
+        return {"teams": []}
+
+
 @app.get("/api/team-schemes")
 async def api_team_schemes(team: str = None):
     import sqlite3 as sqlite3_mod

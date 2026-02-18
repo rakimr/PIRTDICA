@@ -2715,6 +2715,95 @@ th[data-sortable].sort-desc::after {
     font-size: 0.8rem;
 }
 
+.def-shot-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+    padding: 0 8px;
+}
+
+.def-shot-team-label {
+    font-family: 'Marvel', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #111;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.def-shot-fga-label {
+    font-size: 0.9rem;
+    color: #888;
+    font-weight: 500;
+}
+
+.def-shot-canvas-wrap {
+    text-align: center;
+    margin: 0 auto;
+    max-width: 500px;
+}
+
+#def-shot-chart-canvas {
+    max-width: 100%;
+    height: auto;
+}
+
+.def-shot-zone-stats {
+    margin-top: 16px;
+    overflow-x: auto;
+}
+
+.def-shot-zone-stats table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+
+.def-shot-zone-stats th,
+.def-shot-zone-stats td {
+    padding: 8px 10px;
+    text-align: center;
+    border-bottom: 1px solid #eee;
+}
+
+.def-shot-zone-stats th {
+    font-weight: 700;
+    color: #333;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+    letter-spacing: 0.3px;
+    border-bottom: 2px solid #ddd;
+}
+
+.def-shot-zone-stats .freq-diff-pos { color: #d72638; font-weight: 700; }
+.def-shot-zone-stats .freq-diff-neg { color: #1e3a8a; font-weight: 700; }
+.def-shot-zone-stats .fg-diff-pos { color: #d72638; }
+.def-shot-zone-stats .fg-diff-neg { color: #0f9d58; }
+
+.def-shot-legend {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 14px;
+    flex-wrap: wrap;
+}
+
+.dsl-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    color: #666;
+}
+
+.dsl-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    display: inline-block;
+}
+
 .archetype-badge {
     display: inline-block;
     padding: 2px 8px;
