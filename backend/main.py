@@ -1517,9 +1517,21 @@ async def api_archetype_clusters():
             FROM player_game_logs WHERE min >= 10
             GROUP BY player_name HAVING COUNT(*) >= 5
         """, sconn)
+        shot_zones = pd.read_sql_query("""
+            SELECT player_name, rim_paint_pct, three_pct, corner3_fga, atb3_fga, three_fga
+            FROM player_shot_zones
+        """, sconn)
+        shot_creation = pd.read_sql_query("""
+            SELECT player_name, cs_pct, pu_pct
+            FROM player_shot_creation
+        """, sconn)
+        hustle = pd.read_sql_query("""
+            SELECT player_name, deflections_per48, contested_per48
+            FROM player_hustle_stats
+        """, sconn)
         sconn.close()
 
-        for tbl in [arch_df, per100, positions, usage, game_logs]:
+        for tbl in [arch_df, per100, positions, usage, game_logs, shot_zones, shot_creation, hustle]:
             tbl['_mk'] = tbl['player_name'].apply(_ascii_key)
 
         arch_df['player_name'] = arch_df['player_name'].apply(_clean_name)
@@ -1530,6 +1542,9 @@ async def api_archetype_clusters():
         df = df.merge(positions.drop(columns=['player_name']), on='_mk', how='left')
         df = df.merge(usage.drop(columns=['player_name']), on='_mk', how='left')
         df = df.merge(game_logs.drop(columns=['player_name']), on='_mk', how='left')
+        df = df.merge(shot_zones.drop(columns=['player_name']), on='_mk', how='left')
+        df = df.merge(shot_creation.drop(columns=['player_name']), on='_mk', how='left')
+        df = df.merge(hustle.drop(columns=['player_name']), on='_mk', how='left')
         df = df.drop(columns=['_mk'])
         df = df.dropna(subset=['pts_per100'])
 
@@ -1541,16 +1556,35 @@ async def api_archetype_clusters():
         df['sf_pct'] = df['sf_pct'].fillna(0)
         df['pf_pct'] = df['pf_pct'].fillna(0)
         df['c_pct'] = df['c_pct'].fillna(0)
+        df['rim_paint_pct'] = df['rim_paint_pct'].fillna(50.0)
+        df['three_pct'] = df['three_pct'].fillna(25.0)
+        df['cs_pct'] = df['cs_pct'].fillna(30.0)
+        df['pu_pct'] = df['pu_pct'].fillna(15.0)
+        df['deflections_per48'] = df['deflections_per48'].fillna(df['deflections_per48'].median() if df['deflections_per48'].notna().any() else 3.0)
+        df['contested_per48'] = df['contested_per48'].fillna(df['contested_per48'].median() if df['contested_per48'].notna().any() else 8.0)
+
         df['fg3m_per100'] = np.where(df['min_pg'] > 0, df['fg3m_pg'] / df['min_pg'] * 100, 0)
         df['guard_pct'] = df['pg_pct'] + df['sg_pct']
         df['forward_pct'] = df['sf_pct'] + df['pf_pct']
         df['big_pct'] = df['c_pct']
         df['ast_to_reb_ratio'] = np.where(df['reb_per100'] > 0, df['ast_per100'] / df['reb_per100'], df['ast_per100'])
         df['scoring_versatility'] = np.where(df['pts_per100'] > 0, df['fg3m_per100'] / df['pts_per100'], 0)
+        df['corner3_pct_of_3'] = np.where(
+            df['three_fga'].fillna(0) > 0,
+            df['corner3_fga'].fillna(0) / df['three_fga'] * 100,
+            35.0
+        )
+        df['corner3_pct_of_3'] = df['corner3_pct_of_3'].fillna(35.0)
 
-        features = ['pts_per100', 'reb_per100', 'ast_per100', 'stl_per100', 'blk_per100',
-                     'fg3m_per100', 'usg_pct', 'guard_pct', 'forward_pct', 'big_pct',
-                     'ast_to_reb_ratio', 'scoring_versatility']
+        features = [
+            'pts_per100', 'reb_per100', 'ast_per100', 'stl_per100', 'blk_per100',
+            'fg3m_per100', 'usg_pct',
+            'guard_pct', 'forward_pct', 'big_pct',
+            'ast_to_reb_ratio', 'scoring_versatility',
+            'rim_paint_pct', 'three_pct', 'corner3_pct_of_3',
+            'cs_pct', 'pu_pct',
+            'deflections_per48', 'contested_per48',
+        ]
         for col in features:
             df[col] = df[col].fillna(0)
 
