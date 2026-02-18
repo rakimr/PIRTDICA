@@ -680,7 +680,23 @@ function renderShotChart(canvas, data) {
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, W, H);
 
-    var ox = 250, oy = 420;
+    var S = 9;
+    var bx = 250;
+    var baseY = 452;
+    var by = baseY - Math.round(5.25 * S);
+
+    var RA_R = Math.round(4 * S);
+    var LANE_HW = Math.round(8 * S);
+    var FT_DIST = Math.round(13.75 * S);
+    var FT_R = Math.round(6 * S);
+    var THREE_R = Math.round(23.75 * S);
+    var THREE_STRAIGHT_X = Math.round(22 * S);
+    var COURT_HW = Math.round(25 * S);
+    var THREE_ANG = Math.acos(THREE_STRAIGHT_X / THREE_R);
+    var CORNER_TOP_Y = by - Math.round(Math.sqrt(THREE_R * THREE_R - THREE_STRAIGHT_X * THREE_STRAIGHT_X));
+    var ftLineY = by - FT_DIST;
+    var rimR = Math.round(0.75 * S);
+    var bbW = Math.round(3 * S);
 
     ctx.fillStyle = '#fafafa';
     ctx.fillRect(0, 0, W, H);
@@ -728,132 +744,111 @@ function renderShotChart(canvas, data) {
         }
     }
 
-    ctx.fillStyle = getZoneColor('Restricted Area');
+    ctx.save();
     ctx.beginPath();
-    ctx.arc(ox, oy, 40, Math.PI, 0, true);
-    ctx.lineTo(ox + 40, oy);
-    ctx.lineTo(ox - 40, oy);
-    ctx.fill();
-    ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
-    ctx.stroke();
+    ctx.rect(bx - COURT_HW, 0, COURT_HW * 2, baseY);
+    ctx.clip();
 
-    ctx.fillStyle = getZoneColor('Paint (Non-RA)');
+    ctx.fillStyle = getZoneColor('Above Break 3');
+    ctx.fillRect(bx - COURT_HW, 0, COURT_HW * 2, baseY);
+
+    ctx.fillStyle = getZoneColor('Corner 3');
     ctx.beginPath();
-    ctx.rect(ox - 80, oy - 190, 160, 190);
+    ctx.rect(bx - COURT_HW, CORNER_TOP_Y, COURT_HW - THREE_STRAIGHT_X, baseY - CORNER_TOP_Y);
     ctx.fill();
-    ctx.fillStyle = getZoneColor('Restricted Area');
     ctx.beginPath();
-    ctx.arc(ox, oy, 40, Math.PI, 0, true);
-    ctx.lineTo(ox + 40, oy);
-    ctx.lineTo(ox - 40, oy);
+    ctx.rect(bx + THREE_STRAIGHT_X, CORNER_TOP_Y, COURT_HW - THREE_STRAIGHT_X, baseY - CORNER_TOP_Y);
     ctx.fill();
 
     ctx.fillStyle = getZoneColor('Mid-Range');
     ctx.beginPath();
-    ctx.moveTo(ox - 220, oy);
-    ctx.lineTo(ox - 220, oy - 100);
-    ctx.arc(ox, oy, 237.5, -Math.PI + 0.39, -0.39);
-    ctx.lineTo(ox + 220, oy);
+    ctx.moveTo(bx - THREE_STRAIGHT_X, baseY);
+    ctx.lineTo(bx - THREE_STRAIGHT_X, CORNER_TOP_Y);
+    ctx.arc(bx, by, THREE_R, Math.PI + THREE_ANG, Math.PI * 2 - THREE_ANG);
+    ctx.lineTo(bx + THREE_STRAIGHT_X, baseY);
     ctx.closePath();
     ctx.fill();
+
     ctx.fillStyle = getZoneColor('Paint (Non-RA)');
     ctx.beginPath();
-    ctx.rect(ox - 80, oy - 190, 160, 190);
+    ctx.rect(bx - LANE_HW, ftLineY, LANE_HW * 2, baseY - ftLineY);
     ctx.fill();
+
     ctx.fillStyle = getZoneColor('Restricted Area');
     ctx.beginPath();
-    ctx.arc(ox, oy, 40, Math.PI, 0, true);
-    ctx.lineTo(ox + 40, oy);
-    ctx.lineTo(ox - 40, oy);
-    ctx.fill();
-
-    ctx.fillStyle = getZoneColor('Corner 3');
-    ctx.beginPath();
-    ctx.rect(ox - 250, oy - 100, 30, 100);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.rect(ox + 220, oy - 100, 30, 100);
-    ctx.fill();
-
-    ctx.fillStyle = getZoneColor('Above Break 3');
-    ctx.beginPath();
-    ctx.moveTo(ox - 250, oy - 100);
-    ctx.lineTo(ox - 220, oy - 100);
-    ctx.arc(ox, oy, 237.5, -Math.PI + 0.39, -0.39, false);
-    ctx.lineTo(ox + 250, oy - 100);
-    ctx.lineTo(ox + 250, oy - 400);
-    ctx.lineTo(ox - 250, oy - 400);
+    ctx.arc(bx, by, RA_R, Math.PI, Math.PI * 2);
     ctx.closePath();
     ctx.fill();
 
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 1.5;
-
-    ctx.beginPath();
-    ctx.arc(ox, oy, 7.5, 0, Math.PI * 2);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(ox - 30, oy);
-    ctx.lineTo(ox + 30, oy);
-    ctx.stroke();
+    ctx.restore();
 
     ctx.strokeStyle = '#444';
     ctx.lineWidth = 1.5;
+
     ctx.beginPath();
-    ctx.rect(ox - 80, oy - 190, 160, 190);
+    ctx.moveTo(bx - COURT_HW, baseY);
+    ctx.lineTo(bx + COURT_HW, baseY);
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.arc(ox, oy - 190, 60, 0, Math.PI, true);
+    ctx.rect(bx - COURT_HW, baseY - Math.round(47 * S), COURT_HW * 2, Math.round(47 * S));
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.rect(bx - LANE_HW, ftLineY, LANE_HW * 2, baseY - ftLineY);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(bx, ftLineY, FT_R, Math.PI, Math.PI * 2);
     ctx.stroke();
 
     ctx.setLineDash([5, 5]);
     ctx.beginPath();
-    ctx.arc(ox, oy - 190, 60, Math.PI, 0, true);
+    ctx.arc(bx, ftLineY, FT_R, 0, Math.PI);
     ctx.stroke();
     ctx.setLineDash([]);
 
     ctx.beginPath();
-    ctx.arc(ox, oy, 40, Math.PI, 0, true);
+    ctx.arc(bx, by, RA_R, Math.PI, Math.PI * 2);
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.moveTo(ox - 220, oy);
-    ctx.lineTo(ox - 220, oy - 100);
+    ctx.moveTo(bx - THREE_STRAIGHT_X, baseY);
+    ctx.lineTo(bx - THREE_STRAIGHT_X, CORNER_TOP_Y);
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(ox + 220, oy);
-    ctx.lineTo(ox + 220, oy - 100);
+    ctx.moveTo(bx + THREE_STRAIGHT_X, baseY);
+    ctx.lineTo(bx + THREE_STRAIGHT_X, CORNER_TOP_Y);
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.arc(ox, oy, 237.5, -Math.PI + 0.39, -0.39);
+    ctx.arc(bx, by, THREE_R, Math.PI + THREE_ANG, Math.PI * 2 - THREE_ANG);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#333';
+    ctx.beginPath();
+    ctx.arc(bx, by, rimR, 0, Math.PI * 2);
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.moveTo(ox - 250, oy);
-    ctx.lineTo(ox + 250, oy);
+    ctx.moveTo(bx - bbW, baseY - Math.round(4 * S));
+    ctx.lineTo(bx + bbW, baseY - Math.round(4 * S));
     ctx.stroke();
 
+    var mcY = baseY - Math.round(47 * S);
     ctx.beginPath();
-    ctx.rect(ox - 250, oy - 400, 500, 400);
+    ctx.arc(bx, mcY, Math.round(2 * S), 0, Math.PI);
     ctx.stroke();
-
     ctx.beginPath();
-    ctx.arc(ox, oy - 400, 20, 0, Math.PI, true);
+    ctx.arc(bx, mcY, Math.round(6 * S), 0, Math.PI);
     ctx.stroke();
 
-    ctx.beginPath();
-    ctx.arc(ox, oy - 400, 60, 0, Math.PI, true);
-    ctx.stroke();
-
-    drawZoneLabel(ox, oy - 15, 'Restricted Area');
-    drawZoneLabel(ox, oy - 130, 'Paint (Non-RA)');
-    drawZoneLabel(ox - 155, oy - 160, 'Mid-Range');
-    drawZoneLabel(ox, oy - 290, 'Above Break 3');
-    drawZoneLabel(ox - 235, oy - 40, 'Corner 3');
-    drawZoneLabel(ox + 235, oy - 40, 'Corner 3');
+    drawZoneLabel(bx, by - RA_R / 2 - 5, 'Restricted Area');
+    drawZoneLabel(bx, by - RA_R - (FT_DIST - RA_R) / 2, 'Paint (Non-RA)');
+    drawZoneLabel(bx - LANE_HW - 55, by - FT_DIST / 2, 'Mid-Range');
+    drawZoneLabel(bx, by - THREE_R - 30, 'Above Break 3');
+    drawZoneLabel(bx - THREE_STRAIGHT_X - (COURT_HW - THREE_STRAIGHT_X) / 2, by + 10, 'Corner 3');
+    drawZoneLabel(bx + THREE_STRAIGHT_X + (COURT_HW - THREE_STRAIGHT_X) / 2, by + 10, 'Corner 3');
 }
 
 function renderZoneStats(data) {
