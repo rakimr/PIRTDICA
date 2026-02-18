@@ -1708,6 +1708,145 @@ async def api_player_trend(player_name: str, stat: str, n: int = 10):
     except Exception as e:
         return {"error": str(e), "games": []}
 
+@app.get("/api/player-shot-chart/{player_name}")
+async def api_player_shot_chart(player_name: str):
+    import sqlite3 as sqlite3_mod
+    import unicodedata
+    import re as re_mod
+
+    def _ascii_key(name):
+        if not name or not isinstance(name, str):
+            return ""
+        fixed = name
+        for _ in range(2):
+            try:
+                fixed = fixed.encode('latin-1').decode('utf-8')
+            except (UnicodeDecodeError, UnicodeEncodeError):
+                break
+        nfkd = unicodedata.normalize('NFKD', fixed)
+        ascii_name = ''.join(c for c in nfkd if not unicodedata.combining(c))
+        ascii_name = re_mod.sub(r'[^a-zA-Z\s]', '', ascii_name).lower().strip()
+        ascii_name = re_mod.sub(r'\s+', ' ', ascii_name)
+        for suffix in [' iv', ' iii', ' ii', ' jr', ' sr', ' v']:
+            if ascii_name.endswith(suffix):
+                ascii_name = ascii_name[:-len(suffix)].strip()
+                break
+        return ascii_name
+
+    try:
+        conn = sqlite3_mod.connect("dfs_nba.db")
+        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+        if "player_shot_zones" not in tables:
+            conn.close()
+            return {"error": "Shot zone data not yet available.", "zones": {}}
+
+        search_key = _ascii_key(player_name)
+
+        all_players = conn.execute("SELECT DISTINCT player_name FROM player_shot_zones").fetchall()
+        matched_name = None
+        for (n,) in all_players:
+            if _ascii_key(n) == search_key:
+                matched_name = n
+                break
+        if not matched_name:
+            for (n,) in all_players:
+                if search_key in _ascii_key(n) or _ascii_key(n) in search_key:
+                    matched_name = n
+                    break
+        if not matched_name:
+            conn.close()
+            return {"error": f"No shot data for {player_name}", "zones": {}}
+
+        row = conn.execute(
+            "SELECT total_fga, ra_fga, ra_fgm, paint_fga, paint_fgm, mid_fga, mid_fgm, three_fga, three_fgm, corner3_fga, atb3_fga, team FROM player_shot_zones WHERE player_name = ?",
+            (matched_name,),
+        ).fetchone()
+
+        if not row:
+            conn.close()
+            return {"error": f"No shot data for {player_name}", "zones": {}}
+
+        total_fga = row[0] or 0
+        zones = {}
+        if total_fga > 0:
+            ra_fga, ra_fgm = row[1] or 0, row[2] or 0
+            paint_fga, paint_fgm = row[3] or 0, row[4] or 0
+            mid_fga, mid_fgm = row[5] or 0, row[6] or 0
+            three_fga, three_fgm = row[7] or 0, row[8] or 0
+            corner3_fga = row[9] or 0
+            atb3_fga = row[10] or 0
+
+            def zone_data(fga, fgm, total):
+                return {
+                    "fga": fga, "fgm": fgm,
+                    "fg_pct": round(fgm / fga * 100, 1) if fga > 0 else 0,
+                    "freq": round(fga / total * 100, 1) if total > 0 else 0,
+                }
+
+            zones["Restricted Area"] = zone_data(ra_fga, ra_fgm, total_fga)
+            zones["Paint (Non-RA)"] = zone_data(paint_fga, paint_fgm, total_fga)
+            zones["Mid-Range"] = zone_data(mid_fga, mid_fgm, total_fga)
+            zones["Above Break 3"] = zone_data(atb3_fga, three_fgm if corner3_fga == 0 else max(0, three_fgm - int(corner3_fga * three_fgm / three_fga)) if three_fga > 0 else 0, total_fga)
+            corner3_fgm_est = int(corner3_fga * (three_fgm / three_fga)) if three_fga > 0 else 0
+            zones["Corner 3"] = zone_data(corner3_fga, corner3_fgm_est, total_fga)
+            zones["Above Break 3"]["fgm"] = max(0, three_fgm - corner3_fgm_est)
+            zones["Above Break 3"]["fg_pct"] = round(zones["Above Break 3"]["fgm"] / atb3_fga * 100, 1) if atb3_fga > 0 else 0
+
+        league_avgs = {}
+        all_rows = conn.execute(
+            "SELECT total_fga, ra_fga, ra_fgm, paint_fga, paint_fgm, mid_fga, mid_fgm, three_fga, three_fgm, corner3_fga, atb3_fga FROM player_shot_zones WHERE total_fga >= 100"
+        ).fetchall()
+        if all_rows:
+            tot_fga = sum(r[0] for r in all_rows)
+            tot_ra = sum(r[1] or 0 for r in all_rows)
+            tot_ra_m = sum(r[2] or 0 for r in all_rows)
+            tot_paint = sum(r[3] or 0 for r in all_rows)
+            tot_paint_m = sum(r[4] or 0 for r in all_rows)
+            tot_mid = sum(r[5] or 0 for r in all_rows)
+            tot_mid_m = sum(r[6] or 0 for r in all_rows)
+            tot_c3 = sum(r[9] or 0 for r in all_rows)
+            tot_atb3 = sum(r[10] or 0 for r in all_rows)
+            tot_3m = sum(r[8] or 0 for r in all_rows)
+            tot_3a = sum(r[7] or 0 for r in all_rows)
+            c3_m_est = int(tot_c3 * (tot_3m / tot_3a)) if tot_3a > 0 else 0
+            atb3_m_est = max(0, tot_3m - c3_m_est)
+
+            def lg_zone(fga, fgm, total):
+                return {"freq": round(fga / total * 100, 1) if total > 0 else 0, "fg_pct": round(fgm / fga * 100, 1) if fga > 0 else 0}
+
+            league_avgs["Restricted Area"] = lg_zone(tot_ra, tot_ra_m, tot_fga)
+            league_avgs["Paint (Non-RA)"] = lg_zone(tot_paint, tot_paint_m, tot_fga)
+            league_avgs["Mid-Range"] = lg_zone(tot_mid, tot_mid_m, tot_fga)
+            league_avgs["Above Break 3"] = lg_zone(tot_atb3, atb3_m_est, tot_fga)
+            league_avgs["Corner 3"] = lg_zone(tot_c3, c3_m_est, tot_fga)
+
+        archetype = None
+        if "player_archetypes" in tables:
+            arch_row = conn.execute("SELECT archetype FROM player_archetypes WHERE player_name = ?", (matched_name,)).fetchone()
+            if not arch_row:
+                for (n,) in conn.execute("SELECT DISTINCT player_name FROM player_archetypes").fetchall():
+                    if _ascii_key(n) == search_key:
+                        arch_row = conn.execute("SELECT archetype FROM player_archetypes WHERE player_name = ?", (n,)).fetchone()
+                        break
+            if arch_row:
+                archetype = arch_row[0]
+
+        team = row[11] if len(row) > 11 else None
+
+        conn.close()
+
+        return {
+            "player": matched_name,
+            "team": team,
+            "archetype": archetype,
+            "total_fga": total_fga,
+            "zones": zones,
+            "league_avg": league_avgs,
+        }
+    except Exception as e:
+        return {"error": str(e), "zones": {}}
+
+
 @app.get("/api/team-schemes")
 async def api_team_schemes(team: str = None):
     import sqlite3 as sqlite3_mod

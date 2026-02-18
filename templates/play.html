@@ -151,7 +151,7 @@
                             <td class="col-name">
                                 <div style="display: flex; align-items: center; gap: 6px;">
                                     <img src="{{ headshots.get(p.player_name, '') }}" alt="" style="width: 32px; height: 32px; border-radius: 0; object-fit: contain; flex-shrink: 0; mix-blend-mode: multiply;" onerror="this.style.display='none'">
-                                    <span>{{ p.player_name }}</span>
+                                    <span class="player-name-link" onclick="openShotChart('{{ p.player_name }}', event)" title="View shot chart">{{ p.player_name }}</span>
                                 </div>
                             </td>
                             <td class="col-status">
@@ -182,6 +182,63 @@
         </div>
     </div>
 </div>
+
+<div id="shot-chart-modal" class="sc-modal-overlay" style="display:none;" onclick="if(event.target===this)closeShotChart()">
+    <div class="sc-modal">
+        <button class="sc-close" onclick="closeShotChart()">&times;</button>
+        <div class="sc-header">
+            <div class="sc-player-info">
+                <h2 id="sc-player-name"></h2>
+                <span id="sc-archetype-badge" class="sc-archetype"></span>
+                <span id="sc-total-fga" class="sc-fga-count"></span>
+            </div>
+            <div class="sc-legend">
+                <span class="sc-leg-item"><span class="sc-leg-dot" style="background:#d72638"></span> More shots than league avg</span>
+                <span class="sc-leg-item"><span class="sc-leg-dot" style="background:#1e3a8a"></span> Fewer shots than league avg</span>
+            </div>
+        </div>
+        <div class="sc-body">
+            <div class="sc-canvas-wrap">
+                <canvas id="shot-chart-canvas" width="500" height="470"></canvas>
+            </div>
+            <div class="sc-zone-stats" id="sc-zone-stats"></div>
+        </div>
+        <div id="sc-loading" class="sc-loading">Loading shot chart...</div>
+    </div>
+</div>
+
+<style>
+.player-name-link { cursor: pointer; text-decoration: underline; text-decoration-color: rgba(0,0,0,0.15); text-underline-offset: 2px; transition: color 0.15s; }
+.player-name-link:hover { color: #1e3a8a; text-decoration-color: #1e3a8a; }
+.sc-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+.sc-modal { background: #fff; border-radius: 12px; max-width: 600px; width: 95%; max-height: 90vh; overflow-y: auto; position: relative; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+.sc-close { position: absolute; top: 12px; right: 16px; background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #6b7280; z-index: 10; line-height: 1; }
+.sc-close:hover { color: #111; }
+.sc-header { padding: 20px 24px 12px; border-bottom: 1px solid #e5e7eb; }
+.sc-player-info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sc-player-info h2 { margin: 0; font-size: 1.3rem; font-weight: 800; letter-spacing: -0.01em; }
+.sc-archetype { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 8px; border-radius: 4px; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+.sc-fga-count { font-size: 0.8rem; color: #6b7280; font-weight: 600; }
+.sc-legend { display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
+.sc-leg-item { font-size: 0.72rem; color: #6b7280; display: flex; align-items: center; gap: 4px; }
+.sc-leg-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.sc-body { padding: 16px 24px 20px; }
+.sc-canvas-wrap { display: flex; justify-content: center; }
+#shot-chart-canvas { max-width: 100%; height: auto; }
+.sc-zone-stats { margin-top: 12px; }
+.sc-zone-stats table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.sc-zone-stats th { text-align: left; font-weight: 700; text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.05em; color: #6b7280; padding: 4px 6px; border-bottom: 1px solid #e5e7eb; }
+.sc-zone-stats td { padding: 4px 6px; border-bottom: 1px solid #f3f4f6; }
+.sc-zone-stats .freq-diff-pos { color: #d72638; font-weight: 700; }
+.sc-zone-stats .freq-diff-neg { color: #1e3a8a; font-weight: 700; }
+.sc-loading { text-align: center; padding: 60px 20px; color: #888; font-size: 1rem; }
+@media (max-width: 600px) {
+    .sc-modal { max-width: 100%; border-radius: 8px; }
+    .sc-header { padding: 14px 16px 8px; }
+    .sc-body { padding: 10px 12px 16px; }
+    .sc-player-info h2 { font-size: 1.1rem; }
+}
+</style>
 
 <script>
 const SALARY_CAP = 60000;
@@ -567,5 +624,273 @@ document.querySelectorAll('#player-table th[data-sort]').forEach(th => {
 });
 
 updateDisplay();
+
+function openShotChart(playerName, evt) {
+    if (evt) evt.stopPropagation();
+    var modal = document.getElementById('shot-chart-modal');
+    var loading = document.getElementById('sc-loading');
+    var canvas = document.getElementById('shot-chart-canvas');
+    var body = document.querySelector('.sc-body');
+    modal.style.display = 'flex';
+    body.style.display = 'none';
+    loading.style.display = 'block';
+    document.getElementById('sc-player-name').textContent = playerName;
+    document.getElementById('sc-archetype-badge').textContent = '';
+    document.getElementById('sc-total-fga').textContent = '';
+    document.getElementById('sc-zone-stats').innerHTML = '';
+
+    fetch('/api/player-shot-chart/' + encodeURIComponent(playerName))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            loading.style.display = 'none';
+            if (data.error || !data.zones || Object.keys(data.zones).length === 0 || data.total_fga === 0) {
+                body.style.display = 'block';
+                document.getElementById('sc-zone-stats').innerHTML = '<div style="text-align:center;padding:30px;color:#888;">' + (data.error || 'No shot data available') + '</div>';
+                return;
+            }
+            body.style.display = 'block';
+            if (data.archetype) document.getElementById('sc-archetype-badge').textContent = data.archetype;
+            document.getElementById('sc-total-fga').textContent = data.total_fga + ' FGA';
+            renderShotChart(canvas, data);
+            renderZoneStats(data);
+        })
+        .catch(function(e) {
+            loading.style.display = 'none';
+            body.style.display = 'block';
+            document.getElementById('sc-zone-stats').innerHTML = '<div style="text-align:center;padding:30px;color:#888;">Failed to load shot chart</div>';
+        });
+}
+
+function closeShotChart() {
+    document.getElementById('shot-chart-modal').style.display = 'none';
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeShotChart();
+});
+
+function renderShotChart(canvas, data) {
+    var W = 500, H = 470;
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    var ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, W, H);
+
+    var ox = 250, oy = 420;
+
+    ctx.fillStyle = '#fafafa';
+    ctx.fillRect(0, 0, W, H);
+
+    var zones = data.zones || {};
+    var league = data.league_avg || {};
+
+    function getZoneColor(zoneKey) {
+        var pz = zones[zoneKey];
+        var lz = league[zoneKey];
+        if (!pz || !lz) return 'rgba(200,200,200,0.3)';
+        var freqDiff = pz.freq - lz.freq;
+        var intensity = Math.min(Math.abs(freqDiff) / 12, 1);
+        var alpha = 0.2 + intensity * 0.5;
+        if (freqDiff >= 0) {
+            var r = Math.round(215 * intensity + 240 * (1 - intensity));
+            var g = Math.round(38 * intensity + 200 * (1 - intensity));
+            var b = Math.round(56 * intensity + 200 * (1 - intensity));
+            return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha.toFixed(2) + ')';
+        } else {
+            var r = Math.round(30 * intensity + 200 * (1 - intensity));
+            var g = Math.round(58 * intensity + 200 * (1 - intensity));
+            var b = Math.round(138 * intensity + 220 * (1 - intensity));
+            return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha.toFixed(2) + ')';
+        }
+    }
+
+    function drawZoneLabel(cx, cy, zoneKey) {
+        var pz = zones[zoneKey];
+        if (!pz || pz.fga === 0) return;
+        ctx.fillStyle = '#111';
+        ctx.font = 'bold 13px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(pz.fg_pct + '%', cx, cy - 8);
+        ctx.font = '10px system-ui, sans-serif';
+        ctx.fillStyle = '#555';
+        ctx.fillText(pz.fga + ' FGA', cx, cy + 8);
+        var lz = league[zoneKey];
+        if (lz) {
+            var diff = pz.freq - lz.freq;
+            ctx.font = 'bold 9px system-ui, sans-serif';
+            ctx.fillStyle = diff > 0.5 ? '#d72638' : (diff < -0.5 ? '#1e3a8a' : '#888');
+            ctx.fillText((diff > 0 ? '+' : '') + diff.toFixed(1) + '% freq', cx, cy + 22);
+        }
+    }
+
+    ctx.fillStyle = getZoneColor('Restricted Area');
+    ctx.beginPath();
+    ctx.arc(ox, oy, 40, Math.PI, 0, true);
+    ctx.lineTo(ox + 40, oy);
+    ctx.lineTo(ox - 40, oy);
+    ctx.fill();
+    ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = getZoneColor('Paint (Non-RA)');
+    ctx.beginPath();
+    ctx.rect(ox - 80, oy - 190, 160, 190);
+    ctx.fill();
+    ctx.fillStyle = getZoneColor('Restricted Area');
+    ctx.beginPath();
+    ctx.arc(ox, oy, 40, Math.PI, 0, true);
+    ctx.lineTo(ox + 40, oy);
+    ctx.lineTo(ox - 40, oy);
+    ctx.fill();
+
+    ctx.fillStyle = getZoneColor('Mid-Range');
+    ctx.beginPath();
+    ctx.moveTo(ox - 220, oy);
+    ctx.lineTo(ox - 220, oy - 100);
+    ctx.arc(ox, oy, 237.5, -Math.PI + 0.39, -0.39);
+    ctx.lineTo(ox + 220, oy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = getZoneColor('Paint (Non-RA)');
+    ctx.beginPath();
+    ctx.rect(ox - 80, oy - 190, 160, 190);
+    ctx.fill();
+    ctx.fillStyle = getZoneColor('Restricted Area');
+    ctx.beginPath();
+    ctx.arc(ox, oy, 40, Math.PI, 0, true);
+    ctx.lineTo(ox + 40, oy);
+    ctx.lineTo(ox - 40, oy);
+    ctx.fill();
+
+    ctx.fillStyle = getZoneColor('Corner 3');
+    ctx.beginPath();
+    ctx.rect(ox - 250, oy - 100, 30, 100);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.rect(ox + 220, oy - 100, 30, 100);
+    ctx.fill();
+
+    ctx.fillStyle = getZoneColor('Above Break 3');
+    ctx.beginPath();
+    ctx.moveTo(ox - 250, oy - 100);
+    ctx.lineTo(ox - 220, oy - 100);
+    ctx.arc(ox, oy, 237.5, -Math.PI + 0.39, -0.39, false);
+    ctx.lineTo(ox + 250, oy - 100);
+    ctx.lineTo(ox + 250, oy - 400);
+    ctx.lineTo(ox - 250, oy - 400);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1.5;
+
+    ctx.beginPath();
+    ctx.arc(ox, oy, 7.5, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(ox - 30, oy);
+    ctx.lineTo(ox + 30, oy);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.rect(ox - 80, oy - 190, 160, 190);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(ox, oy - 190, 60, 0, Math.PI, true);
+    ctx.stroke();
+
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.arc(ox, oy - 190, 60, Math.PI, 0, true);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.beginPath();
+    ctx.arc(ox, oy, 40, Math.PI, 0, true);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(ox - 220, oy);
+    ctx.lineTo(ox - 220, oy - 100);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(ox + 220, oy);
+    ctx.lineTo(ox + 220, oy - 100);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(ox, oy, 237.5, -Math.PI + 0.39, -0.39);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(ox - 250, oy);
+    ctx.lineTo(ox + 250, oy);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.rect(ox - 250, oy - 400, 500, 400);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(ox, oy - 400, 20, 0, Math.PI, true);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(ox, oy - 400, 60, 0, Math.PI, true);
+    ctx.stroke();
+
+    drawZoneLabel(ox, oy - 15, 'Restricted Area');
+    drawZoneLabel(ox, oy - 130, 'Paint (Non-RA)');
+    drawZoneLabel(ox - 155, oy - 160, 'Mid-Range');
+    drawZoneLabel(ox, oy - 290, 'Above Break 3');
+    drawZoneLabel(ox - 235, oy - 40, 'Corner 3');
+    drawZoneLabel(ox + 235, oy - 40, 'Corner 3');
+}
+
+function renderZoneStats(data) {
+    var container = document.getElementById('sc-zone-stats');
+    var zones = data.zones || {};
+    var league = data.league_avg || {};
+
+    var zoneOrder = ['Restricted Area', 'Paint (Non-RA)', 'Mid-Range', 'Above Break 3', 'Corner 3'];
+    var zoneLabels = {
+        'Restricted Area': 'Restricted Area',
+        'Paint (Non-RA)': 'Paint (Non-RA)',
+        'Mid-Range': 'Mid-Range',
+        'Above Break 3': 'Above Break 3',
+        'Corner 3': 'Corner 3'
+    };
+
+    var html = '<table><thead><tr><th>Zone</th><th>FGA</th><th>FGM</th><th>FG%</th><th>Freq%</th><th>vs Avg</th></tr></thead><tbody>';
+    for (var i = 0; i < zoneOrder.length; i++) {
+        var z = zoneOrder[i];
+        var pz = zones[z];
+        if (!pz) continue;
+        var lz = league[z] || {};
+        var leagueFreq = lz.freq || 0;
+        var diff = pz.freq - leagueFreq;
+        var diffClass = diff > 0.5 ? 'freq-diff-pos' : (diff < -0.5 ? 'freq-diff-neg' : '');
+        var diffStr = diff > 0 ? '+' + diff.toFixed(1) + '%' : diff.toFixed(1) + '%';
+        html += '<tr>';
+        html += '<td>' + (zoneLabels[z] || z) + '</td>';
+        html += '<td>' + pz.fga + '</td>';
+        html += '<td>' + pz.fgm + '</td>';
+        html += '<td>' + pz.fg_pct + '%</td>';
+        html += '<td>' + pz.freq + '%</td>';
+        html += '<td class="' + diffClass + '">' + diffStr + '</td>';
+        html += '</tr>';
+    }
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
 </script>
 {% endblock %}
