@@ -122,6 +122,28 @@ def build_dva():
     team_arch['recent_n'] = team_arch['sample_n_recent'].fillna(0).astype(int)
     team_arch = team_arch[['opp_team', 'archetype', 'fp_pm'] + [f'{s}_pm' for s in STAT_COLS] + ['sample_n', 'recent_n']]
 
+    all_teams = sorted(team_arch['opp_team'].unique())
+    all_archetypes = sorted(team_arch['archetype'].unique())
+    full_index = pd.MultiIndex.from_product([all_teams, all_archetypes], names=['opp_team', 'archetype'])
+    team_arch = team_arch.set_index(['opp_team', 'archetype']).reindex(full_index).reset_index()
+
+    fill_vals = {'sample_n': 0, 'recent_n': 0}
+    for col in ['fp_pm'] + [f'{s}_pm' for s in STAT_COLS]:
+        fill_vals[col] = 0
+    team_arch = team_arch.fillna(fill_vals)
+
+    lg_map = league_avg.set_index('archetype')
+    for _, row in lg_map.iterrows():
+        arch = row.name
+        mask = (team_arch['archetype'] == arch) & (team_arch['sample_n'] == 0)
+        team_arch.loc[mask, 'fp_pm'] = row['lg_fp_pm']
+        for s in STAT_COLS:
+            team_arch.loc[mask, f'{s}_pm'] = row[f'lg_{s}_pm']
+
+    missing_filled = int((team_arch['sample_n'] == 0).sum())
+    if missing_filled > 0:
+        print(f"   Filled {missing_filled} missing team-archetype combos with league averages (neutral)")
+
     dva = team_arch.merge(league_avg, on='archetype', suffixes=('', '_lg'))
 
     dva['fp_pm_diff'] = dva['fp_pm'] - dva['lg_fp_pm']
