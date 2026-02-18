@@ -28,21 +28,24 @@ Preferred communication style: Simple, everyday language.
 - Shop positioning = "Identity customization", NOT "Power boost store"
 
 ## Player Archetype System
-9 total archetypes: 5 specialist + 4 hybrid branch categories.
+10 total archetypes: 5 specialist + 5 hybrid branch categories.
 
 **Specialist Archetypes (5):** Playmaker, 3-and-D Wing, Scoring Wing, Versatile Big, Traditional Big
 
-**Hybrid Branch Archetypes (4):** Combo Guard, Stretch Big, Point Center, Point Forward
+**Hybrid Branch Archetypes (5):** Combo Guard, Stretch 4, Stretch 5, Point Center, Point Forward
 These are players who break traditional position boundaries by blending skills from multiple roles, informed by the evolution toward positionless basketball.
 
-- **Combo Guard:** Blends PG/SG roles — elite scorers who also facilitate. Transcendent guards (PTS/100 >= 30, AST >= 7, USG >= 26) route here. Examples: SGA, Luka, Curry, Harden, LaMelo, Brunson, Donovan Mitchell.
-- **Stretch Big:** Big who shoots like a guard — high 3PT% with catch-and-shoot emphasis. Examples: Wembanyama, KAT, Lauri, Myles Turner, Brook Lopez.
-- **Point Center:** Center who facilitates like a PG — requires AST/100 >= 5.0, PTS/100 >= 24.0, C% >= 50%. Examples: Jokic, Embiid, Sabonis, Sengun, Mobley.
+- **Combo Guard:** Blends PG/SG roles — elite scorers who also facilitate. Transcendent guards (PTS/100 >= 30, AST >= 7, USG >= 26) route here. Examples: SGA, Curry, Harden, Brunson, Donovan Mitchell.
+- **Stretch 4:** PF who shoots like a guard — high 3PT% with catch-and-shoot emphasis, C% < 50. Examples: Lauri Markkanen, Jabari Smith, Jaren Jackson Jr.
+- **Stretch 5:** Center who shoots like a guard — high 3PT% with catch-and-shoot emphasis, C% >= 50. Examples: Wembanyama, KAT, Myles Turner, Brook Lopez, Chet Holmgren.
+- **Point Center:** Center who facilitates like a PG — requires AST/100 >= 5.0, PTS/100 >= 24.0, C% >= 50%. Examples: Jokic, Embiid, Sabonis, Sengun.
 - **Point Forward:** Forward who runs the offense — requires AST/100 >= 5.0 (or 7.5 for transcendent forwards), C% < 50%. Examples: Giannis, LeBron, Randle, Banchero, Wagner.
+
+**Wing escape rule:** Players with C% < 10 + pull-up% >= 20 + REB < 8 stay in their wing/guard archetype even if PF% is high (prevents Tobias Harris, Dillon Brooks misclassification).
 
 **Height threshold for big classification:** 6'10" (82 inches) — players must be 6'10"+ with significant frontcourt minutes (C%+PF% >= 40%) to be reclassified as bigs.
 
-**Classification pipeline:** K-means clustering (k=6, 18 features) → shot-zone reclassification → facilitating big detection → height-based correction → hybrid branch routing → playmaker reclassification
+**Classification pipeline:** K-means clustering (k=6, 18+corner3 features) → shot-zone reclassification → wing escape → facilitating big detection → height-based correction → hybrid branch routing → playmaker reclassification → Stretch 4/5 split
 
 ## System Architecture
 The system employs an ETL pattern, primarily using SQLite for data staging and PostgreSQL for the web platform's operational data. Core projection models include minutes projection and usage-based FPPM adjustment, supported by advanced analytics such as Phillips Archetype Classification (K-means clustering with 18 features: per-100 stats, position %, shot zones, shot creation, and defensive hustle stats) and a Salary-Tier Volatility Model. A Ceiling/Floor Model converts point projections into full distributions, and Blended DVP (Defense vs. Position) and Defense vs. Archetype (DVA) systems provide dynamic matchup ratings. A Team Incentive Score adjusts volatility based on team standings, and a Prop Trend Analysis Modal offers OVER/UNDER calls.

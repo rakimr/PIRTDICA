@@ -59,7 +59,7 @@ FEATURES = [
     'fg3m_per100', 'usg_pct',
     'guard_pct', 'forward_pct', 'big_pct',
     'ast_to_reb_ratio', 'scoring_versatility',
-    'rim_paint_pct', 'three_pct',
+    'rim_paint_pct', 'three_pct', 'corner3_pct_of_3',
     'cs_pct', 'pu_pct',
     'deflections_per48', 'contested_per48',
 ]
@@ -123,7 +123,8 @@ def load_feature_data():
     """, conn)
 
     shot_zones = pd.read_sql_query("""
-        SELECT player_name, rim_paint_pct, three_pct, ra_pct, paint_pct, mid_pct
+        SELECT player_name, rim_paint_pct, three_pct, ra_pct, paint_pct, mid_pct,
+               corner3_fga, atb3_fga, three_fga
         FROM player_shot_zones
     """, conn)
 
@@ -162,6 +163,13 @@ def load_feature_data():
     df['pu_pct'] = df['pu_pct'].fillna(15.0)
     df['sc_paint_pct'] = df['sc_paint_pct'].fillna(40.0)
     df['cs_3_share'] = df['cs_3_share'].fillna(50.0)
+
+    df['corner3_pct_of_3'] = np.where(
+        df['three_fga'].fillna(0) > 0,
+        df['corner3_fga'].fillna(0) / df['three_fga'] * 100,
+        35.0
+    )
+    df['corner3_pct_of_3'] = df['corner3_pct_of_3'].fillna(35.0)
 
     df['deflections_per48'] = df['deflections_per48'].fillna(df['deflections_per48'].median() if df['deflections_per48'].notna().any() else 3.0)
     df['contested_per48'] = df['contested_per48'].fillna(df['contested_per48'].median() if df['contested_per48'].notna().any() else 8.0)
@@ -438,12 +446,22 @@ def run_clustering(df, k=TARGET_K):
             return 'Versatile Big'
 
     reclass_counts = {}
+    wing_escape_count = 0
     for idx in df[combined_mask].index:
         player = df.loc[idx]
         old_arch = player['archetype']
-        new_arch = _route_to_big(player)
         c_pct = player.get('c_pct', 0)
         pf_pct = player.get('pf_pct', 0)
+        pu = player.get('pu_pct', 0)
+        reb = player.get('reb_per100', 0)
+
+        if c_pct < 10 and pu >= 20 and reb < 8:
+            wing_escape_count += 1
+            print(f"    {player['player_name']} (C%={c_pct:.0f} PF%={pf_pct:.0f}): "
+                  f"WING ESCAPE - stays {old_arch} (PU={pu:.0f}% REB={reb:.1f})")
+            continue
+
+        new_arch = _route_to_big(player)
         df.at[idx, 'archetype'] = new_arch
         reclass_counts[new_arch] = reclass_counts.get(new_arch, 0) + 1
         rp = player.get('rim_paint_pct', 50)
@@ -454,7 +472,7 @@ def run_clustering(df, k=TARGET_K):
 
     total = sum(reclass_counts.values())
     parts = ', '.join(f"{v} {k}" for k, v in sorted(reclass_counts.items()))
-    print(f"  Position reclass: {total} players ({parts})")
+    print(f"  Position reclass: {total} players ({parts}), {wing_escape_count} wing escapes")
 
     print("\n  Final Versatile Big shot-zone refinement...")
     vb_mask = df['archetype'] == 'Versatile Big'
@@ -560,6 +578,21 @@ def run_clustering(df, k=TARGET_K):
                   f"(AST/100={ast:.1f}, PG%={pg_pct:.0f}, G%={guard_pct:.0f})")
     print(f"  Playmaker reclassification: {playmaker_reclass} guards reclassified")
 
+    print("\n  Splitting Stretch Big into Stretch 4 / Stretch 5...")
+    stretch_mask = df['archetype'] == 'Stretch Big'
+    s4_count = 0
+    s5_count = 0
+    for idx in df[stretch_mask].index:
+        player = df.loc[idx]
+        c_pct = player.get('c_pct', 0)
+        if c_pct >= 50:
+            df.at[idx, 'archetype'] = 'Stretch 5'
+            s5_count += 1
+        else:
+            df.at[idx, 'archetype'] = 'Stretch 4'
+            s4_count += 1
+    print(f"  Stretch split: {s4_count} Stretch 4, {s5_count} Stretch 5")
+
     df['base_archetype'] = df['archetype'].copy()
 
     return df, km, scaler, cluster_labels
@@ -567,29 +600,29 @@ def run_clustering(df, k=TARGET_K):
 
 def validate_archetypes(df):
     known_players = {
-        'Karl-Anthony Towns': 'Stretch Big',
+        'Karl-Anthony Towns': 'Stretch 5',
         'Rudy Gobert': 'Traditional Big',
         'Anthony Davis': 'Traditional Big',
         'James Harden': 'Combo Guard',
         'Kevin Durant': 'Scoring Wing',
         'Kawhi Leonard': 'Scoring Wing',
-        'Victor Wembanyama': 'Stretch Big',
+        'Victor Wembanyama': 'Stretch 5',
         'Draymond Green': 'Versatile Big',
         'Trae Young': 'Playmaker',
         'Jalen Brunson': 'Combo Guard',
         'Jaylen Brown': 'Combo Guard',
         'Donovan Mitchell': 'Combo Guard',
         'Norman Powell': 'Combo Guard',
-        'Myles Turner': 'Stretch Big',
-        'Brook Lopez': 'Stretch Big',
-        'Domantas Sabonis': 'Versatile Big',
+        'Myles Turner': 'Stretch 5',
+        'Brook Lopez': 'Stretch 5',
+        'Domantas Sabonis': 'Point Center',
         'Mikal Bridges': '3-and-D Wing',
         'Klay Thompson': 'Combo Guard',
         'Julius Randle': 'Point Forward',
         'Paolo Banchero': 'Point Forward',
         'Franz Wagner': 'Point Forward',
-        'Jabari Smith': 'Stretch Big',
-        'Lauri Markka': 'Scoring Wing',
+        'Jabari Smith': 'Stretch 4',
+        'Lauri Markka': 'Stretch 4',
         'Alperen': 'Point Center',
         'Stephen Curry': 'Combo Guard',
         'Luka Don': 'Playmaker',
@@ -725,7 +758,7 @@ def main():
         print(f"  {arch}: {', '.join(players)}")
 
     print("\n7. Big Man Shot Profile Summary:")
-    big_archetypes = ['Traditional Big', 'Stretch Big', 'Versatile Big', 'Point Center', 'Point Forward']
+    big_archetypes = ['Traditional Big', 'Stretch 4', 'Stretch 5', 'Versatile Big', 'Point Center', 'Point Forward']
     for arch in big_archetypes:
         subset = df[df['archetype'] == arch]
         if subset.empty:
@@ -738,11 +771,10 @@ def main():
         print(f"  {arch} (n={n}): RimPaint={avg_rp:.1f}% 3PT={avg_tp:.1f}% C&S={avg_cs:.1f}% PullUp={avg_pu:.1f}%")
 
     print("\n8. Defensive Hustle Profile Summary (per 48 min):")
-    all_archetypes = ['3-and-D Wing', '3-and-D Guard', 'Combo Guard', 'Scoring Guard',
+    all_archetypes = ['3-and-D Wing', 'Combo Guard',
                       'Playmaker', 'Scoring Wing',
-                      'Traditional Big', 'Stretch Big', 'Versatile Big',
-                      'Point Center', 'Point Forward',
-                      'Hybrid Guard', 'Hybrid Forward', 'Hybrid Big']
+                      'Traditional Big', 'Stretch 4', 'Stretch 5', 'Versatile Big',
+                      'Point Center', 'Point Forward']
     print(f"  {'Archetype':<20} {'N':>3} {'STL/100':>8} {'BLK/100':>8} {'DEFL/48':>8} {'CONTEST/48':>11}")
     print(f"  {'-'*62}")
     for arch in all_archetypes:

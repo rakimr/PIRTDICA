@@ -300,7 +300,7 @@ def show_big_man_audit(zones_df, creation_df):
     conn = sqlite3.connect(DB_PATH)
     archetypes = pd.read_sql_query(
         "SELECT player_name, archetype FROM player_archetypes WHERE archetype IN "
-        "('Traditional Big', 'Versatile Big', 'Stretch Big', 'Point Center', 'Point Forward')",
+        "('Traditional Big', 'Versatile Big', 'Stretch 4', 'Stretch 5', 'Point Center', 'Point Forward')",
         conn
     )
     conn.close()
@@ -320,7 +320,7 @@ def show_big_man_audit(zones_df, creation_df):
     print(f"{'Player':<25} {'Archetype':<18} {'RimPaint%':>9} {'3PT%':>5} {'C&S%':>5} {'PU%':>5} {'Paint%':>6} {'CS3Shr':>7} {'FGA':>5}")
     print('-'*100)
 
-    for arch in ['Traditional Big', 'Stretch Big', 'Versatile Big', 'Point Center', 'Point Forward']:
+    for arch in ['Traditional Big', 'Stretch 4', 'Stretch 5', 'Versatile Big', 'Point Center', 'Point Forward']:
         subset = merged[merged['archetype'] == arch].sort_values('three_pct', ascending=False)
         if subset.empty:
             continue
