@@ -53,6 +53,7 @@ DB_PATH = 'dfs_nba.db'
 HEIGHT_THRESHOLD_INCHES = 82
 POINT_CENTER_AST_THRESHOLD = 5.0
 POINT_CENTER_PTS_THRESHOLD = 24.0
+BALL_INITIATION_TOUCHES_PER_MIN = 2.0
 
 FEATURES = [
     'pts_per100', 'reb_per100', 'ast_per100', 'stl_per100', 'blk_per100',
@@ -139,9 +140,15 @@ def load_feature_data():
         FROM player_hustle_stats
     """, conn)
 
+    tracking = pd.read_sql_query("""
+        SELECT player_name, touches_pg, front_ct_touches_pg, time_of_poss_pg,
+               avg_sec_per_touch, avg_drib_per_touch, touches_per_min, front_ct_per_min
+        FROM player_tracking_stats
+    """, conn)
+
     conn.close()
 
-    for tbl in [per100, positions, game_logs, usage, shot_zones, shot_creation, hustle]:
+    for tbl in [per100, positions, game_logs, usage, shot_zones, shot_creation, hustle, tracking]:
         tbl['_merge_key'] = tbl['player_name'].apply(_ascii_key)
 
     df = per100.merge(positions.drop(columns=['player_name']), on='_merge_key', how='inner')
@@ -150,6 +157,7 @@ def load_feature_data():
     df = df.merge(shot_zones.drop(columns=['player_name']), on='_merge_key', how='left')
     df = df.merge(shot_creation.drop(columns=['player_name']), on='_merge_key', how='left')
     df = df.merge(hustle.drop(columns=['player_name']), on='_merge_key', how='left')
+    df = df.merge(tracking.drop(columns=['player_name']), on='_merge_key', how='left')
     df = df.drop(columns=['_merge_key'])
 
     df['usg_pct'] = df['usg_pct'].fillna(df['usg_pct'].median())
@@ -178,10 +186,20 @@ def load_feature_data():
     df['screen_ast_per48'] = df['screen_ast_per48'].fillna(1.0)
     df['box_outs_per48'] = df['box_outs_per48'].fillna(2.0)
 
+    df['touches_per_min'] = df['touches_per_min'].fillna(1.5)
+    df['front_ct_per_min'] = df['front_ct_per_min'].fillna(0.8)
+    df['avg_sec_per_touch'] = df['avg_sec_per_touch'].fillna(2.5)
+    df['avg_drib_per_touch'] = df['avg_drib_per_touch'].fillna(1.5)
+    df['touches_pg'] = df['touches_pg'].fillna(40.0)
+    df['front_ct_touches_pg'] = df['front_ct_touches_pg'].fillna(20.0)
+    df['time_of_poss_pg'] = df['time_of_poss_pg'].fillna(2.0)
+
     shot_merged = df['rim_paint_pct'].notna().sum()
     hustle_merged = df['deflections_per48'].notna().sum()
+    tracking_merged = df['touches_pg'].notna().sum()
     print(f"  Shot zone data merged for {shot_merged}/{len(df)} players")
     print(f"  Hustle stats merged for {hustle_merged}/{len(df)} players")
+    print(f"  Tracking stats merged for {tracking_merged}/{len(df)} players")
 
     return df
 
@@ -359,29 +377,37 @@ def run_clustering(df, k=TARGET_K):
         print(f"    Shot zones: {stretch_from_trad} Traditional -> Stretch, {trad_from_stretch} Stretch -> Traditional")
 
     print("\n  Reclassifying facilitating bigs (Point Center / Point Forward)...")
+    print(f"    Ball initiation gate: touches/min >= {BALL_INITIATION_TOUCHES_PER_MIN}")
     all_big_labels = ['Traditional Big', 'Stretch Big', 'Versatile Big']
     reclass_mask = df['archetype'].isin(all_big_labels)
     pc_count = 0
     pf_count = 0
     vb_count = 0
+    initiation_blocked = 0
     for idx in df[reclass_mask].index:
         player = df.loc[idx]
         ast = player.get('ast_per100', 0)
         pts = player.get('pts_per100', 0)
         c_pct = player.get('c_pct', 0)
         fg3m = player.get('fg3m_per100', 0)
+        tpm = player.get('touches_per_min', 1.5)
 
         if ast >= POINT_CENTER_AST_THRESHOLD and pts >= POINT_CENTER_PTS_THRESHOLD:
+            if tpm < BALL_INITIATION_TOUCHES_PER_MIN:
+                initiation_blocked += 1
+                print(f"    {player['player_name']}: INITIATION GATE BLOCKED - stays {player['archetype']} "
+                      f"(AST/100={ast:.1f}, PTS/100={pts:.1f}, T/Min={tpm:.3f} < {BALL_INITIATION_TOUCHES_PER_MIN})")
+                continue
             if c_pct >= 50:
                 df.at[idx, 'archetype'] = 'Point Center'
                 pc_count += 1
                 print(f"    {player['player_name']}: {player['archetype']} -> Point Center "
-                      f"(AST/100={ast:.1f}, PTS/100={pts:.1f}, C%={c_pct:.0f})")
+                      f"(AST/100={ast:.1f}, PTS/100={pts:.1f}, C%={c_pct:.0f}, T/Min={tpm:.3f})")
             else:
                 df.at[idx, 'archetype'] = 'Point Forward'
                 pf_count += 1
                 print(f"    {player['player_name']}: {player['archetype']} -> Point Forward "
-                      f"(AST/100={ast:.1f}, PTS/100={pts:.1f}, C%={c_pct:.0f})")
+                      f"(AST/100={ast:.1f}, PTS/100={pts:.1f}, C%={c_pct:.0f}, T/Min={tpm:.3f})")
         elif ast >= POINT_CENTER_AST_THRESHOLD and pts >= 18.0:
             if player['archetype'] == 'Traditional Big':
                 df.at[idx, 'archetype'] = 'Versatile Big'
@@ -389,7 +415,7 @@ def run_clustering(df, k=TARGET_K):
                 print(f"    {player['player_name']}: Traditional Big -> Versatile Big "
                       f"(AST/100={ast:.1f}, PTS/100={pts:.1f})")
 
-    print(f"  Facilitators: {pc_count} Point Center, {pf_count} Point Forward, {vb_count} -> Versatile Big")
+    print(f"  Facilitators: {pc_count} Point Center, {pf_count} Point Forward, {vb_count} -> Versatile Big, {initiation_blocked} blocked by initiation gate")
 
     print("\n  Position-based reclassification for frontcourt players in guard/wing archetypes...")
     non_big_archetypes = ['Scoring Wing', 'Scoring Guard', '3-and-D Wing', '3-and-D Guard',
@@ -431,7 +457,8 @@ def run_clustering(df, k=TARGET_K):
         tp = player.get('three_pct', 25)
         csp = player.get('cs_pct', 30)
 
-        if ast >= POINT_CENTER_AST_THRESHOLD and pts >= POINT_CENTER_PTS_THRESHOLD:
+        tpm = player.get('touches_per_min', 1.5)
+        if ast >= POINT_CENTER_AST_THRESHOLD and pts >= POINT_CENTER_PTS_THRESHOLD and tpm >= BALL_INITIATION_TOUCHES_PER_MIN:
             if c_pct >= 50:
                 return 'Point Center'
             else:
@@ -528,16 +555,17 @@ def run_clustering(df, k=TARGET_K):
         tp = player.get('three_pct', 25)
         csp = player.get('cs_pct', 30)
 
+        tpm = player.get('touches_per_min', 1.5)
         if (c_pct + pf_pct) >= 50:
-            if ast >= POINT_CENTER_AST_THRESHOLD and c_pct >= 50:
+            if ast >= POINT_CENTER_AST_THRESHOLD and c_pct >= 50 and tpm >= BALL_INITIATION_TOUCHES_PER_MIN:
                 new_arch = 'Point Center'
-            elif ast >= POINT_CENTER_AST_THRESHOLD:
+            elif ast >= POINT_CENTER_AST_THRESHOLD and tpm >= BALL_INITIATION_TOUCHES_PER_MIN:
                 new_arch = 'Point Forward'
             elif tp >= 30 and csp >= 30:
                 new_arch = 'Stretch Big'
             else:
                 new_arch = 'Versatile Big'
-        elif (sf_pct + pf_pct) > guard_pct and ast >= 7.5:
+        elif (sf_pct + pf_pct) > guard_pct and ast >= 7.5 and tpm >= BALL_INITIATION_TOUCHES_PER_MIN:
             new_arch = 'Point Forward'
         elif player.get('pg_pct', 0) >= 70 and ast >= 10.0:
             new_arch = 'Playmaker'
@@ -618,7 +646,7 @@ def validate_archetypes(df):
         'Domantas Sabonis': 'Point Center',
         'Mikal Bridges': '3-and-D Wing',
         'Klay Thompson': 'Combo Guard',
-        'Julius Randle': 'Point Forward',
+        'Julius Randle': 'Versatile Big',
         'Paolo Banchero': 'Point Forward',
         'Franz Wagner': 'Point Forward',
         'Jabari Smith': 'Stretch 4',
@@ -631,6 +659,7 @@ def validate_archetypes(df):
         'LeBron James': 'Point Forward',
         'Nikola Jok': 'Point Center',
         'Giannis Ante': 'Point Forward',
+        'Miles Bridges': 'Versatile Big',
     }
 
     print("\nValidation against known archetypes:")

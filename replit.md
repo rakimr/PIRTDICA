@@ -45,7 +45,9 @@ These are players who break traditional position boundaries by blending skills f
 
 **Height threshold for big classification:** 6'10" (82 inches) — players must be 6'10"+ with significant frontcourt minutes (C%+PF% >= 40%) to be reclassified as bigs.
 
-**Classification pipeline:** K-means clustering (k=6, 18+corner3 features) → shot-zone reclassification → wing escape → facilitating big detection → height-based correction → hybrid branch routing → playmaker reclassification → Stretch 4/5 split
+**Ball initiation gate:** Point Forward and Point Center require touches_per_min >= 2.0 (NBA tracking data). This prevents non-initiators like Miles Bridges from being misclassified as playmakers. Data sourced from NBA.com leaguedashptstats (Possessions) endpoint.
+
+**Classification pipeline:** K-means clustering (k=6, 18+corner3 features) → shot-zone reclassification → wing escape → facilitating big detection (with ball initiation gate) → height-based correction → hybrid branch routing → playmaker reclassification → Stretch 4/5 split
 
 ## System Architecture
 The system employs an ETL pattern, primarily using SQLite for data staging and PostgreSQL for the web platform's operational data. Core projection models include minutes projection and usage-based FPPM adjustment, supported by advanced analytics such as Phillips Archetype Classification (K-means clustering with 18 features: per-100 stats, position %, shot zones, shot creation, and defensive hustle stats) and a Salary-Tier Volatility Model. A Ceiling/Floor Model converts point projections into full distributions, and Blended DVP (Defense vs. Position) and Defense vs. Archetype (DVA) systems provide dynamic matchup ratings. A Team Incentive Score adjusts volatility based on team standings, and a Prop Trend Analysis Modal offers OVER/UNDER calls.

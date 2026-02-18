@@ -276,7 +276,72 @@ def scrape_hustle_stats():
     return df
 
 
-def save_to_db(zones_df, creation_df, hustle_df=None):
+def scrape_tracking_stats():
+    from nba_api.stats.endpoints import leaguedashptstats
+
+    print("\nFetching player tracking stats from NBA.com (leaguedashptstats - Possessions)...")
+    time.sleep(1)
+
+    tracking = leaguedashptstats.LeagueDashPtStats(
+        season=SEASON,
+        season_type_all_star='Regular Season',
+        per_mode_simple='PerGame',
+        player_or_team='Player',
+        pt_measure_type='Possessions'
+    )
+
+    raw = tracking.get_data_frames()[0]
+    print(f"  Got data for {len(raw)} players")
+
+    rows = []
+    for _, r in raw.iterrows():
+        player_name = r.get('PLAYER_NAME', '')
+        player_id = r.get('PLAYER_ID', '')
+        team = r.get('TEAM_ABBREVIATION', '')
+        gp = int(r.get('GP', 0) or 0)
+        minutes = float(r.get('MIN', 0) or 0)
+
+        if gp < 5 or minutes < 5.0:
+            continue
+
+        touches = float(r.get('TOUCHES', 0) or 0)
+        front_ct_touches = float(r.get('FRONT_CT_TOUCHES', 0) or 0)
+        time_of_poss = float(r.get('TIME_OF_POSS', 0) or 0)
+        avg_sec_per_touch = float(r.get('AVG_SEC_PER_TOUCH', 0) or 0)
+        avg_drib_per_touch = float(r.get('AVG_DRIB_PER_TOUCH', 0) or 0)
+        elbow_touches = float(r.get('ELBOW_TOUCHES', 0) or 0)
+        post_touches = float(r.get('POST_TOUCHES', 0) or 0)
+        paint_touches = float(r.get('PAINT_TOUCHES', 0) or 0)
+
+        touches_per_min = touches / minutes if minutes > 0 else 0
+        front_ct_per_min = front_ct_touches / minutes if minutes > 0 else 0
+        time_of_poss_per_min = time_of_poss / minutes if minutes > 0 else 0
+
+        rows.append({
+            'player_name': player_name,
+            'player_id': int(player_id),
+            'team': team,
+            'gp': gp,
+            'minutes_pg': round(minutes, 1),
+            'touches_pg': round(touches, 1),
+            'front_ct_touches_pg': round(front_ct_touches, 1),
+            'time_of_poss_pg': round(time_of_poss, 2),
+            'avg_sec_per_touch': round(avg_sec_per_touch, 2),
+            'avg_drib_per_touch': round(avg_drib_per_touch, 2),
+            'elbow_touches_pg': round(elbow_touches, 1),
+            'post_touches_pg': round(post_touches, 1),
+            'paint_touches_pg': round(paint_touches, 1),
+            'touches_per_min': round(touches_per_min, 3),
+            'front_ct_per_min': round(front_ct_per_min, 3),
+            'time_of_poss_pct': round(time_of_poss_per_min, 4),
+        })
+
+    df = pd.DataFrame(rows)
+    print(f"  Processed {len(df)} players with 5+ GP and 5+ MIN/g")
+    return df
+
+
+def save_to_db(zones_df, creation_df, hustle_df=None, tracking_df=None):
     conn = sqlite3.connect(DB_PATH)
     now = datetime.now().isoformat()
 
@@ -292,6 +357,11 @@ def save_to_db(zones_df, creation_df, hustle_df=None):
         hustle_df['scraped_at'] = now
         hustle_df.to_sql('player_hustle_stats', conn, if_exists='replace', index=False)
         print(f"Saved {len(hustle_df)} players to player_hustle_stats table")
+
+    if tracking_df is not None:
+        tracking_df['scraped_at'] = now
+        tracking_df.to_sql('player_tracking_stats', conn, if_exists='replace', index=False)
+        print(f"Saved {len(tracking_df)} players to player_tracking_stats table")
 
     conn.close()
 
@@ -331,14 +401,15 @@ def show_big_man_audit(zones_df, creation_df):
 
 def main():
     print("=" * 60)
-    print("NBA.COM SHOT ZONE, CREATION & HUSTLE STATS SCRAPER")
+    print("NBA.COM SHOT ZONE, CREATION, HUSTLE & TRACKING STATS SCRAPER")
     print(f"Season: {SEASON}")
     print("=" * 60)
 
     zones_df = scrape_shot_locations()
     creation_df = scrape_shot_creation()
     hustle_df = scrape_hustle_stats()
-    save_to_db(zones_df, creation_df, hustle_df)
+    tracking_df = scrape_tracking_stats()
+    save_to_db(zones_df, creation_df, hustle_df, tracking_df)
     show_big_man_audit(zones_df, creation_df)
 
     print("\n" + "=" * 80)
@@ -350,6 +421,16 @@ def main():
     for _, r in top.iterrows():
         print(f"{r['player_name']:<25} {r['deflections_per48']:>8.2f} {r['contested_per48']:>11.2f} "
               f"{r['loose_per48']:>9.2f} {r['charges_per48']:>11.2f}")
+
+    print("\n" + "=" * 80)
+    print("BALL INITIATION LEADERS (per game)")
+    print("=" * 80)
+    top_t = tracking_df.nlargest(20, 'touches_pg')
+    print(f"{'Player':<25} {'Touch/G':>8} {'FrCt/G':>8} {'ToP/G':>7} {'Sec/Tch':>8} {'Drib/Tch':>9}")
+    print('-' * 75)
+    for _, r in top_t.iterrows():
+        print(f"{r['player_name']:<25} {r['touches_pg']:>8.1f} {r['front_ct_touches_pg']:>8.1f} "
+              f"{r['time_of_poss_pg']:>7.2f} {r['avg_sec_per_touch']:>8.2f} {r['avg_drib_per_touch']:>9.2f}")
 
     print("\nDone!")
 
