@@ -383,68 +383,78 @@ def run_clustering(df, k=TARGET_K):
 
     print(f"  Facilitators: {pc_count} Point Center, {pf_count} Point Forward, {vb_count} -> Versatile Big")
 
-    print("\n  Height-based reclassification for bigs misclassified as wings...")
+    print("\n  Position-based reclassification for frontcourt players in guard/wing archetypes...")
+    non_big_archetypes = ['Scoring Wing', 'Scoring Guard', '3-and-D Wing', '3-and-D Guard',
+                          'Scoring Wing (Elite)', 'Scoring Wing (Role)', 'Combo Guard', 'Playmaker']
+
+    clear_big_mask = (
+        df['archetype'].isin(non_big_archetypes) &
+        ((df['c_pct'] + df['pf_pct']) >= 70)
+    )
+
+    tweener_big_mask = (
+        df['archetype'].isin(non_big_archetypes) &
+        ((df['c_pct'] + df['pf_pct']) >= 50) &
+        ((df['c_pct'] + df['pf_pct']) < 70) &
+        ((df['c_pct'] >= 15) | (df['reb_per100'] >= 9.0))
+    )
+
     height_map = fetch_player_heights()
     if height_map:
         df['_mk'] = df['player_name'].apply(_ascii_key)
         df['height_inches'] = df['_mk'].map(height_map)
-
-        wing_archetypes = ['Scoring Wing', 'Scoring Guard', '3-and-D Wing', '3-and-D Guard',
-                           'Scoring Wing (Elite)', 'Scoring Wing (Role)', 'Combo Guard']
-
-        big_position_threshold = 40
-        tall_big_mask = (
+        tall_borderline_mask = (
+            df['archetype'].isin(non_big_archetypes) &
             df['height_inches'].notna() &
             (df['height_inches'] >= HEIGHT_THRESHOLD_INCHES) &
-            df['archetype'].isin(wing_archetypes) &
-            ((df['c_pct'] + df['pf_pct']) >= big_position_threshold)
+            ((df['c_pct'] + df['pf_pct']) >= 40) &
+            ((df['c_pct'] + df['pf_pct']) < 50)
         )
-
-        point_center_count = 0
-        point_forward_count = 0
-        versatile_big_count = 0
-        stretch_big_count = 0
-        trad_big_count = 0
-        for idx in df[tall_big_mask].index:
-            player = df.loc[idx]
-            ast = player.get('ast_per100', 0)
-            pts = player.get('pts_per100', 0)
-            fg3m = player.get('fg3m_per100', 0)
-            c_pct = player.get('c_pct', 0)
-            pf_pct = player.get('pf_pct', 0)
-            rp = player.get('rim_paint_pct', 50)
-            tp = player.get('three_pct', 25)
-            csp = player.get('cs_pct', 30)
-            height = int(player['height_inches'])
-            ft_in = f"{height // 12}'{height % 12}\""
-
-            if ast >= POINT_CENTER_AST_THRESHOLD and pts >= POINT_CENTER_PTS_THRESHOLD:
-                if c_pct >= 50:
-                    new_arch = 'Point Center'
-                    point_center_count += 1
-                else:
-                    new_arch = 'Point Forward'
-                    point_forward_count += 1
-            elif ast >= POINT_CENTER_AST_THRESHOLD and pts >= 18.0:
-                new_arch = 'Versatile Big'
-                versatile_big_count += 1
-            elif rp >= 75 and tp < 15:
-                new_arch = 'Traditional Big'
-                trad_big_count += 1
-            elif tp >= 30 and csp >= 30:
-                new_arch = 'Stretch Big'
-                stretch_big_count += 1
-            else:
-                new_arch = 'Versatile Big'
-                versatile_big_count += 1
-
-            df.at[idx, 'archetype'] = new_arch
-            print(f"    {player['player_name']} ({ft_in}, C%={c_pct:.0f} PF%={pf_pct:.0f}): "
-                  f"{player['archetype']} -> {new_arch} (RimPaint={rp:.0f}% 3PT={tp:.0f}% C&S={csp:.0f}%)")
-
-        print(f"  Height reclass: {point_center_count} PC, {point_forward_count} PF, "
-              f"{stretch_big_count} Stretch, {trad_big_count} Trad, {versatile_big_count} Versatile")
+        combined_mask = clear_big_mask | tweener_big_mask | tall_borderline_mask
         df = df.drop(columns=['_mk', 'height_inches'])
+    else:
+        combined_mask = clear_big_mask | tweener_big_mask
+
+    def _route_to_big(player):
+        ast = player.get('ast_per100', 0)
+        pts = player.get('pts_per100', 0)
+        c_pct = player.get('c_pct', 0)
+        rp = player.get('rim_paint_pct', 50)
+        tp = player.get('three_pct', 25)
+        csp = player.get('cs_pct', 30)
+
+        if ast >= POINT_CENTER_AST_THRESHOLD and pts >= POINT_CENTER_PTS_THRESHOLD:
+            if c_pct >= 50:
+                return 'Point Center'
+            else:
+                return 'Point Forward'
+        elif ast >= POINT_CENTER_AST_THRESHOLD:
+            return 'Versatile Big'
+        elif rp >= 75 and tp < 15:
+            return 'Traditional Big'
+        elif tp >= 30 and csp >= 30:
+            return 'Stretch Big'
+        else:
+            return 'Versatile Big'
+
+    reclass_counts = {}
+    for idx in df[combined_mask].index:
+        player = df.loc[idx]
+        old_arch = player['archetype']
+        new_arch = _route_to_big(player)
+        c_pct = player.get('c_pct', 0)
+        pf_pct = player.get('pf_pct', 0)
+        df.at[idx, 'archetype'] = new_arch
+        reclass_counts[new_arch] = reclass_counts.get(new_arch, 0) + 1
+        rp = player.get('rim_paint_pct', 50)
+        tp = player.get('three_pct', 25)
+        csp = player.get('cs_pct', 30)
+        print(f"    {player['player_name']} (C%={c_pct:.0f} PF%={pf_pct:.0f}): "
+              f"{old_arch} -> {new_arch} (RimPaint={rp:.0f}% 3PT={tp:.0f}% C&S={csp:.0f}%)")
+
+    total = sum(reclass_counts.values())
+    parts = ', '.join(f"{v} {k}" for k, v in sorted(reclass_counts.items()))
+    print(f"  Position reclass: {total} players ({parts})")
 
     print("\n  Final Versatile Big shot-zone refinement...")
     vb_mask = df['archetype'] == 'Versatile Big'
@@ -511,6 +521,8 @@ def run_clustering(df, k=TARGET_K):
                 new_arch = 'Versatile Big'
         elif (sf_pct + pf_pct) > guard_pct and ast >= 7.5:
             new_arch = 'Point Forward'
+        elif player.get('pg_pct', 0) >= 70 and ast >= 10.0:
+            new_arch = 'Playmaker'
         else:
             new_arch = 'Combo Guard'
 
@@ -525,7 +537,7 @@ def run_clustering(df, k=TARGET_K):
 
     print(f"  Hybrid branch routing: {hybrid_routed} players rerouted")
 
-    print("\n  Guard playmaker reclassification (high-AST guards misclassified as Combo Guard)...")
+    print("\n  Guard playmaker reclassification (facilitator-first guards in Combo Guard)...")
     playmaker_reclass = 0
     combo_guard_mask = df['archetype'] == 'Combo Guard'
     for idx in df[combo_guard_mask].index:
@@ -533,13 +545,19 @@ def run_clustering(df, k=TARGET_K):
             continue
         player = df.loc[idx]
         ast = player.get('ast_per100', 0)
+        pg_pct = player.get('pg_pct', 0)
         guard_pct = player['guard_pct']
         usg = player.get('usg_pct', 0)
-        if guard_pct > 50 and ast >= 8.0 and usg >= 22.0:
+        is_playmaker = False
+        if pg_pct >= 70 and ast >= 6.0:
+            is_playmaker = True
+        elif guard_pct > 50 and ast >= 8.0:
+            is_playmaker = True
+        if is_playmaker:
             df.at[idx, 'archetype'] = 'Playmaker'
             playmaker_reclass += 1
             print(f"    {player['player_name']}: Combo Guard -> Playmaker "
-                  f"(AST/100={ast:.1f}, G%={guard_pct:.0f}, USG={usg:.1f})")
+                  f"(AST/100={ast:.1f}, PG%={pg_pct:.0f}, G%={guard_pct:.0f})")
     print(f"  Playmaker reclassification: {playmaker_reclass} guards reclassified")
 
     df['base_archetype'] = df['archetype'].copy()
@@ -556,8 +574,8 @@ def validate_archetypes(df):
         'Kevin Durant': 'Scoring Wing',
         'Kawhi Leonard': 'Scoring Wing',
         'Victor Wembanyama': 'Stretch Big',
-        'Draymond Green': '3-and-D Wing',
-        'Trae Young': 'Combo Guard',
+        'Draymond Green': 'Versatile Big',
+        'Trae Young': 'Playmaker',
         'Jalen Brunson': 'Combo Guard',
         'Jaylen Brown': 'Combo Guard',
         'Donovan Mitchell': 'Combo Guard',
@@ -574,9 +592,9 @@ def validate_archetypes(df):
         'Lauri Markka': 'Scoring Wing',
         'Alperen': 'Point Center',
         'Stephen Curry': 'Combo Guard',
-        'Luka Don': 'Combo Guard',
+        'Luka Don': 'Playmaker',
         'Shai Gilgeous': 'Combo Guard',
-        'LaMelo Ball': 'Combo Guard',
+        'LaMelo Ball': 'Playmaker',
         'LeBron James': 'Point Forward',
         'Nikola Jok': 'Point Center',
         'Giannis Ante': 'Point Forward',
