@@ -333,28 +333,10 @@ for fp_row in fp_rows:
 print(f"\nSalary patches applied: {salary_patches}")
 print(f"Players added from FantasyPros: {players_added}")
 
-MAIN_SLATE_TIMES = {"7:00PM", "7:30PM", "8:00PM"}
-
 df = pd.DataFrame(rg_rows)
 
 if not df.empty:
     df = df.drop_duplicates(subset=["player_name", "team"], keep="first")
-
-    before_filter = len(df)
-
-    def extract_time(gt):
-        if not gt or not isinstance(gt, str):
-            return ""
-        gt = gt.upper().replace(" ", "")
-        m = re.search(r'(\d{1,2}:\d{2}(?:AM|PM))', gt)
-        return m.group(1) if m else ""
-
-    df["game_time_clean"] = df["game_time"].apply(extract_time)
-    df = df[df["game_time_clean"].isin(MAIN_SLATE_TIMES)]
-    df = df.drop(columns=["game_time_clean"])
-    removed = before_filter - len(df)
-    if removed > 0:
-        print(f"\nMain Slate filter: removed {removed} players from non-slate games (kept 7:00PM/7:30PM/8:00PM only)")
 
     df.to_sql("player_salaries", conn, if_exists="replace", index=False)
     print(f"\nFinal player_salaries table: {len(df)} players saved.")
