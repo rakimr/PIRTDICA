@@ -78,6 +78,13 @@ The web platform is built with FastAPI (Python) for the backend, SQLAlchemy for 
 -   **SQLite:** Staging database (`dfs_nba.db`)
 -   **PostgreSQL:** Production database for web platform data
 
+### Username Moderation
+-   `backend/profanity_filter.py`: Profanity/slur filter with leet-speak detection (0→o, 1→i, 3→e, @→a, etc.)
+-   Registration blocks offensive usernames with clear error messages
+-   Login blocks banned accounts (`is_banned` column on users table)
+-   Admin panel has "Username Moderation" section: scans all usernames + display names, offers force-rename and ban actions
+-   No display name update endpoint exists yet — when added, must integrate `check_username()` from profanity_filter
+
 ### Python Libraries
 -   `requests`, `BeautifulSoup`: Web scraping
 -   `pandas`: Data manipulation

@@ -29,6 +29,7 @@ class User(Base):
     ranked_wins = Column(Integer, default=0)
     ranked_losses = Column(Integer, default=0)
     ranked_streak = Column(Integer, default=0)  # positive = win streak, negative = loss streak
+    is_banned = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
     
     entries = relationship("ContestEntry", back_populates="user")

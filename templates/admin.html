@@ -101,6 +101,18 @@
     </div>
 
     <div class="admin-card">
+        <h2>Username Moderation</h2>
+        <p>Scan all usernames for profanity, slurs, and inappropriate content.</p>
+        
+        <button id="scanBtn" class="btn-refresh" onclick="scanUsernames()">Scan Usernames</button>
+        
+        <div id="scanResults" style="display:none; margin-top: 1rem;">
+            <div id="scanSummary" class="refresh-status"></div>
+            <div id="flaggedList"></div>
+        </div>
+    </div>
+
+    <div class="admin-card">
         <h2>Quick Links</h2>
         <div class="quick-links">
             <a href="/trends" class="quick-link">View Chart Gallery</a>
@@ -418,6 +430,94 @@ function addInjury(event) {
 
 if ({{ 'true' if refresh_status.running else 'false' }}) {
     pollInterval = setInterval(pollStatus, 2000);
+}
+
+function scanUsernames() {
+    const btn = document.getElementById('scanBtn');
+    const results = document.getElementById('scanResults');
+    const summary = document.getElementById('scanSummary');
+    const list = document.getElementById('flaggedList');
+    
+    btn.disabled = true;
+    btn.textContent = 'Scanning...';
+    results.style.display = 'block';
+    summary.innerHTML = '<span class="status-running">Scanning...</span>';
+    list.innerHTML = '';
+    
+    fetch('/admin/scan-usernames')
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.textContent = 'Scan Usernames';
+            
+            if (data.flagged.length === 0) {
+                summary.innerHTML = '<span class="status-success">All clean! Scanned ' + data.total_scanned + ' usernames.</span>';
+            } else {
+                summary.innerHTML = '<span class="status-error">Found ' + data.flagged.length + ' flagged username(s) out of ' + data.total_scanned + '</span>';
+                let html = '<table class="admin-lineup-table" style="margin-top:1rem"><thead><tr><th>ID</th><th>Username</th><th>Reason</th><th>Actions</th></tr></thead><tbody>';
+                data.flagged.forEach(u => {
+                    html += '<tr id="row-' + u.id + '">';
+                    html += '<td>' + u.id + '</td>';
+                    html += '<td>' + escapeHtml(u.username) + '</td>';
+                    html += '<td>' + escapeHtml(u.reason) + '</td>';
+                    html += '<td><input type="text" id="rename-' + u.id + '" placeholder="New username" style="width:120px;margin-right:4px">';
+                    html += '<button class="btn-add" onclick="forceRename(' + u.id + ')">Rename</button> ';
+                    html += '<button class="btn-refresh" style="background:#D72638" onclick="banUser(' + u.id + ')">Ban</button></td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                list.innerHTML = html;
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.textContent = 'Scan Usernames';
+            summary.innerHTML = '<span class="status-error">Error: ' + err + '</span>';
+        });
+}
+
+function forceRename(userId) {
+    const input = document.getElementById('rename-' + userId);
+    const newName = input.value.trim();
+    if (!newName) { alert('Enter a new username'); return; }
+    
+    fetch('/admin/force-rename', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({user_id: userId, new_username: newName})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const row = document.getElementById('row-' + userId);
+            row.style.opacity = '0.4';
+            row.querySelector('td:nth-child(4)').innerHTML = '<span class="status-success">' + escapeHtml(data.message) + '</span>';
+        } else {
+            alert(data.message);
+        }
+    })
+    .catch(err => alert('Error: ' + err));
+}
+
+function banUser(userId) {
+    if (!confirm('Are you sure you want to ban this user?')) return;
+    
+    fetch('/admin/ban-user', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({user_id: userId})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const row = document.getElementById('row-' + userId);
+            row.style.opacity = '0.4';
+            row.querySelector('td:nth-child(4)').innerHTML = '<span class="status-error">' + escapeHtml(data.message) + '</span>';
+        } else {
+            alert(data.message);
+        }
+    })
+    .catch(err => alert('Error: ' + err));
 }
 </script>
 {% endblock %}

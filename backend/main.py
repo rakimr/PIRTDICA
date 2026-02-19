@@ -301,6 +301,14 @@ async def register(
     password: str = Form(...),
     db: Session = Depends(get_db)
 ):
+    from backend.profanity_filter import check_username
+    is_valid, filter_reason = check_username(username)
+    if not is_valid:
+        return templates.TemplateResponse("register.html", {
+            "request": request,
+            "error": filter_reason
+        })
+
     existing = db.query(models.User).filter(
         (models.User.username == username) | (models.User.email == email)
     ).first()
@@ -350,6 +358,12 @@ async def login(
         return templates.TemplateResponse("login.html", {
             "request": request,
             "error": "Invalid username or password"
+        })
+    
+    if getattr(user, 'is_banned', False):
+        return templates.TemplateResponse("login.html", {
+            "request": request,
+            "error": "This account has been banned"
         })
     
     token = auth.create_session(db, user.id)
@@ -1284,6 +1298,92 @@ async def add_injury(request: Request, db: Session = Depends(get_db), player_nam
         return {"success": True, "message": f"Added {normalized} as OUT ({reason})"}
     except Exception as e:
         return {"success": False, "message": f"Error: {str(e)}"}
+
+@app.get("/admin/scan-usernames")
+async def scan_usernames(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not require_admin(user):
+        return {"status": "error", "message": "Unauthorized"}
+    
+    from backend.profanity_filter import scan_usernames as scan_fn, check_username
+    all_users = db.query(models.User.id, models.User.username, models.User.display_name).all()
+    usernames = [u.username for u in all_users]
+    flagged = scan_fn(usernames)
+    
+    flagged_with_ids = []
+    seen_ids = set()
+    for f in flagged:
+        match = next((u for u in all_users if u.username == f["username"]), None)
+        if match:
+            seen_ids.add(match.id)
+            flagged_with_ids.append({
+                "id": match.id,
+                "username": match.username,
+                "display_name": match.display_name,
+                "reason": f["reason"]
+            })
+    
+    for u in all_users:
+        if u.id not in seen_ids and u.display_name and u.display_name != u.username:
+            is_valid, reason = check_username(u.display_name)
+            if not is_valid and reason and "inappropriate" in reason:
+                flagged_with_ids.append({
+                    "id": u.id,
+                    "username": u.username,
+                    "display_name": u.display_name,
+                    "reason": f"Display name flagged: {reason}"
+                })
+    
+    return {"flagged": flagged_with_ids, "total_scanned": len(usernames)}
+
+@app.post("/admin/force-rename")
+async def force_rename_user(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not require_admin(user):
+        return {"success": False, "message": "Unauthorized"}
+    
+    body = await request.json()
+    user_id = body.get("user_id")
+    new_username = body.get("new_username")
+    
+    if not user_id or not new_username:
+        return {"success": False, "message": "Missing user_id or new_username"}
+    
+    from backend.profanity_filter import check_username
+    is_valid, reason = check_username(new_username)
+    if not is_valid:
+        return {"success": False, "message": reason}
+    
+    target = db.query(models.User).filter(models.User.id == user_id).first()
+    if not target:
+        return {"success": False, "message": "User not found"}
+    
+    existing = db.query(models.User).filter(models.User.username == new_username, models.User.id != user_id).first()
+    if existing:
+        return {"success": False, "message": "That username is already taken"}
+    
+    old_name = target.username
+    target.username = new_username
+    target.display_name = new_username
+    db.commit()
+    return {"success": True, "message": f"Renamed '{old_name}' to '{new_username}'"}
+
+@app.post("/admin/ban-user")
+async def ban_user(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not require_admin(user):
+        return {"success": False, "message": "Unauthorized"}
+    
+    body = await request.json()
+    user_id = body.get("user_id")
+    
+    target = db.query(models.User).filter(models.User.id == user_id).first()
+    if not target:
+        return {"success": False, "message": "User not found"}
+    
+    target.is_banned = True
+    db.commit()
+    return {"success": True, "message": f"Banned user '{target.username}'"}
 
 _live_scores_cache = {"data": {}, "timestamp": 0}
 LIVE_SCORES_CACHE_TTL = 30
