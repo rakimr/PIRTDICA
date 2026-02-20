@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.timezone import get_eastern_today, get_eastern_now
 
 from backend.database import engine, get_db, Base
-from backend import models, auth
+from backend import models, auth, data_access
 from backend.ranking import (
     calculate_mmr_change, update_user_ranking, get_matchmaking_range,
     format_division, DIVISION_COLORS, DIVISIONS
@@ -59,7 +59,8 @@ def auto_generate_house_lineup():
             ).count() > 0
         db.close()
         
-        if os.path.exists("dfs_players.csv") and (not existing or not has_house_players):
+        has_player_data = os.path.exists("dfs_players.csv") or data_access.use_postgres()
+        if has_player_data and (not existing or not has_house_players):
             print("[Auto] Generating house lineup...")
             subprocess.run(
                 [sys.executable, "generate_house_lineup.py", "--force"],
@@ -121,7 +122,6 @@ def normalize_name(name):
     return name.strip()
 
 def get_player_headshots():
-    import sqlite3
     headshots = {}
     name_aliases = {
         "Luka Doncic": "doncilu01",
@@ -136,10 +136,8 @@ def get_player_headshots():
     for name, bbref_id in name_aliases.items():
         headshots[name] = f"https://www.basketball-reference.com/req/202106291/images/headshots/{bbref_id}.jpg"
     try:
-        conn = sqlite3.connect("dfs_nba.db")
-        cursor = conn.cursor()
-        cursor.execute("SELECT player_name, headshot_url FROM player_headshots")
-        for row in cursor.fetchall():
+        rows = data_access.get_player_headshots()
+        for row in rows:
             original_name = row[0]
             url = row[1]
             headshots[original_name] = url
@@ -149,7 +147,6 @@ def get_player_headshots():
             base_name = original_name.replace(" Jr.", "").replace(" Sr.", "").replace(" III", "").replace(" II", "").replace(" IV", "").strip()
             if base_name != original_name:
                 headshots[base_name] = url
-        conn.close()
     except:
         pass
     return headshots
@@ -180,13 +177,8 @@ async def home(request: Request, db: Session = Depends(get_db)):
                 models.ContestEntry.user_id == user.id
             ).first()
     else:
-        import sqlite3
         try:
-            conn = sqlite3.connect("dfs_nba.db")
-            cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM player_salaries")
-            count = cursor.fetchone()[0]
-            conn.close()
+            count = data_access.get_player_salary_count()
             no_games_today = (count == 0)
         except:
             no_games_today = True
@@ -194,15 +186,10 @@ async def home(request: Request, db: Session = Depends(get_db)):
     next_game_iso = None
     games_started = False
     try:
-        import sqlite3 as sl3
         from zoneinfo import ZoneInfo
         eastern = ZoneInfo("America/New_York")
         now_et = datetime.now(eastern)
-        conn2 = sl3.connect("dfs_nba.db")
-        cur2 = conn2.cursor()
-        cur2.execute("SELECT DISTINCT game_time FROM player_salaries WHERE game_time IS NOT NULL")
-        game_times_raw = [row[0] for row in cur2.fetchall()]
-        conn2.close()
+        game_times_raw = data_access.get_all_game_times()
         
         if not game_times_raw:
             no_games_today = True
@@ -227,16 +214,24 @@ async def home(request: Request, db: Session = Depends(get_db)):
     
     slate_games = []
     try:
-        import sqlite3 as sl3
-        conn_g = sl3.connect("dfs_nba.db")
-        cur_g = conn_g.cursor()
-        cur_g.execute("SELECT away_team, home_team, spread, total FROM game_odds")
-        for row in cur_g.fetchall():
-            slate_games.append({
-                "away": row[0], "home": row[1],
-                "spread": row[2], "total": row[3]
-            })
-        conn_g.close()
+        if data_access.use_postgres():
+            from backend.database import engine as pg_engine
+            from sqlalchemy import text as sa_text
+            with pg_engine.connect() as pg_conn:
+                try:
+                    rows = pg_conn.execute(sa_text("SELECT away_team, home_team, spread, total FROM game_odds_live")).fetchall()
+                    for row in rows:
+                        slate_games.append({"away": row[0], "home": row[1], "spread": row[2], "total": row[3]})
+                except Exception:
+                    pass
+        else:
+            import sqlite3 as sl3
+            conn_g = sl3.connect("dfs_nba.db")
+            cur_g = conn_g.cursor()
+            cur_g.execute("SELECT away_team, home_team, spread, total FROM game_odds")
+            for row in cur_g.fetchall():
+                slate_games.append({"away": row[0], "home": row[1], "spread": row[2], "total": row[3]})
+            conn_g.close()
     except:
         pass
 
@@ -390,31 +385,32 @@ async def trends(request: Request, db: Session = Depends(get_db)):
     props = []
     
     try:
-        dfs_df = pd.read_csv("dfs_players.csv")
-        dfs_df = dfs_df[dfs_df['salary'] > 0]
-        if 'value_vs_tier' in dfs_df.columns and 'value_ratio' in dfs_df.columns:
-            valid_df = dfs_df[~dfs_df['value_vs_tier'].isin([float('inf'), float('-inf')])]
-            value_cols = ['player_name', 'team', 'salary', 'proj_fp', 'value_ratio', 'value_vs_tier', 'tier', 'ceiling', 'floor', 'fp_sd', 'archetype']
-            value_cols = [c for c in value_cols if c in valid_df.columns]
-            top_value = valid_df.nlargest(10, 'value_vs_tier')[value_cols].to_dict('records')
-        else:
-            valued_df = pd.read_csv("dfs_players_valued.csv")
-            valued_df = valued_df[valued_df['salary'] > 0]
-            top_value = valued_df.nlargest(10, 'value')[['player_name', 'team', 'salary', 'proj_fp', 'value', 'salary_tier']].to_dict('records')
+        dfs_df = data_access.get_dfs_players()
+        if not dfs_df.empty:
+            dfs_df = dfs_df[dfs_df['salary'] > 0]
+            if 'value_vs_tier' in dfs_df.columns and 'value_ratio' in dfs_df.columns:
+                valid_df = dfs_df[~dfs_df['value_vs_tier'].isin([float('inf'), float('-inf')])]
+                value_cols = ['player_name', 'team', 'salary', 'proj_fp', 'value_ratio', 'value_vs_tier', 'tier', 'ceiling', 'floor', 'fp_sd', 'archetype']
+                value_cols = [c for c in value_cols if c in valid_df.columns]
+                top_value = valid_df.nlargest(10, 'value_vs_tier')[value_cols].to_dict('records')
+            elif 'value' in dfs_df.columns:
+                top_value = dfs_df.nlargest(10, 'value')[['player_name', 'team', 'salary', 'proj_fp', 'value', 'salary_tier']].to_dict('records')
     except:
         pass
     
     try:
-        props_df = pd.read_csv("prop_recommendations.csv")
-        props_df = props_df[props_df['salary'] > 0]
-        props = props_df.head(15).to_dict('records')
+        props_df = data_access.get_prop_recommendations()
+        if not props_df.empty and 'salary' in props_df.columns:
+            props_df = props_df[props_df['salary'] > 0]
+            props = props_df.head(15).to_dict('records')
     except:
         pass
     
     targeted = []
     try:
-        targeted_df = pd.read_csv("targeted_plays.csv")
-        targeted = targeted_df.head(20).to_dict('records')
+        targeted_df = data_access.get_targeted_plays()
+        if not targeted_df.empty:
+            targeted = targeted_df.head(20).to_dict('records')
     except:
         pass
     
@@ -909,28 +905,21 @@ async def play(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url=f"/entry/{existing_entry.id}", status_code=303)
     
     import pandas as pd
-    import sqlite3
     from datetime import datetime
     
     try:
-        players_df = pd.read_csv("dfs_players.csv")
+        players_df = data_access.get_dfs_players()
+        if players_df.empty:
+            raise ValueError("No player data available")
         players_df = players_df.dropna(subset=['fd_position', 'salary'])
         players_df['salary'] = players_df['salary'].astype(int)
         
-        conn = sqlite3.connect("dfs_nba.db")
-        game_times_df = pd.read_sql_query(
-            "SELECT DISTINCT game, game_time FROM player_salaries WHERE game_time IS NOT NULL", 
-            conn
-        )
+        game_times_df = data_access.get_player_salaries_game_times()
         
-        injury_df = pd.read_sql_query(
-            "SELECT player_name, status FROM injury_alerts WHERE status IN ('OUT', 'QUESTIONABLE', 'PROBABLE', 'DOUBTFUL', 'GTD')",
-            conn
-        )
-        injury_map = dict(zip(injury_df['player_name'], injury_df['status']))
+        injury_df = data_access.get_injury_alerts()
+        injury_map = dict(zip(injury_df['player_name'], injury_df['status'])) if not injury_df.empty else {}
         
-        conn.close()
-        game_times = dict(zip(game_times_df['game'], game_times_df['game_time']))
+        game_times = dict(zip(game_times_df['game'], game_times_df['game_time'])) if not game_times_df.empty else {}
         
         from zoneinfo import ZoneInfo
         eastern = ZoneInfo("America/New_York")
@@ -1050,7 +1039,9 @@ async def submit_lineup(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Lineup must have exactly 9 players")
     
     import pandas as pd
-    players_df = pd.read_csv("dfs_players.csv")
+    players_df = data_access.get_dfs_players()
+    if players_df.empty:
+        raise HTTPException(status_code=400, detail="No player data available")
     
     total_salary = 0
     total_proj = 0
@@ -1263,39 +1254,17 @@ async def add_injury(request: Request, db: Session = Depends(get_db), player_nam
     if not require_admin(user):
         return {"success": False, "message": "Unauthorized"}
     
-    import sqlite3
     from utils.name_normalize import normalize_player_name
     
     try:
         normalized = normalize_player_name(player_name)
-        now = datetime.now().isoformat()
         
-        conn = sqlite3.connect('dfs_nba.db')
+        success = data_access.write_manual_injury(player_name, normalized, status="OUT", reason=reason)
         
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS manual_injuries (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                player_name TEXT UNIQUE,
-                status TEXT DEFAULT 'OUT',
-                reason TEXT,
-                added_at TEXT
-            )
-        """)
-        
-        conn.execute("""
-            INSERT OR REPLACE INTO manual_injuries (player_name, status, reason, added_at)
-            VALUES (?, 'OUT', ?, ?)
-        """, (normalized, reason, now))
-        
-        conn.execute("""
-            INSERT OR REPLACE INTO injury_alerts (player_name, status, reason, alert_title, scraped_at)
-            VALUES (?, 'OUT', ?, ?, ?)
-        """, (normalized, reason, f"MANUAL: {normalized} OUT", now))
-        
-        conn.commit()
-        conn.close()
-        
-        return {"success": True, "message": f"Added {normalized} as OUT ({reason})"}
+        if success:
+            return {"success": True, "message": f"Added {normalized} as OUT ({reason})"}
+        else:
+            return {"success": False, "message": "Failed to write injury record"}
     except Exception as e:
         return {"success": False, "message": f"Error: {str(e)}"}
 
@@ -1404,7 +1373,6 @@ async def api_live_scores(request: Request, db: Session = Depends(get_db)):
         return {"scores": _live_scores_cache.get("data", {}), "error": str(e)}
 
 def get_game_lock_status():
-    import sqlite3
     from zoneinfo import ZoneInfo
     eastern = ZoneInfo("America/New_York")
     now = datetime.now(eastern)
@@ -1417,11 +1385,7 @@ def get_game_lock_status():
     }
     
     try:
-        conn = sqlite3.connect("dfs_nba.db")
-        cur = conn.cursor()
-        cur.execute("SELECT DISTINCT game, game_time FROM player_salaries WHERE game_time IS NOT NULL")
-        rows = cur.fetchall()
-        conn.close()
+        rows = data_access.get_game_lock_rows()
     except:
         return set(), False, {}
     
@@ -1556,7 +1520,6 @@ async def api_live_entry(request: Request, entry_id: int, db: Session = Depends(
 
 @app.get("/api/archetype-clusters")
 async def api_archetype_clusters():
-    import sqlite3 as sqlite3_mod
     import numpy as np
     import pandas as pd
     import unicodedata
@@ -1603,33 +1566,17 @@ async def api_archetype_clusters():
         return fixed
 
     try:
-        sconn = sqlite3_mod.connect("dfs_nba.db")
-
-        arch_df = pd.read_sql_query("SELECT player_name, team, archetype, cluster FROM player_archetypes", sconn)
-        per100 = pd.read_sql_query("""
-            SELECT player_name, pts_per100, reb_per100, ast_per100, stl_per100, blk_per100
-            FROM player_per100 WHERE games_played >= 10 AND mpg >= 12
-        """, sconn)
-        positions = pd.read_sql_query("SELECT player_name, pg_pct, sg_pct, sf_pct, pf_pct, c_pct FROM player_positions", sconn)
-        usage = pd.read_sql_query("SELECT player_name, usg_pct FROM player_stats", sconn)
-        game_logs = pd.read_sql_query("""
-            SELECT player_name, AVG(fg3m) as fg3m_pg, AVG(min) as min_pg
-            FROM player_game_logs WHERE min >= 10
-            GROUP BY player_name HAVING COUNT(*) >= 5
-        """, sconn)
-        shot_zones = pd.read_sql_query("""
-            SELECT player_name, rim_paint_pct, three_pct, corner3_fga, atb3_fga, three_fga
-            FROM player_shot_zones
-        """, sconn)
-        shot_creation = pd.read_sql_query("""
-            SELECT player_name, cs_pct, pu_pct
-            FROM player_shot_creation
-        """, sconn)
-        hustle = pd.read_sql_query("""
-            SELECT player_name, deflections_per48, contested_per48
-            FROM player_hustle_stats
-        """, sconn)
-        sconn.close()
+        arch_df = data_access.get_player_archetypes()
+        per100 = data_access.get_player_per100()
+        positions = data_access.get_player_positions()
+        usage = data_access.get_player_usage()
+        game_logs = data_access.get_player_game_log_averages()
+        shot_zones = data_access.get_player_shot_zones()
+        shot_creation = data_access.get_player_shot_creation()
+        hustle = data_access.get_player_hustle_stats()
+        
+        if arch_df.empty or per100.empty:
+            return {"error": "Archetype data not yet available.", "players": [], "archetypes": []}
 
         for tbl in [arch_df, per100, positions, usage, game_logs, shot_zones, shot_creation, hustle]:
             tbl['_mk'] = tbl['player_name'].apply(_ascii_key)
@@ -1720,32 +1667,12 @@ async def api_archetype_clusters():
 
 @app.get("/api/dva")
 async def api_dva():
-    import sqlite3 as sqlite3_mod
     try:
-        sconn = sqlite3_mod.connect("dfs_nba.db")
-        cur = sconn.cursor()
-        tables = [r[0] for r in cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
-        if 'dva_stats' not in tables:
-            sconn.close()
+        rows, profiles = data_access.get_dva_data()
+        if rows is None:
             return {"error": "DVA data not yet available. Run daily update.", "teams": [], "archetypes": []}
-
-        rows = cur.execute("""
-            SELECT opp_team, archetype, fp_pm, fp_pm_diff, sample_n,
-                   pts_pm_diff, reb_pm_diff, ast_pm_diff, stl_pm_diff, blk_pm_diff, fg3m_pm_diff, tov_pm_diff,
-                   dvs_multiplier,
-                   pts_component, reb_component, ast_component, stl_component, blk_component, fg3m_component, tov_component
-            FROM dva_stats ORDER BY opp_team, archetype
-        """).fetchall()
-
-        profiles = {}
-        if 'archetype_profiles' in tables:
-            prof_rows = cur.execute("SELECT * FROM archetype_profiles").fetchall()
-            prof_cols = [d[0] for d in cur.description]
-            for r in prof_rows:
-                rd = dict(zip(prof_cols, r))
-                profiles[rd['archetype']] = {k: rd[k] for k in rd if k != 'archetype'}
-
-        sconn.close()
+        if profiles is None:
+            profiles = {}
 
         teams = sorted(set(r[0] for r in rows))
         archetypes = sorted(set(r[1] for r in rows))
@@ -1779,7 +1706,6 @@ async def api_dva():
 
 @app.get("/api/player-trend/{player_name}/{stat}")
 async def api_player_trend(player_name: str, stat: str, n: int = 10):
-    import sqlite3 as sqlite3_mod
     stat_map = {
         'PTS': 'pts', 'REB': 'reb', 'AST': 'ast',
         'STL': 'stl', 'BLK': 'blk', 'FP': 'fp',
@@ -1789,16 +1715,9 @@ async def api_player_trend(player_name: str, stat: str, n: int = 10):
     if not col:
         return {"error": "Invalid stat", "games": []}
     try:
-        conn = sqlite3_mod.connect("dfs_nba.db")
-        existing_cols = [r[1] for r in conn.execute("PRAGMA table_info(player_game_logs)").fetchall()]
-        if col not in existing_cols:
-            conn.close()
-            return {"error": f"{stat.upper()} data not yet available. Will populate on next daily update.", "games": []}
-        rows = conn.execute(
-            f"SELECT game_date, matchup, {col} FROM player_game_logs WHERE player_name = ? ORDER BY game_date DESC LIMIT ?",
-            (player_name, n)
-        ).fetchall()
-        conn.close()
+        rows, error = data_access.get_player_game_log(player_name, col, n)
+        if error:
+            return {"error": error, "games": []}
         if not rows:
             return {"error": "No data found", "games": []}
         games = [{"date": r[0], "matchup": r[1], "value": r[2] or 0} for r in reversed(rows)]
@@ -1810,7 +1729,6 @@ async def api_player_trend(player_name: str, stat: str, n: int = 10):
 
 @app.get("/api/player-shot-chart/{player_name}")
 async def api_player_shot_chart(player_name: str):
-    import sqlite3 as sqlite3_mod
     import unicodedata
     import re as re_mod
 
@@ -1834,47 +1752,41 @@ async def api_player_shot_chart(player_name: str):
         return ascii_name
 
     try:
-        conn = sqlite3_mod.connect("dfs_nba.db")
-        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
-        if "player_shot_zones" not in tables:
-            conn.close()
+        df = data_access.get_player_shot_zone_detail(player_name)
+        if df is None or df.empty:
             return {"error": "Shot zone data not yet available.", "zones": {}}
 
         search_key = _ascii_key(player_name)
 
-        all_players = conn.execute("SELECT DISTINCT player_name FROM player_shot_zones").fetchall()
+        all_player_names = df['player_name'].unique().tolist()
         matched_name = None
-        for (n,) in all_players:
+        for n in all_player_names:
             if _ascii_key(n) == search_key:
                 matched_name = n
                 break
         if not matched_name:
-            for (n,) in all_players:
+            for n in all_player_names:
                 if search_key in _ascii_key(n) or _ascii_key(n) in search_key:
                     matched_name = n
                     break
         if not matched_name:
-            conn.close()
             return {"error": f"No shot data for {player_name}", "zones": {}}
 
-        row = conn.execute(
-            "SELECT total_fga, ra_fga, ra_fgm, paint_fga, paint_fgm, mid_fga, mid_fgm, three_fga, three_fgm, corner3_fga, atb3_fga, team FROM player_shot_zones WHERE player_name = ?",
-            (matched_name,),
-        ).fetchone()
+        player_row = df[df['player_name'] == matched_name].iloc[0]
 
-        if not row:
-            conn.close()
-            return {"error": f"No shot data for {player_name}", "zones": {}}
-
-        total_fga = row[0] or 0
+        total_fga = int(player_row.get('total_fga', 0) or 0)
         zones = {}
         if total_fga > 0:
-            ra_fga, ra_fgm = row[1] or 0, row[2] or 0
-            paint_fga, paint_fgm = row[3] or 0, row[4] or 0
-            mid_fga, mid_fgm = row[5] or 0, row[6] or 0
-            three_fga, three_fgm = row[7] or 0, row[8] or 0
-            corner3_fga = row[9] or 0
-            atb3_fga = row[10] or 0
+            ra_fga = int(player_row.get('ra_fga', 0) or 0)
+            ra_fgm = int(player_row.get('ra_fgm', 0) or 0)
+            paint_fga = int(player_row.get('paint_fga', 0) or 0)
+            paint_fgm = int(player_row.get('paint_fgm', 0) or 0)
+            mid_fga = int(player_row.get('mid_fga', 0) or 0)
+            mid_fgm = int(player_row.get('mid_fgm', 0) or 0)
+            three_fga = int(player_row.get('three_fga', 0) or 0)
+            three_fgm = int(player_row.get('three_fgm', 0) or 0)
+            corner3_fga = int(player_row.get('corner3_fga', 0) or 0)
+            atb3_fga = int(player_row.get('atb3_fga', 0) or 0)
 
             def zone_data(fga, fgm, total):
                 return {
@@ -1893,21 +1805,19 @@ async def api_player_shot_chart(player_name: str):
             zones["Above Break 3"]["fg_pct"] = round(zones["Above Break 3"]["fgm"] / atb3_fga * 100, 1) if atb3_fga > 0 else 0
 
         league_avgs = {}
-        all_rows = conn.execute(
-            "SELECT total_fga, ra_fga, ra_fgm, paint_fga, paint_fgm, mid_fga, mid_fgm, three_fga, three_fgm, corner3_fga, atb3_fga FROM player_shot_zones WHERE total_fga >= 100"
-        ).fetchall()
-        if all_rows:
-            tot_fga = sum(r[0] for r in all_rows)
-            tot_ra = sum(r[1] or 0 for r in all_rows)
-            tot_ra_m = sum(r[2] or 0 for r in all_rows)
-            tot_paint = sum(r[3] or 0 for r in all_rows)
-            tot_paint_m = sum(r[4] or 0 for r in all_rows)
-            tot_mid = sum(r[5] or 0 for r in all_rows)
-            tot_mid_m = sum(r[6] or 0 for r in all_rows)
-            tot_c3 = sum(r[9] or 0 for r in all_rows)
-            tot_atb3 = sum(r[10] or 0 for r in all_rows)
-            tot_3m = sum(r[8] or 0 for r in all_rows)
-            tot_3a = sum(r[7] or 0 for r in all_rows)
+        lg_df = df[df['total_fga'].fillna(0) >= 100]
+        if not lg_df.empty:
+            tot_fga = int(lg_df['total_fga'].sum())
+            tot_ra = int(lg_df['ra_fga'].fillna(0).sum())
+            tot_ra_m = int(lg_df['ra_fgm'].fillna(0).sum())
+            tot_paint = int(lg_df['paint_fga'].fillna(0).sum())
+            tot_paint_m = int(lg_df['paint_fgm'].fillna(0).sum())
+            tot_mid = int(lg_df['mid_fga'].fillna(0).sum())
+            tot_mid_m = int(lg_df['mid_fgm'].fillna(0).sum())
+            tot_c3 = int(lg_df['corner3_fga'].fillna(0).sum()) if 'corner3_fga' in lg_df.columns else 0
+            tot_atb3 = int(lg_df['atb3_fga'].fillna(0).sum()) if 'atb3_fga' in lg_df.columns else 0
+            tot_3m = int(lg_df['three_fgm'].fillna(0).sum()) if 'three_fgm' in lg_df.columns else 0
+            tot_3a = int(lg_df['three_fga'].fillna(0).sum()) if 'three_fga' in lg_df.columns else 0
             c3_m_est = int(tot_c3 * (tot_3m / tot_3a)) if tot_3a > 0 else 0
             atb3_m_est = max(0, tot_3m - c3_m_est)
 
@@ -1921,19 +1831,18 @@ async def api_player_shot_chart(player_name: str):
             league_avgs["Corner 3"] = lg_zone(tot_c3, c3_m_est, tot_fga)
 
         archetype = None
-        if "player_archetypes" in tables:
-            arch_row = conn.execute("SELECT archetype FROM player_archetypes WHERE player_name = ?", (matched_name,)).fetchone()
-            if not arch_row:
-                for (n,) in conn.execute("SELECT DISTINCT player_name FROM player_archetypes").fetchall():
+        arch_df = data_access.get_player_archetypes()
+        if not arch_df.empty:
+            arch_match = arch_df[arch_df['player_name'] == matched_name]
+            if arch_match.empty:
+                for n in arch_df['player_name'].unique():
                     if _ascii_key(n) == search_key:
-                        arch_row = conn.execute("SELECT archetype FROM player_archetypes WHERE player_name = ?", (n,)).fetchone()
+                        arch_match = arch_df[arch_df['player_name'] == n]
                         break
-            if arch_row:
-                archetype = arch_row[0]
+            if not arch_match.empty:
+                archetype = arch_match.iloc[0]['archetype']
 
-        team = row[11] if len(row) > 11 else None
-
-        conn.close()
+        team = player_row.get('team', None)
 
         return {
             "player": matched_name,
@@ -1949,26 +1858,10 @@ async def api_player_shot_chart(player_name: str):
 
 @app.get("/api/team-defense-shot-chart/{team}")
 async def api_team_defense_shot_chart(team: str):
-    import sqlite3 as sqlite3_mod
     try:
-        conn = sqlite3_mod.connect("dfs_nba.db")
-        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
-        if "team_defense_shot_zones" not in tables:
-            conn.close()
-            return {"error": "Team defensive shot zone data not yet available.", "zones": {}}
-
-        team_upper = team.upper()
-        row = conn.execute(
-            "SELECT team, team_name, total_fga, ra_fga, ra_fgm, paint_fga, paint_fgm, "
-            "mid_fga, mid_fgm, corner3_fga, corner3_fgm, atb3_fga, atb3_fgm, "
-            "ra_freq, paint_freq, mid_freq, corner3_freq, atb3_freq, "
-            "ra_fg_pct, paint_fg_pct, mid_fg_pct, corner3_fg_pct, atb3_fg_pct "
-            "FROM team_defense_shot_zones WHERE team = ?",
-            (team_upper,)
-        ).fetchone()
+        row, all_teams = data_access.get_team_defense_shot_zone(team)
 
         if not row:
-            conn.close()
             return {"error": f"No data for team {team}", "zones": {}}
 
         total_fga = row[2]
@@ -1979,11 +1872,6 @@ async def api_team_defense_shot_chart(team: str):
             "Corner 3": {"fga": row[9], "fgm": row[10], "fg_pct": row[21], "freq": row[16]},
             "Above Break 3": {"fga": row[11], "fgm": row[12], "fg_pct": row[22], "freq": row[17]},
         }
-
-        all_teams = conn.execute(
-            "SELECT total_fga, ra_fga, ra_fgm, paint_fga, paint_fgm, mid_fga, mid_fgm, "
-            "corner3_fga, corner3_fgm, atb3_fga, atb3_fgm FROM team_defense_shot_zones"
-        ).fetchall()
 
         league_avg = {}
         if all_teams:
@@ -2011,9 +1899,8 @@ async def api_team_defense_shot_chart(team: str):
             league_avg["Corner 3"] = lg_z(t_c3, t_c3_m, t_fga)
             league_avg["Above Break 3"] = lg_z(t_atb3, t_atb3_m, t_fga)
 
-        teams_list = [r[0] for r in conn.execute("SELECT DISTINCT team FROM team_defense_shot_zones ORDER BY team").fetchall()]
+        teams_list = data_access.get_team_defense_teams()
 
-        conn.close()
         return {
             "team": row[0],
             "team_name": row[1],
@@ -2028,15 +1915,8 @@ async def api_team_defense_shot_chart(team: str):
 
 @app.get("/api/team-defense-shot-chart-teams")
 async def api_team_defense_teams():
-    import sqlite3 as sqlite3_mod
     try:
-        conn = sqlite3_mod.connect("dfs_nba.db")
-        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
-        if "team_defense_shot_zones" not in tables:
-            conn.close()
-            return {"teams": []}
-        teams = [r[0] for r in conn.execute("SELECT DISTINCT team FROM team_defense_shot_zones ORDER BY team").fetchall()]
-        conn.close()
+        teams = data_access.get_team_defense_teams()
         return {"teams": teams}
     except Exception:
         return {"teams": []}
@@ -2044,60 +1924,46 @@ async def api_team_defense_teams():
 
 @app.get("/api/team-schemes")
 async def api_team_schemes(team: str = None):
-    import sqlite3 as sqlite3_mod
     try:
-        conn = sqlite3_mod.connect("dfs_nba.db")
-        conn.row_factory = sqlite3_mod.Row
+        off_rows, def_rows = data_access.get_team_play_types()
 
-        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
-        if "team_play_types" not in tables:
-            conn.close()
+        if off_rows is None:
             return {"error": "Play type data not yet available. Run the scheme scraper first.", "teams": []}
 
-        off_rows = conn.execute(
-            "SELECT team, play_type, play_type_label, poss_pct, ppp, fg_pct, tov_poss_pct, score_poss_pct, efg_pct, percentile FROM team_play_types WHERE type_grouping='Offensive' ORDER BY team, poss_pct DESC"
-        ).fetchall()
-
-        def_rows = conn.execute(
-            "SELECT team, play_type, play_type_label, poss_pct, ppp, fg_pct, tov_poss_pct, score_poss_pct, efg_pct, percentile FROM team_play_types WHERE type_grouping='Defensive' ORDER BY team, poss_pct DESC"
-        ).fetchall()
-
-        conn.close()
-
-        teams_set = sorted(set(r["team"] for r in off_rows))
+        teams_set = sorted(set(r[0] for r in off_rows))
 
         offense = {}
         for r in off_rows:
-            t = r["team"]
+            t = r[0]
             if t not in offense:
                 offense[t] = []
             offense[t].append({
-                "play_type": r["play_type"],
-                "label": r["play_type_label"],
-                "poss_pct": round(r["poss_pct"] * 100, 1),
-                "ppp": round(r["ppp"], 3),
-                "fg_pct": round(r["fg_pct"] * 100, 1),
-                "tov_pct": round(r["tov_poss_pct"] * 100, 1),
-                "score_pct": round(r["score_poss_pct"] * 100, 1),
-                "efg_pct": round(r["efg_pct"] * 100, 1),
-                "percentile": round(r["percentile"] * 100),
+                "play_type": r[1],
+                "label": r[2],
+                "poss_pct": round(r[3] * 100, 1),
+                "ppp": round(r[4], 3),
+                "fg_pct": round(r[5] * 100, 1),
+                "tov_pct": round(r[6] * 100, 1),
+                "score_pct": round(r[7] * 100, 1),
+                "efg_pct": round(r[8] * 100, 1),
+                "percentile": round(r[9] * 100),
             })
 
         defense = {}
         for r in def_rows:
-            t = r["team"]
+            t = r[0]
             if t not in defense:
                 defense[t] = []
             defense[t].append({
-                "play_type": r["play_type"],
-                "label": r["play_type_label"],
-                "poss_pct": round(r["poss_pct"] * 100, 1),
-                "ppp": round(r["ppp"], 3),
-                "fg_pct": round(r["fg_pct"] * 100, 1),
-                "tov_pct": round(r["tov_poss_pct"] * 100, 1),
-                "score_pct": round(r["score_poss_pct"] * 100, 1),
-                "efg_pct": round(r["efg_pct"] * 100, 1),
-                "percentile": round(r["percentile"] * 100),
+                "play_type": r[1],
+                "label": r[2],
+                "poss_pct": round(r[3] * 100, 1),
+                "ppp": round(r[4], 3),
+                "fg_pct": round(r[5] * 100, 1),
+                "tov_pct": round(r[6] * 100, 1),
+                "score_pct": round(r[7] * 100, 1),
+                "efg_pct": round(r[8] * 100, 1),
+                "percentile": round(r[9] * 100),
             })
 
         league_avg_off = {}
@@ -2366,25 +2232,18 @@ async def h2h_lineup(request: Request, challenge_id: int, db: Session = Depends(
         opponent_name = challenge.challenger.display_name or challenge.challenger.username
 
     import pandas as pd
-    import sqlite3
 
     try:
-        players_df = pd.read_csv("dfs_players.csv")
+        players_df = data_access.get_dfs_players()
+        if players_df.empty:
+            raise ValueError("No player data available")
         players_df = players_df.dropna(subset=['fd_position', 'salary'])
         players_df['salary'] = players_df['salary'].astype(int)
 
-        conn = sqlite3.connect("dfs_nba.db")
-        game_times_df = pd.read_sql_query(
-            "SELECT DISTINCT game, game_time FROM player_salaries WHERE game_time IS NOT NULL",
-            conn
-        )
-        injury_df = pd.read_sql_query(
-            "SELECT player_name, status FROM injury_alerts WHERE status IN ('OUT', 'QUESTIONABLE', 'PROBABLE', 'DOUBTFUL', 'GTD')",
-            conn
-        )
-        injury_map = dict(zip(injury_df['player_name'], injury_df['status']))
-        conn.close()
-        game_times = dict(zip(game_times_df['game'], game_times_df['game_time']))
+        game_times_df = data_access.get_player_salaries_game_times()
+        injury_df = data_access.get_injury_alerts()
+        injury_map = dict(zip(injury_df['player_name'], injury_df['status'])) if not injury_df.empty else {}
+        game_times = dict(zip(game_times_df['game'], game_times_df['game_time'])) if not game_times_df.empty else {}
 
         from zoneinfo import ZoneInfo
         eastern = ZoneInfo("America/New_York")
@@ -2492,7 +2351,9 @@ async def h2h_submit_lineup(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Lineup must have exactly 9 players")
 
     import pandas as pd
-    players_df = pd.read_csv("dfs_players.csv")
+    players_df = data_access.get_dfs_players()
+    if players_df.empty:
+        raise HTTPException(status_code=400, detail="No player data available")
 
     locked_teams, _, _ = get_game_lock_status()
 

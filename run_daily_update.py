@@ -29,6 +29,7 @@ SCRIPTS = [
     ("estimate_ownership.py --iterations 500 --update-calibration", "Ownership Estimation (with FTA calibration)"),
     ("generate_house_lineup.py --force", "House Lineup Generation"),
     ("score_contest.py --update-factors", "Score Yesterday's Contest + Update ML Factors"),
+    ("sync_to_postgres.py", "Sync Pipeline Data to PostgreSQL"),
 ]
 
 def run_script(script_name, description):
