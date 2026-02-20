@@ -388,13 +388,22 @@ async def trends(request: Request, db: Session = Depends(get_db)):
         dfs_df = data_access.get_dfs_players()
         if not dfs_df.empty:
             dfs_df = dfs_df[dfs_df['salary'] > 0]
+            reliable = dfs_df.copy()
+            if 'low_gp_flag' in reliable.columns:
+                reliable = reliable[reliable['low_gp_flag'] == False]
+            if 'games_pct' in reliable.columns:
+                reliable = reliable[reliable['games_pct'] >= 50]
+            if 'projected_min' in reliable.columns:
+                reliable = reliable[reliable['projected_min'] >= 10]
+            if 'proj_fp' in reliable.columns:
+                reliable = reliable[reliable['proj_fp'] >= 10]
             if 'value_vs_tier' in dfs_df.columns and 'value_ratio' in dfs_df.columns:
-                valid_df = dfs_df[~dfs_df['value_vs_tier'].isin([float('inf'), float('-inf')])]
-                value_cols = ['player_name', 'team', 'salary', 'proj_fp', 'value_ratio', 'value_vs_tier', 'tier', 'ceiling', 'floor', 'fp_sd', 'archetype']
+                valid_df = reliable[~reliable['value_vs_tier'].isin([float('inf'), float('-inf')])]
+                value_cols = ['player_name', 'team', 'salary', 'proj_fp', 'value_ratio', 'value_vs_tier', 'tier', 'ceiling', 'floor', 'fp_sd', 'archetype', 'projected_min', 'games_pct']
                 value_cols = [c for c in value_cols if c in valid_df.columns]
                 top_value = valid_df.nlargest(10, 'value_vs_tier')[value_cols].to_dict('records')
             elif 'value' in dfs_df.columns:
-                top_value = dfs_df.nlargest(10, 'value')[['player_name', 'team', 'salary', 'proj_fp', 'value', 'salary_tier']].to_dict('records')
+                top_value = reliable.nlargest(10, 'value')[['player_name', 'team', 'salary', 'proj_fp', 'value', 'salary_tier']].to_dict('records')
     except:
         pass
     
