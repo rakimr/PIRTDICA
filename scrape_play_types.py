@@ -62,9 +62,8 @@ def scrape_play_types():
     conn = sqlite3.connect("dfs_nba.db")
     cursor = conn.cursor()
 
-    cursor.execute("DROP TABLE IF EXISTS team_play_types")
     cursor.execute("""
-    CREATE TABLE team_play_types (
+    CREATE TABLE IF NOT EXISTS team_play_types (
         team TEXT,
         play_type TEXT,
         play_type_label TEXT,
@@ -86,11 +85,20 @@ def scrape_play_types():
     )
     """)
 
+    cursor.execute("SELECT COUNT(*) FROM team_play_types")
+    cached_rows = cursor.fetchone()[0]
+
     scraped_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     total_rows = 0
+    all_rows = []
+    api_reachable = True
 
     for grouping in ["Offensive", "Defensive"]:
+        if not api_reachable:
+            break
         for play_type in PLAY_TYPES:
+            if not api_reachable:
+                break
             try:
                 df = None
                 for attempt in range(MAX_RETRIES):
@@ -109,22 +117,32 @@ def scrape_play_types():
                         df = synergy.get_data_frames()[0]
                         break
                     except Exception as retry_err:
-                        delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 15
-                        if attempt < MAX_RETRIES - 1:
-                            print(f"    Retry {attempt+1}/{MAX_RETRIES} for {grouping} {play_type}: {retry_err}")
-                            time.sleep(delay)
+                        err_str = str(retry_err).lower()
+                        if 'timeout' in err_str or 'connection' in err_str or 'refused' in err_str or '403' in err_str or '429' in err_str:
+                            delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 15
+                            if attempt < MAX_RETRIES - 1:
+                                print(f"    Retry {attempt+1}/{MAX_RETRIES} for {grouping} {play_type}: {retry_err}")
+                                time.sleep(delay)
+                            else:
+                                print(f"  NBA.com unreachable after {MAX_RETRIES} attempts for {grouping} {play_type}")
+                                api_reachable = False
+                                df = None
                         else:
-                            df = None
+                            delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 15
+                            if attempt < MAX_RETRIES - 1:
+                                print(f"    Retry {attempt+1}/{MAX_RETRIES} for {grouping} {play_type}: {retry_err}")
+                                time.sleep(delay)
+                            else:
+                                df = None
 
                 if df is None or df.empty:
-                    print(f"  Skipped/Empty: {grouping} {play_type}")
+                    if api_reachable:
+                        print(f"  Skipped/Empty: {grouping} {play_type}")
                     continue
 
                 for _, row in df.iterrows():
                     team = normalize_team(row.get("TEAM_ABBREVIATION", ""))
-                    cursor.execute("""
-                    INSERT INTO team_play_types VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                    """, (
+                    all_rows.append((
                         team,
                         play_type,
                         PLAY_TYPE_LABELS.get(play_type, play_type),
@@ -144,7 +162,6 @@ def scrape_play_types():
                         float(row.get("PERCENTILE", 0)),
                         scraped_at,
                     ))
-                    total_rows += 1
 
                 print(f"  {grouping} {play_type}: {len(df)} teams")
 
@@ -153,9 +170,28 @@ def scrape_play_types():
 
             time.sleep(1.0)
 
-    conn.commit()
+    if not api_reachable:
+        if cached_rows > 0:
+            print(f"\nNBA.com unreachable — preserving {cached_rows} cached rows in team_play_types.")
+            if len(all_rows) > 0:
+                print(f"  (Discarding {len(all_rows)} partial rows from incomplete scrape)")
+        else:
+            print("\nNBA.com unreachable and no cached data available.")
+        conn.close()
+        return
+
+    if len(all_rows) > 0:
+        cursor.execute("DELETE FROM team_play_types")
+        cursor.executemany("""
+            INSERT INTO team_play_types VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, all_rows)
+        total_rows = len(all_rows)
+        conn.commit()
+        print(f"\nDone. {total_rows} total rows saved to team_play_types.")
+    else:
+        print(f"\nNo new data scraped. Preserving {cached_rows} cached rows.")
+
     conn.close()
-    print(f"\nDone. {total_rows} total rows saved to team_play_types.")
 
 if __name__ == "__main__":
     print("Scraping NBA Synergy play type data...")
