@@ -57,6 +57,45 @@ def create_tables():
     print("PostgreSQL tables created/verified.")
 
 
+def _calc_batch_size(num_cols):
+    max_params = 400
+    batch = max(1, max_params // max(num_cols, 1))
+    return min(batch, 50)
+
+
+def _insert_rows(conn, pg_table, df, common_cols):
+    batch_size = _calc_batch_size(len(common_cols))
+    num_cols = len(common_cols)
+    col_list = ", ".join(common_cols)
+    total = len(df)
+    inserted = 0
+
+    for i in range(0, total, batch_size):
+        chunk = df.iloc[i:i + batch_size]
+        chunk_size = len(chunk)
+        value_groups = []
+        params = {}
+        for row_idx, (_, row) in enumerate(chunk.iterrows()):
+            row_placeholders = []
+            for j, col in enumerate(common_cols):
+                key = f"p{row_idx}_{j}"
+                row_placeholders.append(f":{key}")
+                val = row[col]
+                if pd.isna(val):
+                    params[key] = None
+                else:
+                    params[key] = val
+            value_groups.append(f"({', '.join(row_placeholders)})")
+        values_sql = ", ".join(value_groups)
+        conn.execute(
+            text(f"INSERT INTO {pg_table} ({col_list}) VALUES {values_sql}"),
+            params
+        )
+        inserted += chunk_size
+        if total > 500 and inserted % 1000 == 0:
+            print(f"    ... {inserted}/{total} rows inserted")
+
+
 def sync_csv(csv_path, pg_table):
     if not os.path.exists(csv_path):
         print(f"  SKIP: {csv_path} not found")
@@ -92,9 +131,7 @@ def sync_csv(csv_path, pg_table):
             df_filtered = df[common_cols]
             df_filtered = df_filtered.where(pd.notnull(df_filtered), None)
 
-            for i in range(0, len(df_filtered), 25):
-                chunk = df_filtered.iloc[i:i+25]
-                chunk.to_sql(pg_table, conn, if_exists='append', index=False, method='multi')
+            _insert_rows(conn, pg_table, df_filtered, common_cols)
 
         count = len(df_filtered)
         print(f"  OK: {csv_path} -> {pg_table} ({count} rows)")
@@ -150,9 +187,7 @@ def sync_sqlite_table(sqlite_table, pg_table):
             df_filtered = df[common_cols]
             df_filtered = df_filtered.where(pd.notnull(df_filtered), None)
 
-            for i in range(0, len(df_filtered), 25):
-                chunk = df_filtered.iloc[i:i+25]
-                chunk.to_sql(pg_table, conn, if_exists='append', index=False, method='multi')
+            _insert_rows(conn, pg_table, df_filtered, common_cols)
 
         count = len(df_filtered)
         print(f"  OK: {sqlite_table} -> {pg_table} ({count} rows)")

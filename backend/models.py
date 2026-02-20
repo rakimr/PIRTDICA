@@ -305,7 +305,7 @@ class DFSPlayerLive(Base):
     line_weight = Column(Float)
     games_pct = Column(Float)
     gp_weight = Column(Float)
-    low_gp_flag = Column(Integer)
+    low_gp_flag = Column(Boolean)
     min_sd = Column(Float)
     omega = Column(Float)
     omega_weight = Column(Float)
@@ -347,7 +347,7 @@ class PropRecommendationLive(Base):
     adjusted_avg = Column(Float)
     extra_fp = Column(Float)
     edge_pct = Column(Float)
-    recommendation = Column(String(20))
+    recommendation = Column(String(200))
     book_line = Column(Float)
     book_over = Column(Float)
     book_under = Column(Float)
@@ -355,7 +355,7 @@ class PropRecommendationLive(Base):
     archetype = Column(String(50))
     dva_edge = Column(Float)
     dvp_edge = Column(Float)
-    blend = Column(Float)
+    blend = Column(String(50))
     updated_at = Column(DateTime, server_default=func.now())
 
 
@@ -374,7 +374,7 @@ class TargetedPlayLive(Base):
     league_avg = Column(Float)
     extra_fp = Column(Float)
     edge_pct = Column(Float)
-    recommendation = Column(String(20))
+    recommendation = Column(String(200))
     updated_at = Column(DateTime, server_default=func.now())
 
 
