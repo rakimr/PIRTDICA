@@ -1,5 +1,5 @@
 player_name,team,opponent,position,salary,stat,player_avg,opp_allows,league_avg,extra_fp,edge_pct,recommendation
-Kawhi Leonard,LAC,LAL,SF,16000,Points,27.8,26.3,22.8,3.5,15.6,LAL gives up +3.5 FP in Points to SFs
+Kawhi Leonard,LAC,LAL,SF,10600,Points,27.8,26.3,22.8,3.5,15.6,LAL gives up +3.5 FP in Points to SFs
 Jay Huff,IND,WAS,C,5600,Blocks,1.9,2.9,2.0,2.8,48.5,WAS gives up +2.8 FP in Blocks to Cs
 Naz Reid,MIN,DAL,C,6000,Points,14.2,24.0,21.5,2.5,11.9,DAL gives up +2.5 FP in Points to Cs
 Rudy Gobert,MIN,DAL,C,6100,Points,11.0,24.0,21.5,2.5,11.9,DAL gives up +2.5 FP in Points to Cs

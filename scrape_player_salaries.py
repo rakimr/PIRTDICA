@@ -117,6 +117,9 @@ def scrape_rotogrinders():
                         if salary:
                             try:
                                 salary = int(salary)
+                                if salary > 16000:
+                                    print(f"  SALARY WARNING: {player_name} has salary ${salary} (exceeds FanDuel max $16,000) — capping")
+                                    salary = min(salary, 16000)
                             except:
                                 salary = None
 
