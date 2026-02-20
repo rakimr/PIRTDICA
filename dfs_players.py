@@ -56,6 +56,51 @@ def normalize_name(name):
 salaries["player_name"] = salaries["player_name"].str.strip()
 salaries = salaries.drop_duplicates(subset=["player_name", "team"], keep="first")
 salaries["salary"] = pd.to_numeric(salaries["salary"], errors="coerce").fillna(0).astype(int)
+
+FANDUEL_MAX_SALARY = 16000
+bad_salary_mask = salaries["salary"] > FANDUEL_MAX_SALARY
+if bad_salary_mask.any():
+    bad_players = salaries.loc[bad_salary_mask, ["player_name", "team", "salary"]].to_dict("records")
+    print(f"SALARY SANITY CHECK: {len(bad_players)} players above ${FANDUEL_MAX_SALARY} cap detected")
+    for bp in bad_players:
+        print(f"  FLAGGED: {bp['player_name']} ({bp['team']}) - ${bp['salary']}")
+
+    try:
+        import os as _os
+        from sqlalchemy import create_engine as _sal_engine
+        _sal_db_url = _os.environ.get('DATABASE_URL')
+        if _sal_db_url:
+            _sal_pg = _sal_engine(_sal_db_url)
+            pg_salaries = pd.read_sql_query(
+                "SELECT player_name, salary FROM player_salaries_live WHERE salary > 0",
+                _sal_pg
+            )
+            if not pg_salaries.empty:
+                pg_sal_dict = dict(zip(
+                    pg_salaries["player_name"].str.strip().str.lower(),
+                    pg_salaries["salary"]
+                ))
+                fixed = 0
+                for idx in salaries.index[bad_salary_mask]:
+                    pname = salaries.at[idx, "player_name"].strip().lower()
+                    if pname in pg_sal_dict:
+                        correct_sal = int(pg_sal_dict[pname])
+                        if correct_sal <= FANDUEL_MAX_SALARY:
+                            print(f"  FIXED via PG: {salaries.at[idx, 'player_name']} ${salaries.at[idx, 'salary']} -> ${correct_sal}")
+                            salaries.at[idx, "salary"] = correct_sal
+                            fixed += 1
+                if fixed > 0:
+                    print(f"  Cross-referenced {fixed} salaries from PostgreSQL")
+    except Exception as _sal_e:
+        print(f"  PG cross-reference unavailable: {_sal_e}")
+
+    still_bad = salaries["salary"] > FANDUEL_MAX_SALARY
+    if still_bad.any():
+        for idx in salaries.index[still_bad]:
+            original = salaries.at[idx, "salary"]
+            salaries.at[idx, "salary"] = FANDUEL_MAX_SALARY
+            print(f"  CAPPED: {salaries.at[idx, 'player_name']} ${original} -> ${FANDUEL_MAX_SALARY}")
+
 rotation["player_name"] = rotation["player_name"].str.strip()
 player_stats["player_name"] = player_stats["player_name"].str.strip()
 player_positions["player_name"] = player_positions["player_name"].str.strip()
