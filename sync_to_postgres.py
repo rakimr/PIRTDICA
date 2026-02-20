@@ -200,6 +200,62 @@ def sync_sqlite_table(sqlite_table, pg_table):
         return 0
 
 
+PLATFORM_TABLES = [
+    "shop_items",
+]
+
+
+def sync_platform_table(table_name):
+    local_url = os.environ.get("DATABASE_URL")
+    if not local_url or not SUPABASE_URL:
+        print(f"  SKIP: {table_name} (need both DATABASE_URL and SUPABASE_DATABASE_URL)")
+        return 0
+
+    try:
+        local_engine = create_engine(local_url)
+        with local_engine.connect() as lconn:
+            result = lconn.execute(text(f"SELECT * FROM {table_name}"))
+            rows = result.fetchall()
+            local_cols = list(result.keys())
+
+        if not rows:
+            print(f"  SKIP: {table_name} is empty in local PG, preserving Supabase data")
+            return 0
+
+        df = pd.DataFrame(rows, columns=local_cols)
+        if 'id' in df.columns:
+            df = df.drop(columns=['id'])
+
+        with engine.begin() as conn:
+            pg_cols_result = conn.execute(text(
+                f"SELECT column_name FROM information_schema.columns WHERE table_name = '{table_name}' AND column_name NOT IN ('id', 'updated_at')"
+            ))
+            target_cols = {row[0] for row in pg_cols_result}
+
+            common_cols = list(set(df.columns) & target_cols)
+            if not common_cols:
+                print(f"  WARN: No matching columns for {table_name}")
+                return 0
+
+            existing_count = conn.execute(text(f"SELECT COUNT(*) FROM {table_name}")).scalar()
+            if existing_count > 0 and len(df) < existing_count * 0.5:
+                print(f"  WARN: Local has {len(df)} rows but target has {existing_count}. Skipping to avoid data loss.")
+                return 0
+
+            df_filtered = df[common_cols]
+            df_filtered = df_filtered.where(pd.notnull(df_filtered), None)
+
+            conn.execute(text(f"DELETE FROM {table_name}"))
+            _insert_rows(conn, table_name, df_filtered, common_cols)
+
+        count = len(df_filtered)
+        print(f"  OK: {table_name} (local PG -> target) ({count} rows)")
+        return count
+    except Exception as e:
+        print(f"  ERROR syncing platform table {table_name}: {e}")
+        return 0
+
+
 def main():
     print("=" * 50)
     print("Syncing Pipeline Data to PostgreSQL")
@@ -226,6 +282,11 @@ def main():
     print("\n--- SQLite Tables ---")
     for sqlite_table, pg_table in SQLITE_TABLE_MAP.items():
         total_rows += sync_sqlite_table(sqlite_table, pg_table)
+
+    if SUPABASE_URL:
+        print("\n--- Platform Tables (Local PG -> Supabase) ---")
+        for table_name in PLATFORM_TABLES:
+            total_rows += sync_platform_table(table_name)
 
     print(f"\n{'=' * 50}")
     print(f"Sync Complete: {total_rows} total rows synced")

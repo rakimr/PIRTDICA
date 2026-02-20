@@ -77,7 +77,7 @@ The web platform is built with FastAPI (Python) for the backend, SQLAlchemy for 
 ### Databases
 -   **SQLite:** Staging database (`dfs_nba.db`) — used locally during pipeline scraping
 -   **PostgreSQL:** Production database for web platform data AND pipeline output
--   **Data Sync:** `sync_to_postgres.py` runs at the end of the daily pipeline to copy all scraped data from SQLite/CSV into PostgreSQL `*_live` tables. This enables stateless deployments on Render.
+-   **Data Sync:** `sync_to_postgres.py` runs at the end of the daily pipeline to copy all scraped data from SQLite/CSV into PostgreSQL `*_live` tables, plus platform tables (`shop_items`) from local PG to Supabase. This enables stateless deployments on Render. Platform table sync has safeguards: column intersection, empty-source skip, and 50% row-count threshold guard.
 -   **Data Access Layer:** `backend/data_access.py` provides unified data access that checks PostgreSQL first, falls back to CSV/SQLite (for local dev). All endpoints in `main.py` use this layer.
 -   **Pipeline Tables:** `dfs_players_live`, `prop_recommendations_live`, `targeted_plays_live`, `ownership_projections_live`, `player_salaries_live`, `injury_alerts_live`, `player_archetypes_live`, `player_per100_live`, `player_positions_live`, `player_stats_live`, `player_game_logs_live`, `player_shot_zones_live`, `player_shot_creation_live`, `player_hustle_stats_live`, `dva_stats_live`, `archetype_profiles_live`, `team_defense_shot_zones_live`, `team_play_types_live`, `player_headshots_live`
 
