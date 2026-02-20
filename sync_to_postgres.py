@@ -5,12 +5,20 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
+SUPABASE_URL = os.environ.get("SUPABASE_DATABASE_URL")
 DATABASE_URL = os.environ.get("DATABASE_URL")
-if not DATABASE_URL:
-    print("ERROR: DATABASE_URL not set")
+
+SYNC_URL = SUPABASE_URL or DATABASE_URL
+if not SYNC_URL:
+    print("ERROR: Neither SUPABASE_DATABASE_URL nor DATABASE_URL is set")
     sys.exit(1)
 
-engine = create_engine(DATABASE_URL)
+if SUPABASE_URL:
+    print("Syncing to Supabase PostgreSQL")
+else:
+    print("Syncing to local PostgreSQL (DATABASE_URL)")
+
+engine = create_engine(SYNC_URL)
 Session = sessionmaker(bind=engine)
 
 SQLITE_DB = "dfs_nba.db"
