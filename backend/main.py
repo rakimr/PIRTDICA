@@ -1579,6 +1579,23 @@ async def api_archetype_clusters():
             return {"error": "Archetype data not yet available.", "players": [], "archetypes": []}
 
         for tbl in [arch_df, per100, positions, usage, game_logs, shot_zones, shot_creation, hustle]:
+            for col in tbl.select_dtypes(include=['object']).columns:
+                try:
+                    tbl[col] = pd.to_numeric(tbl[col], errors='ignore')
+                except Exception:
+                    pass
+            for col in tbl.columns:
+                if hasattr(tbl[col].dtype, 'name') and 'decimal' in str(tbl[col].dtype).lower():
+                    tbl[col] = tbl[col].astype(float)
+                elif tbl[col].dtype == object:
+                    try:
+                        import decimal
+                        if tbl[col].dropna().apply(lambda x: isinstance(x, decimal.Decimal)).any():
+                            tbl[col] = tbl[col].apply(lambda x: float(x) if isinstance(x, decimal.Decimal) else x)
+                    except Exception:
+                        pass
+
+        for tbl in [arch_df, per100, positions, usage, game_logs, shot_zones, shot_creation, hustle]:
             tbl['_mk'] = tbl['player_name'].apply(_ascii_key)
 
         arch_df['player_name'] = arch_df['player_name'].apply(_clean_name)
