@@ -13,6 +13,9 @@ if not SYNC_URL:
     print("ERROR: Neither SUPABASE_DATABASE_URL nor DATABASE_URL is set")
     sys.exit(1)
 
+if "supabase" in SYNC_URL and ":5432" in SYNC_URL:
+    SYNC_URL = SYNC_URL.replace(":5432", ":6543")
+
 if SUPABASE_URL:
     print("Syncing to Supabase PostgreSQL")
 else:
