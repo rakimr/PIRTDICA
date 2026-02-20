@@ -1,33 +1,28 @@
 player,team,opponent,salary,value,stat,player_avg,adjusted_avg,extra_fp,edge_pct,recommendation,book_line,book_over,book_under,vs_book_edge,archetype,dva_edge,dvp_edge,blend
-Kyshawn George,WAS,IND,6600,5.19,REB,5.4,6.3,1.1,11.8,OVER,3.5,-158.0,118.0,80.8,Scoring Wing,0.8,1.11,42/57 DVP/DVA
-Jay Huff,IND,WAS,5600,6.2,BLK,1.9,2.4,1.5,26.1,OVER,1.5,-200.0,148.0,60.6,Stretch 5,0.19,0.95,42/57 DVP/DVA
-Kyshawn George,WAS,IND,6600,5.19,PTS,15.1,15.6,0.5,2.1,OVER,11.5,-114.0,-114.0,35.4,Scoring Wing,0.78,0.05,42/57 DVP/DVA
-Isaiah Collier,UTA,MEM,8000,6.2,REB,2.6,2.3,-0.3,-4.1,UNDER,3.5,-114.0,-114.0,-33.4,Playmaker,-0.29,-0.25,42/57 DVP/DVA
+Jay Huff,IND,WAS,5600,6.0,BLK,1.9,2.4,1.5,26.1,OVER,1.5,-200.0,148.0,60.6,Stretch 5,0.19,0.95,42/57 DVP/DVA
+Julian Strawther,DEN,POR,4000,6.7,PTS,6.3,6.2,-0.1,-0.6,UNDER,9.5,-125.0,-106.0,-35.2,3-and-D Wing,0.16,-0.55,42/57 DVP/DVA
+Isaiah Collier,UTA,MEM,8000,6.15,REB,2.6,2.3,-0.3,-4.1,UNDER,3.5,-114.0,-114.0,-33.4,Playmaker,-0.29,-0.25,42/57 DVP/DVA
 Cam Spencer,MEM,UTA,5300,13.27,AST,5.6,5.8,0.2,1.9,UNDER,8.5,106.0,-140.0,-32.3,Playmaker,0.33,-0.08,42/57 DVP/DVA
-Isaiah Collier,UTA,MEM,8000,6.2,AST,7.4,7.3,-0.2,-2.6,UNDER,10.5,-120.0,-110.0,-30.9,Playmaker,-0.24,0.0,42/57 DVP/DVA
-Derik Queen,NO,MIL,6300,5.52,REB,7.2,6.0,-1.4,-8.3,UNDER,8.5,118.0,-158.0,-29.4,Versatile Big,-1.22,-1.17,42/57 DVP/DVA
-Isaiah Collier,UTA,MEM,8000,6.2,PTS,10.4,10.3,-0.1,-0.4,UNDER,14.5,-122.0,-108.0,-28.9,Playmaker,-0.34,0.25,42/57 DVP/DVA
-Ben Sheppard,IND,WAS,3900,10.03,PTS,6.5,6.9,0.4,1.9,UNDER,9.5,-114.0,-114.0,-27.0,Combo Guard,0.43,0.45,42/57 DVP/DVA
-Lauri Markkanen,UTA,MEM,7700,5.26,PTS,26.7,28.2,1.5,6.7,OVER,22.5,-112.0,-118.0,25.5,Stretch 4,2.01,0.86,42/57 DVP/DVA
-Rudy Gobert,MIN,DAL,6100,5.87,PTS,11.0,12.8,1.8,8.3,OVER,10.5,-130.0,-102.0,21.6,Traditional Big,1.21,2.54,42/57 DVP/DVA
+Isaiah Collier,UTA,MEM,8000,6.15,AST,7.4,7.3,-0.2,-2.6,UNDER,10.5,-120.0,-110.0,-30.9,Playmaker,-0.24,0.0,42/57 DVP/DVA
+Derik Queen,NO,MIL,6300,5.55,REB,7.2,6.0,-1.4,-8.3,UNDER,8.5,118.0,-158.0,-29.4,Versatile Big,-1.22,-1.17,42/57 DVP/DVA
+Isaiah Collier,UTA,MEM,8000,6.15,PTS,10.4,10.3,-0.1,-0.4,UNDER,14.5,-122.0,-108.0,-28.9,Playmaker,-0.34,0.25,42/57 DVP/DVA
+Ben Sheppard,IND,WAS,3900,9.7,PTS,6.5,6.9,0.4,1.9,UNDER,9.5,-114.0,-114.0,-27.0,Combo Guard,0.43,0.45,42/57 DVP/DVA
+Rudy Gobert,MIN,DAL,6100,5.89,PTS,11.0,12.8,1.8,8.3,OVER,10.5,-130.0,-102.0,21.6,Traditional Big,1.21,2.54,42/57 DVP/DVA
 Cam Spencer,MEM,UTA,5300,13.27,PTS,11.6,13.2,1.6,6.7,UNDER,16.5,-106.0,-125.0,-20.0,Playmaker,1.55,1.67,42/57 DVP/DVA
-Jay Huff,IND,WAS,5600,6.2,PTS,8.7,10.5,1.8,8.6,UNDER,12.5,-114.0,-114.0,-15.6,Stretch 5,0.69,3.44,42/57 DVP/DVA
-Derik Queen,NO,MIL,6300,5.52,PTS,12.2,11.4,-0.8,-3.5,UNDER,13.5,100.0,-132.0,-15.2,Versatile Big,0.33,-2.26,42/57 DVP/DVA
-Jalen Johnson,ATL,MIA,11300,5.64,REB,10.6,11.9,1.5,12.5,OVER,10.5,-138.0,104.0,13.2,Point Forward,1.22,1.38,42/57 DVP/DVA
-Isaiah Hartenstein,OKC,BKN,6200,5.39,PTS,10.6,10.0,-0.6,-2.9,UNDER,11.5,100.0,-132.0,-13.2,Versatile Big,-0.94,-0.16,42/57 DVP/DVA
-Jeremiah Fears,NO,MIL,5500,5.84,PTS,13.2,15.2,2.0,8.5,OVER,13.5,-106.0,-125.0,12.9,Playmaker,1.95,2.17,42/57 DVP/DVA
-Davion Mitchell,MIA,ATL,4800,7.48,AST,7.0,7.3,0.5,3.8,OVER,6.5,-106.0,-125.0,12.6,Playmaker,0.46,0.12,42/57 DVP/DVA
-Ace Bailey,UTA,MEM,5900,5.42,PTS,11.7,13.6,1.9,8.2,UNDER,15.5,-112.0,-118.0,-12.4,Scoring Wing,2.41,1.15,42/57 DVP/DVA
-Andrew Nembhard,IND,WAS,7400,8.69,PTS,17.4,18.3,0.9,3.6,OVER,16.5,-104.0,-128.0,10.7,Playmaker,0.7,1.07,42/57 DVP/DVA
-Andrew Wiggins,MIA,ATL,6400,6.37,PTS,15.9,17.0,1.1,4.9,OVER,15.5,-112.0,-118.0,9.8,Scoring Wing,0.74,1.65,42/57 DVP/DVA
-Jalen Johnson,ATL,MIA,11300,5.64,PTS,23.3,24.1,0.8,3.4,OVER,22.5,-122.0,-108.0,7.0,Point Forward,1.13,0.26,42/57 DVP/DVA
-Rudy Gobert,MIN,DAL,6100,5.87,REB,11.1,11.9,0.9,5.3,OVER,11.5,-112.0,-118.0,3.1,Traditional Big,0.63,0.93,42/57 DVP/DVA
-Tristan Vukcevic,WAS,IND,5400,9.5,STL,0.3,0.1,-0.5,-11.7,UNDER,,,,,Traditional Big,0.01,-0.41,42/57 DVP/DVA
-Dean Wade,CLE,CHA,3800,6.68,BLK,0.4,0.2,-0.5,-13.9,UNDER,,,,,Stretch 4,-0.2,-0.13,42/57 DVP/DVA
-Herbert Jones,NO,MIL,4500,6.26,STL,1.6,1.8,0.6,11.7,OVER,,,,,3-and-D Wing,0.43,-0.11,42/57 DVP/DVA
-Vladislav Goldin,MIA,ATL,3500,7.64,PTS,2.0,1.7,-0.3,-1.6,UNDER,,,,,Traditional Big,-0.56,-0.06,42/57 DVP/DVA
-Kevin Love,UTA,MEM,3800,7.39,BLK,0.3,0.2,-0.3,-8.3,UNDER,,,,,Versatile Big,-0.08,-0.13,42/57 DVP/DVA
-Brice Sensabaugh,UTA,MEM,5200,5.88,REB,2.9,2.6,-0.4,-4.0,UNDER,,,,,Combo Guard,-0.33,-0.29,42/57 DVP/DVA
-Bryce McGowens,NO,MIL,3800,5.48,AST,1.5,1.2,-0.5,-6.4,UNDER,,,,,3-and-D Wing,-0.38,-0.3,42/57 DVP/DVA
-Bryce McGowens,NO,MIL,3800,5.48,PTS,7.9,7.1,-0.8,-3.3,UNDER,,,,,3-and-D Wing,-1.0,-0.45,42/57 DVP/DVA
-Lauri Markkanen,UTA,MEM,7700,5.26,BLK,0.5,0.3,-0.6,-15.2,UNDER,,,,,Stretch 4,-0.23,-0.13,42/57 DVP/DVA
+Jay Huff,IND,WAS,5600,6.0,PTS,8.7,10.5,1.8,8.6,UNDER,12.5,-114.0,-114.0,-15.6,Stretch 5,0.69,3.44,42/57 DVP/DVA
+Derik Queen,NO,MIL,6300,5.55,PTS,12.2,11.4,-0.8,-3.5,UNDER,13.5,100.0,-132.0,-15.2,Versatile Big,0.33,-2.26,42/57 DVP/DVA
+Isaiah Hartenstein,OKC,BKN,6200,5.42,PTS,10.6,10.0,-0.6,-2.9,UNDER,11.5,100.0,-132.0,-13.2,Versatile Big,-0.94,-0.16,42/57 DVP/DVA
+Jeremiah Fears,NO,MIL,5500,8.5,PTS,13.2,15.2,2.0,8.5,OVER,13.5,-106.0,-125.0,12.9,Playmaker,1.95,2.17,42/57 DVP/DVA
+Davion Mitchell,MIA,ATL,4800,7.45,AST,7.0,7.3,0.5,3.8,OVER,6.5,-106.0,-125.0,12.6,Playmaker,0.46,0.12,42/57 DVP/DVA
+Ace Bailey,UTA,MEM,5900,5.38,PTS,11.7,13.6,1.9,8.2,UNDER,15.5,-112.0,-118.0,-12.4,Scoring Wing,2.41,1.15,42/57 DVP/DVA
+Andrew Nembhard,IND,WAS,7400,8.41,PTS,17.4,18.3,0.9,3.6,OVER,16.5,-104.0,-128.0,10.7,Playmaker,0.7,1.07,42/57 DVP/DVA
+Andrew Wiggins,MIA,ATL,6400,6.35,PTS,15.9,17.0,1.1,4.9,OVER,15.5,-112.0,-118.0,9.8,Scoring Wing,0.74,1.65,42/57 DVP/DVA
+Jamal Murray,DEN,POR,9200,6.05,PTS,25.7,26.2,0.5,2.1,OVER,24.5,-122.0,-108.0,7.0,Playmaker,0.32,0.77,42/57 DVP/DVA
+Jerami Grant,POR,DEN,6100,8.77,PTS,18.8,19.7,0.9,3.8,OVER,18.5,-104.0,-128.0,6.3,Scoring Wing,1.31,0.26,42/57 DVP/DVA
+Rudy Gobert,MIN,DAL,6100,5.89,REB,11.1,11.9,0.9,5.3,OVER,11.5,-112.0,-118.0,3.1,Traditional Big,0.63,0.93,42/57 DVP/DVA
+Tristan Vukcevic,WAS,IND,5400,9.33,STL,0.3,0.1,-0.5,-11.7,UNDER,,,,,Traditional Big,0.01,-0.41,42/57 DVP/DVA
+Vladislav Goldin,MIA,ATL,3500,7.61,PTS,2.0,1.7,-0.3,-1.6,UNDER,,,,,Traditional Big,-0.56,-0.06,42/57 DVP/DVA
+Kevin Love,UTA,MEM,3800,7.33,BLK,0.3,0.2,-0.3,-8.3,UNDER,,,,,Versatile Big,-0.08,-0.13,42/57 DVP/DVA
+Herbert Jones,NO,MIL,4500,6.29,STL,1.6,1.8,0.6,11.7,OVER,,,,,3-and-D Wing,0.43,-0.11,42/57 DVP/DVA
+Dean Wade,CLE,CHA,3800,6.63,BLK,0.4,0.2,-0.5,-13.9,UNDER,,,,,Stretch 4,-0.2,-0.13,42/57 DVP/DVA
+Brice Sensabaugh,UTA,MEM,5200,5.83,REB,2.9,2.6,-0.4,-4.0,UNDER,,,,,Combo Guard,-0.33,-0.29,42/57 DVP/DVA
