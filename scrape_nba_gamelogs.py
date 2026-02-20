@@ -7,7 +7,29 @@ from nba_api.stats.endpoints import leaguegamelog
 import pandas as pd
 import numpy as np
 import sqlite3
+import time
 from datetime import datetime
+
+
+MAX_RETRIES = 2
+RETRY_DELAYS = [5, 15]
+NBA_TIMEOUT = 60
+
+NBA_HEADERS = {
+    'Host': 'stats.nba.com',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'x-nba-stats-origin': 'stats',
+    'x-nba-stats-token': 'true',
+    'Connection': 'keep-alive',
+    'Referer': 'https://www.nba.com/',
+    'Origin': 'https://www.nba.com',
+    'Sec-Fetch-Dest': 'empty',
+    'Sec-Fetch-Mode': 'cors',
+    'Sec-Fetch-Site': 'same-site',
+}
 
 
 def calc_fanduel_fp(row):
@@ -24,12 +46,40 @@ def calc_fanduel_fp(row):
 def scrape_gamelogs():
     print("Fetching all player game logs from NBA.com...")
     
-    gamelog = leaguegamelog.LeagueGameLog(
-        season='2025-26',
-        player_or_team_abbreviation='P',
-        season_type_all_star='Regular Season'
-    )
-    df = gamelog.get_data_frames()[0]
+    df = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            gamelog = leaguegamelog.LeagueGameLog(
+                season='2025-26',
+                player_or_team_abbreviation='P',
+                season_type_all_star='Regular Season',
+                timeout=NBA_TIMEOUT,
+                headers=NBA_HEADERS
+            )
+            df = gamelog.get_data_frames()[0]
+            break
+        except Exception as e:
+            delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 15
+            print(f"  Attempt {attempt+1}/{MAX_RETRIES} failed: {e}")
+            if attempt < MAX_RETRIES - 1:
+                print(f"  Retrying in {delay}s...")
+                time.sleep(delay)
+    
+    if df is None or len(df) == 0:
+        conn = sqlite3.connect('dfs_nba.db')
+        try:
+            existing = pd.read_sql("SELECT COUNT(*) as cnt FROM player_volatility", conn)
+            cnt = existing['cnt'].iloc[0]
+        except:
+            cnt = 0
+        conn.close()
+        if cnt > 0:
+            print(f"WARNING: NBA.com unreachable - using cached data ({cnt} players in player_volatility)")
+            return None
+        else:
+            print("ERROR: NBA.com unreachable and no cached data available")
+            return None
+    
     print(f"Got {len(df)} game log entries for {df['PLAYER_NAME'].nunique()} players")
     
     df = df[df['MIN'] > 0]
@@ -104,7 +154,8 @@ def scrape_gamelogs():
 
 if __name__ == "__main__":
     stats = scrape_gamelogs()
-    print("\n=== Most Stable (Low SD) ===")
-    print(stats.nsmallest(5, 'min_sd')[['player_name', 'games_played', 'min_sd']].to_string(index=False))
-    print("\n=== Most Volatile (High SD) ===")
-    print(stats.nlargest(5, 'min_sd')[['player_name', 'games_played', 'min_sd']].to_string(index=False))
+    if stats is not None:
+        print("\n=== Most Stable (Low SD) ===")
+        print(stats.nsmallest(5, 'min_sd')[['player_name', 'games_played', 'min_sd']].to_string(index=False))
+        print("\n=== Most Volatile (High SD) ===")
+        print(stats.nlargest(5, 'min_sd')[['player_name', 'games_played', 'min_sd']].to_string(index=False))

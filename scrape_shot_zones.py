@@ -27,6 +27,40 @@ from datetime import datetime
 
 DB_PATH = 'dfs_nba.db'
 SEASON = '2025-26'
+MAX_RETRIES = 2
+RETRY_DELAYS = [5, 15]
+NBA_TIMEOUT = 60
+
+NBA_HEADERS = {
+    'Host': 'stats.nba.com',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'x-nba-stats-origin': 'stats',
+    'x-nba-stats-token': 'true',
+    'Connection': 'keep-alive',
+    'Referer': 'https://www.nba.com/',
+    'Origin': 'https://www.nba.com',
+    'Sec-Fetch-Dest': 'empty',
+    'Sec-Fetch-Mode': 'cors',
+    'Sec-Fetch-Site': 'same-site',
+}
+
+
+def nba_api_call_with_retry(endpoint_class, label, **kwargs):
+    for attempt in range(MAX_RETRIES):
+        try:
+            result = endpoint_class(**kwargs, timeout=NBA_TIMEOUT, headers=NBA_HEADERS)
+            return result.get_data_frames()[0]
+        except Exception as e:
+            delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 15
+            print(f"  Attempt {attempt+1}/{MAX_RETRIES} for {label} failed: {e}")
+            if attempt < MAX_RETRIES - 1:
+                print(f"  Retrying in {delay}s...")
+                time.sleep(delay)
+    print(f"  WARNING: All attempts failed for {label} - NBA.com may be unreachable from this server")
+    return None
 
 
 def scrape_shot_locations():
@@ -35,14 +69,17 @@ def scrape_shot_locations():
     print("Fetching shot zone data from NBA.com (leaguedashplayershotlocations)...")
     time.sleep(1)
 
-    shot_locs = leaguedashplayershotlocations.LeagueDashPlayerShotLocations(
+    raw = nba_api_call_with_retry(
+        leaguedashplayershotlocations.LeagueDashPlayerShotLocations,
+        "shot locations",
         season=SEASON,
         season_type_all_star='Regular Season',
         distance_range='By Zone',
         per_mode_detailed='Totals'
     )
-
-    raw = shot_locs.get_data_frames()[0]
+    if raw is None:
+        print("  Skipping shot locations - using cached data")
+        return None
     print(f"  Got data for {len(raw)} players")
 
     raw.columns = [f"{c[0]}_{c[1]}".strip('_') if c[0] else c[1] for c in raw.columns]
@@ -113,39 +150,38 @@ def scrape_shot_creation():
 
     print("  Fetching Overall totals...")
     time.sleep(1)
-    overall = leaguedashplayerptshot.LeagueDashPlayerPtShot(
-        season=SEASON,
-        season_type_all_star='Regular Season',
-        per_mode_simple='Totals',
-        general_range_nullable='Overall'
-    ).get_data_frames()[0]
+    overall = nba_api_call_with_retry(
+        leaguedashplayerptshot.LeagueDashPlayerPtShot, "shot creation - Overall",
+        season=SEASON, season_type_all_star='Regular Season',
+        per_mode_simple='Totals', general_range_nullable='Overall'
+    )
+    if overall is None:
+        print("  Skipping shot creation - using cached data")
+        return None
 
     print("  Fetching Catch and Shoot...")
-    time.sleep(1)
-    catch_shoot = leaguedashplayerptshot.LeagueDashPlayerPtShot(
-        season=SEASON,
-        season_type_all_star='Regular Season',
-        per_mode_simple='Totals',
-        general_range_nullable='Catch and Shoot'
-    ).get_data_frames()[0]
+    time.sleep(2)
+    catch_shoot = nba_api_call_with_retry(
+        leaguedashplayerptshot.LeagueDashPlayerPtShot, "shot creation - C&S",
+        season=SEASON, season_type_all_star='Regular Season',
+        per_mode_simple='Totals', general_range_nullable='Catch and Shoot'
+    )
 
     print("  Fetching Pull Ups...")
-    time.sleep(1)
-    pullups = leaguedashplayerptshot.LeagueDashPlayerPtShot(
-        season=SEASON,
-        season_type_all_star='Regular Season',
-        per_mode_simple='Totals',
-        general_range_nullable='Pullups'
-    ).get_data_frames()[0]
+    time.sleep(2)
+    pullups = nba_api_call_with_retry(
+        leaguedashplayerptshot.LeagueDashPlayerPtShot, "shot creation - Pullups",
+        season=SEASON, season_type_all_star='Regular Season',
+        per_mode_simple='Totals', general_range_nullable='Pullups'
+    )
 
     print("  Fetching Less Than 10ft...")
-    time.sleep(1)
-    paint = leaguedashplayerptshot.LeagueDashPlayerPtShot(
-        season=SEASON,
-        season_type_all_star='Regular Season',
-        per_mode_simple='Totals',
-        general_range_nullable='Less Than 10 ft'
-    ).get_data_frames()[0]
+    time.sleep(2)
+    paint = nba_api_call_with_retry(
+        leaguedashplayerptshot.LeagueDashPlayerPtShot, "shot creation - Paint",
+        season=SEASON, season_type_all_star='Regular Season',
+        per_mode_simple='Totals', general_range_nullable='Less Than 10 ft'
+    )
 
     rows = []
     for _, ov in overall.iterrows():
@@ -207,15 +243,16 @@ def scrape_hustle_stats():
     from nba_api.stats.endpoints import leaguehustlestatsplayer
 
     print("\nFetching hustle stats from NBA.com (leaguehustlestatsplayer)...")
-    time.sleep(1)
+    time.sleep(2)
 
-    hustle = leaguehustlestatsplayer.LeagueHustleStatsPlayer(
-        season=SEASON,
-        season_type_all_star='Regular Season',
+    raw = nba_api_call_with_retry(
+        leaguehustlestatsplayer.LeagueHustleStatsPlayer, "hustle stats",
+        season=SEASON, season_type_all_star='Regular Season',
         per_mode_time='Totals'
     )
-
-    raw = hustle.get_data_frames()[0]
+    if raw is None:
+        print("  Skipping hustle stats - using cached data")
+        return None
     print(f"  Got data for {len(raw)} players")
 
     rows = []
@@ -280,17 +317,17 @@ def scrape_tracking_stats():
     from nba_api.stats.endpoints import leaguedashptstats
 
     print("\nFetching player tracking stats from NBA.com (leaguedashptstats - Possessions)...")
-    time.sleep(1)
+    time.sleep(2)
 
-    tracking = leaguedashptstats.LeagueDashPtStats(
-        season=SEASON,
-        season_type_all_star='Regular Season',
-        per_mode_simple='PerGame',
-        player_or_team='Player',
+    raw = nba_api_call_with_retry(
+        leaguedashptstats.LeagueDashPtStats, "tracking stats",
+        season=SEASON, season_type_all_star='Regular Season',
+        per_mode_simple='PerGame', player_or_team='Player',
         pt_measure_type='Possessions'
     )
-
-    raw = tracking.get_data_frames()[0]
+    if raw is None:
+        print("  Skipping tracking stats - using cached data")
+        return None
     print(f"  Got data for {len(raw)} players")
 
     rows = []
@@ -409,28 +446,43 @@ def main():
     creation_df = scrape_shot_creation()
     hustle_df = scrape_hustle_stats()
     tracking_df = scrape_tracking_stats()
-    save_to_db(zones_df, creation_df, hustle_df, tracking_df)
-    show_big_man_audit(zones_df, creation_df)
 
-    print("\n" + "=" * 80)
-    print("DEFENSIVE HUSTLE LEADERS (per 48 min)")
-    print("=" * 80)
-    top = hustle_df.nlargest(15, 'deflections_per48')
-    print(f"{'Player':<25} {'Defl/48':>8} {'Contest/48':>11} {'Loose/48':>9} {'Charges/48':>11}")
-    print('-' * 70)
-    for _, r in top.iterrows():
-        print(f"{r['player_name']:<25} {r['deflections_per48']:>8.2f} {r['contested_per48']:>11.2f} "
-              f"{r['loose_per48']:>9.2f} {r['charges_per48']:>11.2f}")
+    if zones_df is None and creation_df is None and hustle_df is None and tracking_df is None:
+        print("\nWARNING: All NBA.com endpoints unreachable - using cached data from SQLite")
+        print("Done! (cached data preserved)")
+        return
 
-    print("\n" + "=" * 80)
-    print("BALL INITIATION LEADERS (per game)")
-    print("=" * 80)
-    top_t = tracking_df.nlargest(20, 'touches_pg')
-    print(f"{'Player':<25} {'Touch/G':>8} {'FrCt/G':>8} {'ToP/G':>7} {'Sec/Tch':>8} {'Drib/Tch':>9}")
-    print('-' * 75)
-    for _, r in top_t.iterrows():
-        print(f"{r['player_name']:<25} {r['touches_pg']:>8.1f} {r['front_ct_touches_pg']:>8.1f} "
-              f"{r['time_of_poss_pg']:>7.2f} {r['avg_sec_per_touch']:>8.2f} {r['avg_drib_per_touch']:>9.2f}")
+    if zones_df is not None and creation_df is not None:
+        save_to_db(zones_df, creation_df, hustle_df, tracking_df)
+        show_big_man_audit(zones_df, creation_df)
+    elif zones_df is not None or creation_df is not None:
+        save_to_db(
+            zones_df if zones_df is not None else pd.DataFrame(),
+            creation_df if creation_df is not None else pd.DataFrame(),
+            hustle_df, tracking_df
+        )
+
+    if hustle_df is not None:
+        print("\n" + "=" * 80)
+        print("DEFENSIVE HUSTLE LEADERS (per 48 min)")
+        print("=" * 80)
+        top = hustle_df.nlargest(15, 'deflections_per48')
+        print(f"{'Player':<25} {'Defl/48':>8} {'Contest/48':>11} {'Loose/48':>9} {'Charges/48':>11}")
+        print('-' * 70)
+        for _, r in top.iterrows():
+            print(f"{r['player_name']:<25} {r['deflections_per48']:>8.2f} {r['contested_per48']:>11.2f} "
+                  f"{r['loose_per48']:>9.2f} {r['charges_per48']:>11.2f}")
+
+    if tracking_df is not None:
+        print("\n" + "=" * 80)
+        print("BALL INITIATION LEADERS (per game)")
+        print("=" * 80)
+        top_t = tracking_df.nlargest(20, 'touches_pg')
+        print(f"{'Player':<25} {'Touch/G':>8} {'FrCt/G':>8} {'ToP/G':>7} {'Sec/Tch':>8} {'Drib/Tch':>9}")
+        print('-' * 75)
+        for _, r in top_t.iterrows():
+            print(f"{r['player_name']:<25} {r['touches_pg']:>8.1f} {r['front_ct_touches_pg']:>8.1f} "
+                  f"{r['time_of_poss_pg']:>7.2f} {r['avg_sec_per_touch']:>8.2f} {r['avg_drib_per_touch']:>9.2f}")
 
     print("\nDone!")
 

@@ -3,6 +3,26 @@ import time
 from datetime import datetime
 from nba_api.stats.endpoints import synergyplaytypes
 
+MAX_RETRIES = 2
+RETRY_DELAYS = [5, 15]
+NBA_TIMEOUT = 60
+
+NBA_HEADERS = {
+    'Host': 'stats.nba.com',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'x-nba-stats-origin': 'stats',
+    'x-nba-stats-token': 'true',
+    'Connection': 'keep-alive',
+    'Referer': 'https://www.nba.com/',
+    'Origin': 'https://www.nba.com',
+    'Sec-Fetch-Dest': 'empty',
+    'Sec-Fetch-Mode': 'cors',
+    'Sec-Fetch-Site': 'same-site',
+}
+
 PLAY_TYPES = [
     "Isolation", "Transition", "PRBallHandler", "PRRollman",
     "Postup", "Spotup", "Handoff", "Cut", "OffScreen", "OffRebound", "Misc"
@@ -72,20 +92,32 @@ def scrape_play_types():
     for grouping in ["Offensive", "Defensive"]:
         for play_type in PLAY_TYPES:
             try:
-                synergy = synergyplaytypes.SynergyPlayTypes(
-                    league_id='00',
-                    per_mode_simple='PerGame',
-                    play_type_nullable=play_type,
-                    player_or_team_abbreviation='T',
-                    season_type_all_star='Regular Season',
-                    season=SEASON_YEAR,
-                    type_grouping_nullable=grouping,
-                    timeout=60
-                )
-                df = synergy.get_data_frames()[0]
+                df = None
+                for attempt in range(MAX_RETRIES):
+                    try:
+                        synergy = synergyplaytypes.SynergyPlayTypes(
+                            league_id='00',
+                            per_mode_simple='PerGame',
+                            play_type_nullable=play_type,
+                            player_or_team_abbreviation='T',
+                            season_type_all_star='Regular Season',
+                            season=SEASON_YEAR,
+                            type_grouping_nullable=grouping,
+                            timeout=NBA_TIMEOUT,
+                            headers=NBA_HEADERS
+                        )
+                        df = synergy.get_data_frames()[0]
+                        break
+                    except Exception as retry_err:
+                        delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 15
+                        if attempt < MAX_RETRIES - 1:
+                            print(f"    Retry {attempt+1}/{MAX_RETRIES} for {grouping} {play_type}: {retry_err}")
+                            time.sleep(delay)
+                        else:
+                            df = None
 
-                if df.empty:
-                    print(f"  Empty: {grouping} {play_type}")
+                if df is None or df.empty:
+                    print(f"  Skipped/Empty: {grouping} {play_type}")
                     continue
 
                 for _, row in df.iterrows():

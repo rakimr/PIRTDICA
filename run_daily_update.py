@@ -1,5 +1,13 @@
 import subprocess
 import sys
+import os
+
+NBA_COM_SCRIPTS = {
+    "scrape_nba_gamelogs.py",
+    "scrape_shot_zones.py",
+    "scrape_team_defense_zones.py",
+    "scrape_play_types.py",
+}
 
 SCRIPTS = [
     ("scrape_player_salaries.py", "Player Salaries"),
@@ -35,23 +43,27 @@ SCRIPTS = [
 def run_script(script_name, description):
     print(f"\n{'='*50}")
     print(f"Running: {description}")
-    print(f"{'='*50}")
+    print(f"{'='*50}", flush=True)
     
     parts = script_name.split()
-    cmd = [sys.executable] + parts
+    base_script = parts[0]
+    cmd = [sys.executable, "-u"] + parts
     
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True
-    )
+    timeout = 300 if base_script in NBA_COM_SCRIPTS else 600
     
-    if result.stdout:
-        print(result.stdout)
+    try:
+        result = subprocess.run(
+            cmd,
+            text=True,
+            timeout=timeout,
+            env={**os.environ, "PYTHONUNBUFFERED": "1"}
+        )
+    except subprocess.TimeoutExpired:
+        print(f"TIMEOUT: {script_name} exceeded {timeout}s limit - skipping")
+        return False
     
     if result.returncode != 0:
-        print(f"ERROR in {script_name}:")
-        print(result.stderr)
+        print(f"ERROR in {script_name} (exit code {result.returncode})")
         return False
     
     return True

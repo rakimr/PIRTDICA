@@ -65,7 +65,7 @@ The web platform is built with FastAPI (Python) for the backend, SQLAlchemy for 
 -   **TeamRankings:** Game odds/spreads
 -   **HashtagBasketball:** Defense vs Position stats
 -   **Basketball Reference:** Per-100 possession stats, player positions, foul rates
--   **NBA.com Stats API:** Player game logs, minutes volatility, referee assignments, shot zone distribution, shot creation types, hustle stats (deflections, contested shots, loose balls)
+-   **NBA.com Stats API:** Player game logs, minutes volatility, referee assignments, shot zone distribution, shot creation types, hustle stats (deflections, contested shots, loose balls). **Note:** NBA.com rate-limits cloud server IPs aggressively. All 4 NBA.com scrapers (`scrape_nba_gamelogs.py`, `scrape_shot_zones.py`, `scrape_team_defense_zones.py`, `scrape_play_types.py`) include browser-like headers, 60s request timeouts, 2 retries with 5/15s delays, and graceful fallback to cached SQLite data when unreachable. `run_daily_update.py` enforces a 300s subprocess timeout for NBA.com scripts (600s for others).
 -   **NBAStuffer:** Historical referee statistics
 -   **SportsDatabase:** Historic betting lines
 -   **FantasyTeamAdvice.com:** FanDuel NBA ownership data

@@ -15,6 +15,25 @@ from datetime import datetime
 
 DB_PATH = 'dfs_nba.db'
 SEASON = '2025-26'
+MAX_RETRIES = 2
+RETRY_DELAYS = [5, 15]
+NBA_TIMEOUT = 60
+
+NBA_HEADERS = {
+    'Host': 'stats.nba.com',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'x-nba-stats-origin': 'stats',
+    'x-nba-stats-token': 'true',
+    'Connection': 'keep-alive',
+    'Referer': 'https://www.nba.com/',
+    'Origin': 'https://www.nba.com',
+    'Sec-Fetch-Dest': 'empty',
+    'Sec-Fetch-Mode': 'cors',
+    'Sec-Fetch-Site': 'same-site',
+}
 
 
 TEAM_NAME_TO_ABBR = {
@@ -37,15 +56,40 @@ def scrape_team_defense_shot_zones():
     print("Fetching team opponent shot zone data from NBA.com...")
     time.sleep(1)
 
-    shot_locs = leaguedashteamshotlocations.LeagueDashTeamShotLocations(
-        season=SEASON,
-        season_type_all_star='Regular Season',
-        distance_range='By Zone',
-        per_mode_detailed='Totals',
-        measure_type_simple='Opponent'
-    )
-
-    raw = shot_locs.get_data_frames()[0]
+    raw = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            shot_locs = leaguedashteamshotlocations.LeagueDashTeamShotLocations(
+                season=SEASON,
+                season_type_all_star='Regular Season',
+                distance_range='By Zone',
+                per_mode_detailed='Totals',
+                measure_type_simple='Opponent',
+                timeout=NBA_TIMEOUT,
+                headers=NBA_HEADERS
+            )
+            raw = shot_locs.get_data_frames()[0]
+            break
+        except Exception as e:
+            delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 15
+            print(f"  Attempt {attempt+1}/{MAX_RETRIES} failed: {e}")
+            if attempt < MAX_RETRIES - 1:
+                print(f"  Retrying in {delay}s...")
+                time.sleep(delay)
+    
+    if raw is None:
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            cnt = conn.execute("SELECT COUNT(*) FROM team_defense_shot_zones").fetchone()[0]
+        except:
+            cnt = 0
+        conn.close()
+        if cnt > 0:
+            print(f"WARNING: NBA.com unreachable - using cached data ({cnt} team records)")
+        else:
+            print("ERROR: NBA.com unreachable and no cached data available")
+        return
+    
     print(f"  Got data for {len(raw)} teams")
 
     flat_cols = []
@@ -140,6 +184,9 @@ def main():
     print("=" * 60)
 
     df = scrape_team_defense_shot_zones()
+    if df is None:
+        print("Done! (using cached data)")
+        return
     save_to_db(df)
 
     print("\n" + "=" * 80)
