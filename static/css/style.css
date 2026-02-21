@@ -2189,6 +2189,15 @@ a:hover {
         padding: 0.75rem 1.5rem;
     }
 
+    .nav-links .btn-register {
+        background: transparent;
+        color: var(--primary) !important;
+        border-radius: 0;
+        font-weight: 600;
+        text-align: left;
+        padding: 0.75rem 1.5rem;
+    }
+
     .user-menu {
         flex-direction: column;
         gap: 0 !important;
