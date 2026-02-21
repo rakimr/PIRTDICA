@@ -459,7 +459,31 @@ async def trends(request: Request, db: Session = Depends(get_db)):
     
     import os
     ref_chart_exists = os.path.exists("static/images/ref_foul_chart.png")
-    
+
+    explorer_players = []
+    headshots = get_player_headshots()
+    try:
+        explorer_df = dfs_df.copy() if not dfs_df.empty else pd.DataFrame()
+        if not explorer_df.empty:
+            own_df = data_access.get_ownership_projections()
+            if not own_df.empty and 'pown_pct' in own_df.columns:
+                own_map = dict(zip(own_df['player_name'], own_df['pown_pct']))
+                explorer_df['ownership_pct'] = explorer_df['player_name'].map(own_map)
+            else:
+                explorer_df['ownership_pct'] = None
+            injury_df = data_access.get_injury_alerts()
+            if not injury_df.empty:
+                inj_map = dict(zip(injury_df['player_name'], injury_df['status']))
+                explorer_df['injury_status'] = explorer_df['player_name'].map(inj_map).fillna('')
+            else:
+                explorer_df['injury_status'] = ''
+            keep_cols = ['player_name', 'true_position', 'team', 'opponent', 'injury_status',
+                         'proj_fp', 'fp_per_min', 'ownership_pct']
+            keep_cols = [c for c in keep_cols if c in explorer_df.columns]
+            explorer_players = explorer_df[keep_cols].to_dict('records')
+    except:
+        pass
+
     return templates.TemplateResponse("trends.html", {
         "request": request,
         "user": user,
@@ -467,7 +491,9 @@ async def trends(request: Request, db: Session = Depends(get_db)):
         "props": props,
         "targeted": targeted,
         "ref_chart_exists": ref_chart_exists,
-        "cache_bust": int(time.time())
+        "cache_bust": int(time.time()),
+        "explorer_players": explorer_players,
+        "headshots": headshots
     })
 
 @app.post("/trends/refresh")
