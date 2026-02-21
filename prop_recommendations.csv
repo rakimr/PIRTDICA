@@ -2,45 +2,43 @@ player,team,opponent,salary,value,stat,player_avg,adjusted_avg,extra_fp,edge_pct
 DeMar DeRozan,SAC,SA,6300,4.88,AST,3.8,4.2,0.7,10.1,OVER,2.5,-180.0,134.0,69.8,Scoring Wing,0.57,0.27,41/58 DVP/DVA
 Russell Westbrook,SAC,SA,6400,4.93,REB,5.6,5.7,0.1,1.1,OVER,3.5,-136.0,102.0,62.0,Playmaker,0.23,-0.15,41/58 DVP/DVA
 Julian Champagnie,SA,SAC,4000,6.43,PTS,11.1,11.6,0.5,2.4,OVER,7.5,-132.0,100.0,55.3,Combo Guard,0.97,-0.04,41/58 DVP/DVA
-Josh Giddey,CHI,DET,7600,5.61,REB,8.5,8.2,-0.3,-4.7,OVER,5.5,-106.0,-125.0,49.3,Playmaker,-0.13,-0.5,41/58 DVP/DVA
-Jalen Suggs,ORL,PHO,8000,5.58,STL,1.9,2.1,0.7,11.0,OVER,1.5,-146.0,110.0,41.3,Playmaker,0.38,0.0,41/58 DVP/DVA
-Jalen Smith,CHI,DET,5900,6.0,PTS,10.1,6.9,-3.2,-14.6,UNDER,11.5,-102.0,-130.0,-39.6,Stretch 5,-2.96,-3.41,41/58 DVP/DVA
-Josh Giddey,CHI,DET,7600,5.61,AST,8.7,7.7,-1.6,-12.5,OVER,5.5,-136.0,102.0,39.1,Playmaker,-1.04,-1.06,41/58 DVP/DVA
-Cam Spencer,MEM,MIA,6400,6.83,PTS,11.6,12.5,0.9,3.8,OVER,9.5,-112.0,-118.0,31.7,Playmaker,1.29,0.38,41/58 DVP/DVA
-Josh Giddey,CHI,DET,7600,5.61,PTS,18.2,17.5,-0.7,-2.9,OVER,13.5,-106.0,-125.0,29.6,Playmaker,-0.05,-1.62,41/58 DVP/DVA
+Josh Giddey,CHI,DET,7600,5.64,REB,8.5,8.2,-0.3,-4.7,OVER,5.5,-106.0,-125.0,49.3,Playmaker,-0.13,-0.5,41/58 DVP/DVA
+Jalen Smith,CHI,DET,5900,6.02,PTS,10.1,6.9,-3.2,-14.6,UNDER,11.5,-102.0,-130.0,-39.6,Stretch 5,-2.96,-3.41,41/58 DVP/DVA
+Josh Giddey,CHI,DET,7600,5.64,AST,8.7,7.7,-1.6,-12.5,OVER,5.5,-136.0,102.0,39.1,Playmaker,-1.04,-1.06,41/58 DVP/DVA
+Josh Giddey,CHI,DET,7600,5.64,PTS,18.2,17.5,-0.7,-2.9,OVER,13.5,-106.0,-125.0,29.6,Playmaker,-0.05,-1.62,41/58 DVP/DVA
 DeMar DeRozan,SAC,SA,6300,4.88,PTS,18.6,18.3,-0.3,-1.4,OVER,14.5,-106.0,-125.0,26.1,Scoring Wing,0.42,-1.34,41/58 DVP/DVA
-Jalen Smith,CHI,DET,5900,6.0,REB,7.0,5.9,-1.3,-7.4,UNDER,7.5,-122.0,-108.0,-20.9,Stretch 5,-1.0,-1.16,41/58 DVP/DVA
+Jalen Smith,CHI,DET,5900,6.02,REB,7.0,5.9,-1.3,-7.4,UNDER,7.5,-122.0,-108.0,-20.9,Stretch 5,-1.0,-1.16,41/58 DVP/DVA
 Dominick Barlow,PHI,NO,4500,4.94,PTS,8.4,7.7,-0.7,-3.2,UNDER,9.5,-118.0,-112.0,-19.3,Versatile Big,-0.38,-1.23,41/58 DVP/DVA
 Devin Vassell,SA,SAC,4800,6.23,PTS,14.0,14.9,0.9,3.8,OVER,12.5,-112.0,-118.0,19.0,Combo Guard,0.97,0.74,41/58 DVP/DVA
-Tobias Harris,DET,CHI,5600,5.72,PTS,13.4,16.0,2.6,11.3,OVER,13.5,-120.0,-110.0,18.3,Scoring Wing,1.28,4.37,41/58 DVP/DVA
-Jalen Green,PHO,ORL,5800,4.81,PTS,13.0,13.8,0.8,3.4,UNDER,16.5,-122.0,-108.0,-16.4,Combo Guard,1.68,-0.46,41/58 DVP/DVA
+Tobias Harris,DET,CHI,5600,5.99,PTS,13.4,16.0,2.6,11.3,OVER,13.5,-120.0,-110.0,18.3,Scoring Wing,1.28,4.37,41/58 DVP/DVA
+Jalen Green,PHO,ORL,5800,4.67,PTS,13.0,13.8,0.8,3.4,UNDER,16.5,-122.0,-108.0,-16.4,Combo Guard,1.68,-0.46,41/58 DVP/DVA
 Andrew Wiggins,MIA,MEM,6500,5.04,PTS,15.9,17.7,1.8,8.1,OVER,15.5,-128.0,-104.0,14.5,Scoring Wing,2.41,1.06,41/58 DVP/DVA
 Russell Westbrook,SAC,SA,6400,4.93,PTS,15.1,14.3,-0.8,-3.4,OVER,12.5,102.0,-136.0,14.4,Playmaker,-1.19,-0.26,41/58 DVP/DVA
 Stephon Castle,SA,SAC,7800,5.2,AST,6.9,7.4,0.8,6.0,OVER,6.5,104.0,-138.0,13.9,Playmaker,0.55,0.44,41/58 DVP/DVA
+Keegan Murray,SAC,SA,6000,4.65,PTS,14.6,15.2,0.6,2.7,OVER,13.5,-130.0,-102.0,12.6,Stretch 4,1.56,-0.73,41/58 DVP/DVA
 De'Aaron Fox,SA,SAC,7200,6.01,PTS,19.3,19.6,0.3,1.1,OVER,17.5,-108.0,-122.0,11.8,Playmaker,0.05,0.58,41/58 DVP/DVA
-Anthony Black,ORL,PHO,7100,5.26,PTS,16.1,14.9,-1.2,-5.2,UNDER,16.5,-125.0,-106.0,-10.0,Playmaker,-1.41,-1.02,41/58 DVP/DVA
-Dillon Brooks,PHO,ORL,6500,5.14,PTS,21.2,20.8,-0.4,-1.7,UNDER,22.5,-118.0,-112.0,-7.5,Scoring Wing,-0.99,0.47,41/58 DVP/DVA
+Anthony Black,ORL,PHO,7100,5.58,PTS,16.1,14.9,-1.2,-5.2,UNDER,16.5,-125.0,-106.0,-10.0,Playmaker,-1.41,-1.02,41/58 DVP/DVA
+Dillon Brooks,PHO,ORL,6500,4.83,PTS,21.2,20.8,-0.4,-1.7,UNDER,22.5,-118.0,-112.0,-7.5,Scoring Wing,-0.99,0.47,41/58 DVP/DVA
 Tyrese Maxey,PHI,NO,10500,5.56,PTS,28.9,29.3,0.4,1.7,OVER,31.5,-102.0,-130.0,-7.0,Combo Guard,0.27,0.58,41/58 DVP/DVA
-Isaac Okoro,CHI,DET,4000,5.38,REB,2.7,2.3,-0.4,-4.6,UNDER,2.5,-114.0,-114.0,-6.4,3-and-D Wing,-0.06,-0.78,41/58 DVP/DVA
+Isaac Okoro,CHI,DET,4000,5.41,REB,2.7,2.3,-0.4,-4.6,UNDER,2.5,-114.0,-114.0,-6.4,3-and-D Wing,-0.06,-0.78,41/58 DVP/DVA
 De'Aaron Fox,SA,SAC,7200,6.01,AST,6.3,6.8,0.8,6.0,OVER,6.5,112.0,-148.0,4.7,Playmaker,0.55,0.44,41/58 DVP/DVA
 Andre Drummond,PHI,NO,5600,4.93,REB,8.7,10.1,1.7,9.7,OVER,10.5,-120.0,-110.0,-3.8,Traditional Big,1.51,1.24,41/58 DVP/DVA
-Cade Cunningham,DET,CHI,11000,5.29,AST,9.7,10.8,1.6,12.7,OVER,10.5,104.0,-138.0,2.5,Playmaker,1.08,1.04,41/58 DVP/DVA
-Tyler Kolek,NY,HOU,3600,6.86,STL,0.4,0.1,-0.8,-12.7,UNDER,,,,,Playmaker,-0.29,-0.2,41/58 DVP/DVA
-Tyler Kolek,NY,HOU,3600,6.86,PTS,4.9,4.1,-0.8,-3.4,UNDER,,,,,Playmaker,-0.44,-1.32,41/58 DVP/DVA
-Jalen Smith,CHI,DET,5900,6.0,AST,1.3,0.9,-0.6,-9.8,UNDER,,,,,Stretch 5,-0.25,-0.58,41/58 DVP/DVA
-Ausar Thompson,DET,CHI,6200,5.86,STL,1.9,2.1,0.6,12.6,OVER,,,,,3-and-D Wing,0.31,0.09,41/58 DVP/DVA
-Luke Kornet,SA,SAC,4400,5.94,BLK,1.2,1.5,0.9,15.6,OVER,,,,,Traditional Big,0.35,0.25,41/58 DVP/DVA
+Cade Cunningham,DET,CHI,11000,5.31,AST,9.7,10.8,1.6,12.7,OVER,10.5,104.0,-138.0,2.5,Playmaker,1.08,1.04,41/58 DVP/DVA
+Tyler Kolek,NY,HOU,3600,6.89,PTS,4.9,4.1,-0.8,-3.4,UNDER,,,,,Playmaker,-0.44,-1.32,41/58 DVP/DVA
+Tyler Kolek,NY,HOU,3600,6.89,STL,0.4,0.1,-0.8,-12.7,UNDER,,,,,Playmaker,-0.29,-0.2,41/58 DVP/DVA
 Luke Kornet,SA,SAC,4400,5.94,AST,2.0,1.7,-0.5,-8.5,UNDER,,,,,Traditional Big,-0.74,0.22,41/58 DVP/DVA
+Jalen Smith,CHI,DET,5900,6.02,AST,1.3,0.9,-0.6,-9.8,UNDER,,,,,Stretch 5,-0.25,-0.58,41/58 DVP/DVA
 Vladislav Goldin,MIA,MEM,3500,5.46,STL,0.0,-0.3,-0.8,-20.1,UNDER,,,,,Traditional Big,-0.41,-0.11,41/58 DVP/DVA
-Josh Hart,NY,HOU,6600,5.54,BLK,0.3,0.2,-0.3,-14.0,UNDER,,,,,3-and-D Wing,-0.06,-0.18,41/58 DVP/DVA
-Vladislav Goldin,MIA,MEM,3500,5.46,PTS,2.0,0.9,-1.1,-5.2,UNDER,,,,,Traditional Big,-1.56,-0.51,41/58 DVP/DVA
 Vladislav Goldin,MIA,MEM,3500,5.46,BLK,0.5,0.4,-0.3,-5.6,UNDER,,,,,Traditional Big,-0.15,-0.05,41/58 DVP/DVA
-Isaac Okoro,CHI,DET,4000,5.38,AST,1.5,0.8,-1.1,-16.1,UNDER,,,,,3-and-D Wing,-0.56,-0.93,41/58 DVP/DVA
+Vladislav Goldin,MIA,MEM,3500,5.46,PTS,2.0,0.9,-1.1,-5.2,UNDER,,,,,Traditional Big,-1.56,-0.51,41/58 DVP/DVA
+Ausar Thompson,DET,CHI,6200,5.88,STL,1.9,2.1,0.6,12.6,OVER,,,,,3-and-D Wing,0.31,0.09,41/58 DVP/DVA
+Luke Kornet,SA,SAC,4400,5.94,BLK,1.2,1.5,0.9,15.6,OVER,,,,,Traditional Big,0.35,0.25,41/58 DVP/DVA
+Josh Hart,NY,HOU,6600,5.57,BLK,0.3,0.2,-0.3,-14.0,UNDER,,,,,3-and-D Wing,-0.06,-0.18,41/58 DVP/DVA
 Herbert Jones,NO,PHI,4900,5.28,BLK,0.5,0.3,-0.6,-31.8,UNDER,,,,,3-and-D Wing,-0.25,-0.12,41/58 DVP/DVA
-Dillon Brooks,PHO,ORL,6500,5.14,AST,1.8,1.2,-0.9,-13.7,UNDER,,,,,Scoring Wing,-0.44,-0.75,41/58 DVP/DVA
+Isaac Okoro,CHI,DET,4000,5.41,AST,1.5,0.8,-1.1,-16.1,UNDER,,,,,3-and-D Wing,-0.56,-0.93,41/58 DVP/DVA
 Dominick Barlow,PHI,NO,4500,4.94,AST,1.2,0.9,-0.4,-6.3,UNDER,,,,,Versatile Big,-0.62,0.25,41/58 DVP/DVA
 DeMar DeRozan,SAC,SA,6300,4.88,BLK,0.2,0.1,-0.3,-14.8,UNDER,,,,,Scoring Wing,-0.07,-0.18,41/58 DVP/DVA
-Bryce McGowens,NO,PHI,3900,4.87,REB,1.9,1.6,-0.3,-4.0,UNDER,,,,,3-and-D Wing,-0.42,-0.05,41/58 DVP/DVA
-Bryce McGowens,NO,PHI,3900,4.87,BLK,0.2,0.0,-0.6,-31.8,UNDER,,,,,3-and-D Wing,-0.25,-0.12,41/58 DVP/DVA
 Jeremiah Fears,NO,PHI,5900,4.86,BLK,0.3,0.2,-0.4,-23.6,UNDER,,,,,Playmaker,-0.05,-0.23,41/58 DVP/DVA
-Javon Small,MEM,MIA,4600,4.86,STL,0.5,0.3,-0.5,-8.4,UNDER,,,,,Playmaker,-0.22,-0.1,41/58 DVP/DVA
+Bryce McGowens,NO,PHI,3900,4.87,BLK,0.2,0.0,-0.6,-31.8,UNDER,,,,,3-and-D Wing,-0.25,-0.12,41/58 DVP/DVA
+Bryce McGowens,NO,PHI,3900,4.87,REB,1.9,1.6,-0.3,-4.0,UNDER,,,,,3-and-D Wing,-0.42,-0.05,41/58 DVP/DVA
+Dillon Brooks,PHO,ORL,6500,4.83,AST,1.8,1.2,-0.9,-13.7,UNDER,,,,,Scoring Wing,-0.44,-0.75,41/58 DVP/DVA
