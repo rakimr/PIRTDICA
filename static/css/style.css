@@ -2661,6 +2661,10 @@ th[data-sortable].sort-desc::after {
     line-height: 1.5;
 }
 
+.cluster-controls {
+    margin-bottom: 0.75rem;
+}
+
 .cluster-chart-wrapper {
     position: relative;
     width: 100%;
@@ -3702,4 +3706,314 @@ th[data-sortable].sort-desc::after {
 @keyframes pulse-glow {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.6; }
+}
+
+/* ========== Edge Strip ========== */
+.edge-strip {
+    background: #111827;
+    color: #fff;
+    padding: 0.9rem 1.5rem;
+    border-radius: 10px;
+    margin-bottom: 2.5rem;
+    overflow: hidden;
+}
+
+.edge-strip-inner {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.edge-label {
+    font-family: 'Righteous', sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #D72638;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.edge-ticker {
+    position: relative;
+    flex: 1;
+    height: 1.5em;
+    overflow: hidden;
+}
+
+.edge-item {
+    position: absolute;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.5s, transform 0.5s;
+    font-size: 0.95rem;
+    letter-spacing: 0.01em;
+}
+
+.edge-item.active {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.edge-item strong {
+    color: #fff;
+}
+
+.edge-line {
+    background: rgba(255,255,255,0.1);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+    font-weight: 700;
+    margin: 0 0.15em;
+}
+
+.edge-pct {
+    font-weight: 700;
+    margin-left: 0.4em;
+}
+
+.edge-positive { color: #0F9D58; }
+.edge-negative { color: #D72638; }
+
+/* ========== Analytics Preview Grid ========== */
+.preview-section {
+    margin-bottom: 3rem;
+}
+
+.preview-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.preview-header h2 {
+    font-family: 'Righteous', sans-serif;
+    font-size: 1.8rem;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.5rem;
+}
+
+.preview-subtitle {
+    color: var(--text-muted);
+    font-size: 1.05rem;
+}
+
+.preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.25rem;
+}
+
+.preview-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: default;
+}
+
+.preview-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
+
+.preview-card.preview-featured {
+    grid-column: span 2;
+}
+
+.preview-card-visual {
+    height: 100px;
+    background: linear-gradient(135deg, rgba(99,102,241,0.04), rgba(34,197,94,0.04));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.preview-featured .preview-card-visual {
+    height: 130px;
+}
+
+.preview-icon {
+    opacity: 0.85;
+}
+
+.preview-blur-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 40%, var(--bg-card) 100%);
+}
+
+.preview-card-content {
+    padding: 1.25rem;
+}
+
+.preview-card-content h3 {
+    font-family: 'Righteous', sans-serif;
+    font-size: 1.05rem;
+    margin-bottom: 0.4rem;
+    letter-spacing: 0.02em;
+}
+
+.preview-card-content p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.55;
+}
+
+.preview-tag {
+    display: inline-block;
+    margin-top: 0.6rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #1E3A8A;
+    background: rgba(30,58,138,0.08);
+    padding: 0.2em 0.6em;
+    border-radius: 4px;
+}
+
+.preview-cta-row {
+    text-align: center;
+    margin-top: 2rem;
+}
+
+/* ========== Teaser Cluster Chart ========== */
+.teaser-section {
+    margin-bottom: 3rem;
+}
+
+.teaser-header {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.teaser-header h2 {
+    font-family: 'Righteous', sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.4rem;
+}
+
+.teaser-subtitle {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.teaser-controls {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.teaser-chart-wrap {
+    height: 420px;
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+/* ========== Final CTA ========== */
+.final-cta {
+    margin-bottom: 2rem;
+}
+
+.final-cta-inner {
+    text-align: center;
+    background: #111827;
+    color: #fff;
+    padding: 3rem 2rem;
+    border-radius: 16px;
+}
+
+.final-cta-stats {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.cta-stat {
+    font-size: 0.95rem;
+    color: rgba(255,255,255,0.7);
+}
+
+.cta-stat strong {
+    color: #fff;
+    font-size: 1.3rem;
+    display: block;
+    font-family: 'Righteous', sans-serif;
+}
+
+.final-cta-inner h2 {
+    font-family: 'Righteous', sans-serif;
+    font-size: 1.8rem;
+    letter-spacing: 0.03em;
+    margin-bottom: 1.5rem;
+    color: #fff;
+}
+
+.final-cta-inner .btn-primary {
+    background: #fff;
+    color: #111827;
+    font-size: 1.1rem;
+    padding: 0.9rem 2.5rem;
+}
+
+.final-cta-inner .btn-primary:hover {
+    background: #e5e7eb;
+}
+
+/* ========== Responsive: Preview & Edge ========== */
+@media (max-width: 768px) {
+    .preview-card.preview-featured {
+        grid-column: span 1;
+    }
+
+    .preview-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .edge-strip-inner {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem;
+    }
+
+    .edge-ticker {
+        height: 2.5em;
+    }
+
+    .edge-item {
+        white-space: normal;
+        font-size: 0.85rem;
+    }
+
+    .preview-header h2,
+    .teaser-header h2 {
+        font-size: 1.4rem;
+    }
+
+    .teaser-chart-wrap {
+        height: 300px;
+    }
+
+    .final-cta-stats {
+        gap: 1rem;
+    }
+
+    .final-cta-inner {
+        padding: 2rem 1.25rem;
+    }
+
+    .final-cta-inner h2 {
+        font-size: 1.4rem;
+    }
 }

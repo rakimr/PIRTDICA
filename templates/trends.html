@@ -119,6 +119,11 @@
     <div class="trends-section">
         <h2>Player Archetype Clusters</h2>
         <p class="chart-description">K-Means clustering groups players by how they actually play. Each dot is a player, positioned by PCA of 19 features including per-100 stats, position splits, shot zones, shot creation, and defensive hustle. Hover for details.</p>
+        <div class="cluster-controls">
+            <select id="cluster-team-filter" class="scheme-select">
+                <option value="">All Teams</option>
+            </select>
+        </div>
         <div class="cluster-chart-wrapper">
             <canvas id="cluster-chart"></canvas>
         </div>
@@ -450,111 +455,142 @@ document.querySelectorAll('.dva-mode-btn').forEach(btn => {
 loadDVA();
 
 let clusterChart = null;
+let clusterData = null;
 
 async function loadClusterChart() {
     try {
         const res = await fetch('/api/archetype-clusters');
-        const data = await res.json();
-        if (!data.players || data.players.length === 0) {
+        clusterData = await res.json();
+        if (!clusterData.players || clusterData.players.length === 0) {
             document.querySelector('.cluster-chart-wrapper').innerHTML = '<div style="text-align:center;padding:40px 20px;color:#888;font-size:1.1rem;">Archetype clustering data not yet available. Run the daily update to generate clusters.</div>';
             return;
         }
 
-        const grouped = {};
-        data.players.forEach(p => {
-            if (!grouped[p.archetype]) grouped[p.archetype] = [];
-            grouped[p.archetype].push(p);
-        });
-
-        const isMobile = window.innerWidth < 768;
-        const ptRadius = isMobile ? 3.5 : 6;
-        const ptHover = isMobile ? 6 : 9;
-        const borderW = isMobile ? 1 : 1.5;
-
-        const datasets = Object.entries(grouped).map(([arch, players]) => ({
-            label: arch,
-            data: players.map(p => ({ x: p.x, y: p.y, name: p.name, team: p.team, pts: p.pts, reb: p.reb, ast: p.ast, usg: p.usg })),
-            backgroundColor: (ARCHETYPE_COLORS[arch] || '#888') + 'cc',
-            borderColor: ARCHETYPE_COLORS[arch] || '#888',
-            borderWidth: borderW,
-            pointRadius: ptRadius,
-            pointHoverRadius: ptHover,
-        }));
-
-        const ctx = document.getElementById('cluster-chart').getContext('2d');
-        if (clusterChart) clusterChart.destroy();
-
-        clusterChart = new Chart(ctx, {
-            type: 'scatter',
-            data: { datasets },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                layout: {
-                    padding: isMobile ? { top: 4, right: 4, bottom: 4, left: 4 } : { top: 10, right: 10, bottom: 10, left: 10 }
-                },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const p = context.raw;
-                                return [
-                                    p.name + ' (' + p.team + ')',
-                                    context.dataset.label,
-                                    'PTS/100: ' + p.pts + '  REB/100: ' + p.reb,
-                                    'AST/100: ' + p.ast + '  USG%: ' + p.usg
-                                ];
-                            }
-                        },
-                        backgroundColor: '#111',
-                        titleFont: { family: 'Marvel', size: isMobile ? 11 : 13 },
-                        bodyFont: { family: 'Marvel', size: isMobile ? 10 : 12 },
-                        padding: isMobile ? 6 : 10,
-                        cornerRadius: 6,
-                    }
-                },
-                scales: {
-                    x: {
-                        title: { display: !isMobile, text: 'PC1 (' + data.variance_explained[0] + '% var)', font: { family: 'Marvel', size: 13, weight: 'bold' }, color: '#374151' },
-                        grid: { color: '#e5e7eb' },
-                        ticks: { font: { family: 'Marvel', size: isMobile ? 9 : 12 }, maxTicksLimit: isMobile ? 5 : 10 }
-                    },
-                    y: {
-                        title: { display: !isMobile, text: 'PC2 (' + data.variance_explained[1] + '% var)', font: { family: 'Marvel', size: 13, weight: 'bold' }, color: '#374151' },
-                        grid: { color: '#e5e7eb' },
-                        ticks: { font: { family: 'Marvel', size: isMobile ? 9 : 12 }, maxTicksLimit: isMobile ? 5 : 10 }
-                    }
-                }
-            }
-        });
-
-        const legendEl = document.getElementById('cluster-legend');
-        legendEl.innerHTML = data.archetypes.map(arch => {
-            const color = ARCHETYPE_COLORS[arch] || '#888';
-            const count = (grouped[arch] || []).length;
-            return '<span class="cluster-legend-item" data-arch="' + arch + '">' +
-                   '<span class="cluster-legend-dot" style="background:' + color + '"></span>' +
-                   arch + ' <span class="cluster-legend-count">(' + count + ')</span></span>';
-        }).join('');
-
-        legendEl.querySelectorAll('.cluster-legend-item').forEach(item => {
-            item.addEventListener('click', function() {
-                const arch = this.dataset.arch;
-                const ds = clusterChart.data.datasets.find(d => d.label === arch);
-                if (ds) {
-                    const idx = clusterChart.data.datasets.indexOf(ds);
-                    const meta = clusterChart.getDatasetMeta(idx);
-                    meta.hidden = !meta.hidden;
-                    this.classList.toggle('cluster-legend-dimmed');
-                    clusterChart.update();
-                }
+        const teams = [...new Set(clusterData.players.map(p => p.team))].sort();
+        const teamSel = document.getElementById('cluster-team-filter');
+        if (teamSel) {
+            teams.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t;
+                opt.textContent = t;
+                teamSel.appendChild(opt);
             });
-        });
+            teamSel.addEventListener('change', () => renderClusterChart(teamSel.value));
+        }
 
+        renderClusterChart('');
     } catch(e) {
         console.error('Cluster chart error:', e);
     }
+}
+
+function renderClusterChart(filterTeam) {
+    if (!clusterData) return;
+
+    const grouped = {};
+    clusterData.archetypes.forEach(a => { grouped[a] = []; });
+    clusterData.players.forEach(p => {
+        if (!grouped[p.archetype]) grouped[p.archetype] = [];
+        grouped[p.archetype].push(p);
+    });
+
+    const isMobile = window.innerWidth < 768;
+    const isFiltered = filterTeam && filterTeam !== '';
+
+    const datasets = Object.entries(grouped).map(([arch, players]) => {
+        const data = players.map(p => ({ x: p.x, y: p.y, name: p.name, team: p.team, pts: p.pts, reb: p.reb, ast: p.ast, usg: p.usg }));
+        return {
+            label: arch,
+            data: data,
+            backgroundColor: data.map(d => {
+                const color = ARCHETYPE_COLORS[arch] || '#888';
+                if (!isFiltered) return color + 'cc';
+                return d.team === filterTeam ? color + 'ff' : color + '18';
+            }),
+            borderColor: data.map(d => {
+                const color = ARCHETYPE_COLORS[arch] || '#888';
+                if (!isFiltered) return color;
+                return d.team === filterTeam ? color : color + '30';
+            }),
+            borderWidth: isMobile ? 1 : 1.5,
+            pointRadius: data.map(d => {
+                if (!isFiltered) return isMobile ? 3.5 : 6;
+                return d.team === filterTeam ? (isMobile ? 5 : 8) : (isMobile ? 2 : 3);
+            }),
+            pointHoverRadius: isMobile ? 6 : 9,
+        };
+    });
+
+    const ctx = document.getElementById('cluster-chart').getContext('2d');
+    if (clusterChart) clusterChart.destroy();
+
+    clusterChart = new Chart(ctx, {
+        type: 'scatter',
+        data: { datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: {
+                padding: isMobile ? { top: 4, right: 4, bottom: 4, left: 4 } : { top: 10, right: 10, bottom: 10, left: 10 }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const p = context.raw;
+                            return [
+                                p.name + ' (' + p.team + ')',
+                                context.dataset.label,
+                                'PTS/100: ' + p.pts + '  REB/100: ' + p.reb,
+                                'AST/100: ' + p.ast + '  USG%: ' + p.usg
+                            ];
+                        }
+                    },
+                    backgroundColor: '#111',
+                    titleFont: { family: 'Marvel', size: isMobile ? 11 : 13 },
+                    bodyFont: { family: 'Marvel', size: isMobile ? 10 : 12 },
+                    padding: isMobile ? 6 : 10,
+                    cornerRadius: 6,
+                }
+            },
+            scales: {
+                x: {
+                    title: { display: !isMobile, text: 'PC1 (' + clusterData.variance_explained[0] + '% var)', font: { family: 'Marvel', size: 13, weight: 'bold' }, color: '#374151' },
+                    grid: { color: '#e5e7eb' },
+                    ticks: { font: { family: 'Marvel', size: isMobile ? 9 : 12 }, maxTicksLimit: isMobile ? 5 : 10 }
+                },
+                y: {
+                    title: { display: !isMobile, text: 'PC2 (' + clusterData.variance_explained[1] + '% var)', font: { family: 'Marvel', size: 13, weight: 'bold' }, color: '#374151' },
+                    grid: { color: '#e5e7eb' },
+                    ticks: { font: { family: 'Marvel', size: isMobile ? 9 : 12 }, maxTicksLimit: isMobile ? 5 : 10 }
+                }
+            }
+        }
+    });
+
+    const legendEl = document.getElementById('cluster-legend');
+    legendEl.innerHTML = clusterData.archetypes.map(arch => {
+        const color = ARCHETYPE_COLORS[arch] || '#888';
+        const count = isFiltered ? (grouped[arch] || []).filter(p => p.team === filterTeam).length : (grouped[arch] || []).length;
+        return '<span class="cluster-legend-item" data-arch="' + arch + '">' +
+               '<span class="cluster-legend-dot" style="background:' + color + '"></span>' +
+               arch + ' <span class="cluster-legend-count">(' + count + ')</span></span>';
+    }).join('');
+
+    legendEl.querySelectorAll('.cluster-legend-item').forEach(item => {
+        item.addEventListener('click', function() {
+            const arch = this.dataset.arch;
+            const ds = clusterChart.data.datasets.find(d => d.label === arch);
+            if (ds) {
+                const idx = clusterChart.data.datasets.indexOf(ds);
+                const meta = clusterChart.getDatasetMeta(idx);
+                meta.hidden = !meta.hidden;
+                this.classList.toggle('cluster-legend-dimmed');
+                clusterChart.update();
+            }
+        });
+    });
 }
 
 loadClusterChart();

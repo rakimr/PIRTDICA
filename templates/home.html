@@ -122,6 +122,256 @@
 </section>
 {% endif %}
 
+{% if not user %}
+
+{% if edge_insights %}
+<section class="edge-strip">
+    <div class="edge-strip-inner">
+        <span class="edge-label">TONIGHT'S EDGE</span>
+        <div class="edge-ticker">
+            {% for e in edge_insights %}
+            <span class="edge-item {% if loop.first %}active{% endif %}">
+                <strong>{{ e.player }}</strong> {{ e.stat }} {{ e.rec }}
+                <span class="edge-line">{{ e.line }}</span>
+                vs {{ e.opponent }}
+                <span class="edge-pct {% if e.edge > 0 %}edge-positive{% else %}edge-negative{% endif %}">{{ "%+.1f"|format(e.edge) }}% edge</span>
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<section class="preview-section">
+    <div class="preview-header">
+        <h2>YOUR ANALYTICS ARSENAL</h2>
+        <p class="preview-subtitle">Every chart. Every edge. Every angle covered.</p>
+    </div>
+    <div class="preview-grid">
+        <div class="preview-card preview-featured">
+            <div class="preview-card-visual">
+                <div class="preview-icon">
+                    <svg viewBox="0 0 100 100" width="64" height="64">
+                        <rect x="15" y="10" width="70" height="80" rx="4" fill="none" stroke="#1a1a1a" stroke-width="2"/>
+                        <circle cx="50" cy="35" r="12" fill="none" stroke="#D72638" stroke-width="2"/>
+                        <line x1="30" y1="55" x2="70" y2="55" stroke="#e5e7eb" stroke-width="1"/>
+                        <circle cx="35" cy="65" r="3" fill="#D72638" opacity="0.8"/>
+                        <circle cx="55" cy="60" r="4" fill="#1E3A8A" opacity="0.8"/>
+                        <circle cx="45" cy="72" r="2.5" fill="#0F9D58" opacity="0.8"/>
+                        <circle cx="62" cy="70" r="3.5" fill="#D4AF37" opacity="0.8"/>
+                    </svg>
+                </div>
+                <div class="preview-blur-overlay"></div>
+            </div>
+            <div class="preview-card-content">
+                <h3>Player Shot Charts</h3>
+                <p>See exactly where any player shoots from on the court. Zones light up by volume and efficiency - find shooters the defense can't contain.</p>
+                <span class="preview-tag">Interactive</span>
+            </div>
+        </div>
+
+        <div class="preview-card">
+            <div class="preview-card-visual">
+                <div class="preview-icon">
+                    <svg viewBox="0 0 64 64" width="48" height="48">
+                        <circle cx="20" cy="20" r="5" fill="#00E5FF" opacity="0.8"/>
+                        <circle cx="40" cy="15" r="4" fill="#FF6D00" opacity="0.8"/>
+                        <circle cx="15" cy="40" r="6" fill="#39FF14" opacity="0.8"/>
+                        <circle cx="45" cy="35" r="3" fill="#FF1744" opacity="0.8"/>
+                        <circle cx="30" cy="45" r="5" fill="#AA00FF" opacity="0.8"/>
+                        <circle cx="50" cy="50" r="4" fill="#607D8B" opacity="0.8"/>
+                        <circle cx="35" cy="28" r="3.5" fill="#D4AF37" opacity="0.8"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="preview-card-content">
+                <h3>Archetype Clusters</h3>
+                <p>Players grouped by how they actually play - not their listed position. K-Means clustering on 19 features reveals true player DNA.</p>
+                <span class="preview-tag">Interactive</span>
+            </div>
+        </div>
+
+        <div class="preview-card">
+            <div class="preview-card-visual">
+                <div class="preview-icon">
+                    <svg viewBox="0 0 64 64" width="48" height="48">
+                        <rect x="8" y="8" width="48" height="48" rx="4" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+                        <rect x="12" y="12" width="10" height="10" fill="#0F9D58" opacity="0.7"/>
+                        <rect x="24" y="12" width="10" height="10" fill="#D72638" opacity="0.5"/>
+                        <rect x="36" y="12" width="10" height="10" fill="#0F9D58" opacity="0.9"/>
+                        <rect x="12" y="24" width="10" height="10" fill="#D72638" opacity="0.8"/>
+                        <rect x="24" y="24" width="10" height="10" fill="#0F9D58" opacity="0.6"/>
+                        <rect x="36" y="24" width="10" height="10" fill="#D72638" opacity="0.4"/>
+                        <rect x="12" y="36" width="10" height="10" fill="#0F9D58" opacity="0.5"/>
+                        <rect x="24" y="36" width="10" height="10" fill="#D72638" opacity="0.7"/>
+                        <rect x="36" y="36" width="10" height="10" fill="#0F9D58" opacity="0.8"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="preview-card-content">
+                <h3>DVP Heatmap</h3>
+                <p>Which defenses leak fantasy points by position. Green = soft matchup to target. Red = tough matchup to avoid.</p>
+            </div>
+        </div>
+
+        <div class="preview-card">
+            <div class="preview-card-visual">
+                <div class="preview-icon">
+                    <svg viewBox="0 0 64 64" width="48" height="48">
+                        <line x1="10" y1="54" x2="54" y2="54" stroke="#e5e7eb" stroke-width="1"/>
+                        <line x1="10" y1="10" x2="10" y2="54" stroke="#e5e7eb" stroke-width="1"/>
+                        <circle cx="20" cy="45" r="4" fill="#0F9D58" opacity="0.6"/>
+                        <circle cx="32" cy="30" r="6" fill="#1E3A8A" opacity="0.7"/>
+                        <circle cx="45" cy="18" r="8" fill="#D72638" opacity="0.6"/>
+                        <circle cx="25" cy="35" r="3" fill="#D4AF37" opacity="0.7"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="preview-card-content">
+                <h3>Risk-Reward Frontier</h3>
+                <p>Find the slate breakers vs the safe cash plays. Bottom-right = locks. Top-right = tournament winners.</p>
+            </div>
+        </div>
+
+        <div class="preview-card">
+            <div class="preview-card-visual">
+                <div class="preview-icon">
+                    <svg viewBox="0 0 64 64" width="48" height="48">
+                        <polygon points="32,8 44,24 56,40 32,36 8,40 20,24" fill="none" stroke="#1E3A8A" stroke-width="1.5"/>
+                        <polygon points="32,14 40,24 48,34 32,32 16,34 24,24" fill="#1E3A8A" opacity="0.15"/>
+                        <circle cx="32" cy="8" r="2.5" fill="#1E3A8A"/>
+                        <circle cx="44" cy="24" r="2.5" fill="#1E3A8A"/>
+                        <circle cx="56" cy="40" r="2.5" fill="#1E3A8A"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="preview-card-content">
+                <h3>Team Offensive Schemes</h3>
+                <p>Radar charts reveal how each team distributes possessions across play types. See their offensive identity at a glance.</p>
+                <span class="preview-tag">Interactive</span>
+            </div>
+        </div>
+
+        <div class="preview-card">
+            <div class="preview-card-visual">
+                <div class="preview-icon">
+                    <svg viewBox="0 0 64 64" width="48" height="48">
+                        <rect x="10" y="10" width="44" height="44" rx="4" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+                        <circle cx="32" cy="28" r="10" fill="none" stroke="#D72638" stroke-width="1.5" opacity="0.6"/>
+                        <circle cx="25" cy="38" r="4" fill="#D72638" opacity="0.5"/>
+                        <circle cx="38" cy="40" r="5" fill="#1E3A8A" opacity="0.5"/>
+                        <circle cx="32" cy="22" r="3" fill="#D72638" opacity="0.7"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="preview-card-content">
+                <h3>Defensive Shot Charts</h3>
+                <p>Where opponents exploit each team's defense. Hot zones reveal rim protection gaps and perimeter weaknesses.</p>
+                <span class="preview-tag">Interactive</span>
+            </div>
+        </div>
+
+        <div class="preview-card">
+            <div class="preview-card-visual">
+                <div class="preview-icon">
+                    <svg viewBox="0 0 64 64" width="48" height="48">
+                        <line x1="32" y1="10" x2="32" y2="54" stroke="#e5e7eb" stroke-width="1" stroke-dasharray="3"/>
+                        <circle cx="20" cy="25" r="3" fill="#D72638" opacity="0.7"/>
+                        <circle cx="44" cy="20" r="3" fill="#0F9D58" opacity="0.7"/>
+                        <circle cx="25" cy="40" r="4" fill="#D72638" opacity="0.5"/>
+                        <circle cx="40" cy="38" r="4" fill="#0F9D58" opacity="0.5"/>
+                        <text x="15" y="55" font-size="7" fill="#6b7280">Road</text>
+                        <text x="40" y="55" font-size="7" fill="#6b7280">Home</text>
+                    </svg>
+                </div>
+            </div>
+            <div class="preview-card-content">
+                <h3>Referee Foul Tendencies</h3>
+                <p>Tonight's crews plotted by foul volume and home/away bias. Know if the refs will let them play or blow the whistle.</p>
+            </div>
+        </div>
+
+        <div class="preview-card">
+            <div class="preview-card-visual">
+                <div class="preview-icon">
+                    <svg viewBox="0 0 64 64" width="48" height="48">
+                        <rect x="8" y="8" width="48" height="48" rx="4" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+                        <rect x="12" y="14" width="10" height="10" fill="#00BFA5" opacity="0.6"/>
+                        <rect x="24" y="14" width="10" height="10" fill="#FF6D00" opacity="0.5"/>
+                        <rect x="36" y="14" width="10" height="10" fill="#AA00FF" opacity="0.7"/>
+                        <rect x="12" y="26" width="10" height="10" fill="#D72638" opacity="0.5"/>
+                        <rect x="24" y="26" width="10" height="10" fill="#0F9D58" opacity="0.8"/>
+                        <rect x="36" y="26" width="10" height="10" fill="#607D8B" opacity="0.5"/>
+                        <rect x="12" y="38" width="10" height="10" fill="#39FF14" opacity="0.5"/>
+                        <rect x="24" y="38" width="10" height="10" fill="#D4AF37" opacity="0.6"/>
+                        <rect x="36" y="38" width="10" height="10" fill="#FF1744" opacity="0.5"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="preview-card-content">
+                <h3>Defense vs Archetype</h3>
+                <p>How teams defend playstyles, not just positions. DVS multipliers reveal which archetypes each defense can't stop.</p>
+                <span class="preview-tag">Interactive</span>
+            </div>
+        </div>
+
+        <div class="preview-card">
+            <div class="preview-card-visual">
+                <div class="preview-icon">
+                    <svg viewBox="0 0 64 64" width="48" height="48">
+                        <line x1="10" y1="50" x2="54" y2="50" stroke="#e5e7eb" stroke-width="1"/>
+                        <rect x="14" y="25" width="8" height="25" fill="#0F9D58" opacity="0.6" rx="2"/>
+                        <rect x="26" y="15" width="8" height="35" fill="#1E3A8A" opacity="0.6" rx="2"/>
+                        <rect x="38" y="30" width="8" height="20" fill="#D4AF37" opacity="0.6" rx="2"/>
+                        <text x="14" y="58" font-size="6" fill="#6b7280">OVER</text>
+                    </svg>
+                </div>
+            </div>
+            <div class="preview-card-content">
+                <h3>Prop Recommendations</h3>
+                <p>AI-blended OVER/UNDER calls with edge percentages. DVP + DVA matchup data meets FanDuel prop lines.</p>
+            </div>
+        </div>
+
+        <div class="preview-card">
+            <div class="preview-card-visual">
+                <div class="preview-icon">
+                    <svg viewBox="0 0 64 64" width="48" height="48">
+                        <line x1="10" y1="54" x2="54" y2="54" stroke="#e5e7eb" stroke-width="1"/>
+                        <line x1="10" y1="10" x2="10" y2="54" stroke="#e5e7eb" stroke-width="1"/>
+                        <circle cx="22" cy="38" r="10" fill="#1E3A8A" opacity="0.15" stroke="#1E3A8A" stroke-width="1"/>
+                        <circle cx="40" cy="22" r="14" fill="#D72638" opacity="0.1" stroke="#D72638" stroke-width="1"/>
+                        <circle cx="30" cy="30" r="6" fill="#0F9D58" opacity="0.15" stroke="#0F9D58" stroke-width="1"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="preview-card-content">
+                <h3>Usage vs Fantasy Points</h3>
+                <p>Bubble chart showing who's efficient and who's overpriced. Bigger bubbles = better value per dollar.</p>
+            </div>
+        </div>
+    </div>
+    <div class="preview-cta-row">
+        <a href="/register" class="btn btn-primary btn-large">Sign Up to Unlock All Charts</a>
+    </div>
+</section>
+
+<section class="teaser-section">
+    <div class="teaser-header">
+        <h2>PLAYER ARCHETYPES</h2>
+        <p class="teaser-subtitle">How players actually play - grouped by 19 statistical features, not listed positions. Filter by team.</p>
+    </div>
+    <div class="teaser-controls">
+        <select id="teaser-team-filter" class="scheme-select">
+            <option value="">All Teams</option>
+        </select>
+    </div>
+    <div class="teaser-chart-wrap">
+        <canvas id="teaser-cluster-chart"></canvas>
+    </div>
+    <div id="teaser-cluster-legend" class="cluster-legend"></div>
+</section>
+
 <section class="features">
     <h2>How It Works</h2>
     <div class="feature-grid">
@@ -147,4 +397,201 @@
         </div>
     </div>
 </section>
+
+{% if player_count > 0 or game_count > 0 %}
+<section class="final-cta">
+    <div class="final-cta-inner">
+        <div class="final-cta-stats">
+            {% if player_count > 0 %}<span class="cta-stat"><strong>{{ player_count }}</strong> players analyzed</span>{% endif %}
+            {% if game_count > 0 %}<span class="cta-stat"><strong>{{ game_count }}</strong> games tonight</span>{% endif %}
+            <span class="cta-stat"><strong>10</strong> archetypes classified</span>
+        </div>
+        <h2>Your edge is waiting.</h2>
+        <a href="/register" class="btn btn-primary btn-large">Start Winning</a>
+    </div>
+</section>
+{% endif %}
+
+{% endif %}
+
+{% if user %}
+<section class="features">
+    <h2>How It Works</h2>
+    <div class="feature-grid">
+        <div class="feature-card">
+            <div class="feature-icon">1</div>
+            <h3>The House Sets a Lineup</h3>
+            <p>Every day, Pirtdica analyzes matchups, injuries, and trends to build its best 9-player lineup.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">2</div>
+            <h3>You Build Yours</h3>
+            <p>Pick 9 players within the $60,000 salary cap. Use our projections or go with your gut.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">3</div>
+            <h3>Games Play Out</h3>
+            <p>Watch the NBA games and see how your lineup performs vs the house.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">4</div>
+            <h3>Climb the Ranks</h3>
+            <p>Beat the house to earn coins, achievements, and climb the Coach leaderboard!</p>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.js"></script>
+<script>
+{% if not user %}
+(function() {
+    const items = document.querySelectorAll('.edge-item');
+    if (items.length <= 1) return;
+    let idx = 0;
+    setInterval(() => {
+        items[idx].classList.remove('active');
+        idx = (idx + 1) % items.length;
+        items[idx].classList.add('active');
+    }, 4000);
+})();
+
+const ARCHETYPE_COLORS = {
+    'Playmaker': '#00E5FF',
+    'Combo Guard': '#FF6D00',
+    '3-and-D Wing': '#39FF14',
+    'Scoring Wing': '#FF1744',
+    'Stretch 4': '#D4AF37',
+    'Stretch 5': '#AA00FF',
+    'Traditional Big': '#607D8B',
+    'Versatile Big': '#FF4081',
+    'Point Center': '#00BFA5',
+    'Point Forward': '#FFEA00',
+};
+
+let teaserChart = null;
+let teaserData = null;
+
+async function loadTeaserCluster() {
+    try {
+        const res = await fetch('/api/archetype-clusters');
+        teaserData = await res.json();
+        if (!teaserData.players || teaserData.players.length === 0) return;
+
+        const teams = [...new Set(teaserData.players.map(p => p.team))].sort();
+        const sel = document.getElementById('teaser-team-filter');
+        teams.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t;
+            opt.textContent = t;
+            sel.appendChild(opt);
+        });
+        sel.addEventListener('change', () => renderTeaserChart(sel.value));
+
+        renderTeaserChart('');
+    } catch(e) {
+        console.error('Teaser cluster error:', e);
+    }
+}
+
+function renderTeaserChart(filterTeam) {
+    if (!teaserData) return;
+    const players = teaserData.players;
+
+    const grouped = {};
+    teaserData.archetypes.forEach(a => { grouped[a] = []; });
+    players.forEach(p => {
+        if (!grouped[p.archetype]) grouped[p.archetype] = [];
+        grouped[p.archetype].push(p);
+    });
+
+    const isMobile = window.innerWidth < 768;
+    const datasets = Object.entries(grouped).map(([arch, allPlayers]) => {
+        const data = allPlayers.map(p => ({
+            x: p.x, y: p.y, name: p.name, team: p.team,
+            pts: p.pts, reb: p.reb, ast: p.ast, usg: p.usg,
+        }));
+        const isFiltered = filterTeam && filterTeam !== '';
+        return {
+            label: arch,
+            data: data,
+            backgroundColor: data.map(d => {
+                const color = ARCHETYPE_COLORS[arch] || '#888';
+                if (!isFiltered) return color + 'cc';
+                return d.team === filterTeam ? color + 'ff' : color + '18';
+            }),
+            borderColor: data.map(d => {
+                const color = ARCHETYPE_COLORS[arch] || '#888';
+                if (!isFiltered) return color;
+                return d.team === filterTeam ? color : color + '30';
+            }),
+            borderWidth: isMobile ? 1 : 1.5,
+            pointRadius: data.map(d => {
+                if (!isFiltered || !filterTeam) return isMobile ? 3.5 : 6;
+                return d.team === filterTeam ? (isMobile ? 5 : 8) : (isMobile ? 2 : 3);
+            }),
+            pointHoverRadius: isMobile ? 6 : 9,
+        };
+    });
+
+    const ctx = document.getElementById('teaser-cluster-chart').getContext('2d');
+    if (teaserChart) teaserChart.destroy();
+
+    teaserChart = new Chart(ctx, {
+        type: 'scatter',
+        data: { datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: isMobile ? 4 : 10 },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const p = context.raw;
+                            return [
+                                p.name + ' (' + p.team + ')',
+                                context.dataset.label,
+                                'PTS/100: ' + p.pts + '  REB/100: ' + p.reb,
+                                'AST/100: ' + p.ast + '  USG%: ' + p.usg
+                            ];
+                        }
+                    },
+                    backgroundColor: '#111',
+                    titleFont: { family: 'Marvel', size: isMobile ? 11 : 13 },
+                    bodyFont: { family: 'Marvel', size: isMobile ? 10 : 12 },
+                    padding: isMobile ? 6 : 10,
+                    cornerRadius: 6,
+                }
+            },
+            scales: {
+                x: {
+                    title: { display: !isMobile, text: 'PC1 (' + teaserData.variance_explained[0] + '% var)', font: { family: 'Marvel', size: 13, weight: 'bold' }, color: '#374151' },
+                    grid: { color: '#e5e7eb' },
+                    ticks: { font: { family: 'Marvel', size: isMobile ? 9 : 12 }, maxTicksLimit: isMobile ? 5 : 10 }
+                },
+                y: {
+                    title: { display: !isMobile, text: 'PC2 (' + teaserData.variance_explained[1] + '% var)', font: { family: 'Marvel', size: 13, weight: 'bold' }, color: '#374151' },
+                    grid: { color: '#e5e7eb' },
+                    ticks: { font: { family: 'Marvel', size: isMobile ? 9 : 12 }, maxTicksLimit: isMobile ? 5 : 10 }
+                }
+            }
+        }
+    });
+
+    const legendEl = document.getElementById('teaser-cluster-legend');
+    legendEl.innerHTML = teaserData.archetypes.map(arch => {
+        const color = ARCHETYPE_COLORS[arch] || '#888';
+        const count = filterTeam ? (grouped[arch] || []).filter(p => p.team === filterTeam).length : (grouped[arch] || []).length;
+        return '<span class="cluster-legend-item" data-arch="' + arch + '">' +
+               '<span class="cluster-legend-dot" style="background:' + color + '"></span>' +
+               arch + ' <span class="cluster-legend-count">(' + count + ')</span></span>';
+    }).join('');
+}
+
+loadTeaserCluster();
+{% endif %}
+</script>
+
 {% endblock %}

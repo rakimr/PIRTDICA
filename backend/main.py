@@ -270,6 +270,35 @@ async def home(request: Request, db: Session = Depends(get_db)):
             g[f"{side}_logo"] = f"https://a.espncdn.com/i/teamlogos/nba/500/{espn_slug}.png"
             g[f"{side}_name"] = team_names.get(abbr, abbr)
 
+    edge_insights = []
+    player_count = 0
+    game_count = len(slate_games)
+    if not user:
+        try:
+            props_df = data_access.get_prop_recommendations()
+            if not props_df.empty and 'vs_book_edge' in props_df.columns:
+                props_df = props_df[props_df.get('salary', props_df.get('salary', 0)) > 0] if 'salary' in props_df.columns else props_df
+                top_props = props_df.nlargest(3, 'vs_book_edge')
+                for _, row in top_props.iterrows():
+                    rec = row.get('recommendation', 'OVER')
+                    stat = row.get('stat', '')
+                    line = row.get('book_line', '')
+                    edge = row.get('vs_book_edge', 0)
+                    name = row.get('player', row.get('player_name', ''))
+                    opp = row.get('opponent', '')
+                    edge_insights.append({
+                        "player": name, "stat": stat, "line": line,
+                        "edge": round(float(edge), 1), "rec": rec, "opponent": opp
+                    })
+        except:
+            pass
+        try:
+            dfs_df = data_access.get_dfs_players()
+            if not dfs_df.empty:
+                player_count = len(dfs_df[dfs_df.get('salary', dfs_df.get('salary', 0)) > 0]) if 'salary' in dfs_df.columns else len(dfs_df)
+        except:
+            pass
+
     return templates.TemplateResponse("home.html", {
         "request": request,
         "user": user,
@@ -281,7 +310,10 @@ async def home(request: Request, db: Session = Depends(get_db)):
         "is_todays_contest": is_todays_contest,
         "next_game_iso": next_game_iso,
         "games_started": games_started,
-        "slate_games": slate_games
+        "slate_games": slate_games,
+        "edge_insights": edge_insights,
+        "player_count": player_count,
+        "game_count": game_count,
     })
 
 @app.get("/register")
