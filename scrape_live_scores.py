@@ -2,14 +2,14 @@
 import requests
 from bs4 import BeautifulSoup
 import re
-from datetime import date
 from utils.name_normalize import normalize_player_name
+from utils.timezone import get_eastern_date_str
 
 BASE_URL = "https://plaintextsports.com"
 
 def get_today_games(game_date=None):
     if game_date is None:
-        game_date = date.today().strftime("%Y-%m-%d")
+        game_date = get_eastern_date_str()
     url = f"{BASE_URL}/nba/"
     resp = requests.get(url, timeout=10)
     resp.raise_for_status()
