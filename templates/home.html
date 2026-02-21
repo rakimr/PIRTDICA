@@ -3,108 +3,6 @@
 {% block title %}PIRTDICA - NBA DFS Challenge{% endblock %}
 
 {% block content %}
-<div class="hero">
-    {% if no_games_today %}
-    <h1>NO CONTESTS TODAY</h1>
-    <div class="countdown-display">
-        <span></span>
-    </div>
-    {% elif next_game_iso %}
-    <h1>GAME STARTS IN</h1>
-    <div id="countdown-timer" class="countdown-display" data-target="{{ next_game_iso }}">
-        <span id="countdown-hours">00</span>:<span id="countdown-minutes">00</span>:<span id="countdown-seconds">00</span>
-    </div>
-    {% elif games_started %}
-    <h1>GAMES IN PROGRESS</h1>
-    <div class="countdown-display">
-        <span>LIVE</span>
-    </div>
-    {% else %}
-    <h1>NO CONTESTS TODAY</h1>
-    <div class="countdown-display">
-        <span></span>
-    </div>
-    {% endif %}
-    {% if not user %}
-        <div class="hero-buttons">
-            <a href="/h2h" class="btn btn-primary btn-large">Coach vs Coach</a>
-            <a href="/play" class="btn btn-secondary btn-large">Coach vs House</a>
-        </div>
-    {% else %}
-        <a href="/play" class="btn btn-primary btn-large">Play Today's Contest</a>
-    {% endif %}
-</div>
-
-<script>
-(function() {
-    const timerEl = document.getElementById('countdown-timer');
-    if (!timerEl) return;
-    
-    const target = new Date(timerEl.dataset.target).getTime();
-    const hoursEl = document.getElementById('countdown-hours');
-    const minsEl = document.getElementById('countdown-minutes');
-    const secsEl = document.getElementById('countdown-seconds');
-    
-    function update() {
-        const now = Date.now();
-        let diff = Math.max(0, Math.floor((target - now) / 1000));
-        
-        const h = Math.floor(diff / 3600);
-        diff %= 3600;
-        const m = Math.floor(diff / 60);
-        const s = diff % 60;
-        
-        hoursEl.textContent = String(h).padStart(2, '0');
-        minsEl.textContent = String(m).padStart(2, '0');
-        secsEl.textContent = String(s).padStart(2, '0');
-        
-        if (target - now <= 0) {
-            hoursEl.textContent = '00';
-            minsEl.textContent = '00';
-            secsEl.textContent = '00';
-        }
-    }
-    
-    update();
-    setInterval(update, 1000);
-})();
-</script>
-
-{% if slate_games %}
-<section class="slate-section">
-    <h2>Today's Slate</h2>
-    <p class="subtitle" id="slate-date"></p>
-    <script>
-    (function(){
-        const d = new Date();
-        const opts = { year: 'numeric', month: 'long', day: '2-digit', timeZone: 'America/New_York' };
-        document.getElementById('slate-date').textContent = d.toLocaleDateString('en-US', opts);
-    })();
-    </script>
-    <div class="slate-games">
-        {% for game in slate_games %}
-        <div class="slate-game">
-            <div class="slate-team away">
-                <img src="{{ game.away_logo }}" alt="{{ game.away }}" class="team-logo">
-                <span class="team-abbr">{{ game.away }}</span>
-            </div>
-            <div class="slate-vs">
-                <span class="at-symbol">@</span>
-            </div>
-            <div class="slate-team home">
-                <img src="{{ game.home_logo }}" alt="{{ game.home }}" class="team-logo">
-                <span class="team-abbr">{{ game.home }}</span>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-</section>
-{% elif no_games_today %}
-<section class="no-contest">
-    <h2>No Games Today</h2>
-    <p>The NBA schedule has no games today. Check back tomorrow!</p>
-</section>
-{% endif %}
 
 {% if user and user_entry %}
 <section class="house-lineup-section">
@@ -372,32 +270,6 @@
     <div id="teaser-cluster-legend" class="cluster-legend"></div>
 </section>
 
-<section class="features">
-    <h2>How It Works</h2>
-    <div class="feature-grid">
-        <div class="feature-card">
-            <div class="feature-icon">1</div>
-            <h3>The House Sets a Lineup</h3>
-            <p>Every day, Pirtdica analyzes matchups, injuries, and trends to build its best 9-player lineup.</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">2</div>
-            <h3>You Build Yours</h3>
-            <p>Pick 9 players within the $60,000 salary cap. Use our projections or go with your gut.</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">3</div>
-            <h3>Games Play Out</h3>
-            <p>Watch the NBA games and see how your lineup performs vs the house.</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">4</div>
-            <h3>Climb the Ranks</h3>
-            <p>Beat the house to earn coins, achievements, and climb the Coach leaderboard!</p>
-        </div>
-    </div>
-</section>
-
 {% if player_count > 0 or game_count > 0 %}
 <section class="final-cta">
     <div class="final-cta-inner">
@@ -414,33 +286,6 @@
 
 {% endif %}
 
-{% if user %}
-<section class="features">
-    <h2>How It Works</h2>
-    <div class="feature-grid">
-        <div class="feature-card">
-            <div class="feature-icon">1</div>
-            <h3>The House Sets a Lineup</h3>
-            <p>Every day, Pirtdica analyzes matchups, injuries, and trends to build its best 9-player lineup.</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">2</div>
-            <h3>You Build Yours</h3>
-            <p>Pick 9 players within the $60,000 salary cap. Use our projections or go with your gut.</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">3</div>
-            <h3>Games Play Out</h3>
-            <p>Watch the NBA games and see how your lineup performs vs the house.</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon">4</div>
-            <h3>Climb the Ranks</h3>
-            <p>Beat the house to earn coins, achievements, and climb the Coach leaderboard!</p>
-        </div>
-    </div>
-</section>
-{% endif %}
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.js"></script>
 <script>
