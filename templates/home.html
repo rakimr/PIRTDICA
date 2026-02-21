@@ -433,6 +433,20 @@ function renderTeaserChart(filterTeam) {
                '<span class="cluster-legend-dot" style="background:' + color + '"></span>' +
                arch + ' <span class="cluster-legend-count">(' + count + ')</span></span>';
     }).join('');
+
+    legendEl.querySelectorAll('.cluster-legend-item').forEach(item => {
+        item.addEventListener('click', function() {
+            const arch = this.dataset.arch;
+            const ds = teaserChart.data.datasets.find(d => d.label === arch);
+            if (ds) {
+                const idx = teaserChart.data.datasets.indexOf(ds);
+                const meta = teaserChart.getDatasetMeta(idx);
+                meta.hidden = !meta.hidden;
+                this.classList.toggle('cluster-legend-dimmed');
+                teaserChart.update();
+            }
+        });
+    });
 }
 
 loadTeaserCluster();
