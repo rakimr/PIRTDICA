@@ -5,6 +5,7 @@ PIRTDICA SPORTS CO. offers an NBA Daily Fantasy Sports (DFS) platform featuring 
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
+Auto-push to GitHub: Always push changes to GitHub at the end of every task using Replit's GitHub connector OAuth token.
 
 ### Avatar & Identity Design Direction
 **Style:** Strategic Minimalism meets Editorial Sports Design.
