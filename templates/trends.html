@@ -982,11 +982,11 @@ function renderSchemeRadar(team) {
     });
 
     const topPlay = plays.reduce((a,b) => a.poss_pct > b.poss_pct ? a : b);
-    const bestEff = plays.reduce((a,b) => a.ppp > b.ppp ? a : b);
+    const bestEff = plays.reduce((a,b) => a.percentile > b.percentile ? a : b);
     document.getElementById('scheme-summary').innerHTML =
         '<div class="scheme-insight"><strong>' + team + ' Offensive Identity:</strong> ' +
         'Runs ' + getPlayLabel(topPlay.play_type) + ' most often (' + topPlay.poss_pct + '% of possessions). ' +
-        'Most efficient in ' + getPlayLabel(bestEff.play_type) + ' (' + bestEff.ppp.toFixed(3) + ' PPP, ' + bestEff.percentile + 'th percentile).</div>';
+        'Elite at ' + getPlayLabel(bestEff.play_type) + ' (' + bestEff.percentile + 'th percentile, ' + bestEff.ppp.toFixed(3) + ' PPP).</div>';
 }
 
 function renderDefScheme(team) {
@@ -1055,12 +1055,12 @@ function renderDefScheme(team) {
         }
     });
 
-    const worstDef = plays.reduce((a,b) => a.ppp > b.ppp ? a : b);
-    const bestDef = plays.reduce((a,b) => a.ppp < b.ppp ? a : b);
+    const worstDef = plays.reduce((a,b) => a.percentile < b.percentile ? a : b);
+    const bestDef = plays.reduce((a,b) => a.percentile > b.percentile ? a : b);
     document.getElementById('def-scheme-summary').innerHTML =
         '<div class="scheme-insight"><strong>' + team + ' Defensive Vulnerabilities:</strong> ' +
-        'Weakest vs ' + getPlayLabel(worstDef.play_type) + ' (' + worstDef.ppp.toFixed(3) + ' PPP allowed, ' + worstDef.percentile + 'th percentile). ' +
-        'Strongest vs ' + getPlayLabel(bestDef.play_type) + ' (' + bestDef.ppp.toFixed(3) + ' PPP allowed).</div>';
+        'Weakest vs ' + getPlayLabel(worstDef.play_type) + ' (' + worstDef.percentile + 'th percentile, ' + worstDef.ppp.toFixed(3) + ' PPP allowed). ' +
+        'Strongest vs ' + getPlayLabel(bestDef.play_type) + ' (' + bestDef.percentile + 'th percentile, ' + bestDef.ppp.toFixed(3) + ' PPP allowed).</div>';
 }
 
 document.getElementById('scheme-team-select').addEventListener('change', function() { renderSchemeRadar(this.value); });
