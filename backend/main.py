@@ -477,10 +477,22 @@ async def trends(request: Request, db: Session = Depends(get_db)):
                 explorer_df['injury_status'] = explorer_df['player_name'].map(inj_map).fillna('')
             else:
                 explorer_df['injury_status'] = ''
+            if 'true_position' in explorer_df.columns:
+                explorer_df['true_position'] = explorer_df['true_position'].fillna('')
+            if 'opponent' in explorer_df.columns:
+                explorer_df['opponent'] = explorer_df['opponent'].fillna('')
             keep_cols = ['player_name', 'true_position', 'team', 'opponent', 'injury_status',
                          'proj_fp', 'fp_per_min', 'ownership_pct']
             keep_cols = [c for c in keep_cols if c in explorer_df.columns]
-            explorer_players = explorer_df[keep_cols].to_dict('records')
+            records = explorer_df[keep_cols].to_dict('records')
+            for r in records:
+                for k in ('ownership_pct',):
+                    if r.get(k) is not None and r[k] != r[k]:
+                        r[k] = None
+                for k in ('fp_per_min', 'proj_fp'):
+                    if r.get(k) is None or r[k] != r[k]:
+                        r[k] = 0.0
+            explorer_players = records
     except:
         pass
 

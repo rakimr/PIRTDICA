@@ -1374,6 +1374,37 @@ a:hover {
     overflow-y: auto;
 }
 
+.explorer-filters {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.explorer-table-wrapper {
+    max-height: 600px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.explorer-table-wrapper .player-table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--bg-card);
+    z-index: 2;
+}
+
+.explorer-table-wrapper .player-table thead th.sort-asc::after {
+    content: ' \u25B2';
+    font-size: 0.65em;
+}
+
+.explorer-table-wrapper .player-table thead th.sort-desc::after {
+    content: ' \u25BC';
+    font-size: 0.65em;
+}
+
 .player-table {
     width: 100%;
     border-collapse: collapse;

@@ -158,6 +158,87 @@
         </div>
     </div>
 
+    {% if explorer_players %}
+    <div class="trends-section">
+        <h2>Player Explorer</h2>
+        <p class="chart-description">Browse today's full player pool. Click any player name to view their shot chart. Use the filters together to narrow your search.</p>
+        <div class="explorer-filters">
+            <input type="text" id="explorer-search" class="pool-search" placeholder="Search players...">
+            <select id="explorer-pos-filter" class="pool-select">
+                <option value="">All Positions</option>
+                <option value="PG">PG</option>
+                <option value="SG">SG</option>
+                <option value="SF">SF</option>
+                <option value="PF">PF</option>
+                <option value="C">C</option>
+            </select>
+            <select id="explorer-team-filter" class="pool-select">
+                <option value="">All Teams</option>
+            </select>
+            <select id="explorer-status-filter" class="pool-select">
+                <option value="">All Status</option>
+                <option value="healthy">Healthy</option>
+                <option value="PROBABLE">Probable</option>
+                <option value="QUESTIONABLE">Questionable</option>
+                <option value="GTD">GTD</option>
+                <option value="DOUBTFUL">Doubtful</option>
+                <option value="OUT">Out</option>
+            </select>
+        </div>
+        <div class="explorer-table-wrapper">
+            <table class="player-table" id="explorer-table">
+                <thead>
+                    <tr>
+                        <th data-sortable="string" class="col-pos">Pos</th>
+                        <th data-sortable="string" class="col-name">Player</th>
+                        <th data-sortable="string">Status</th>
+                        <th data-sortable="string">Matchup</th>
+                        <th data-sortable="number">Proj FP</th>
+                        <th data-sortable="number">FP/Min</th>
+                        <th data-sortable="number">Fantasy Ownership %</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in explorer_players %}
+                    <tr data-name="{{ p.player_name }}"
+                        data-pos="{{ p.get('true_position', '') }}"
+                        data-team="{{ p.team }}"
+                        data-opponent="{{ p.get('opponent', '') }}"
+                        data-injury="{{ p.get('injury_status', '') }}">
+                        <td class="col-pos"><span class="pos-badge">{{ p.get('true_position', '') }}</span></td>
+                        <td class="col-name">
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <img src="{{ headshots.get(p.player_name, '') }}" alt="" style="width:32px;height:32px;border-radius:0;object-fit:contain;flex-shrink:0;mix-blend-mode:multiply;" onerror="this.style.display='none'">
+                                <span class="player-name-link" onclick="openExplorerShotChart('{{ p.player_name }}', event)" title="View shot chart">{{ p.player_name }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            {% if p.get('injury_status') == 'OUT' %}
+                            <span class="injury-tag tag-out">OUT</span>
+                            {% elif p.get('injury_status') == 'DOUBTFUL' %}
+                            <span class="injury-tag tag-doubtful">DTD</span>
+                            {% elif p.get('injury_status') == 'QUESTIONABLE' %}
+                            <span class="injury-tag tag-questionable">Q</span>
+                            {% elif p.get('injury_status') == 'GTD' %}
+                            <span class="injury-tag tag-gtd">GTD</span>
+                            {% elif p.get('injury_status') == 'PROBABLE' %}
+                            <span class="injury-tag tag-probable">P</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="matchup-text">{{ p.team }} <span class="matchup-vs">vs</span> {{ p.get('opponent', '') }}</span>
+                        </td>
+                        <td>{{ "%.1f"|format(p.proj_fp) }}</td>
+                        <td>{{ "%.2f"|format(p.get('fp_per_min', 0) or 0) }}</td>
+                        <td>{% if p.get('ownership_pct') is not none %}{{ "%.1f"|format(p.ownership_pct) }}%{% else %}—{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
     {% if top_value %}
     <div class="trends-section">
         <h2>Top Value Plays</h2>
@@ -277,6 +358,30 @@
         </div>
     </div>
     {% endif %}
+</div>
+
+<div id="explorer-shot-chart-modal" class="sc-modal-overlay" style="display:none;" onclick="if(event.target===this)closeExplorerShotChart()">
+    <div class="sc-modal">
+        <button class="sc-close" onclick="closeExplorerShotChart()">&times;</button>
+        <div class="sc-header">
+            <div class="sc-player-info">
+                <h2 id="esc-player-name"></h2>
+                <span id="esc-archetype-badge" class="sc-archetype"></span>
+                <span id="esc-total-fga" class="sc-fga-count"></span>
+            </div>
+            <div class="sc-legend">
+                <span class="sc-leg-item"><span class="sc-leg-dot" style="background:#d72638"></span> More shots than league avg</span>
+                <span class="sc-leg-item"><span class="sc-leg-dot" style="background:#1e3a8a"></span> Fewer shots than league avg</span>
+            </div>
+        </div>
+        <div class="esc-body" style="display:none;">
+            <div class="sc-canvas-wrap">
+                <canvas id="esc-canvas" width="500" height="470"></canvas>
+            </div>
+            <div class="sc-zone-stats" id="esc-zone-stats"></div>
+        </div>
+        <div id="esc-loading" class="sc-loading">Loading shot chart...</div>
+    </div>
 </div>
 
 <div id="trend-modal" class="trend-modal-overlay" style="display:none;">
@@ -1237,5 +1342,276 @@ loadSchemeData();
         container.innerHTML = html;
     }
 })();
+
+(function() {
+    var table = document.getElementById('explorer-table');
+    if (!table) return;
+
+    var searchInput = document.getElementById('explorer-search');
+    var posFilter = document.getElementById('explorer-pos-filter');
+    var teamFilter = document.getElementById('explorer-team-filter');
+    var statusFilter = document.getElementById('explorer-status-filter');
+
+    var teams = new Set();
+    var rows = Array.from(table.querySelectorAll('tbody tr'));
+    rows.forEach(function(r) {
+        var t = r.getAttribute('data-team');
+        if (t) teams.add(t);
+    });
+    Array.from(teams).sort().forEach(function(t) {
+        var opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        teamFilter.appendChild(opt);
+    });
+
+    function applyFilters() {
+        var search = searchInput.value.toLowerCase().trim();
+        var pos = posFilter.value;
+        var team = teamFilter.value;
+        var status = statusFilter.value;
+
+        rows.forEach(function(row) {
+            var name = (row.getAttribute('data-name') || '').toLowerCase();
+            var rPos = row.getAttribute('data-pos') || '';
+            var rTeam = row.getAttribute('data-team') || '';
+            var rInjury = row.getAttribute('data-injury') || '';
+
+            var show = true;
+            if (search && name.indexOf(search) === -1) show = false;
+            if (pos && rPos.indexOf(pos) === -1) show = false;
+            if (team && rTeam !== team) show = false;
+            if (status === 'healthy') {
+                if (rInjury && rInjury !== '') show = false;
+            } else if (status && rInjury !== status) {
+                show = false;
+            }
+            row.style.display = show ? '' : 'none';
+        });
+    }
+
+    searchInput.addEventListener('input', applyFilters);
+    posFilter.addEventListener('change', applyFilters);
+    teamFilter.addEventListener('change', applyFilters);
+    statusFilter.addEventListener('change', applyFilters);
+
+    var headers = table.querySelectorAll('thead th[data-sortable]');
+    var sortCol = -1, sortAsc = true;
+    headers.forEach(function(th, idx) {
+        th.style.cursor = 'pointer';
+        th.addEventListener('click', function() {
+            if (sortCol === idx) { sortAsc = !sortAsc; } else { sortCol = idx; sortAsc = true; }
+            headers.forEach(function(h) { h.classList.remove('sort-asc', 'sort-desc'); });
+            th.classList.add(sortAsc ? 'sort-asc' : 'sort-desc');
+            var type = th.getAttribute('data-sortable');
+            rows.sort(function(a, b) {
+                var aVal = a.children[idx].textContent.trim();
+                var bVal = b.children[idx].textContent.trim();
+                if (type === 'number') {
+                    aVal = parseFloat(aVal.replace(/[^0-9.\-]/g, '')) || 0;
+                    bVal = parseFloat(bVal.replace(/[^0-9.\-]/g, '')) || 0;
+                    return sortAsc ? aVal - bVal : bVal - aVal;
+                }
+                return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            });
+            var tbody = table.querySelector('tbody');
+            rows.forEach(function(r) { tbody.appendChild(r); });
+        });
+    });
+})();
+
+function openExplorerShotChart(playerName, evt) {
+    if (evt) evt.stopPropagation();
+    var modal = document.getElementById('explorer-shot-chart-modal');
+    var loading = document.getElementById('esc-loading');
+    var canvas = document.getElementById('esc-canvas');
+    var body = document.querySelector('.esc-body');
+    modal.style.display = 'flex';
+    body.style.display = 'none';
+    loading.style.display = 'block';
+    document.getElementById('esc-player-name').textContent = playerName;
+    document.getElementById('esc-archetype-badge').textContent = '';
+    document.getElementById('esc-total-fga').textContent = '';
+    document.getElementById('esc-zone-stats').innerHTML = '';
+
+    fetch('/api/player-shot-chart/' + encodeURIComponent(playerName))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            loading.style.display = 'none';
+            if (data.error || !data.zones || Object.keys(data.zones).length === 0 || data.total_fga === 0) {
+                body.style.display = 'block';
+                document.getElementById('esc-zone-stats').innerHTML = '<div style="text-align:center;padding:30px;color:#888;">' + (data.error || 'No shot data available') + '</div>';
+                return;
+            }
+            body.style.display = 'block';
+            if (data.archetype) document.getElementById('esc-archetype-badge').textContent = data.archetype;
+            document.getElementById('esc-total-fga').textContent = data.total_fga + ' FGA';
+            renderExplorerShotChart(canvas, data);
+            renderExplorerZoneStats(data);
+        })
+        .catch(function() {
+            loading.style.display = 'none';
+            body.style.display = 'block';
+            document.getElementById('esc-zone-stats').innerHTML = '<div style="text-align:center;padding:30px;color:#888;">Failed to load shot chart</div>';
+        });
+}
+
+function closeExplorerShotChart() {
+    document.getElementById('explorer-shot-chart-modal').style.display = 'none';
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        var escModal = document.getElementById('explorer-shot-chart-modal');
+        if (escModal && escModal.style.display !== 'none') closeExplorerShotChart();
+    }
+});
+
+function renderExplorerShotChart(canvas, data) {
+    var W = 500, H = 470;
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    var ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, W, H);
+
+    var S = 9;
+    var bx = 250;
+    var baseY = 452;
+    var by = baseY - Math.round(5.25 * S);
+    var RA_R = Math.round(4 * S);
+    var LANE_HW = Math.round(8 * S);
+    var FT_DIST = Math.round(13.75 * S);
+    var FT_R = Math.round(6 * S);
+    var THREE_R = Math.round(23.75 * S);
+    var THREE_STRAIGHT_X = Math.round(22 * S);
+    var COURT_HW = Math.round(25 * S);
+    var THREE_ANG = Math.acos(THREE_STRAIGHT_X / THREE_R);
+    var CORNER_TOP_Y = by - Math.round(Math.sqrt(THREE_R * THREE_R - THREE_STRAIGHT_X * THREE_STRAIGHT_X));
+    var ftLineY = by - FT_DIST;
+    var rimR = Math.round(0.75 * S);
+    var bbW = Math.round(3 * S);
+    var zones = data.zones || {};
+    var league = data.league_avg || {};
+
+    ctx.fillStyle = '#fafafa';
+    ctx.fillRect(0, 0, W, H);
+
+    function getZoneColor(zoneKey) {
+        var pz = zones[zoneKey];
+        var lz = league[zoneKey];
+        if (!pz || !lz) return 'rgba(200,200,200,0.3)';
+        var freqDiff = pz.freq - lz.freq;
+        var intensity = Math.min(Math.abs(freqDiff) / 12, 1);
+        var alpha = 0.2 + intensity * 0.5;
+        if (freqDiff >= 0) {
+            return 'rgba(' + Math.round(215*intensity+240*(1-intensity)) + ',' + Math.round(38*intensity+200*(1-intensity)) + ',' + Math.round(56*intensity+200*(1-intensity)) + ',' + alpha.toFixed(2) + ')';
+        } else {
+            return 'rgba(' + Math.round(30*intensity+200*(1-intensity)) + ',' + Math.round(58*intensity+200*(1-intensity)) + ',' + Math.round(138*intensity+220*(1-intensity)) + ',' + alpha.toFixed(2) + ')';
+        }
+    }
+
+    function drawZoneLabel(cx, cy, zoneKey) {
+        var pz = zones[zoneKey];
+        if (!pz || pz.fga === 0) return;
+        ctx.fillStyle = '#111';
+        ctx.font = 'bold 13px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(pz.fg_pct + '%', cx, cy - 8);
+        ctx.font = '10px system-ui, sans-serif';
+        ctx.fillStyle = '#555';
+        ctx.fillText(pz.fga + ' FGA', cx, cy + 8);
+        var lz = league[zoneKey];
+        if (lz) {
+            var diff = pz.freq - lz.freq;
+            ctx.font = 'bold 9px system-ui, sans-serif';
+            ctx.fillStyle = diff > 0.5 ? '#d72638' : (diff < -0.5 ? '#1e3a8a' : '#888');
+            ctx.fillText((diff > 0 ? '+' : '') + diff.toFixed(1) + '% freq', cx, cy + 22);
+        }
+    }
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(bx - COURT_HW, 0, COURT_HW * 2, baseY);
+    ctx.clip();
+
+    ctx.fillStyle = getZoneColor('Above Break 3');
+    ctx.fillRect(bx - COURT_HW, 0, COURT_HW * 2, baseY);
+    ctx.fillStyle = getZoneColor('Corner 3');
+    ctx.beginPath();
+    ctx.rect(bx - COURT_HW, CORNER_TOP_Y, COURT_HW - THREE_STRAIGHT_X, baseY - CORNER_TOP_Y);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.rect(bx + THREE_STRAIGHT_X, CORNER_TOP_Y, COURT_HW - THREE_STRAIGHT_X, baseY - CORNER_TOP_Y);
+    ctx.fill();
+    ctx.fillStyle = getZoneColor('Mid-Range');
+    ctx.beginPath();
+    ctx.moveTo(bx - THREE_STRAIGHT_X, baseY);
+    ctx.lineTo(bx - THREE_STRAIGHT_X, CORNER_TOP_Y);
+    ctx.arc(bx, by, THREE_R, Math.PI + THREE_ANG, Math.PI * 2 - THREE_ANG);
+    ctx.lineTo(bx + THREE_STRAIGHT_X, baseY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = getZoneColor('Paint (Non-RA)');
+    ctx.beginPath();
+    ctx.rect(bx - LANE_HW, ftLineY, LANE_HW * 2, baseY - ftLineY);
+    ctx.fill();
+    ctx.fillStyle = getZoneColor('Restricted Area');
+    ctx.beginPath();
+    ctx.arc(bx, by, RA_R, Math.PI, Math.PI * 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(bx - COURT_HW, baseY); ctx.lineTo(bx + COURT_HW, baseY); ctx.stroke();
+    ctx.beginPath(); ctx.rect(bx - COURT_HW, baseY - Math.round(47 * S), COURT_HW * 2, Math.round(47 * S)); ctx.stroke();
+    ctx.beginPath(); ctx.rect(bx - LANE_HW, ftLineY, LANE_HW * 2, baseY - ftLineY); ctx.stroke();
+    ctx.beginPath(); ctx.arc(bx, ftLineY, FT_R, Math.PI, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath(); ctx.arc(bx, ftLineY, FT_R, 0, Math.PI); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(bx, by, RA_R, Math.PI, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx - THREE_STRAIGHT_X, baseY); ctx.lineTo(bx - THREE_STRAIGHT_X, CORNER_TOP_Y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx + THREE_STRAIGHT_X, baseY); ctx.lineTo(bx + THREE_STRAIGHT_X, CORNER_TOP_Y); ctx.stroke();
+    ctx.beginPath(); ctx.arc(bx, by, THREE_R, Math.PI + THREE_ANG, Math.PI * 2 - THREE_ANG); ctx.stroke();
+    ctx.strokeStyle = '#333';
+    ctx.beginPath(); ctx.arc(bx, by, rimR, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx - bbW, baseY - Math.round(4 * S)); ctx.lineTo(bx + bbW, baseY - Math.round(4 * S)); ctx.stroke();
+    var mcY = baseY - Math.round(47 * S);
+    ctx.beginPath(); ctx.arc(bx, mcY, Math.round(2 * S), 0, Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.arc(bx, mcY, Math.round(6 * S), 0, Math.PI); ctx.stroke();
+
+    drawZoneLabel(bx, by - RA_R / 2 - 5, 'Restricted Area');
+    drawZoneLabel(bx, by - RA_R - (FT_DIST - RA_R) / 2, 'Paint (Non-RA)');
+    drawZoneLabel(bx - LANE_HW - 55, by - FT_DIST / 2, 'Mid-Range');
+    drawZoneLabel(bx, by - THREE_R - 30, 'Above Break 3');
+    drawZoneLabel(bx - THREE_STRAIGHT_X - (COURT_HW - THREE_STRAIGHT_X) / 2, by + 10, 'Corner 3');
+    drawZoneLabel(bx + THREE_STRAIGHT_X + (COURT_HW - THREE_STRAIGHT_X) / 2, by + 10, 'Corner 3');
+}
+
+function renderExplorerZoneStats(data) {
+    var container = document.getElementById('esc-zone-stats');
+    var zones = data.zones || {};
+    var league = data.league_avg || {};
+    var zoneOrder = ['Restricted Area', 'Paint (Non-RA)', 'Mid-Range', 'Above Break 3', 'Corner 3'];
+    var html = '<table><thead><tr><th>Zone</th><th>FGA</th><th>FGM</th><th>FG%</th><th>Freq%</th><th>vs Avg</th></tr></thead><tbody>';
+    for (var i = 0; i < zoneOrder.length; i++) {
+        var z = zoneOrder[i];
+        var pz = zones[z];
+        if (!pz) continue;
+        var lz = league[z] || {};
+        var diff = pz.freq - (lz.freq || 0);
+        var diffClass = diff > 0.5 ? 'freq-diff-pos' : (diff < -0.5 ? 'freq-diff-neg' : '');
+        html += '<tr><td>' + z + '</td><td>' + pz.fga + '</td><td>' + pz.fgm + '</td><td>' + pz.fg_pct + '%</td><td>' + pz.freq + '%</td><td class="' + diffClass + '">' + (diff > 0 ? '+' : '') + diff.toFixed(1) + '%</td></tr>';
+    }
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
 </script>
 {% endblock %}
