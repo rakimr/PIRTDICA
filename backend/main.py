@@ -151,6 +151,12 @@ def get_player_headshots():
         pass
     return headshots
 
+@app.get("/chart-screenshot/{chart_type}/{target}")
+async def chart_screenshot_route(request: Request, chart_type: str, target: str):
+    return templates.TemplateResponse("chart_screenshot.html", {
+        "request": request, "chart_type": chart_type, "target": target
+    })
+
 @app.get("/")
 async def home(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)

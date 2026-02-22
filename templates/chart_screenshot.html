@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>PIRTDICA Chart</title>
+<link href="https://fonts.googleapis.com/css2?family=Marvel:wght@400;700&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #fafafa; font-family: 'Marvel', system-ui, sans-serif; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 20px; }
+.chart-wrap { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; max-width: {% if chart_type == 'def-scheme' %}700{% else %}600{% endif %}px; width: 100%; }
+.chart-title { font-size: 18px; font-weight: 700; color: #111; text-align: center; margin-bottom: 4px; }
+.chart-subtitle { font-size: 13px; color: #666; text-align: center; margin-bottom: 16px; }
+.shot-chart-wrap { display: flex; justify-content: center; }
+canvas#shot-canvas { max-width: 500px; }
+.zone-stats { margin-top: 16px; overflow-x: auto; }
+.zone-stats table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.zone-stats th, .zone-stats td { padding: 8px 10px; text-align: center; border-bottom: 1px solid #eee; }
+.zone-stats th { font-weight: 700; color: #333; text-transform: uppercase; font-size: 11px; letter-spacing: 0.3px; border-bottom: 2px solid #ddd; }
+.freq-diff-pos { color: #d72638; font-weight: 700; }
+.freq-diff-neg { color: #1e3a8a; font-weight: 700; }
+.scheme-chart-wrap { position: relative; height: 360px; background: #fafafa; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; }
+.scheme-bar-legend { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-top: 12px; font-size: 12px; color: #555; }
+.sbl-item { display: flex; align-items: center; gap: 5px; }
+.sbl-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.sbl-line { width: 16px; height: 2px; border-radius: 0; }
+.scheme-insight { margin-top: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #374151; line-height: 1.5; }
+.watermark { text-align: right; margin-top: 8px; font-size: 10px; color: #ccc; font-style: italic; }
+</style>
+</head>
+<body>
+<div class="chart-wrap" id="chart-container">
+    <div class="chart-title" id="chart-title"></div>
+    <div class="chart-subtitle" id="chart-subtitle"></div>
+    {% if chart_type in ('player-shot', 'team-defense-shot') %}
+    <div id="shot-chart-area">
+        <div class="shot-chart-wrap">
+            <canvas id="shot-canvas" width="500" height="470"></canvas>
+        </div>
+        <div id="zone-stats" class="zone-stats"></div>
+    </div>
+    {% endif %}
+    {% if chart_type == 'def-scheme' %}
+    <div id="scheme-chart-area">
+        <div class="scheme-chart-wrap">
+            <canvas id="scheme-canvas" width="650" height="320"></canvas>
+        </div>
+        <div class="scheme-bar-legend" id="scheme-legend"></div>
+        <div id="scheme-summary" class="scheme-insight" style="display:none;"></div>
+    </div>
+    {% endif %}
+    <div class="watermark">PIRTDICA</div>
+</div>
+
+<script>
+const chartType = '{{ chart_type }}';
+const target = '{{ target }}';
+
+function fetchSync(url) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, false);
+    xhr.send();
+    if (xhr.status !== 200) {
+        throw new Error('API returned status ' + xhr.status + ' for ' + url);
+    }
+    if (!xhr.responseText || xhr.responseText.trim() === '') {
+        throw new Error('Empty response from ' + url);
+    }
+    return JSON.parse(xhr.responseText);
+}
+
+var PLAY_TYPE_ORDER = ['Isolation','Transition','PRBallHandler','PRRollman','Postup','Spotup','Handoff','Cut','OffScreen'];
+function getPlayLabel(pt) {
+    var labels = {'Isolation':'ISOLATION','Transition':'TRANSITION','PRBallHandler':'PnR BALL HANDLER','PRRollman':'PnR ROLL MAN','Postup':'POST UP','Spotup':'SPOT UP','Handoff':'HANDOFF','Cut':'CUT','OffScreen':'OFF SCREEN'};
+    return labels[pt] || pt;
+}
+
+try {
+    if (chartType === 'player-shot') {
+        var data = fetchSync('/api/player-shot-chart/' + encodeURIComponent(target));
+        document.getElementById('chart-title').textContent = data.player + (data.archetype ? ' | ' + data.archetype : '');
+        document.getElementById('chart-subtitle').textContent = 'Shot Zone Distribution (' + data.total_fga + ' FGA)';
+        renderShotChart(document.getElementById('shot-canvas'), data);
+        renderZoneStats(data, 'zone-stats');
+    } else if (chartType === 'team-defense-shot') {
+        var data = fetchSync('/api/team-defense-shot-chart/' + encodeURIComponent(target));
+        document.getElementById('chart-title').textContent = data.team_name + ' (' + data.team + ')';
+        document.getElementById('chart-subtitle').textContent = 'Defensive Shot Chart — Opponent FG% (' + data.total_fga.toLocaleString() + ' Opponent FGA)';
+        renderDefShotChart(document.getElementById('shot-canvas'), data);
+        renderDefZoneStats(data, 'zone-stats');
+    } else if (chartType === 'def-scheme') {
+        var schemeData = fetchSync('/api/team-schemes?team=' + encodeURIComponent(target));
+        document.getElementById('chart-title').textContent = target + ' Defensive Scheme Vulnerabilities';
+        document.getElementById('chart-subtitle').textContent = 'Points Per Possession Allowed by Play Type';
+        renderDefScheme(schemeData, target);
+    } else {
+        document.getElementById('chart-title').textContent = 'Unknown chart type: ' + chartType;
+    }
+} catch(e) {
+    document.getElementById('chart-subtitle').textContent = 'ERROR: ' + e.message;
+}
+
+
+function renderShotChart(canvas, data) {
+    var W = 500, H = 470;
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    var ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, W, H);
+    var S = 9, bx = 250, baseY = 452, by = baseY - Math.round(5.25 * S);
+    var RA_R = Math.round(4 * S), LANE_HW = Math.round(8 * S), FT_DIST = Math.round(13.75 * S);
+    var FT_R = Math.round(6 * S), THREE_R = Math.round(23.75 * S), THREE_STRAIGHT_X = Math.round(22 * S);
+    var COURT_HW = Math.round(25 * S);
+    var THREE_ANG = Math.acos(THREE_STRAIGHT_X / THREE_R);
+    var CORNER_TOP_Y = by - Math.round(Math.sqrt(THREE_R * THREE_R - THREE_STRAIGHT_X * THREE_STRAIGHT_X));
+    var ftLineY = by - FT_DIST, rimR = Math.round(0.75 * S), bbW = Math.round(3 * S);
+    var zones = data.zones || {}, league = data.league_avg || {};
+    ctx.fillStyle = '#fafafa';
+    ctx.fillRect(0, 0, W, H);
+    function getZoneColor(zoneKey) {
+        var pz = zones[zoneKey], lz = league[zoneKey];
+        if (!pz || !lz) return 'rgba(200,200,200,0.3)';
+        var freqDiff = pz.freq - lz.freq;
+        var intensity = Math.min(Math.abs(freqDiff) / 12, 1);
+        var alpha = 0.2 + intensity * 0.5;
+        if (freqDiff >= 0) return 'rgba('+Math.round(215*intensity+240*(1-intensity))+','+Math.round(38*intensity+200*(1-intensity))+','+Math.round(56*intensity+200*(1-intensity))+','+alpha.toFixed(2)+')';
+        return 'rgba('+Math.round(30*intensity+200*(1-intensity))+','+Math.round(58*intensity+200*(1-intensity))+','+Math.round(138*intensity+220*(1-intensity))+','+alpha.toFixed(2)+')';
+    }
+    function drawZoneLabel(cx, cy, zoneKey) {
+        var pz = zones[zoneKey];
+        if (!pz || pz.fga === 0) return;
+        ctx.fillStyle = '#111'; ctx.font = 'bold 13px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(pz.fg_pct + '%', cx, cy - 8);
+        ctx.font = '10px system-ui, sans-serif'; ctx.fillStyle = '#555';
+        ctx.fillText(pz.fga + ' FGA', cx, cy + 8);
+        var lz = league[zoneKey];
+        if (lz) { var diff = pz.freq - lz.freq; ctx.font = 'bold 9px system-ui, sans-serif'; ctx.fillStyle = diff > 0.5 ? '#d72638' : (diff < -0.5 ? '#1e3a8a' : '#888'); ctx.fillText((diff > 0 ? '+' : '') + diff.toFixed(1) + '% freq', cx, cy + 22); }
+    }
+    ctx.save(); ctx.beginPath(); ctx.rect(bx - COURT_HW, 0, COURT_HW * 2, baseY); ctx.clip();
+    ctx.fillStyle = getZoneColor('Above Break 3'); ctx.fillRect(bx - COURT_HW, 0, COURT_HW * 2, baseY);
+    ctx.fillStyle = getZoneColor('Corner 3');
+    ctx.beginPath(); ctx.rect(bx - COURT_HW, CORNER_TOP_Y, COURT_HW - THREE_STRAIGHT_X, baseY - CORNER_TOP_Y); ctx.fill();
+    ctx.beginPath(); ctx.rect(bx + THREE_STRAIGHT_X, CORNER_TOP_Y, COURT_HW - THREE_STRAIGHT_X, baseY - CORNER_TOP_Y); ctx.fill();
+    ctx.fillStyle = getZoneColor('Mid-Range');
+    ctx.beginPath(); ctx.moveTo(bx - THREE_STRAIGHT_X, baseY); ctx.lineTo(bx - THREE_STRAIGHT_X, CORNER_TOP_Y); ctx.arc(bx, by, THREE_R, Math.PI + THREE_ANG, Math.PI * 2 - THREE_ANG); ctx.lineTo(bx + THREE_STRAIGHT_X, baseY); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = getZoneColor('Paint (Non-RA)'); ctx.beginPath(); ctx.rect(bx - LANE_HW, ftLineY, LANE_HW * 2, baseY - ftLineY); ctx.fill();
+    ctx.fillStyle = getZoneColor('Restricted Area'); ctx.beginPath(); ctx.arc(bx, by, RA_R, Math.PI, Math.PI * 2); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = '#444'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(bx - COURT_HW, baseY); ctx.lineTo(bx + COURT_HW, baseY); ctx.stroke();
+    ctx.beginPath(); ctx.rect(bx - COURT_HW, baseY - Math.round(47 * S), COURT_HW * 2, Math.round(47 * S)); ctx.stroke();
+    ctx.beginPath(); ctx.rect(bx - LANE_HW, ftLineY, LANE_HW * 2, baseY - ftLineY); ctx.stroke();
+    ctx.beginPath(); ctx.arc(bx, ftLineY, FT_R, Math.PI, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.arc(bx, ftLineY, FT_R, 0, Math.PI); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(bx, by, RA_R, Math.PI, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx - THREE_STRAIGHT_X, baseY); ctx.lineTo(bx - THREE_STRAIGHT_X, CORNER_TOP_Y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx + THREE_STRAIGHT_X, baseY); ctx.lineTo(bx + THREE_STRAIGHT_X, CORNER_TOP_Y); ctx.stroke();
+    ctx.beginPath(); ctx.arc(bx, by, THREE_R, Math.PI + THREE_ANG, Math.PI * 2 - THREE_ANG); ctx.stroke();
+    ctx.strokeStyle = '#333'; ctx.beginPath(); ctx.arc(bx, by, rimR, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx - bbW, baseY - Math.round(4 * S)); ctx.lineTo(bx + bbW, baseY - Math.round(4 * S)); ctx.stroke();
+    var mcY = baseY - Math.round(47 * S);
+    ctx.beginPath(); ctx.arc(bx, mcY, Math.round(2 * S), 0, Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.arc(bx, mcY, Math.round(6 * S), 0, Math.PI); ctx.stroke();
+    drawZoneLabel(bx, by - RA_R / 2 - 5, 'Restricted Area');
+    drawZoneLabel(bx, by - RA_R - (FT_DIST - RA_R) / 2, 'Paint (Non-RA)');
+    drawZoneLabel(bx - LANE_HW - 55, by - FT_DIST / 2, 'Mid-Range');
+    drawZoneLabel(bx, by - THREE_R - 30, 'Above Break 3');
+    drawZoneLabel(bx - THREE_STRAIGHT_X - (COURT_HW - THREE_STRAIGHT_X) / 2, by + 10, 'Corner 3');
+    drawZoneLabel(bx + THREE_STRAIGHT_X + (COURT_HW - THREE_STRAIGHT_X) / 2, by + 10, 'Corner 3');
+}
+
+function renderDefShotChart(canvas, data) {
+    var W = 500, H = 470;
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    var ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr); ctx.clearRect(0, 0, W, H);
+    var S = 9, bx = 250, baseY = 452, by = baseY - Math.round(5.25 * S);
+    var RA_R = Math.round(4 * S), LANE_HW = Math.round(8 * S), FT_DIST = Math.round(13.75 * S);
+    var FT_R = Math.round(6 * S), THREE_R = Math.round(23.75 * S), THREE_STRAIGHT_X = Math.round(22 * S);
+    var COURT_HW = Math.round(25 * S);
+    var THREE_ANG = Math.acos(THREE_STRAIGHT_X / THREE_R);
+    var CORNER_TOP_Y = by - Math.round(Math.sqrt(THREE_R * THREE_R - THREE_STRAIGHT_X * THREE_STRAIGHT_X));
+    var ftLineY = by - FT_DIST, rimR = Math.round(0.75 * S), bbW = Math.round(3 * S);
+    ctx.fillStyle = '#fafafa'; ctx.fillRect(0, 0, W, H);
+    var zones = data.zones || {}, league = data.league_avg || {};
+    function getZoneColor(zoneKey) {
+        var tz = zones[zoneKey], lz = league[zoneKey];
+        if (!tz || !lz) return 'rgba(200,200,200,0.3)';
+        var freqDiff = tz.freq - lz.freq;
+        var intensity = Math.min(Math.abs(freqDiff) / 4, 1);
+        var alpha = 0.25 + intensity * 0.55;
+        if (freqDiff >= 0) return 'rgba('+Math.round(215*intensity+240*(1-intensity))+','+Math.round(38*intensity+200*(1-intensity))+','+Math.round(56*intensity+200*(1-intensity))+','+alpha.toFixed(2)+')';
+        return 'rgba('+Math.round(30*intensity+200*(1-intensity))+','+Math.round(58*intensity+200*(1-intensity))+','+Math.round(138*intensity+220*(1-intensity))+','+alpha.toFixed(2)+')';
+    }
+    function drawZoneLabel(cx, cy, zoneKey) {
+        var tz = zones[zoneKey];
+        if (!tz || tz.fga === 0) return;
+        var lz = league[zoneKey];
+        ctx.fillStyle = '#111'; ctx.font = 'bold 13px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(tz.fg_pct + '%', cx, cy - 8);
+        ctx.font = '10px system-ui, sans-serif'; ctx.fillStyle = '#555';
+        ctx.fillText(tz.fga + ' FGA', cx, cy + 8);
+        if (lz) { var diff = tz.freq - lz.freq; ctx.font = 'bold 9px system-ui, sans-serif'; ctx.fillStyle = diff > 0.3 ? '#d72638' : (diff < -0.3 ? '#1e3a8a' : '#888'); ctx.fillText((diff > 0 ? '+' : '') + diff.toFixed(1) + '% freq', cx, cy + 22); }
+    }
+    ctx.save(); ctx.beginPath(); ctx.rect(bx - COURT_HW, 0, COURT_HW * 2, baseY); ctx.clip();
+    ctx.fillStyle = getZoneColor('Above Break 3'); ctx.fillRect(bx - COURT_HW, 0, COURT_HW * 2, baseY);
+    ctx.fillStyle = getZoneColor('Corner 3');
+    ctx.beginPath(); ctx.rect(bx - COURT_HW, CORNER_TOP_Y, COURT_HW - THREE_STRAIGHT_X, baseY - CORNER_TOP_Y); ctx.fill();
+    ctx.beginPath(); ctx.rect(bx + THREE_STRAIGHT_X, CORNER_TOP_Y, COURT_HW - THREE_STRAIGHT_X, baseY - CORNER_TOP_Y); ctx.fill();
+    ctx.fillStyle = getZoneColor('Mid-Range');
+    ctx.beginPath(); ctx.moveTo(bx - THREE_STRAIGHT_X, baseY); ctx.lineTo(bx - THREE_STRAIGHT_X, CORNER_TOP_Y); ctx.arc(bx, by, THREE_R, Math.PI + THREE_ANG, Math.PI * 2 - THREE_ANG); ctx.lineTo(bx + THREE_STRAIGHT_X, baseY); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = getZoneColor('Paint (Non-RA)'); ctx.beginPath(); ctx.rect(bx - LANE_HW, ftLineY, LANE_HW * 2, baseY - ftLineY); ctx.fill();
+    ctx.fillStyle = getZoneColor('Restricted Area'); ctx.beginPath(); ctx.arc(bx, by, RA_R, Math.PI, Math.PI * 2); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = '#444'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(bx - COURT_HW, baseY); ctx.lineTo(bx + COURT_HW, baseY); ctx.stroke();
+    ctx.beginPath(); ctx.rect(bx - COURT_HW, baseY - Math.round(47 * S), COURT_HW * 2, Math.round(47 * S)); ctx.stroke();
+    ctx.beginPath(); ctx.rect(bx - LANE_HW, ftLineY, LANE_HW * 2, baseY - ftLineY); ctx.stroke();
+    ctx.beginPath(); ctx.arc(bx, ftLineY, FT_R, Math.PI, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.arc(bx, ftLineY, FT_R, 0, Math.PI); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(bx, by, RA_R, Math.PI, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx - THREE_STRAIGHT_X, baseY); ctx.lineTo(bx - THREE_STRAIGHT_X, CORNER_TOP_Y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx + THREE_STRAIGHT_X, baseY); ctx.lineTo(bx + THREE_STRAIGHT_X, CORNER_TOP_Y); ctx.stroke();
+    ctx.beginPath(); ctx.arc(bx, by, THREE_R, Math.PI + THREE_ANG, Math.PI * 2 - THREE_ANG); ctx.stroke();
+    ctx.strokeStyle = '#333'; ctx.beginPath(); ctx.arc(bx, by, rimR, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx - bbW, baseY - Math.round(4 * S)); ctx.lineTo(bx + bbW, baseY - Math.round(4 * S)); ctx.stroke();
+    var mcY = baseY - Math.round(47 * S);
+    ctx.beginPath(); ctx.arc(bx, mcY, Math.round(2 * S), 0, Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.arc(bx, mcY, Math.round(6 * S), 0, Math.PI); ctx.stroke();
+    drawZoneLabel(bx, by - RA_R / 2 - 5, 'Restricted Area');
+    drawZoneLabel(bx, by - RA_R - (FT_DIST - RA_R) / 2, 'Paint (Non-RA)');
+    drawZoneLabel(bx - LANE_HW - 55, by - FT_DIST / 2, 'Mid-Range');
+    drawZoneLabel(bx, by - THREE_R - 30, 'Above Break 3');
+    drawZoneLabel(bx - THREE_STRAIGHT_X - (COURT_HW - THREE_STRAIGHT_X) / 2, by + 10, 'Corner 3');
+    drawZoneLabel(bx + THREE_STRAIGHT_X + (COURT_HW - THREE_STRAIGHT_X) / 2, by + 10, 'Corner 3');
+}
+
+function renderDefScheme(schemeData, team) {
+    if (!schemeData || !schemeData.defense || !schemeData.defense[team]) return;
+    var plays = schemeData.defense[team].filter(function(p) { return PLAY_TYPE_ORDER.indexOf(p.play_type) >= 0; });
+    plays.sort(function(a,b) { return PLAY_TYPE_ORDER.indexOf(a.play_type) - PLAY_TYPE_ORDER.indexOf(b.play_type); });
+    var avgPPP = plays.map(function(p) { var a = schemeData.league_avg[p.play_type]; return a ? a.ppp : 0; });
+
+    var canvas = document.getElementById('scheme-canvas');
+    var W = 650, H = 320;
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    var ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#fafafa'; ctx.fillRect(0, 0, W, H);
+
+    var pad = { top: 20, right: 30, bottom: 60, left: 70 };
+    var chartW = W - pad.left - pad.right;
+    var chartH = H - pad.top - pad.bottom;
+    var n = plays.length;
+    if (n === 0) return;
+
+    var allVals = plays.map(function(p) { return p.ppp; }).concat(avgPPP);
+    var minVal = Math.floor(Math.min.apply(null, allVals) * 10) / 10 - 0.1;
+    var maxVal = Math.ceil(Math.max.apply(null, allVals) * 10) / 10 + 0.1;
+    var range = maxVal - minVal;
+
+    var barW = chartW / n * 0.55;
+    var gap = chartW / n;
+
+    ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1;
+    ctx.font = '10px Marvel, system-ui'; ctx.fillStyle = '#666'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    var ticks = 5;
+    for (var t = 0; t <= ticks; t++) {
+        var val = minVal + (range * t / ticks);
+        var y = pad.top + chartH - (val - minVal) / range * chartH;
+        ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+        ctx.fillText(val.toFixed(2), pad.left - 8, y);
+    }
+
+    ctx.font = 'bold 12px Marvel, system-ui'; ctx.fillStyle = '#374151'; ctx.textAlign = 'center';
+    ctx.save(); ctx.translate(14, pad.top + chartH / 2); ctx.rotate(-Math.PI / 2);
+    ctx.fillText('PPP Allowed', 0, 0); ctx.restore();
+
+    for (var i = 0; i < n; i++) {
+        var x = pad.left + i * gap + gap / 2;
+        var ppp = plays[i].ppp;
+        var avg = avgPPP[i];
+        var barH = (ppp - minVal) / range * chartH;
+        var barY = pad.top + chartH - barH;
+
+        ctx.fillStyle = ppp > avg + 0.03 ? 'rgba(215,38,56,0.75)' : ppp < avg - 0.03 ? 'rgba(15,157,88,0.75)' : 'rgba(107,114,128,0.5)';
+        ctx.beginPath();
+        var r = 4;
+        ctx.moveTo(x - barW/2 + r, barY); ctx.lineTo(x + barW/2 - r, barY);
+        ctx.arcTo(x + barW/2, barY, x + barW/2, barY + r, r);
+        ctx.lineTo(x + barW/2, pad.top + chartH); ctx.lineTo(x - barW/2, pad.top + chartH);
+        ctx.lineTo(x - barW/2, barY + r);
+        ctx.arcTo(x - barW/2, barY, x - barW/2 + r, barY, r);
+        ctx.fill();
+
+        ctx.font = 'bold 10px Marvel, system-ui'; ctx.fillStyle = '#111'; ctx.textAlign = 'center';
+        ctx.fillText(ppp.toFixed(3), x, barY - 6);
+
+        ctx.font = 'bold 9px Marvel, system-ui'; ctx.fillStyle = '#374151'; ctx.textAlign = 'right';
+        ctx.save(); ctx.translate(x, pad.top + chartH + 8);
+        ctx.rotate(-0.45);
+        ctx.fillText(getPlayLabel(plays[i].play_type), 0, 0);
+        ctx.restore();
+    }
+
+    ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 2; ctx.setLineDash([6, 3]);
+    ctx.beginPath();
+    for (var i = 0; i < n; i++) {
+        var x = pad.left + i * gap + gap / 2;
+        var y = pad.top + chartH - (avgPPP[i] - minVal) / range * chartH;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+
+    for (var i = 0; i < n; i++) {
+        var x = pad.left + i * gap + gap / 2;
+        var y = pad.top + chartH - (avgPPP[i] - minVal) / range * chartH;
+        ctx.fillStyle = '#9ca3af'; ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+    }
+
+    document.getElementById('scheme-legend').innerHTML =
+        '<span class="sbl-item"><span class="sbl-dot" style="background:rgba(215,38,56,0.75)"></span> Weakness (allows more PPP than avg)</span>' +
+        '<span class="sbl-item"><span class="sbl-dot" style="background:rgba(15,157,88,0.75)"></span> Strength (allows less PPP than avg)</span>' +
+        '<span class="sbl-item"><span class="sbl-dot" style="background:rgba(107,114,128,0.5)"></span> Neutral</span>' +
+        '<span class="sbl-item"><span class="sbl-dot sbl-line" style="background:#9ca3af"></span> League Avg Line</span>';
+    var worstDef = plays.reduce(function(a,b) { return a.percentile < b.percentile ? a : b; });
+    var bestDef = plays.reduce(function(a,b) { return a.percentile > b.percentile ? a : b; });
+    var summary = document.getElementById('scheme-summary');
+    summary.style.display = 'block';
+    summary.innerHTML = '<strong>' + team + ' Defensive Vulnerabilities:</strong> Weakest vs ' + getPlayLabel(worstDef.play_type) + ' (' + worstDef.percentile + 'th percentile, ' + worstDef.ppp.toFixed(3) + ' PPP allowed). Strongest vs ' + getPlayLabel(bestDef.play_type) + ' (' + bestDef.percentile + 'th percentile, ' + bestDef.ppp.toFixed(3) + ' PPP allowed).';
+}
+
+function renderZoneStats(data, containerId) {
+    var container = document.getElementById(containerId);
+    var zones = data.zones || {}, league = data.league_avg || {};
+    var zoneOrder = ['Restricted Area', 'Paint (Non-RA)', 'Mid-Range', 'Above Break 3', 'Corner 3'];
+    var html = '<table><thead><tr><th style="text-align:left">Zone</th><th>FGA</th><th>FGM</th><th>FG%</th><th>Freq%</th><th>vs Avg</th></tr></thead><tbody>';
+    for (var i = 0; i < zoneOrder.length; i++) {
+        var z = zoneOrder[i], pz = zones[z];
+        if (!pz) continue;
+        var lz = league[z] || {}, diff = pz.freq - (lz.freq || 0);
+        var cls = diff > 0.5 ? 'freq-diff-pos' : (diff < -0.5 ? 'freq-diff-neg' : '');
+        html += '<tr><td style="text-align:left;font-weight:600">' + z + '</td><td>' + pz.fga + '</td><td>' + pz.fgm + '</td><td>' + pz.fg_pct + '%</td><td>' + pz.freq + '%</td><td class="' + cls + '">' + (diff > 0 ? '+' : '') + diff.toFixed(1) + '%</td></tr>';
+    }
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+function renderDefZoneStats(data, containerId) {
+    var container = document.getElementById(containerId);
+    var zones = data.zones || {}, league = data.league_avg || {};
+    var zoneOrder = ['Restricted Area', 'Paint (Non-RA)', 'Mid-Range', 'Above Break 3', 'Corner 3'];
+    var html = '<table><thead><tr><th style="text-align:left">Zone</th><th>Opp FGA</th><th>Opp FGM</th><th>Opp FG%</th><th>Lg FG%</th><th>Freq%</th><th>vs Avg</th></tr></thead><tbody>';
+    for (var i = 0; i < zoneOrder.length; i++) {
+        var z = zoneOrder[i], tz = zones[z];
+        if (!tz) continue;
+        var lz = league[z] || {}, freqDiff = tz.freq - (lz.freq || 0), fgDiff = tz.fg_pct - (lz.fg_pct || 0);
+        var freqClass = freqDiff > 0.3 ? 'freq-diff-pos' : (freqDiff < -0.3 ? 'freq-diff-neg' : '');
+        html += '<tr><td style="text-align:left;font-weight:600">' + z + '</td><td>' + tz.fga.toLocaleString() + '</td><td>' + tz.fgm.toLocaleString() + '</td><td>' + tz.fg_pct + '%</td><td>' + (lz.fg_pct || 0) + '%</td><td>' + tz.freq + '%</td><td class="' + freqClass + '">' + (freqDiff > 0 ? '+' : '') + freqDiff.toFixed(1) + '%</td></tr>';
+    }
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+</script>
+</body>
+</html>
