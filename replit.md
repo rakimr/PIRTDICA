@@ -111,6 +111,17 @@ The web platform is built with FastAPI (Python) for the backend, SQLAlchemy for 
 
 **Formatting:** No hyphens or dashes in articles. Use commas, periods, and sentence restructuring instead.
 
+**Article Header Art Direction (Dan Koe-inspired):**
+- Black and white woodcut/engraving style with dense crosshatching and stippling
+- Extremely detailed fine line work, almost obsessive texture density
+- Surreal, cosmic, existential themes: figures in vast overwhelming environments
+- High contrast: deep blacks against bright whites, dramatic lighting with glowing focal points
+- Wide panoramic format (approximately 2.5:1 ratio, 1920x768)
+- Lone figures confronting or immersed in abstract cosmic landscapes (vortexes, waves, infinite crowds)
+- Gustave Doré meets sci-fi surrealism aesthetic
+- No text, no logos, no color. Pure black and white illustration
+- Reference images saved in attached_assets/dan_k*.jfif
+
 **Example article picks (Feb 22, 2026 slate, methodology reference):**
 - Mark Williams (Traditional Big vs POR): DVA +0.138 FP/min, DVP 1.108, Portland worst at defending C blocks (+48.5% edge). Avg 27.8, proj 41.6.
 - LaMelo Ball (Playmaker vs WAS): DVP 1.062, WAS worst defense in league. Avg 36.7, proj 60.0, ceiling 81.
