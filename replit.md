@@ -105,11 +105,17 @@ The web platform is built with FastAPI (Python) for the backend, SQLAlchemy for 
 
 **Tone for PIRTDICA articles:** Analytical but conversational. Reference PIRTDICA charts/tools subtly to pique interest without hard selling. Let the data speak.
 
-**Example article picks (Feb 22, 2026 slate — methodology reference):**
-- Mark Williams (Traditional Big vs POR) — DVA +0.138 FP/min, DVP 1.108, Portland worst at defending C blocks (+48.5% edge). Proj 41.6 vs 27.8 avg.
-- LaMelo Ball (Playmaker vs WAS) — DVP 1.062, WAS worst defense in league. Proj 60.0 vs 36.7 avg, ceiling 81.
-- Jalen Green (Combo Guard vs POR) — DVP 1.077, Portland bleeds steals to guards (+34.5% edge). Proj 40.9 vs 22.0 avg.
-- OG Anunoby (Stretch 4 vs CHI) — Chicago gives up +4.4 FP in points to PFs (19.4% edge).
+**Article Framing:** Articles are written for real basketball performance and sportsbook bettors, NOT for DFS/fantasy lineups. No fantasy salary, ownership percentages, or lineup construction talk. Focus on which specific stats a player will exceed tonight and why, backed by matchup data, defensive schemes, shot charts, and archetype analysis.
+
+**Pace Metrics:** Use whatever pace metric tells the clearest story for the specific player and stat being discussed. Per-game averages for direct prop comparisons. Per-36 or per-48 for minutes-adjusted context. Per-100 possessions for pace/efficiency insights. Flexible, contextual, whatever fits best.
+
+**Formatting:** No hyphens or dashes in articles. Use commas, periods, and sentence restructuring instead.
+
+**Example article picks (Feb 22, 2026 slate, methodology reference):**
+- Mark Williams (Traditional Big vs POR): DVA +0.138 FP/min, DVP 1.108, Portland worst at defending C blocks (+48.5% edge). Avg 27.8, proj 41.6.
+- LaMelo Ball (Playmaker vs WAS): DVP 1.062, WAS worst defense in league. Avg 36.7, proj 60.0, ceiling 81.
+- Jalen Green (Combo Guard vs POR): DVP 1.077, Portland bleeds steals to guards (+34.5% edge). Avg 22.0, proj 40.9.
+- OG Anunoby (Stretch 4 vs CHI): Chicago gives up +4.4 FP in points to PFs (19.4% edge).
 
 ### Python Libraries
 -   `requests`, `BeautifulSoup`: Web scraping
