@@ -1,0 +1,104 @@
+4 NBA DFS Plays the Market Is Sleeping On Tonight (Feb 22)
+
+---
+
+Tonight's slate has traps everywhere. High-owned stars in bad spots. Cheap guys in great spots that nobody's talking about.
+
+You could scroll through rankings and hope for the best. Or you could look at what the matchup data is actually telling you — defense vs. archetype edges, stat-specific vulnerabilities, projected ownership — and build from there.
+
+We found four plays that stand out. Two are near-invisible on the ownership radar. One is chalk for good reason. And one is a sneaky leverage play hiding in plain sight.
+
+Let's get into it.
+
+
+---
+
+MARK WILLIAMS — The Zero-Percent Smash Play
+
+PHO vs POR | C | $5,800
+
+This is the play of the slate, and somehow nobody is rostering him.
+
+Mark Williams projects for 41.6 fantasy points tonight. His season average? 27.8. That's a 50% spike — and it's not wishful thinking, it's math.
+
+Portland is the worst team in the league at defending center blocks. Not bottom-five. The worst. Centers see a +48.5% edge in blocks against them. Williams also gets a +15.8% edge in points at the position.
+
+Here's where it gets interesting. Traditional DVP (defense vs. position) only tells you part of the story. When you look at Defense vs. Archetype — how Portland defends Williams' specific player type, a Traditional Big — you see a +0.138 FP/min advantage. Over 29 projected minutes, that edge stacks up fast.
+
+The kicker: projected ownership is 0%. Zero. Nobody is on this guy.
+
+At $5,800, he's returning 7.18x projected value — one of the best ratios on the entire slate. Ceiling of 60. Floor of 29.
+
+If you're building lineups tonight and Mark Williams isn't in most of them, you're leaving money on the table.
+
+
+---
+
+LAMELO BALL — Chalk, But Justified
+
+CHA vs WAS | PG | $8,400
+
+Yes, he'll be popular. 34% projected ownership. That's chalk territory.
+
+But sometimes chalk is chalk because the play is that obvious — and fading it is the mistake.
+
+LaMelo projects for 60 fantasy points tonight against Washington. His season average is 36.7. That's a 63% jump. His ceiling? 81.
+
+Washington has the worst defense in the league. Full stop. LaMelo's DVP matchup grades at 1.062, meaning the position itself gets a 6.2% boost. Add in his 31.9% usage rate and 38+ projected minutes, and this is a slate-breaker.
+
+At $8,400 he's returning 7.14x projected value. For a player this expensive, that ratio is absurd.
+
+The play here isn't to fade LaMelo. It's to pair him with low-owned guys (like Williams) so your lineup is differentiated everywhere else. You eat the chalk at PG, then gain leverage at every other position.
+
+
+---
+
+JALEN GREEN — The Quiet Heist in Phoenix
+
+PHO vs POR | SG | $6,200
+
+Green is in a new situation this season, and the market hasn't caught up.
+
+He projects for 40.9 fantasy points — nearly double his 22.0 season average. That's the biggest percentage spike of any player on this slate.
+
+Why? Portland again. The Trail Blazers bleed steals to opposing guards at a +34.5% clip above league average. Green's 34.1% usage rate means he's touching the ball constantly, and Portland's overall DVP for his position grades at 1.077.
+
+Ownership sits at 9.5% — moderate territory. Not contrarian, but far from overexposed. At $6,200, his 6.59x value ratio gives you elite upside without eating your salary cap.
+
+Ceiling: 63.3. In a Portland matchup. At that price. You see where this is going.
+
+
+---
+
+OG ANUNOBY — The Targeted Matchup Edge
+
+NY vs CHI | PF | $6,600
+
+This one's different. It's not a projection spike — it's a stat-specific vulnerability.
+
+Chicago gives up +4.4 extra fantasy points in scoring to power forwards. That's a 19.4% edge above league average. They also allow +0.6 FP in rebounds to the position.
+
+OG has been playing heavy power forward minutes this season, and his defensive versatility keeps him on the floor. If you're targeting props tonight, this is the kind of stat-specific edge that translates directly — Chicago isn't just bad at defense, they're bad at defending his position in the exact categories where he produces.
+
+At 0% projected ownership, he's completely off the radar. His ceiling of 43.5 won't win you a GPP alone, but in cash games or as a contrarian roster piece, the matchup data is on your side.
+
+
+---
+
+THE BIGGER PICTURE
+
+Notice a pattern?
+
+Portland shows up twice. Washington once. Chicago once. Three of the four worst defenses in the league, and the data confirms they leak production in specific, measurable ways — not just overall, but to specific positions and player types.
+
+That's the difference between "this team is bad" and "this team gives up blocks to centers at a 48.5% rate above average." One is a narrative. The other is an edge you can build around.
+
+If you're just looking at salary and season averages, you're playing a different game than the people who are winning. The best DFS players chase matchups — position-level, archetype-level, stat-level — and they measure those matchups with precision.
+
+We're building tools at PIRTDICA to make that kind of analysis accessible to everyone. More on that soon.
+
+Tonight's slate rewards the approach. Build accordingly.
+
+---
+
+@pirtdicaco
