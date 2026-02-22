@@ -89,6 +89,28 @@ The web platform is built with FastAPI (Python) for the backend, SQLAlchemy for 
 -   Admin panel has "Username Moderation" section: scans all usernames + display names, offers force-rename and ban actions
 -   No display name update endpoint exists yet — when added, must integrate `check_username()` from profanity_filter
 
+### Content & Article Writing Guidelines (for X / Social Media)
+
+**Social Accounts:** X: @pirtdicaco | Instagram: @pirtdicaco | Email: pirtdicaco@gmail.com
+
+**X Article Writing Framework:**
+1. **Start with clear purpose** — What should the reader think, feel, or do after reading?
+2. **Nail the title & hook** — Specific, curiosity-sparking, promise value. Strong first sentence. Visually appealing header image.
+3. **Structure for skimmability** — Short paragraphs (2-4 lines max), subheadings every 3-5 paragraphs, bullets/lists over walls of text, bold key insights, one idea per paragraph.
+4. **Natural recognizable voice** — Conversational, not lecture-hall. Use "you" and "your." Consistent tone builds reader trust.
+5. **Show, don't tell** — Every claim immediately backed by evidence (stats, examples, before/after). Embed posts/articles as living proof.
+6. **Edit ruthlessly** — Cut 20-30% word count. Remove filler ("very," "really," "in order to"). Read aloud to catch awkward sentences.
+7. **Add visuals & formatting** — Images, charts, screenshots break up text and increase shareability. Bold headers + spacing = more engagement.
+8. **End with energy** — Don't fade out. Summarize key points, ask a question to spark replies, encourage shares.
+
+**Tone for PIRTDICA articles:** Analytical but conversational. Reference PIRTDICA charts/tools subtly to pique interest without hard selling. Let the data speak.
+
+**Example article picks (Feb 22, 2026 slate — methodology reference):**
+- Mark Williams (Traditional Big vs POR) — DVA +0.138 FP/min, DVP 1.108, Portland worst at defending C blocks (+48.5% edge). Proj 41.6 vs 27.8 avg.
+- LaMelo Ball (Playmaker vs WAS) — DVP 1.062, WAS worst defense in league. Proj 60.0 vs 36.7 avg, ceiling 81.
+- Jalen Green (Combo Guard vs POR) — DVP 1.077, Portland bleeds steals to guards (+34.5% edge). Proj 40.9 vs 22.0 avg.
+- OG Anunoby (Stretch 4 vs CHI) — Chicago gives up +4.4 FP in points to PFs (19.4% edge).
+
 ### Python Libraries
 -   `requests`, `BeautifulSoup`: Web scraping
 -   `pandas`: Data manipulation
