@@ -3,6 +3,36 @@
 {% block title %}Chart Gallery - PIRTDICA{% endblock %}
 
 {% block content %}
+<style>
+.sc-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+.sc-modal { background: #fff; border-radius: 12px; max-width: 600px; width: 95%; max-height: 90vh; overflow-y: auto; position: relative; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+.sc-close { position: absolute; top: 12px; right: 16px; background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #6b7280; z-index: 10; line-height: 1; }
+.sc-close:hover { color: #111; }
+.sc-header { padding: 20px 24px 12px; border-bottom: 1px solid #e5e7eb; }
+.sc-player-info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sc-player-info h2 { margin: 0; font-size: 1.3rem; font-weight: 800; letter-spacing: -0.01em; }
+.sc-archetype { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 8px; border-radius: 4px; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+.sc-fga-count { font-size: 0.8rem; color: #6b7280; font-weight: 600; }
+.sc-legend { display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
+.sc-leg-item { font-size: 0.72rem; color: #6b7280; display: flex; align-items: center; gap: 4px; }
+.sc-leg-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.sc-body, .esc-body { padding: 16px 24px 20px; }
+.sc-canvas-wrap { display: flex; justify-content: center; }
+#esc-canvas { max-width: 100%; height: auto; }
+.sc-zone-stats { margin-top: 12px; }
+.sc-zone-stats table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.sc-zone-stats th { text-align: left; font-weight: 700; text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.05em; color: #6b7280; padding: 4px 6px; border-bottom: 1px solid #e5e7eb; }
+.sc-zone-stats td { padding: 4px 6px; border-bottom: 1px solid #f3f4f6; }
+.sc-zone-stats .freq-diff-pos { color: #d72638; font-weight: 700; }
+.sc-zone-stats .freq-diff-neg { color: #1e3a8a; font-weight: 700; }
+.sc-loading { text-align: center; padding: 60px 20px; color: #888; font-size: 1rem; }
+@media (max-width: 600px) {
+    .sc-modal { max-width: 100%; border-radius: 8px; }
+    .sc-header { padding: 14px 16px 8px; }
+    .sc-body, .esc-body { padding: 10px 12px 16px; }
+    .sc-player-info h2 { font-size: 1.1rem; }
+}
+</style>
 <div class="trends-page">
     <div class="trends-header">
         <div>

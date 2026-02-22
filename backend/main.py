@@ -473,6 +473,7 @@ async def trends(request: Request, db: Session = Depends(get_db)):
                 explorer_df['injury_status'] = ''
             if 'true_position' in explorer_df.columns:
                 pos_df = data_access.get_player_positions()
+                derived_map = {}
                 if pos_df is not None and not pos_df.empty:
                     pos_cols = ['pg_pct', 'sg_pct', 'sf_pct', 'pf_pct', 'c_pct']
                     pos_labels = ['PG', 'SG', 'SF', 'PF', 'C']
@@ -483,16 +484,18 @@ async def trends(request: Request, db: Session = Depends(get_db)):
                         return pos_labels[vals.index(max(vals))]
                     pos_df['derived_pos'] = pos_df.apply(derive_pos, axis=1)
                     derived_map = dict(zip(pos_df['player_name'], pos_df['derived_pos']))
-                    explorer_df['true_position'] = explorer_df.apply(
-                        lambda r: r['true_position'] if pd.notna(r['true_position']) and r['true_position'] != '' else derived_map.get(r['player_name'], ''), axis=1)
-                    if 'fd_position' in explorer_df.columns:
-                        explorer_df['true_position'] = explorer_df.apply(
-                            lambda r: r['true_position'] if r['true_position'] != '' else (r['fd_position'] if pd.notna(r.get('fd_position')) else ''), axis=1)
-                else:
-                    explorer_df['true_position'] = explorer_df['true_position'].fillna('')
-                    if 'fd_position' in explorer_df.columns:
-                        explorer_df['true_position'] = explorer_df.apply(
-                            lambda r: r['true_position'] if r['true_position'] != '' else (r['fd_position'] if pd.notna(r.get('fd_position')) else ''), axis=1)
+                fd_map = {}
+                if 'fd_position' in explorer_df.columns:
+                    fd_map = dict(zip(explorer_df['player_name'], explorer_df['fd_position'].fillna('')))
+                def resolve_position(row):
+                    tp = row['true_position']
+                    if pd.notna(tp) and str(tp).strip() != '':
+                        return str(tp).strip()
+                    name = row['player_name']
+                    if name in derived_map and derived_map[name]:
+                        return derived_map[name]
+                    return fd_map.get(name, '')
+                explorer_df['true_position'] = explorer_df.apply(resolve_position, axis=1)
             if 'opponent' in explorer_df.columns:
                 explorer_df['opponent'] = explorer_df['opponent'].fillna('')
             keep_cols = ['player_name', 'true_position', 'team', 'opponent', 'injury_status']
