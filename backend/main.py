@@ -465,12 +465,6 @@ async def trends(request: Request, db: Session = Depends(get_db)):
     try:
         explorer_df = dfs_df.copy() if not dfs_df.empty else pd.DataFrame()
         if not explorer_df.empty:
-            own_df = data_access.get_ownership_projections()
-            if not own_df.empty and 'pown_pct' in own_df.columns:
-                own_map = dict(zip(own_df['player_name'], own_df['pown_pct']))
-                explorer_df['ownership_pct'] = explorer_df['player_name'].map(own_map)
-            else:
-                explorer_df['ownership_pct'] = None
             injury_df = data_access.get_injury_alerts()
             if not injury_df.empty:
                 inj_map = dict(zip(injury_df['player_name'], injury_df['status']))
@@ -478,21 +472,32 @@ async def trends(request: Request, db: Session = Depends(get_db)):
             else:
                 explorer_df['injury_status'] = ''
             if 'true_position' in explorer_df.columns:
-                explorer_df['true_position'] = explorer_df['true_position'].fillna('')
+                pos_df = data_access.get_player_positions()
+                if pos_df is not None and not pos_df.empty:
+                    pos_cols = ['pg_pct', 'sg_pct', 'sf_pct', 'pf_pct', 'c_pct']
+                    pos_labels = ['PG', 'SG', 'SF', 'PF', 'C']
+                    def derive_pos(row):
+                        vals = [row.get(c, 0) or 0 for c in pos_cols]
+                        if max(vals) == 0:
+                            return ''
+                        return pos_labels[vals.index(max(vals))]
+                    pos_df['derived_pos'] = pos_df.apply(derive_pos, axis=1)
+                    derived_map = dict(zip(pos_df['player_name'], pos_df['derived_pos']))
+                    explorer_df['true_position'] = explorer_df.apply(
+                        lambda r: r['true_position'] if pd.notna(r['true_position']) and r['true_position'] != '' else derived_map.get(r['player_name'], ''), axis=1)
+                    if 'fd_position' in explorer_df.columns:
+                        explorer_df['true_position'] = explorer_df.apply(
+                            lambda r: r['true_position'] if r['true_position'] != '' else (r['fd_position'] if pd.notna(r.get('fd_position')) else ''), axis=1)
+                else:
+                    explorer_df['true_position'] = explorer_df['true_position'].fillna('')
+                    if 'fd_position' in explorer_df.columns:
+                        explorer_df['true_position'] = explorer_df.apply(
+                            lambda r: r['true_position'] if r['true_position'] != '' else (r['fd_position'] if pd.notna(r.get('fd_position')) else ''), axis=1)
             if 'opponent' in explorer_df.columns:
                 explorer_df['opponent'] = explorer_df['opponent'].fillna('')
-            keep_cols = ['player_name', 'true_position', 'team', 'opponent', 'injury_status',
-                         'proj_fp', 'fp_per_min', 'ownership_pct']
+            keep_cols = ['player_name', 'true_position', 'team', 'opponent', 'injury_status']
             keep_cols = [c for c in keep_cols if c in explorer_df.columns]
-            records = explorer_df[keep_cols].to_dict('records')
-            for r in records:
-                for k in ('ownership_pct',):
-                    if r.get(k) is not None and r[k] != r[k]:
-                        r[k] = None
-                for k in ('fp_per_min', 'proj_fp'):
-                    if r.get(k) is None or r[k] != r[k]:
-                        r[k] = 0.0
-            explorer_players = records
+            explorer_players = explorer_df[keep_cols].to_dict('records')
     except:
         pass
 

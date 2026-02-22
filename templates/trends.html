@@ -193,9 +193,6 @@
                         <th data-sortable="string" class="col-name">Player</th>
                         <th data-sortable="string">Status</th>
                         <th data-sortable="string">Matchup</th>
-                        <th data-sortable="number">Proj FP</th>
-                        <th data-sortable="number">FP/Min</th>
-                        <th data-sortable="number">Fantasy Ownership %</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -228,9 +225,6 @@
                         <td>
                             <span class="matchup-text">{{ p.team }} <span class="matchup-vs">vs</span> {{ p.get('opponent', '') }}</span>
                         </td>
-                        <td>{{ "%.1f"|format(p.proj_fp) }}</td>
-                        <td>{{ "%.2f"|format(p.get('fp_per_min', 0) or 0) }}</td>
-                        <td>{% if p.get('ownership_pct') is not none %}{{ "%.1f"|format(p.ownership_pct) }}%{% else %}—{% endif %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
