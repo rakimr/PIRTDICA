@@ -413,6 +413,41 @@ except Exception as e:
 df["proj_fp"] = df["proj_fp"].round(2)
 
 try:
+    from matchup_engine import load_data as load_matchup_data, build_matchup_familiarity, build_archetype_matchup_profiles, compute_matchup_adjustment
+    
+    matchup_data = load_matchup_data()
+    fam_df = build_matchup_familiarity(matchup_data)
+    arch_prof = build_archetype_matchup_profiles(matchup_data)
+    
+    matchup_adj_count = 0
+    matchup_adjustments = []
+    
+    for idx, row in df.iterrows():
+        player = row.get('player_name', '')
+        opponent = row.get('opponent', '')
+        if player and opponent:
+            result = compute_matchup_adjustment(player, opponent, matchup_data, fam_df, arch_prof)
+            adj = result['fp_adjustment_est']
+            if adj != 0:
+                df.at[idx, 'proj_fp'] = df.at[idx, 'proj_fp'] + adj
+                matchup_adj_count += 1
+                matchup_adjustments.append((player, opponent, adj))
+    
+    df['matchup_adj'] = 0.0
+    for player, opponent, adj in matchup_adjustments:
+        mask = (df['player_name'] == player) & (df['opponent'] == opponent)
+        df.loc[mask, 'matchup_adj'] = adj
+    
+    print(f"Model 6 (Matchup Interaction): Adjusted {matchup_adj_count} players for matchup context")
+    if matchup_adjustments:
+        top_boosts = sorted(matchup_adjustments, key=lambda x: x[2], reverse=True)[:5]
+        for p, o, a in top_boosts:
+            print(f"  +{a:.1f} FP: {p} vs {o}")
+except Exception as e:
+    print(f"Warning: Matchup Interaction Layer skipped: {e}")
+    df['matchup_adj'] = 0.0
+
+try:
     from salary_tier_volatility import regularize_fp_sd, cap_tails, compute_value_score
     df, adj_count, tier_profiles = regularize_fp_sd(df)
     print(f"Model 5 (Tier Volatility): Regularized fp_sd for {adj_count} players")
