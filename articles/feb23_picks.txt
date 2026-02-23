@@ -1,0 +1,106 @@
+4 Players With Real Upside Tonight (Feb 23)
+
+---
+
+Three games. Only six teams on the board. Thin slates like this are tricky because the player pool is small and ownership clusters fast. But the data still finds edges, especially when injuries thin out rosters and force role changes that the market has not priced.
+
+Memphis is missing Ja Morant, Jaren Jackson Jr., and Desmond Bane. Sacramento is without Domantas Sabonis and Dejounte Murray. Utah has Lauri Markkanen out. That is a lot of production removed from three different rosters, and someone has to absorb it.
+
+Here are four players whose numbers should spike tonight, which stats to watch, and why the matchup data backs it up.
+
+
+TY JEROME: Everything vs Sacramento
+
+MEM vs SAC | Point Guard | 3-and-D Wing | $7,300
+
+Monitor his status. Jerome is listed questionable with an illness. If he plays, he is the best play on this slate by a margin that is hard to overstate.
+
+With Morant, Jackson, and Bane all sidelined, Memphis is running a completely different team. Jerome is their PG1 with 32.6 baseline minutes at the top of the depth chart, and he has been using them aggressively. His usage rate sits at 32.9%, which is elite. For context, that is higher than players like Kevin Durant and DeMar DeRozan tonight.
+
+His per game average of 34.2 fantasy points this season is misleading because he has only played in 14.6% of games. The sample is small, but the rate is real. His FPPM of 1.66 puts him in star territory on a per minute basis, and his usage-adjusted FPPM climbs to 2.02 when you account for the volume he commands in this depleted Memphis lineup.
+
+Now layer in the matchup. Sacramento is missing Sabonis and Murray, two players who anchor both ends of the floor. Without them, the Kings defense has leaks everywhere. The DVA data shows Sacramento allows a +0.031 FPPM differential to 3-and-D Wings, Jerome's archetype classification. That translates to roughly 1.2 extra fantasy points over 38 projected minutes, just from the archetype interaction.
+
+His matchup history is even more telling. In his one game against Sacramento this season, Jerome posted a 2.033 FPPM, compared to his 1.673 season average. That is a 21.5% spike in per minute production, and it came before the Murray and Sabonis injuries stripped Sacramento's roster further.
+
+Jerome's shot chart explains the mechanism. 49.3% of his field goal attempts are threes, with almost all of them coming from above the break (34 of 35 three point attempts). He spaces the floor like a wing but handles the ball like a point guard. Sacramento allows a 35.9% clip from above the break three and a 51.1% paint field goal percentage. Both zones feed directly into his game.
+
+His projection of 69.8 fantasy points with a 93.9 ceiling leads the entire slate. At $7,300, his value ratio of 8.57 is the highest on the board. If he is active, he is your build-around.
+
+The stat to watch: Everything. Points, assists, steals. He is the engine of this Memphis offense tonight. If you are betting props, his points line should be your primary target, but the assists will climb too because Memphis has no other primary creator on the roster.
+
+
+DE'AARON FOX: Steals and Scoring in His New Home
+
+SA vs DET | Point Guard | Playmaker | $7,100
+
+Fox landed in San Antonio at the trade deadline, and the market has not caught up. His salary sits at $7,100, which prices him like a secondary option. His per 100 possessions numbers say otherwise: 29.9 points, 8.8 assists, 6.1 rebounds, 1.8 steals. That is a franchise player rate.
+
+He is listed as SA's PG1 with 32.6 baseline minutes, slotting in ahead of Dylan Harper and Stephon Castle. This is important because San Antonio's implied team total of 115.5 points means there is real offensive volume to go around, and Fox is their primary ball handler.
+
+The matchup against Detroit has a specific, measurable angle. The targeted stat analysis shows Detroit gives up +1.2 fantasy points in steals to opposing point guards. Fox averages 1.2 steals per game on the season, but his per 100 rate of 1.8 shows the production scales with opportunity. Detroit's careless ball handling in the halfcourt creates the loose ball situations Fox thrives in.
+
+His shot creation data explains why the scoring upside is real. 45.4% of Fox's field goal attempts are pull-ups. He creates his own shot at one of the highest rates among point guards in the league. His rim/paint percentage sits at 47.8%, meaning nearly half his attempts come at the basket or in the paint. Detroit allows a 63.1% field goal rate at the restricted area and 43.8% in the non-restricted paint area. Those are not elite defensive marks.
+
+Playing alongside Wembanyama changes his offensive environment. Wembanyama is a Stretch 5 who shoots 30.7% of his attempts from three, which pulls Detroit's center away from the rim and opens driving lanes for Fox. When a 7'4" center is demanding attention at the perimeter, the paint opens up. Fox is built to exploit exactly that kind of space.
+
+His prop line for points sits at 16.5 with the book. His season average is 19.3 points per game. That is already a 12% edge over the line before you account for the new role as SA's primary scorer and the Detroit matchup. His adjusted projection of 44.2 fantasy points with a 59.8 ceiling at $7,100 makes him one of the best values on the slate at 6.13x.
+
+The stat to watch: Points over 16.5 is the cleanest call. His pull-up heavy game and rim attacking style match up against a Detroit interior defense that does not close driving lanes effectively. Steals are the secondary angle, but the 1.2 fantasy point positional edge Detroit gives up to point guards makes 1+ steals a reasonable expectation.
+
+
+OLIVIER-MAXENCE PROSPER: Deep Value in Memphis' Injury Crisis
+
+MEM vs SAC | Power Forward | 3-and-D Wing | $5,500
+
+Prosper is a player most people have not watched closely this season. His per game average of 13.0 fantasy points tells you he has been a rotation piece, not a starter. But Memphis' injury crisis has changed his role completely.
+
+With Morant, Jackson, and Bane out, Prosper is now slotted as SF4 on the depth chart but also occupies PF2 and C3 positions across multiple slots. The model projects him for 35.9 minutes, nearly triple the role a $5,500 salary implies. That minute projection is where the value lives.
+
+His per 100 possessions rates confirm there is production underneath the low per game numbers: 20.7 points, 9.6 rebounds, 3.0 assists. Those are starter-level rates. He has just never had the minutes to express them consistently.
+
+His shot chart is the key to understanding his upside. 44.4% of his field goal attempts are threes, with an unusual distribution: 29 of his 55 three point attempts this season come from the corners. Corner threes are the most efficient shot in basketball, and Prosper hunts them. His rim/paint percentage of 53.2% means the rest of his game lives at the basket. He barely takes midrange shots at all (2.4%). It is a binary attack: either a corner three or a finish at the rim. That profile is efficient and predictable in a way that scales with minutes.
+
+Sacramento's archetype data gives up a +0.031 FPPM differential to 3-and-D Wings. Over 35.9 projected minutes, that is roughly 1.1 extra fantasy points from the matchup alone. Sacramento's paint field goal percentage (51.1%) and above the break three defense (35.9%) both leak enough to feed Prosper's shot diet.
+
+His projection of 43.4 fantasy points with a 60.7 ceiling at $5,500 produces an 8.30 value ratio. That is the third best on the entire slate. In GPP tournaments, this is the kind of player who wins you lineups because he will be low owned while producing at a level far above his price point.
+
+The stat to watch: Rebounds are the secondary angle here. His per 100 rebound rate of 9.6 means he crashes the glass aggressively, and Sacramento without Sabonis has lost its best interior rebounder. But the primary call is total fantasy production. At this price, you just need him to hit 30+ fantasy points to return value, and his minute projection and rate stats say he will clear that comfortably.
+
+
+PAUL REED: Interior Mismatch Upside
+
+DET vs SA | Center | Traditional Big | $5,900
+
+Reed is Detroit's C3 on the depth chart, behind Jalen Duren and Isaiah Stewart. In most games, that means limited minutes. Tonight, the matchup data suggests his role could expand, and when it does, the production rate is explosive.
+
+His per 100 possessions profile is remarkable: 22.6 points, 17.3 rebounds, 3.5 steals, 2.4 blocks. That steal and block rate combination is unusual for a center. He is not just a rebounder and rim protector. He generates turnovers at a rate that creates extra possessions, and those translate to transition opportunities.
+
+San Antonio's DVA data is where this play gets interesting. The Spurs give up a +0.111 FPPM differential to Traditional Bigs, the highest vulnerability to any archetype among tonight's defenses. That DVS multiplier of 5.69 confirms this is a statistically significant edge, not noise. San Antonio's defense collapses against players who play the way Reed plays: interior-focused, rebounding-heavy, physically active.
+
+His shot chart shows a pure interior finisher. 77.2% of his field goal attempts come at the rim or in the paint. He has the highest restricted area attempt rate (50.3%) among all players we are analyzing tonight. He does not need the offense to create shots for him. He gets his own through offensive rebounding, rim runs, and put-backs.
+
+Playing alongside Cade Cunningham benefits Reed's profile directly. Cunningham is a Playmaker with a 30.9% usage rate who generates driving opportunities that collapse the defense toward the ball. When that happens, the weak side big, Reed, gets easy finishes at the rim. Cunningham's 41.3% pull-up rate means he is creating these driving situations constantly.
+
+His projection of 33.5 fantasy points is solid, but it is the ceiling of 55.1 and the upside ratio of 0.645 that make him interesting. That upside ratio is one of the highest among any player priced above $5,000 tonight. It means the gap between his projection and his ceiling is enormous relative to his baseline. When he gets minutes, the outcomes can be extreme.
+
+The stat to watch: Rebounds and blocks are the angles. His per 100 rebound rate of 17.3 is elite, and San Antonio's vulnerability to Traditional Bigs shows up most in interior stats. If Detroit gets into foul trouble at the center position, Reed's minutes could jump significantly. He is a tournament play, not a cash game play, because the minutes are uncertain. But the rate stats and the matchup data say that if the minutes come, the production follows.
+
+
+THE BIGGER PICTURE
+
+This is a three game slate defined by absence. Memphis, Sacramento, and Utah are all missing key players, and the production those players would have generated does not disappear. It gets redistributed. The question is where.
+
+The Context Engine shows us the interaction. Jerome does not just benefit from Memphis' injuries. He benefits from Sacramento's injuries too, because Murray and Sabonis would have been the primary defenders responsible for containing a high usage ball handler. Without them, the defensive scheme loosens, and Jerome's pull-up heavy, three point oriented game faces less resistance.
+
+Fox benefits from playing alongside a 7'4" floor-spacing center in Wembanyama, a pairing that the defensive data says creates driving lanes wider than anything Fox had in Sacramento. Prosper benefits from a role expansion that would not exist if Memphis were healthy, but matches his per 100 production rates to a volume of minutes that unlocks his ceiling.
+
+Reed is the swing play. His rate stats against San Antonio's archetype vulnerability create the highest per minute upside among value plays, but the minutes have to materialize. That is the bet.
+
+Every pick here follows the same process: identify who absorbed the missing production, match their rate stats to the defensive data, and find where the projection system sees the biggest gap between price and expected output. On a thin slate, that gap is where the edge lives.
+
+We are building analytics tools at PIRTDICA that make this kind of breakdown accessible to everyone. The Context Engine that powers these matchup interactions is live and evolving. More on that soon.
+
+---
+
+@pirtdicaco
