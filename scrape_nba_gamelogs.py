@@ -121,8 +121,25 @@ def scrape_gamelogs():
     stats['scraped_at'] = datetime.now().isoformat()
     
     conn = sqlite3.connect('dfs_nba.db')
-    stats.to_sql('player_volatility', conn, if_exists='replace', index=False)
-    
+
+    try:
+        existing_vol = pd.read_sql("SELECT * FROM player_volatility", conn)
+    except Exception:
+        existing_vol = pd.DataFrame()
+
+    if len(existing_vol) > 0:
+        new_players_vol = set(stats['player_name']) - set(existing_vol['player_name'])
+        updated_players_vol = set(stats['player_name']) & set(existing_vol['player_name'])
+        preserved_players_vol = set(existing_vol['player_name']) - set(stats['player_name'])
+        preserved_vol = existing_vol[existing_vol['player_name'].isin(preserved_players_vol)].copy()
+        merged_vol = pd.concat([stats, preserved_vol], ignore_index=True)
+        print(f"\n[player_volatility] Upsert: {len(updated_players_vol)} updated, {len(new_players_vol)} new, {len(preserved_players_vol)} preserved")
+    else:
+        merged_vol = stats
+        print(f"\n[player_volatility] Fresh insert: {len(stats)} players")
+
+    merged_vol.to_sql('player_volatility', conn, if_exists='replace', index=False)
+
     log_cols = ['PLAYER_NAME', 'GAME_DATE', 'MATCHUP', 'MIN', 'PTS', 'REB', 'AST', 'STL', 'BLK', 'TOV', 'FP']
     rename_map = {
         'PLAYER_NAME': 'player_name',
@@ -142,13 +159,37 @@ def scrape_gamelogs():
         rename_map['FG3M'] = 'fg3m'
     game_logs = df[log_cols].copy()
     game_logs = game_logs.rename(columns=rename_map)
+    game_logs['scraped_at'] = datetime.now().isoformat()
     game_logs = game_logs.sort_values(['player_name', 'game_date'], ascending=[True, False])
-    game_logs.to_sql('player_game_logs', conn, if_exists='replace', index=False)
-    print(f"Saved {len(game_logs)} individual game log entries to player_game_logs table.")
-    
+
+    try:
+        existing_logs = pd.read_sql("SELECT * FROM player_game_logs", conn)
+    except Exception:
+        existing_logs = pd.DataFrame()
+
+    if len(existing_logs) > 0:
+        new_log_keys = set(zip(game_logs['player_name'], game_logs['game_date']))
+        existing_log_keys = set(zip(existing_logs['player_name'], existing_logs['game_date']))
+        preserved_log_keys = existing_log_keys - new_log_keys
+        preserved_logs = existing_logs[
+            existing_logs.apply(lambda r: (r['player_name'], r['game_date']) in preserved_log_keys, axis=1)
+        ].copy()
+        new_count = len(new_log_keys - existing_log_keys)
+        updated_count = len(new_log_keys & existing_log_keys)
+        preserved_count = len(preserved_log_keys)
+        merged_logs = pd.concat([game_logs, preserved_logs], ignore_index=True)
+        merged_logs = merged_logs.sort_values(['player_name', 'game_date'], ascending=[True, False])
+        print(f"[player_game_logs] Upsert: {updated_count} updated, {new_count} new, {preserved_count} preserved")
+    else:
+        merged_logs = game_logs
+        print(f"[player_game_logs] Fresh insert: {len(game_logs)} entries")
+
+    merged_logs.to_sql('player_game_logs', conn, if_exists='replace', index=False)
+    print(f"Saved {len(merged_logs)} total game log entries to player_game_logs table.")
+
     conn.close()
-    
-    print(f"Saved volatility data for {len(stats)} players.")
+
+    print(f"Saved volatility data for {len(merged_vol)} players.")
     print(f"New columns: avg_fp, fp_sd, avg_fppm, fppm_sd, max_fp, min_fp")
     return stats
 

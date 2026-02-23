@@ -172,8 +172,31 @@ def save_to_db(df):
     conn = sqlite3.connect(DB_PATH)
     now = datetime.now().isoformat()
     df['scraped_at'] = now
-    df.to_sql('team_defense_shot_zones', conn, if_exists='replace', index=False)
-    print(f"\nSaved {len(df)} teams to team_defense_shot_zones table")
+
+    try:
+        existing = pd.read_sql("SELECT * FROM team_defense_shot_zones", conn)
+    except Exception:
+        existing = pd.DataFrame()
+
+    if existing.empty:
+        df.to_sql('team_defense_shot_zones', conn, if_exists='replace', index=False)
+        print(f"\nSaved {len(df)} teams to team_defense_shot_zones (fresh write)")
+    else:
+        new_teams = set(df['team'].unique())
+        existing_teams = set(existing['team'].unique())
+
+        updated = len(new_teams & existing_teams)
+        new = len(new_teams - existing_teams)
+        preserved_teams = existing_teams - new_teams
+        preserved = len(preserved_teams)
+
+        preserved_df = existing[existing['team'].isin(preserved_teams)]
+        merged = pd.concat([df, preserved_df], ignore_index=True)
+        merged.to_sql('team_defense_shot_zones', conn, if_exists='replace', index=False)
+
+        print(f"\nUpsert to team_defense_shot_zones: {updated} updated, {new} new, {preserved} preserved")
+        print(f"  Total teams in table: {len(merged)}")
+
     conn.close()
 
 

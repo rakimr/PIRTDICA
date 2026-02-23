@@ -35,7 +35,7 @@ Avatar & Identity Design Direction follows a "Strategic Minimalism meets Editori
 -   **TeamRankings:** Game odds/spreads
 -   **HashtagBasketball:** Defense vs Position stats
 -   **Basketball Reference:** Per-100 possession stats, player positions, foul rates, player physical measurements (height, weight from team roster pages), historical game logs.
--   **NBA.com Stats API:** Player game logs, minutes volatility, referee assignments, shot zone distribution, shot creation types, hustle stats.
+-   **NBA.com Stats API:** Player game logs, minutes volatility, referee assignments, shot zone distribution, shot creation types, hustle stats. All NBA.com scrapers use upsert logic (not replace) to preserve existing data when API timeouts cause incomplete responses. A targeted backfill pass attempts individual player API calls for any missing top-30 fantasy producers after bulk scrapes.
 -   **NBAStuffer:** Historical referee statistics
 -   **SportsDatabase:** Historic betting lines
 -   **FantasyTeamAdvice.com:** FanDuel NBA ownership data
