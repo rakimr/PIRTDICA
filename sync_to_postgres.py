@@ -174,6 +174,22 @@ def sync_sqlite_table(sqlite_table, pg_table):
             df[col] = df[col].replace([float('inf'), float('-inf')], None)
 
         with engine.begin() as conn:
+            table_exists = conn.execute(text(
+                f"SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = '{pg_table}')"
+            )).scalar()
+
+            if not table_exists:
+                type_map = {'int64': 'BIGINT', 'float64': 'DOUBLE PRECISION', 'object': 'TEXT', 'bool': 'BOOLEAN'}
+                col_defs = []
+                for col in df.columns:
+                    if col == 'id':
+                        continue
+                    pg_type = type_map.get(str(df[col].dtype), 'TEXT')
+                    col_defs.append(f'"{col}" {pg_type}')
+                col_defs_str = ", ".join(col_defs)
+                conn.execute(text(f'CREATE TABLE {pg_table} (id SERIAL PRIMARY KEY, {col_defs_str})'))
+                print(f"  CREATED: {pg_table} table in PostgreSQL")
+
             conn.execute(text(f"DELETE FROM {pg_table}"))
 
             pg_cols_result = conn.execute(text(
