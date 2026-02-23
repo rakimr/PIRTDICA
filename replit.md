@@ -7,6 +7,20 @@ PIRTDICA SPORTS CO. offers an NBA Daily Fantasy Sports (DFS) platform focused on
 Preferred communication style: Simple, everyday language.
 Auto-push to GitHub: Always push changes to GitHub at the end of every task using Replit's GitHub connector OAuth token.
 
+### Article Writing Guidelines (PIRTDICA Daily Picks)
+Articles are written for **sportsbook bettors**, NOT fantasy players. Follow these rules strictly:
+- **NO fantasy salary** ($7,300, etc.), **NO fantasy points projections** (proj_fp, ceiling, floor), **NO value ratios**, **NO FanDuel/DraftKings lineup talk**.
+- Focus on **prop bets**: points over/under, rebounds, assists, steals, blocks, threes. Reference actual book lines when available.
+- Use **per game averages** and **per 100 possession rates** to establish baseline production.
+- Use **shot chart data** (rim/paint %, three %, pull-up vs catch-and-shoot) to explain HOW a player scores.
+- Use **DVP/DVA archetype matchup data** to explain WHY this specific matchup is exploitable (e.g., "+0.088 points per minute to Traditional Bigs").
+- Include **teammate context** (who creates shots, who spaces the floor, how the offense functions around this player).
+- Each player section ends with **"The stat to watch:"** giving a specific, actionable prop recommendation.
+- Close with **"THE BIGGER PICTURE"** section tying the picks together thematically.
+- Format: `PLAYER NAME: Stat Edge vs Team` header, `TEAM vs TEAM | Position | Archetype` subheader.
+- Tone: Analytical, direct, no hype. Data-driven but readable. Written like you are explaining an edge to a sharp bettor.
+- Article header images: Gustave Doré engraving style mixed with Dan Koe minimalist editorial. Monochromatic black/white with subtle gold accents. 16:9 aspect ratio. Each day should have a unique visual theme (no repeats).
+
 ## System Architecture
 The system utilizes an ETL pattern, staging data in SQLite and storing operational data in PostgreSQL. Core projection models include minutes projection and usage-based FPPM adjustment. Advanced analytics are driven by Phillips Archetype Classification (K-means clustering with 18 features) and a Salary-Tier Volatility Model. A Ceiling/Floor Model generates projection distributions, while Blended DVP and DVA systems provide dynamic matchup ratings. A Team Incentive Score adjusts volatility, and a Prop Trend Analysis Modal offers OVER/UNDER calls.
 
