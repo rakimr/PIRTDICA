@@ -23,6 +23,23 @@ import sqlite3
 from datetime import datetime
 
 
+TEAM_ABBR_CANONICAL = {
+    'GSW': 'GS', 'NYK': 'NY', 'PHX': 'PHO', 'NOP': 'NO', 'SAS': 'SA',
+    'GS': 'GS', 'NY': 'NY', 'PHO': 'PHO', 'NO': 'NO', 'SA': 'SA',
+    'BKN': 'BKN', 'BK': 'BKN',
+}
+
+def normalize_team_abbr(team):
+    """Normalize team abbreviation to canonical form (FanDuel standard).
+
+    Handles NBA.com (GSW, NYK, PHX) -> FanDuel (GS, NY, PHO) mapping.
+    Returns input unchanged if not a known variant.
+    """
+    if not team or not isinstance(team, str):
+        return team
+    return TEAM_ABBR_CANONICAL.get(team.strip(), team.strip())
+
+
 ARCHETYPE_POSITION_MAP = {
     'Traditional Big': 'C',
     'Versatile Big': 'PF/C',
@@ -143,6 +160,11 @@ def load_data(db_path='dfs_nba.db', dfs_csv_path='dfs_players.csv'):
     except Exception as e:
         pass
     
+    for df_key in ['archetypes', 'measurements', 'shot_zones', 'volatility']:
+        df = data.get(df_key, pd.DataFrame())
+        if 'team' in df.columns:
+            data[df_key]['team'] = df['team'].apply(normalize_team_abbr)
+
     data['_name_map'] = {}
     data['_name_variants'] = {}
     for df_key in ['measurements', 'volatility', 'shot_zones', 'archetypes']:
@@ -184,25 +206,28 @@ def _find_player_in_df(player_name, df, data, col='player_name'):
 
 
 def parse_opponent_team(matchup_str):
-    """Extract opponent team abbreviation from matchup string."""
+    """Extract opponent team abbreviation from matchup string, normalized."""
     if pd.isna(matchup_str):
         return None
     matchup_str = str(matchup_str)
     if 'vs.' in matchup_str:
         parts = matchup_str.split('vs.')
-        return parts[1].strip() if len(parts) > 1 else None
+        raw = parts[1].strip() if len(parts) > 1 else None
     elif '@' in matchup_str:
         parts = matchup_str.split('@')
-        return parts[1].strip() if len(parts) > 1 else None
-    return None
+        raw = parts[1].strip() if len(parts) > 1 else None
+    else:
+        return None
+    return normalize_team_abbr(raw) if raw else None
 
 
 def parse_player_team(matchup_str):
-    """Extract player's team from matchup string."""
+    """Extract player's team from matchup string, normalized."""
     if pd.isna(matchup_str):
         return None
     matchup_str = str(matchup_str).strip()
-    return matchup_str.split(' ')[0] if ' ' in matchup_str else None
+    raw = matchup_str.split(' ')[0] if ' ' in matchup_str else None
+    return normalize_team_abbr(raw) if raw else None
 
 
 def compute_interaction_weights(player_name, opponent_team, data):
@@ -647,6 +672,7 @@ def compute_matchup_adjustment(player_name, opponent_team, data, familiarity_df=
     alpha_familiarity = 0.30
     alpha_durability = 0.15
     
+    opponent_team = normalize_team_abbr(opponent_team)
     resolved_name = _resolve_name(player_name, data)
     weights = compute_interaction_weights(resolved_name, opponent_team, data)
     

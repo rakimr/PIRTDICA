@@ -440,6 +440,18 @@ try:
     
     print(f"Model 6 (Matchup Interaction): Adjusted {matchup_adj_count} players for matchup context")
     if matchup_adjustments:
+        adjs = [a for _, _, a in matchup_adjustments]
+        pos = sum(1 for a in adjs if a > 0)
+        neg = sum(1 for a in adjs if a < 0)
+        zero_adj = len(df) - len(adjs) + sum(1 for a in adjs if a == 0)
+        import numpy as np_dist
+        print(f"  Distribution: {pos} positive / {neg} negative / {zero_adj} zero")
+        print(f"  Mean: {np_dist.mean(adjs):+.2f}, Median: {np_dist.median(adjs):+.2f}, Std: {np_dist.std(adjs):.2f}")
+        print(f"  Range: [{min(adjs):+.1f}, {max(adjs):+.1f}]")
+        if pos > 0 and neg > 0:
+            ratio = pos / neg
+            if ratio > 3.0 or ratio < 0.33:
+                print(f"  WARNING: Skewed distribution (pos/neg ratio: {ratio:.1f}). Check for regression.")
         top_boosts = sorted(matchup_adjustments, key=lambda x: x[2], reverse=True)[:5]
         for p, o, a in top_boosts:
             print(f"  +{a:.1f} FP: {p} vs {o}")
