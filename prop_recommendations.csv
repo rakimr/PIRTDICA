@@ -1,38 +1,35 @@
 player,team,opponent,salary,value,stat,player_avg,adjusted_avg,extra_fp,edge_pct,recommendation,book_line,book_over,book_under,vs_book_edge,archetype,dva_edge,dvp_edge,blend
 Dyson Daniels,ATL,WAS,6800,5.71,STL,1.8,2.3,1.4,27.0,OVER,1.5,-178.0,132.0,50.9,3-and-D Wing,0.52,0.39,41/58 DVP/DVA
-Josh Giddey,CHI,CHA,7600,5.7,AST,8.5,8.1,-0.6,-4.4,OVER,5.5,-162.0,122.0,47.9,Playmaker,-0.28,-0.49,41/58 DVP/DVA
+Josh Giddey,CHI,CHA,7600,5.87,AST,8.5,8.1,-0.6,-4.4,OVER,5.5,-162.0,122.0,47.9,Playmaker,-0.28,-0.49,41/58 DVP/DVA
 Davion Mitchell,MIA,MIL,4900,6.23,PTS,9.0,11.1,2.1,8.7,OVER,7.5,-114.0,-114.0,47.8,Playmaker,1.95,2.29,41/58 DVP/DVA
-Pat Spencer,GS,NO,5400,7.08,REB,2.2,2.0,-0.3,-3.6,UNDER,3.5,-122.0,-108.0,-43.4,Playmaker,-0.37,-0.01,41/58 DVP/DVA
-Josh Giddey,CHI,CHA,7600,5.7,REB,8.2,7.8,-0.4,-6.0,OVER,5.5,-128.0,-104.0,42.4,Playmaker,-0.13,-0.71,41/58 DVP/DVA
-Jalen Smith,CHI,CHA,5600,6.76,REB,7.0,4.2,-3.4,-19.8,UNDER,6.5,-152.0,114.0,-36.1,Stretch 5,-2.87,-2.81,41/58 DVP/DVA
-Pat Spencer,GS,NO,5400,7.08,PTS,6.2,7.6,1.4,5.7,UNDER,11.5,-114.0,-112.0,-34.2,Playmaker,1.77,0.79,41/58 DVP/DVA
-Pat Spencer,GS,NO,5400,7.08,AST,3.3,3.8,0.8,6.2,UNDER,5.5,-110.0,-120.0,-30.6,Playmaker,0.31,0.81,41/58 DVP/DVA
-Donte DiVincenzo,MIN,POR,5600,6.03,PTS,12.7,13.6,0.9,3.7,OVER,10.5,-108.0,-122.0,29.2,Combo Guard,1.37,0.13,41/58 DVP/DVA
+Pat Spencer,GS,NO,5400,7.05,REB,2.2,2.0,-0.3,-3.6,UNDER,3.5,-122.0,-108.0,-43.4,Playmaker,-0.37,-0.01,41/58 DVP/DVA
+Josh Giddey,CHI,CHA,7600,5.87,REB,8.2,7.8,-0.4,-6.0,OVER,5.5,-128.0,-104.0,42.4,Playmaker,-0.13,-0.71,41/58 DVP/DVA
+Pat Spencer,GS,NO,5400,7.05,PTS,6.2,7.6,1.4,5.7,UNDER,11.5,-114.0,-112.0,-34.2,Playmaker,1.77,0.79,41/58 DVP/DVA
+Pat Spencer,GS,NO,5400,7.05,AST,3.3,3.8,0.8,6.2,UNDER,5.5,-110.0,-120.0,-30.6,Playmaker,0.31,0.81,41/58 DVP/DVA
+Donte DiVincenzo,MIN,POR,5600,5.79,PTS,12.7,13.6,0.9,3.7,OVER,10.5,-108.0,-122.0,29.2,Combo Guard,1.37,0.13,41/58 DVP/DVA
 Dyson Daniels,ATL,WAS,6800,5.71,AST,6.1,6.8,1.1,16.2,OVER,5.5,114.0,-152.0,24.0,3-and-D Wing,1.03,0.27,41/58 DVP/DVA
-Rudy Gobert,MIN,POR,6400,5.68,PTS,11.2,14.1,2.9,13.5,OVER,11.5,-118.0,-112.0,22.6,Traditional Big,2.63,3.3,41/58 DVP/DVA
-Ryan Dunn,PHO,BOS,4500,7.59,PTS,5.8,5.1,-0.7,-2.9,UNDER,6.5,-130.0,-102.0,-21.0,Stretch 4,-1.24,0.16,41/58 DVP/DVA
-Draymond Green,GS,NO,5100,5.81,PTS,8.4,7.7,-0.7,-3.2,UNDER,9.5,102.0,-130.0,-19.3,Versatile Big,-0.38,-1.24,41/58 DVP/DVA
+Ryan Dunn,PHO,BOS,4500,7.15,PTS,5.8,5.1,-0.7,-2.9,UNDER,6.5,-130.0,-102.0,-21.0,Stretch 4,-1.24,0.16,41/58 DVP/DVA
+Draymond Green,GS,NO,5100,5.78,PTS,8.4,7.7,-0.7,-3.2,UNDER,9.5,102.0,-130.0,-19.3,Versatile Big,-0.38,-1.24,41/58 DVP/DVA
 Mikal Bridges,NY,CLE,6300,5.6,PTS,15.6,15.9,0.3,1.1,OVER,13.5,-112.0,-118.0,17.5,3-and-D Wing,0.4,0.06,41/58 DVP/DVA
 Davion Mitchell,MIA,MIL,4900,6.23,AST,7.0,7.6,0.9,6.9,OVER,6.5,100.0,-132.0,16.7,Playmaker,0.56,0.61,41/58 DVP/DVA
 Deandre Ayton,LAL,ORL,5000,5.56,PTS,13.0,11.1,-1.9,-9.0,OVER,9.5,100.0,-132.0,16.4,Traditional Big,-1.69,-2.3,41/58 DVP/DVA
-Julius Randle,MIN,POR,8300,5.81,PTS,22.1,23.9,1.8,7.7,OVER,20.5,-122.0,-108.0,16.4,Versatile Big,3.02,-0.04,41/58 DVP/DVA
-Josh Giddey,CHI,CHA,7600,5.7,PTS,18.1,16.8,-1.3,-5.3,OVER,14.5,-120.0,-110.0,16.0,Playmaker,-1.6,-0.81,41/58 DVP/DVA
+Josh Giddey,CHI,CHA,7600,5.87,PTS,18.1,16.8,-1.3,-5.3,OVER,14.5,-120.0,-110.0,16.0,Playmaker,-1.6,-0.81,41/58 DVP/DVA
 Josh Hart,NY,CLE,6300,5.92,PTS,11.9,12.2,0.3,1.1,OVER,10.5,-130.0,-102.0,15.8,3-and-D Wing,0.4,0.06,41/58 DVP/DVA
-Kyle Kuzma,MIL,MIA,5400,6.91,PTS,12.7,13.1,0.4,1.8,OVER,11.5,-104.0,-128.0,14.0,Scoring Wing,0.72,-0.04,41/58 DVP/DVA
-Isaac Okoro,CHI,CHA,4100,6.8,REB,2.8,2.2,-0.7,-7.4,UNDER,2.5,-182.0,136.0,-11.2,3-and-D Wing,-0.23,-1.08,41/58 DVP/DVA
+Kyle Kuzma,MIL,MIA,5400,6.92,PTS,12.7,13.1,0.4,1.8,OVER,11.5,-104.0,-128.0,14.0,Scoring Wing,0.72,-0.04,41/58 DVP/DVA
+Isaac Okoro,CHI,CHA,4100,7.0,REB,2.8,2.2,-0.7,-7.4,UNDER,2.5,-182.0,136.0,-11.2,3-and-D Wing,-0.23,-1.08,41/58 DVP/DVA
 Jerami Grant,POR,MIN,5900,7.43,PTS,18.5,18.9,0.4,1.9,OVER,20.5,-122.0,-108.0,-7.6,Scoring Wing,0.14,0.86,41/58 DVP/DVA
-Isaiah Livers,PHO,BOS,1500,8.32,STL,0.4,-0.1,-1.5,-34.1,UNDER,,,,,3-and-D Wing,-0.45,-0.6,41/58 DVP/DVA
-Isaiah Livers,PHO,BOS,1500,8.32,AST,0.7,0.2,-0.7,-11.7,UNDER,,,,,3-and-D Wing,-0.3,-0.76,41/58 DVP/DVA
 Ryan Nembhard,DAL,BKN,3600,10.55,PTS,6.7,6.1,-0.6,-2.4,UNDER,,,,,Playmaker,0.31,-1.81,41/58 DVP/DVA
-Ryan Dunn,PHO,BOS,4500,7.59,AST,1.5,1.2,-0.4,-6.2,UNDER,,,,,Stretch 4,0.09,-0.76,41/58 DVP/DVA
-Pat Spencer,GS,NO,5400,7.08,BLK,0.0,-0.1,-0.3,-21.8,UNDER,,,,,Playmaker,-0.11,-0.13,41/58 DVP/DVA
+Jalen Suggs,ORL,LAL,7900,5.87,STL,1.9,2.2,0.8,13.9,OVER,,,,,Playmaker,0.13,0.49,41/58 DVP/DVA
 Ben Sheppard,IND,PHI,4200,7.02,STL,0.5,0.3,-0.6,-12.6,UNDER,,,,,Combo Guard,-0.15,-0.31,41/58 DVP/DVA
-Ryan Dunn,PHO,BOS,4500,7.59,BLK,0.5,0.4,-0.4,-9.5,UNDER,,,,,Stretch 4,-0.04,-0.24,41/58 DVP/DVA
-Jamaree Bouyea,PHO,BOS,4200,6.17,REB,1.9,1.6,-0.4,-5.1,UNDER,,,,,Playmaker,-0.24,-0.41,41/58 DVP/DVA
-Jamaree Bouyea,PHO,BOS,4200,6.17,PTS,6.7,4.6,-2.1,-8.8,UNDER,,,,,Playmaker,-1.83,-2.51,41/58 DVP/DVA
-Jalen Smith,CHI,CHA,5600,6.76,AST,1.3,0.9,-0.6,-9.2,UNDER,,,,,Stretch 5,-0.7,0.11,41/58 DVP/DVA
-Jalen Smith,CHI,CHA,5600,6.76,STL,0.5,0.4,-0.4,-9.8,UNDER,,,,,Stretch 5,-0.29,0.08,41/58 DVP/DVA
-Rudy Gobert,MIN,POR,6400,5.68,BLK,1.6,2.1,1.5,25.1,OVER,,,,,Traditional Big,0.18,0.94,41/58 DVP/DVA
+Ryan Dunn,PHO,BOS,4500,7.15,BLK,0.5,0.4,-0.4,-9.5,UNDER,,,,,Stretch 4,-0.04,-0.24,41/58 DVP/DVA
+Ryan Dunn,PHO,BOS,4500,7.15,AST,1.5,1.2,-0.4,-6.2,UNDER,,,,,Stretch 4,0.09,-0.76,41/58 DVP/DVA
+Pat Spencer,GS,NO,5400,7.05,BLK,0.0,-0.1,-0.3,-21.8,UNDER,,,,,Playmaker,-0.11,-0.13,41/58 DVP/DVA
+Jamaree Bouyea,PHO,BOS,4200,5.82,REB,1.9,1.6,-0.4,-5.1,UNDER,,,,,Playmaker,-0.24,-0.41,41/58 DVP/DVA
+Jamaree Bouyea,PHO,BOS,4200,5.82,PTS,6.7,4.6,-2.1,-8.8,UNDER,,,,,Playmaker,-1.83,-2.51,41/58 DVP/DVA
 A.J. Lawson,TOR,OKC,3500,5.54,PTS,3.8,2.2,-1.6,-6.9,UNDER,,,,,Combo Guard,-2.62,-0.17,41/58 DVP/DVA
 A.J. Lawson,TOR,OKC,3500,5.54,AST,0.2,-0.0,-0.3,-3.9,UNDER,,,,,Combo Guard,-0.22,-0.21,41/58 DVP/DVA
 Toumani Camara,POR,MIN,5500,5.5,BLK,0.4,0.2,-0.7,-18.4,UNDER,,,,,Stretch 4,-0.15,-0.34,41/58 DVP/DVA
+Isaiah Livers,PHO,BOS,1500,5.43,AST,0.7,0.2,-0.7,-11.7,UNDER,,,,,3-and-D Wing,-0.3,-0.76,41/58 DVP/DVA
+Isaiah Livers,PHO,BOS,1500,5.43,STL,0.4,-0.1,-1.5,-34.1,UNDER,,,,,3-and-D Wing,-0.45,-0.6,41/58 DVP/DVA
+Dominick Barlow,PHI,IND,4600,5.35,AST,1.2,0.3,-1.3,-20.5,UNDER,,,,,Versatile Big,-1.2,-0.36,41/58 DVP/DVA
+Luguentz Dort,OKC,TOR,4000,5.32,AST,1.3,1.1,-0.3,-5.1,UNDER,,,,,Combo Guard,-0.18,-0.26,41/58 DVP/DVA
