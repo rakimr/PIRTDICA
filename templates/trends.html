@@ -38,13 +38,31 @@
         <div>
             <h1 class="page-title">CHART GALLERY</h1>
             <p class="page-subtitle">Data-driven analysis for today's slate</p>
+            {% if charts_last_updated %}
+            <p class="charts-timestamp" style="font-size:0.8rem; color:#6b7280; margin-top:2px;">
+                Charts last updated: {{ charts_last_updated.strftime('%b %d, %-I:%M %p') }}
+                {% if not charts_stale %}<span style="color:#0f9d58; font-weight:600;">(today)</span>{% else %}<span style="color:#d72638; font-weight:600;">(stale)</span>{% endif %}
+            </p>
+            {% endif %}
         </div>
-        <form action="/trends/refresh" method="post" class="refresh-form">
-            <button type="submit" class="btn btn-secondary refresh-btn">
-                Refresh Data
+        <form action="/trends/refresh" method="post" class="refresh-form" id="refresh-form">
+            <button type="submit" class="btn btn-secondary refresh-btn" id="refresh-btn" {% if pipeline_running %}disabled{% endif %}>
+                {% if pipeline_running %}Pipeline Running...{% else %}Refresh Data{% endif %}
             </button>
         </form>
     </div>
+
+    {% if pipeline_running %}
+    <div style="background:#1e3a8a; color:#fff; padding:12px 20px; border-radius:8px; margin-bottom:20px; font-size:0.9rem; display:flex; align-items:center; gap:10px;">
+        <span style="display:inline-block; width:10px; height:10px; background:#4ade80; border-radius:50%; animation:pulse-dot 1.5s infinite;"></span>
+        Daily pipeline is running — charts will update automatically when it completes.
+    </div>
+    <style>@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }</style>
+    {% elif charts_stale %}
+    <div style="background:#fef3c7; color:#92400e; padding:12px 20px; border-radius:8px; margin-bottom:20px; font-size:0.9rem;">
+        Charts are from a previous slate. Hit <strong>Refresh Data</strong> to regenerate for tonight.
+    </div>
+    {% endif %}
     
     <div class="trends-section">
         <h2>Usage to Fantasy Points</h2>
@@ -1637,5 +1655,18 @@ function renderExplorerZoneStats(data) {
     html += '</tbody></table>';
     container.innerHTML = html;
 }
+
+(function() {
+    var form = document.getElementById('refresh-form');
+    var btn = document.getElementById('refresh-btn');
+    if (form && btn && !btn.disabled) {
+        form.addEventListener('submit', function() {
+            btn.disabled = true;
+            btn.textContent = 'Refreshing...';
+            btn.style.opacity = '0.6';
+            btn.style.cursor = 'wait';
+        });
+    }
+})();
 </script>
 {% endblock %}
