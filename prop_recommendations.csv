@@ -1,28 +1,31 @@
 player,team,opponent,salary,value,stat,player_avg,adjusted_avg,extra_fp,edge_pct,recommendation,book_line,book_over,book_under,vs_book_edge,archetype,dva_edge,dvp_edge,blend
-Russell Westbrook,SAC,MEM,5900,5.52,REB,5.5,5.2,-0.3,-4.1,OVER,3.5,-146.0,110.0,49.3,Playmaker,-0.29,-0.26,41/58 DVP/DVA
-Cam Spencer,MEM,SAC,5700,4.28,AST,5.7,6.2,0.7,5.9,OVER,4.5,-136.0,102.0,37.7,Playmaker,0.55,0.42,41/58 DVP/DVA
-Julian Champagnie,SA,DET,4100,6.14,PTS,11.0,9.9,-1.1,-4.7,OVER,7.5,-122.0,-110.0,32.3,Combo Guard,-1.45,-0.55,41/58 DVP/DVA
-Russell Westbrook,SAC,MEM,5900,5.52,PTS,15.0,14.9,-0.1,-0.6,OVER,11.5,-114.0,-114.0,29.2,Playmaker,-0.34,0.13,41/58 DVP/DVA
-Ace Bailey,UTA,HOU,6100,4.23,PTS,11.9,10.6,-1.3,-5.9,UNDER,14.5,100.0,-132.0,-27.1,Scoring Wing,-1.95,-0.45,41/58 DVP/DVA
+Russell Westbrook,SAC,MEM,5900,7.17,REB,5.5,5.2,-0.3,-4.1,OVER,3.5,-146.0,110.0,49.3,Playmaker,-0.29,-0.26,41/58 DVP/DVA
+Cam Spencer,MEM,SAC,5700,7.46,AST,5.7,6.2,0.7,5.9,OVER,4.5,-136.0,102.0,37.7,Playmaker,0.55,0.42,41/58 DVP/DVA
+Lauri Markkanen,UTA,HOU,7600,4.36,PTS,26.7,24.9,-1.8,-8.1,OVER,18.5,-114.0,-114.0,34.4,Stretch 4,-1.85,-1.83,41/58 DVP/DVA
+Keldon Johnson,SA,DET,4700,4.29,PTS,13.4,14.0,0.6,2.7,OVER,10.5,-122.0,-108.0,33.5,Scoring Wing,1.44,-0.55,41/58 DVP/DVA
+Julian Champagnie,SA,DET,4100,6.15,PTS,11.0,9.9,-1.1,-4.7,OVER,7.5,-122.0,-110.0,32.3,Combo Guard,-1.45,-0.55,41/58 DVP/DVA
+Russell Westbrook,SAC,MEM,5900,7.17,PTS,15.0,14.9,-0.1,-0.6,OVER,11.5,-114.0,-114.0,29.2,Playmaker,-0.34,0.13,41/58 DVP/DVA
+Ace Bailey,UTA,HOU,6100,4.01,PTS,11.9,10.6,-1.3,-5.9,UNDER,14.5,100.0,-132.0,-27.1,Scoring Wing,-1.95,-0.45,41/58 DVP/DVA
 Amen Thompson,HOU,UTA,8300,5.26,REB,7.6,8.1,0.6,8.7,OVER,6.5,-146.0,110.0,25.1,3-and-D Wing,0.7,0.29,41/58 DVP/DVA
-DeMar DeRozan,SAC,MEM,6800,4.77,PTS,18.6,20.6,2.0,8.7,OVER,16.5,-106.0,-125.0,24.7,Scoring Wing,2.41,1.35,41/58 DVP/DVA
+DeMar DeRozan,SAC,MEM,6800,5.67,PTS,18.6,20.6,2.0,8.7,OVER,16.5,-106.0,-125.0,24.7,Scoring Wing,2.41,1.35,41/58 DVP/DVA
 Amen Thompson,HOU,UTA,8300,5.26,STL,1.5,1.9,1.1,17.5,OVER,1.5,-122.0,-108.0,23.4,3-and-D Wing,0.32,0.39,41/58 DVP/DVA
-Cam Spencer,MEM,SAC,5700,4.28,PTS,11.4,11.7,0.3,1.1,OVER,9.5,-122.0,-108.0,22.8,Playmaker,0.05,0.58,41/58 DVP/DVA
+Cam Spencer,MEM,SAC,5700,7.46,PTS,11.4,11.7,0.3,1.1,OVER,9.5,-122.0,-108.0,22.8,Playmaker,0.05,0.58,41/58 DVP/DVA
 Ausar Thompson,DET,SA,6200,6.43,PTS,10.2,10.1,-0.1,-0.2,OVER,8.5,-125.0,-106.0,19.3,3-and-D Wing,0.02,-0.17,41/58 DVP/DVA
 Devin Vassell,SA,DET,4800,5.82,PTS,13.9,13.3,-0.6,-2.7,OVER,11.5,100.0,-132.0,15.4,Combo Guard,-1.45,0.53,41/58 DVP/DVA
 Caris LeVert,DET,SA,3900,5.72,PTS,7.7,6.4,-1.3,-5.5,UNDER,7.5,100.0,-132.0,-14.1,Playmaker,-1.19,-1.35,41/58 DVP/DVA
-De'Aaron Fox,SA,DET,7100,6.22,PTS,19.3,18.5,-0.8,-3.4,OVER,16.5,-114.0,-114.0,12.0,Playmaker,-0.05,-1.92,41/58 DVP/DVA
+De'Aaron Fox,SA,DET,7100,6.23,PTS,19.3,18.5,-0.8,-3.4,OVER,16.5,-114.0,-114.0,12.0,Playmaker,-0.05,-1.92,41/58 DVP/DVA
+Jaylen Wells,MEM,SAC,5600,5.81,PTS,12.4,13.0,0.6,2.6,UNDER,14.5,-104.0,-128.0,-10.4,Combo Guard,0.97,0.05,41/58 DVP/DVA
 Cade Cunningham,DET,SA,11300,5.25,PTS,25.5,24.6,-0.9,-3.6,UNDER,27.5,-112.0,-118.0,-10.4,Playmaker,-1.19,-0.42,41/58 DVP/DVA
-Jaylen Wells,MEM,SAC,5600,7.19,PTS,12.4,13.0,0.6,2.6,UNDER,14.5,-104.0,-128.0,-10.4,Combo Guard,0.97,0.05,41/58 DVP/DVA
-Victor Wembanyama,SA,DET,11600,4.81,PTS,24.3,21.2,-3.1,-14.6,UNDER,23.5,-118.0,-112.0,-10.0,Stretch 5,-2.96,-3.4,41/58 DVP/DVA
 Amen Thompson,HOU,UTA,8300,5.26,PTS,17.4,18.2,0.8,3.1,OVER,16.5,-104.0,-128.0,10.0,3-and-D Wing,0.09,1.68,41/58 DVP/DVA
-Kevin Durant,HOU,UTA,8800,4.25,PTS,26.1,27.1,1.0,4.3,OVER,25.5,-130.0,-102.0,6.2,Scoring Wing,1.16,0.75,41/58 DVP/DVA
-Daniss Jenkins,DET,SA,4300,4.06,PTS,8.0,7.1,-0.9,-3.6,UNDER,7.5,-130.0,-102.0,-5.0,Playmaker,-1.19,-0.42,41/58 DVP/DVA
-Tobias Harris,DET,SA,6000,6.13,BLK,0.3,0.2,-0.4,-11.1,UNDER,,,,,Scoring Wing,-0.07,-0.23,41/58 DVP/DVA
-Duncan Robinson,DET,SA,4400,5.87,REB,2.7,2.4,-0.4,-4.3,UNDER,,,,,Combo Guard,-0.18,-0.58,41/58 DVP/DVA
-Julian Champagnie,SA,DET,4100,6.14,AST,1.4,0.9,-0.7,-10.7,UNDER,,,,,Combo Guard,-0.16,-0.93,41/58 DVP/DVA
-Olivier-Maxence Prosper,MEM,SAC,5500,7.89,BLK,0.2,-0.0,-0.7,-31.3,UNDER,,,,,3-and-D Wing,-0.22,-0.29,41/58 DVP/DVA
-Olivier-Maxence Prosper,MEM,SAC,5500,7.89,REB,2.9,2.5,-0.4,-4.6,UNDER,,,,,3-and-D Wing,-0.07,-0.78,41/58 DVP/DVA
+Victor Wembanyama,SA,DET,11600,4.82,PTS,24.3,21.2,-3.1,-14.6,UNDER,23.5,-118.0,-112.0,-10.0,Stretch 5,-2.96,-3.4,41/58 DVP/DVA
+Kevin Durant,HOU,UTA,8800,4.26,PTS,26.1,27.1,1.0,4.3,OVER,25.5,-130.0,-102.0,6.2,Scoring Wing,1.16,0.75,41/58 DVP/DVA
+Daniss Jenkins,DET,SA,4300,4.07,PTS,8.0,7.1,-0.9,-3.6,UNDER,7.5,-130.0,-102.0,-5.0,Playmaker,-1.19,-0.42,41/58 DVP/DVA
+Olivier-Maxence Prosper,MEM,SAC,5500,8.94,BLK,0.2,-0.0,-0.7,-31.3,UNDER,,,,,3-and-D Wing,-0.22,-0.29,41/58 DVP/DVA
+Tobias Harris,DET,SA,6000,6.14,BLK,0.3,0.2,-0.4,-11.1,UNDER,,,,,Scoring Wing,-0.07,-0.23,41/58 DVP/DVA
+Duncan Robinson,DET,SA,4400,5.88,REB,2.7,2.4,-0.4,-4.3,UNDER,,,,,Combo Guard,-0.18,-0.58,41/58 DVP/DVA
+Julian Champagnie,SA,DET,4100,6.15,AST,1.4,0.9,-0.7,-10.7,UNDER,,,,,Combo Guard,-0.16,-0.93,41/58 DVP/DVA
+Olivier-Maxence Prosper,MEM,SAC,5500,8.94,REB,2.9,2.5,-0.4,-4.6,UNDER,,,,,3-and-D Wing,-0.07,-0.78,41/58 DVP/DVA
 Luke Kornet,SA,DET,4500,4.77,PTS,7.3,4.9,-2.4,-11.0,UNDER,,,,,Traditional Big,-1.62,-3.4,41/58 DVP/DVA
 Luke Kornet,SA,DET,4500,4.77,AST,2.0,1.6,-0.6,-10.8,UNDER,,,,,Traditional Big,-0.25,-0.68,41/58 DVP/DVA
-Harrison Barnes,SA,DET,4200,4.23,REB,3.0,2.6,-0.5,-3.8,UNDER,,,,,Stretch 4,-0.45,-0.32,41/58 DVP/DVA
+Keldon Johnson,SA,DET,4700,4.29,AST,1.4,0.8,-0.8,-12.7,UNDER,,,,,Scoring Wing,-0.31,-0.93,41/58 DVP/DVA
+Malik Monk,SAC,MEM,4700,4.28,REB,2.0,1.7,-0.3,-4.1,UNDER,,,,,Playmaker,-0.29,-0.26,41/58 DVP/DVA
