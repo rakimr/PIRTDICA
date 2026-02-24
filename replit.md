@@ -8,7 +8,6 @@ Preferred communication style: Simple, everyday language.
 Auto-push to GitHub: Always push changes to GitHub at the end of every task using Replit's GitHub connector OAuth token.
 
 ### Article Writing Guidelines (PIRTDICA Daily Picks)
-Articles are written for **sportsbook bettors**, NOT fantasy players. Follow these rules strictly:
 - **NO fantasy salary** ($7,300, etc.), **NO fantasy points projections** (proj_fp, ceiling, floor), **NO value ratios**, **NO FanDuel/DraftKings lineup talk**.
 - Focus on **prop bets**: points over/under, rebounds, assists, steals, blocks, threes. Reference actual book lines when available.
 - Use **per game averages** and **per 100 possession rates** to establish baseline production.
@@ -20,78 +19,24 @@ Articles are written for **sportsbook bettors**, NOT fantasy players. Follow the
 - Format: `PLAYER NAME: Stat Edge vs Team` header, `TEAM vs TEAM | Position | Archetype` subheader.
 - Tone: Analytical, direct, no hype. Data-driven but readable. Written like you are explaining an edge to a sharp bettor.
 - Article header images: Gustave Doré engraving style mixed with Dan Koe minimalist editorial. Monochromatic black/white with subtle gold accents. 16:9 aspect ratio. Each day should have a unique visual theme (no repeats).
-- Previous header themes used: Feb 22 = figure on cliff/spiral of light, Feb 23 = infinite descending staircase with golden embers. Do NOT repeat these.
-
-### Article Accuracy Tracking & Lessons Learned
-
-**Feb 23 Article Results (SA vs DET, MEM vs SAC slate):**
-- **Ty Jerome**: DNP (illness). Article correctly flagged "Monitor his status" as first line. Lesson: always lead with injury caveats.
-- **De'Aaron Fox**: Points over 16.5 MISS (10 pts, 4-17 FG, 0-5 3PT). Steals 1+ HIT (2 steals). Role analysis was accurate (primary handler, 33 min, 7 ast). Scoring suppressed by Ausar Thompson's elite perimeter defense — Fox's pull-up heavy style (45.4% of attempts) is exactly what elite wing defenders neutralize.
-- **Olivier-Maxence Prosper**: Scoring HIT (17 pts on 7-9 FG, 78% efficiency). Started as predicted. Binary attack profile (rim + corner threes) confirmed. Rebounds lower than projected (3 reb in 23 min).
-- **Paul Reed**: Best call of the night. Blocks HIT (2 blocks in 20 min). Rebounds HIT (5 reb). SA's archetype vulnerability to Traditional Bigs played out exactly as described. Got 20 minutes (more than expected as 3rd center).
-
-**Key Blind Spot Identified: Individual Defender Quality**
-- The DVP/DVA system analyzes team-level defensive tendencies but does NOT account for elite individual defenders (e.g., Ausar Thompson clamping Fox).
-- Pull-up heavy scorers (self-creators) are most vulnerable to elite perimeter defenders. Catch-and-shoot players are harder to clamp individually.
-- Under MVE Three-Layer Rule, "defensive assignment quality" would be a Layer C candidate feature. Must pass validation rule (RMSE + ROI + variance) before inclusion.
-- The difference between "Fox had a bad game" (variance) and "Thompson made Fox have a bad game" (signal) is a meaningful distinction for future analysis.
-
-## Projection Philosophy: Minimal Viable Elite (MVE)
-
-### Core Principle
-Capture 85-90% of predictive signal with 30-40% of the complexity. Highest signal-to-noise ratio wins long term. Basketball logic is feature inspiration; data validation is feature approval.
-
-### The Three-Layer Rule
-Every feature must live in exactly one of these three layers. If a feature doesn't fit, it's probably duplicating signal.
-
-**Layer A — Game Environment (Macro Signal):**
-- Implied Team Total (encodes pace + opponent defense + Vegas info)
-- Game Pace Projection (blend of both teams' pace)
-- Opponent Defensive Strength Index (ONE compressed composite of DRtg + rim protection + 3pt suppression — not 5 separate defensive metrics)
-- Home/Away
-
-**Layer B — Player Role Engine (Core Predictive Signal):**
-- Projected Minutes, Usage Rate, Assist Rate, Rebound Rate, Shot Zone Distribution, FPPM baseline
-- Formula: `Projection = Minutes × BaseFPPM × RoleScaling × EnvironmentScaling`
-- 80% of projection accuracy lives here.
-
-**Layer C — Interaction Context (Small, Powerful Corrections):**
-- Only two contextual features:
-  1. **Archetype Matchup Matrix** (compressed, primary opponent only, no full-roster blending)
-  2. **Size Differential** (interaction-weighted against primary positional matchup only, gated by interior usage)
-- Final: `P_final = Minutes × BaseFPPM × EnvMultiplier + α₁·ArchetypeImpact + α₂·SizeImpact`
-- 15% of accuracy lives here.
-
-### Anti-Patterns to Avoid
-- **Correlated feature stacking**: DRtg + DVP + OppFG% + OppeFG% + OppPtsAllowed all measure overlapping signal. Adding them separately increases variance, not information.
-- **Triple penalization**: Good defensive teams have better rim protectors AND suppress interior scoring AND reduce rebound variance. Modeling DRtg + rim protection + size disadvantage + interior archetype penalty triple-penalizes a big.
-- **Manual weight tuning**: Don't manually tune 12 weights. Engineer clean features → regularized model (Ridge/ElasticNet/XGBoost) → cross-validation. If RMSE doesn't drop, feature doesn't stay.
-
-### Validation Rule
-Every new feature must pass ALL three:
-1. Improves cross-validated RMSE
-2. Improves backtested ROI
-3. Does not increase variance excessively
-If it fails → delete it. Complexity must earn its place.
-
-### What Is Explicitly NOT Included (Phase 2 if validated)
-- Direct player-to-player familiarity, full-roster size averaging, durability modifier, 7 different defensive metrics, scheme simulation layer.
 
 ## System Architecture
 The system utilizes an ETL pattern, staging data in SQLite and storing operational data in PostgreSQL. Core projection models include minutes projection and usage-based FPPM adjustment. Advanced analytics are driven by Phillips Archetype Classification (K-means clustering with 18 features) and a Salary-Tier Volatility Model. A Ceiling/Floor Model generates projection distributions, while Blended DVP and DVA systems provide dynamic matchup ratings. A Team Incentive Score adjusts volatility, and a Prop Trend Analysis Modal offers OVER/UNDER calls.
 
 The Context Engine v2 (Matchup Interaction Layer) dynamically adjusts projections using interaction-probability-weighted physical mismatch (size, weight, wingspan), matchup familiarity, archetype effects, and opponent durability. This layer models possession-level physical confrontation probability through statistical structure, addressing issues like "The Clingan vs Williams Law" by weighting interactions rather than averaging roster-wide effects. The Context Engine v2 uses a 5-layer architecture:
-1.  **Interaction Probability Matrix**: Computes weights based on position, minutes overlap, and role interaction.
-2.  **Interaction-Weighted Size Impact**: Adjusts for size differences (height, weight, wingspan) gated by interior usage.
-3.  **Interaction-Weighted Archetype Matchup**: Applies archetype-vs-archetype FPPM differentials.
-4.  **Familiarity Effect**: Incorporates player-vs-team FPPM differentials.
-5.  **Bidirectional Durability**: Adjusts for opponent stability.
+1. **Interaction Probability Matrix**: Computes weights based on position, minutes overlap, and role interaction.
+2. **Interaction-Weighted Size Impact**: Adjusts for size differences (height, weight, wingspan) gated by interior usage.
+3. **Interaction-Weighted Archetype Matchup**: Applies archetype-vs-archetype FPPM differentials.
+4. **Familiarity Effect**: Incorporates player-vs-team FPPM differentials.
+5. **Bidirectional Durability**: Adjusts for opponent stability.
 
 Lineup optimization is achieved using PuLP for linear programming and a Monte Carlo optimizer. The platform features a "Beat the House" game against AI, and "Coach vs Coach" (H2H) competitive play with a lobby, coin escrow, and live scoring.
 
 The web platform is built with FastAPI (Python) for the backend, SQLAlchemy for ORM, and Jinja2 templates with custom CSS for the frontend, featuring live scoring, contest history, and admin controls. The dual-currency system (Coach Coin, Coach Cash) supports a Play-to-Earn (P2E) model focused on Identity, Prestige, Access, and Analytics, strictly avoiding pay-to-win mechanics. Ranked modes include free Coin Mode and competitive Cash Mode, structured with a tiered division system, hidden MMR, and seasonal resets. Monetization relies on a small rake on Coach Cash competitions, cosmetic sales, and future subscriptions.
 
 The player archetype system includes 10 total archetypes: 5 specialist (Playmaker, 3-and-D Wing, Scoring Wing, Versatile Big, Traditional Big) and 5 hybrid branch categories (Combo Guard, Stretch 4, Stretch 5, Point Center, Point Forward). Classification involves K-means clustering, shot-zone reclassification, and specific detection for hybrid roles.
+
+The projection philosophy, "Minimal Viable Elite (MVE)", focuses on capturing 85-90% of predictive signal with 30-40% of the complexity. It uses a Three-Layer Rule for feature inclusion: Layer A (Game Environment), Layer B (Player Role Engine), and Layer C (Interaction Context). New features must improve cross-validated RMSE, backtested ROI, and not excessively increase variance.
 
 A chart screenshot infrastructure exists via `/chart-screenshot/{chart_type}/{target}` using synchronous XHR + raw Canvas API for immediate rendering, with Playwright + nix Chromium automating batch screenshot capture.
 
@@ -100,33 +45,30 @@ Avatar & Identity Design Direction follows a "Strategic Minimalism meets Editori
 ## External Dependencies
 
 ### Web Scraping Targets
--   **ESPN:** Depth charts
--   **RotoGrinders, FantasyPros:** Player lineups, injury alerts, FanDuel salaries
--   **TeamRankings:** Game odds/spreads
--   **HashtagBasketball:** Defense vs Position stats
--   **Basketball Reference:** Per-100 possession stats, player positions, foul rates, player physical measurements (height, weight from team roster pages), historical game logs.
--   **NBA.com Stats API:** Player game logs, minutes volatility, referee assignments, shot zone distribution, shot creation types, hustle stats. All NBA.com scrapers use upsert logic (not replace) to preserve existing data when API timeouts cause incomplete responses. A targeted backfill pass attempts individual player API calls for any missing top-30 fantasy producers after bulk scrapes.
--   **NBAStuffer:** Historical referee statistics
--   **SportsDatabase:** Historic betting lines
--   **FantasyTeamAdvice.com:** FanDuel NBA ownership data
+- **ESPN:** Depth charts
+- **RotoGrinders, FantasyPros:** Player lineups, injury alerts, FanDuel salaries
+- **TeamRankings:** Game odds/spreads
+- **HashtagBasketball:** Defense vs Position stats
+- **Basketball Reference:** Per-100 possession stats, player positions, foul rates, player physical measurements, historical game logs.
+- **NBA.com Stats API:** Player game logs, minutes volatility, referee assignments, shot zone distribution, shot creation types, hustle stats.
+- **NBAStuffer:** Historical referee statistics
+- **SportsDatabase:** Historic betting lines
+- **FantasyTeamAdvice.com:** FanDuel NBA ownership data
 
 ### APIs
--   **The Odds API:** Player prop lines (FanDuel)
--   **plaintextsports.com/nba:** Live scoring data
+- **The Odds API:** Player prop lines (FanDuel)
+- **plaintextsports.com/nba:** Live scoring data
 
 ### Databases
--   **SQLite:** Staging database (`dfs_nba.db`) for local pipeline scraping.
--   **PostgreSQL:** Production database for web platform and pipeline output, including `player_measurements_live`, `matchup_history_live`, `archetype_matchup_profiles_live`, and various other `*_live` tables.
--   **Supabase:** Used for syncing platform tables from local PostgreSQL.
-
-### Username Moderation
--   A profanity/slur filter with leet-speak detection is implemented in `backend/profanity_filter.py`.
+- **SQLite:** Staging database (`dfs_nba.db`) for local pipeline scraping.
+- **PostgreSQL:** Production database for web platform and pipeline output, including `player_measurements_live`, `matchup_history_live`, `archetype_matchup_profiles_live`, and various other `*_live` tables.
+- **Supabase:** Used for syncing platform tables from local PostgreSQL.
 
 ### Python Libraries
--   `requests`, `BeautifulSoup`: Web scraping
--   `pandas`, `numpy`: Data manipulation
--   `sqlite3`: SQLite interaction
--   `PuLP`: Linear programming
--   `scikit-learn`: K-means clustering
--   `nba_api`: NBA.com stats API wrapper
--   `playwright`: Headless browser for chart screenshot capture
+- `requests`, `BeautifulSoup`: Web scraping
+- `pandas`, `numpy`: Data manipulation
+- `sqlite3`: SQLite interaction
+- `PuLP`: Linear programming
+- `scikit-learn`: K-means clustering
+- `nba_api`: NBA.com stats API wrapper
+- `playwright`: Headless browser for chart screenshot capture
