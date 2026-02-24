@@ -151,7 +151,7 @@
                             <td class="col-name">
                                 <div style="display: flex; align-items: center; gap: 6px;">
                                     <img src="{{ headshots.get(p.player_name, '') }}" alt="" style="width: 32px; height: 32px; border-radius: 0; object-fit: contain; flex-shrink: 0; mix-blend-mode: multiply;" onerror="this.style.display='none'">
-                                    <span class="player-name-link" onclick="openShotChart('{{ p.player_name }}', event)" title="View shot chart">{{ p.player_name }}</span>
+                                    <span class="player-name-link" onclick="openShotChart('{{ p.player_name | replace("'", "\\'") }}', event)" title="View shot chart">{{ p.player_name }}</span>
                                 </div>
                             </td>
                             <td class="col-status">

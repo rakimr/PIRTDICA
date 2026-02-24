@@ -1947,12 +1947,39 @@ async def api_player_shot_chart(player_name: str):
         if not arch_df.empty:
             arch_match = arch_df[arch_df['player_name'] == matched_name]
             if arch_match.empty:
+                matched_key = _ascii_key(matched_name)
                 for n in arch_df['player_name'].unique():
-                    if _ascii_key(n) == search_key:
+                    if _ascii_key(n) == matched_key:
+                        arch_match = arch_df[arch_df['player_name'] == n]
+                        break
+            if arch_match.empty:
+                matched_key = _ascii_key(matched_name)
+                for n in arch_df['player_name'].unique():
+                    nk = _ascii_key(n)
+                    if matched_key in nk or nk in matched_key:
                         arch_match = arch_df[arch_df['player_name'] == n]
                         break
             if not arch_match.empty:
                 archetype = arch_match.iloc[0]['archetype']
+
+        if archetype is None:
+            try:
+                import os
+                dfs_csv = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'dfs_players_valued.csv')
+                if os.path.exists(dfs_csv):
+                    import pandas as pd
+                    dfs_df = pd.read_csv(dfs_csv)
+                    dfs_match = dfs_df[dfs_df['player_name'] == matched_name]
+                    if dfs_match.empty:
+                        matched_key = _ascii_key(matched_name)
+                        for _, drow in dfs_df.iterrows():
+                            if _ascii_key(str(drow.get('player_name', ''))) == matched_key:
+                                dfs_match = dfs_df[dfs_df['player_name'] == drow['player_name']]
+                                break
+                    if not dfs_match.empty and pd.notna(dfs_match.iloc[0].get('archetype')):
+                        archetype = dfs_match.iloc[0]['archetype']
+            except Exception:
+                pass
 
         team = player_row.get('team', None)
 

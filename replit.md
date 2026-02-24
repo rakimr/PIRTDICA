@@ -21,6 +21,47 @@ Articles are written for **sportsbook bettors**, NOT fantasy players. Follow the
 - Tone: Analytical, direct, no hype. Data-driven but readable. Written like you are explaining an edge to a sharp bettor.
 - Article header images: Gustave Doré engraving style mixed with Dan Koe minimalist editorial. Monochromatic black/white with subtle gold accents. 16:9 aspect ratio. Each day should have a unique visual theme (no repeats).
 
+## Projection Philosophy: Minimal Viable Elite (MVE)
+
+### Core Principle
+Capture 85-90% of predictive signal with 30-40% of the complexity. Highest signal-to-noise ratio wins long term. Basketball logic is feature inspiration; data validation is feature approval.
+
+### The Three-Layer Rule
+Every feature must live in exactly one of these three layers. If a feature doesn't fit, it's probably duplicating signal.
+
+**Layer A — Game Environment (Macro Signal):**
+- Implied Team Total (encodes pace + opponent defense + Vegas info)
+- Game Pace Projection (blend of both teams' pace)
+- Opponent Defensive Strength Index (ONE compressed composite of DRtg + rim protection + 3pt suppression — not 5 separate defensive metrics)
+- Home/Away
+
+**Layer B — Player Role Engine (Core Predictive Signal):**
+- Projected Minutes, Usage Rate, Assist Rate, Rebound Rate, Shot Zone Distribution, FPPM baseline
+- Formula: `Projection = Minutes × BaseFPPM × RoleScaling × EnvironmentScaling`
+- 80% of projection accuracy lives here.
+
+**Layer C — Interaction Context (Small, Powerful Corrections):**
+- Only two contextual features:
+  1. **Archetype Matchup Matrix** (compressed, primary opponent only, no full-roster blending)
+  2. **Size Differential** (interaction-weighted against primary positional matchup only, gated by interior usage)
+- Final: `P_final = Minutes × BaseFPPM × EnvMultiplier + α₁·ArchetypeImpact + α₂·SizeImpact`
+- 15% of accuracy lives here.
+
+### Anti-Patterns to Avoid
+- **Correlated feature stacking**: DRtg + DVP + OppFG% + OppeFG% + OppPtsAllowed all measure overlapping signal. Adding them separately increases variance, not information.
+- **Triple penalization**: Good defensive teams have better rim protectors AND suppress interior scoring AND reduce rebound variance. Modeling DRtg + rim protection + size disadvantage + interior archetype penalty triple-penalizes a big.
+- **Manual weight tuning**: Don't manually tune 12 weights. Engineer clean features → regularized model (Ridge/ElasticNet/XGBoost) → cross-validation. If RMSE doesn't drop, feature doesn't stay.
+
+### Validation Rule
+Every new feature must pass ALL three:
+1. Improves cross-validated RMSE
+2. Improves backtested ROI
+3. Does not increase variance excessively
+If it fails → delete it. Complexity must earn its place.
+
+### What Is Explicitly NOT Included (Phase 2 if validated)
+- Direct player-to-player familiarity, full-roster size averaging, durability modifier, 7 different defensive metrics, scheme simulation layer.
+
 ## System Architecture
 The system utilizes an ETL pattern, staging data in SQLite and storing operational data in PostgreSQL. Core projection models include minutes projection and usage-based FPPM adjustment. Advanced analytics are driven by Phillips Archetype Classification (K-means clustering with 18 features) and a Salary-Tier Volatility Model. A Ceiling/Floor Model generates projection distributions, while Blended DVP and DVA systems provide dynamic matchup ratings. A Team Incentive Score adjusts volatility, and a Prop Trend Analysis Modal offers OVER/UNDER calls.
 
