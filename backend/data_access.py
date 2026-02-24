@@ -167,16 +167,39 @@ def get_game_lock_rows():
 
 
 def get_player_archetypes():
+    composite_cols = ("creation_idx, playmaking_idx, interior_idx, perimeter_idx, "
+                      "offball_idx, rebound_idx, defense_idx, size_idx")
+    full_cols = f"player_name, team, archetype, cluster, {composite_cols}"
+    basic_cols = "player_name, team, archetype, cluster"
+
+    def _try_sqlite(with_composites=True):
+        try:
+            import sqlite3
+            conn = sqlite3.connect("dfs_nba.db")
+            try:
+                df = pd.read_sql_query(f"SELECT {full_cols} FROM player_archetypes", conn)
+            except Exception:
+                if with_composites:
+                    conn.close()
+                    return pd.DataFrame()
+                df = pd.read_sql_query(f"SELECT {basic_cols} FROM player_archetypes", conn)
+            conn.close()
+            return df
+        except Exception:
+            return pd.DataFrame()
+
     if use_postgres():
-        return _pg_query("SELECT player_name, team, archetype, cluster FROM player_archetypes_live")
-    try:
-        import sqlite3
-        conn = sqlite3.connect("dfs_nba.db")
-        df = pd.read_sql_query("SELECT player_name, team, archetype, cluster FROM player_archetypes", conn)
-        conn.close()
-        return df
-    except Exception:
-        return pd.DataFrame()
+        df = _pg_query(f"SELECT {full_cols} FROM player_archetypes_live")
+        if not df.empty and 'creation_idx' in df.columns:
+            return df
+        sqlite_df = _try_sqlite(with_composites=True)
+        if not sqlite_df.empty and 'creation_idx' in sqlite_df.columns:
+            return sqlite_df
+        df = _pg_query(f"SELECT {basic_cols} FROM player_archetypes_live")
+        if not df.empty:
+            return df
+        return _try_sqlite(with_composites=False)
+    return _try_sqlite(with_composites=True)
 
 
 def get_player_per100():

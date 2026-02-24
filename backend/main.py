@@ -1668,35 +1668,6 @@ async def api_archetype_clusters():
     import unicodedata
     import re as re_mod
 
-    _TEAM_MAP = {
-        'CHO': 'CHA', 'NOP': 'NO', 'BRK': 'BKN', 'PHO': 'PHX',
-        'SAS': 'SA', 'GOS': 'GS', 'NOR': 'NO',
-    }
-
-    def _ascii_key(name):
-        if not name or not isinstance(name, str):
-            return ""
-        fixed = name
-        for _ in range(2):
-            try:
-                fixed = fixed.encode('latin-1').decode('utf-8')
-            except (UnicodeDecodeError, UnicodeEncodeError):
-                break
-        _cyr = {'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh',
-                'з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o',
-                'п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'kh','ц':'ts',
-                'ч':'ch','ш':'sh','щ':'shch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'}
-        fixed = ''.join(_cyr.get(c, _cyr.get(c.lower(), c)) for c in fixed)
-        nfkd = unicodedata.normalize('NFKD', fixed)
-        ascii_name = ''.join(c for c in nfkd if not unicodedata.combining(c))
-        ascii_name = re_mod.sub(r'[^a-zA-Z\s]', '', ascii_name).lower().strip()
-        ascii_name = re_mod.sub(r'\s+', ' ', ascii_name)
-        for suffix in [' iv', ' iii', ' ii', ' jr', ' sr', ' v']:
-            if ascii_name.endswith(suffix):
-                ascii_name = ascii_name[:-len(suffix)].strip()
-                break
-        return ascii_name
-
     def _clean_name(name):
         if not name or not isinstance(name, str):
             return name
@@ -1708,96 +1679,84 @@ async def api_archetype_clusters():
                 break
         return fixed
 
+    def _ascii_key(name):
+        if not name or not isinstance(name, str):
+            return ""
+        fixed = name
+        for _ in range(2):
+            try:
+                fixed = fixed.encode('latin-1').decode('utf-8')
+            except (UnicodeDecodeError, UnicodeEncodeError):
+                break
+        nfkd = unicodedata.normalize('NFKD', fixed)
+        ascii_name = ''.join(c for c in nfkd if not unicodedata.combining(c))
+        ascii_name = re_mod.sub(r'[^a-zA-Z\s]', '', ascii_name).lower().strip()
+        ascii_name = re_mod.sub(r'\s+', ' ', ascii_name)
+        for suffix in [' iv', ' iii', ' ii', ' jr', ' sr', ' v']:
+            if ascii_name.endswith(suffix):
+                ascii_name = ascii_name[:-len(suffix)].strip()
+                break
+        return ascii_name
+
     try:
         arch_df = data_access.get_player_archetypes()
-        per100 = data_access.get_player_per100()
-        positions = data_access.get_player_positions()
-        usage = data_access.get_player_usage()
-        game_logs = data_access.get_player_game_log_averages()
-        shot_zones = data_access.get_player_shot_zones()
-        shot_creation = data_access.get_player_shot_creation()
-        hustle = data_access.get_player_hustle_stats()
-        
-        if arch_df.empty or per100.empty:
+        if arch_df.empty:
             return {"error": "Archetype data not yet available.", "players": [], "archetypes": []}
 
-        for tbl in [arch_df, per100, positions, usage, game_logs, shot_zones, shot_creation, hustle]:
-            for col in tbl.select_dtypes(include=['object']).columns:
-                try:
-                    tbl[col] = pd.to_numeric(tbl[col], errors='ignore')
-                except Exception:
-                    pass
-            for col in tbl.columns:
-                if hasattr(tbl[col].dtype, 'name') and 'decimal' in str(tbl[col].dtype).lower():
-                    tbl[col] = tbl[col].astype(float)
-                elif tbl[col].dtype == object:
-                    try:
-                        import decimal
-                        if tbl[col].dropna().apply(lambda x: isinstance(x, decimal.Decimal)).any():
-                            tbl[col] = tbl[col].apply(lambda x: float(x) if isinstance(x, decimal.Decimal) else x)
-                    except Exception:
-                        pass
+        composite_features = [
+            'creation_idx', 'playmaking_idx', 'interior_idx', 'perimeter_idx',
+            'offball_idx', 'rebound_idx', 'defense_idx', 'size_idx',
+        ]
+        has_composites = all(c in arch_df.columns for c in composite_features)
+        if not has_composites:
+            return {"error": "Composite indices not yet computed. Run daily update.", "players": [], "archetypes": []}
 
-        for tbl in [arch_df, per100, positions, usage, game_logs, shot_zones, shot_creation, hustle]:
-            tbl['_mk'] = tbl['player_name'].apply(_ascii_key)
+        for col in arch_df.select_dtypes(include=['object']).columns:
+            try:
+                arch_df[col] = pd.to_numeric(arch_df[col], errors='ignore')
+            except Exception:
+                pass
+        for col in arch_df.columns:
+            if col in composite_features or col == 'cluster':
+                arch_df[col] = pd.to_numeric(arch_df[col], errors='coerce')
+                if col in composite_features:
+                    arch_df[col] = arch_df[col].fillna(0)
 
         arch_df['player_name'] = arch_df['player_name'].apply(_clean_name)
-        arch_df['team'] = arch_df['team'].replace(_TEAM_MAP)
-        arch_df = arch_df[~arch_df['team'].isin(['2TM', '3TM'])]
+        arch_df = arch_df[~arch_df['team'].isin(['2TM', '3TM', 'TOT'])]
+        arch_df = arch_df.dropna(subset=['archetype'])
 
-        df = arch_df.merge(per100.drop(columns=['player_name']), on='_mk', how='left')
-        df = df.merge(positions.drop(columns=['player_name']), on='_mk', how='left')
-        df = df.merge(usage.drop(columns=['player_name']), on='_mk', how='left')
-        df = df.merge(game_logs.drop(columns=['player_name']), on='_mk', how='left')
-        df = df.merge(shot_zones.drop(columns=['player_name']), on='_mk', how='left')
-        df = df.merge(shot_creation.drop(columns=['player_name']), on='_mk', how='left')
-        df = df.merge(hustle.drop(columns=['player_name']), on='_mk', how='left')
-        df = df.drop(columns=['_mk'])
-        df = df.dropna(subset=['pts_per100'])
+        per100 = data_access.get_player_per100()
+        usage = data_access.get_player_usage()
+        if not per100.empty:
+            for tbl in [arch_df, per100, usage]:
+                tbl['_mk'] = tbl['player_name'].apply(_ascii_key)
+            for col in per100.select_dtypes(include=['object']).columns:
+                try:
+                    per100[col] = pd.to_numeric(per100[col], errors='ignore')
+                except Exception:
+                    pass
+            for col in usage.select_dtypes(include=['object']).columns:
+                try:
+                    usage[col] = pd.to_numeric(usage[col], errors='ignore')
+                except Exception:
+                    pass
+            df = arch_df.merge(per100[['_mk', 'pts_per100', 'reb_per100', 'ast_per100']].drop_duplicates(subset='_mk'), on='_mk', how='left')
+            df = df.merge(usage[['_mk', 'usg_pct']].drop_duplicates(subset='_mk'), on='_mk', how='left')
+            df = df.drop(columns=['_mk'])
+        else:
+            df = arch_df.copy()
+            df['pts_per100'] = 0
+            df['reb_per100'] = 0
+            df['ast_per100'] = 0
+            df['usg_pct'] = 0
 
-        df['usg_pct'] = df['usg_pct'].fillna(df['usg_pct'].median())
-        df['fg3m_pg'] = df['fg3m_pg'].fillna(0)
-        df['min_pg'] = df['min_pg'].fillna(1)
-        df['pg_pct'] = df['pg_pct'].fillna(0)
-        df['sg_pct'] = df['sg_pct'].fillna(0)
-        df['sf_pct'] = df['sf_pct'].fillna(0)
-        df['pf_pct'] = df['pf_pct'].fillna(0)
-        df['c_pct'] = df['c_pct'].fillna(0)
-        df['rim_paint_pct'] = df['rim_paint_pct'].fillna(50.0)
-        df['three_pct'] = df['three_pct'].fillna(25.0)
-        df['cs_pct'] = df['cs_pct'].fillna(30.0)
-        df['pu_pct'] = df['pu_pct'].fillna(15.0)
-        df['deflections_per48'] = df['deflections_per48'].fillna(df['deflections_per48'].median() if df['deflections_per48'].notna().any() else 3.0)
-        df['contested_per48'] = df['contested_per48'].fillna(df['contested_per48'].median() if df['contested_per48'].notna().any() else 8.0)
-
-        df['fg3m_per100'] = np.where(df['min_pg'] > 0, df['fg3m_pg'] / df['min_pg'] * 100, 0)
-        df['guard_pct'] = df['pg_pct'] + df['sg_pct']
-        df['forward_pct'] = df['sf_pct'] + df['pf_pct']
-        df['big_pct'] = df['c_pct']
-        df['ast_to_reb_ratio'] = np.where(df['reb_per100'] > 0, df['ast_per100'] / df['reb_per100'], df['ast_per100'])
-        df['scoring_versatility'] = np.where(df['pts_per100'] > 0, df['fg3m_per100'] / df['pts_per100'], 0)
-        df['corner3_pct_of_3'] = np.where(
-            df['three_fga'].fillna(0) > 0,
-            df['corner3_fga'].fillna(0) / df['three_fga'] * 100,
-            35.0
-        )
-        df['corner3_pct_of_3'] = df['corner3_pct_of_3'].fillna(35.0)
-
-        features = [
-            'pts_per100', 'reb_per100', 'ast_per100', 'stl_per100', 'blk_per100',
-            'fg3m_per100', 'usg_pct',
-            'guard_pct', 'forward_pct', 'big_pct',
-            'ast_to_reb_ratio', 'scoring_versatility',
-            'rim_paint_pct', 'three_pct', 'corner3_pct_of_3',
-            'cs_pct', 'pu_pct',
-            'deflections_per48', 'contested_per48',
-        ]
-        for col in features:
-            df[col] = df[col].fillna(0)
+        for col in ['pts_per100', 'reb_per100', 'ast_per100', 'usg_pct']:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
         from sklearn.preprocessing import StandardScaler
         from sklearn.decomposition import PCA
-        X = df[features].values
+        X = df[composite_features].values.astype(float)
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X)
         pca = PCA(n_components=2)

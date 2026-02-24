@@ -776,7 +776,9 @@ def save_archetypes(df):
     now = get_eastern_now().isoformat()
 
     prob_cols = [c for c in df.columns if c.startswith('cluster_') and c.endswith('_prob')]
-    save_cols = ['player_name', 'team', 'true_position', 'archetype', 'base_archetype', 'cluster'] + prob_cols
+    composite_cols = ['creation_idx', 'playmaking_idx', 'interior_idx', 'perimeter_idx',
+                      'offball_idx', 'rebound_idx', 'defense_idx', 'size_idx']
+    save_cols = ['player_name', 'team', 'true_position', 'archetype', 'base_archetype', 'cluster'] + prob_cols + composite_cols
     save_df = df[save_cols].copy()
     save_df['computed_at'] = now
 
