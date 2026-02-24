@@ -55,17 +55,14 @@ POINT_CENTER_AST_THRESHOLD = 5.0
 POINT_CENTER_PTS_THRESHOLD = 24.0
 BALL_INITIATION_TOUCHES_PER_MIN = 2.0
 
-FEATURES = [
-    'pts_per100', 'reb_per100', 'ast_per100', 'stl_per100', 'blk_per100',
-    'fg3m_per100', 'usg_pct',
-    'guard_pct', 'forward_pct', 'big_pct',
-    'ast_to_reb_ratio', 'scoring_versatility',
-    'rim_paint_pct', 'three_pct', 'corner3_pct_of_3',
-    'cs_pct', 'pu_pct',
-    'deflections_per48', 'contested_per48',
+COMPOSITE_FEATURES = [
+    'creation_idx', 'playmaking_idx', 'interior_idx', 'perimeter_idx',
+    'offball_idx', 'rebound_idx', 'defense_idx', 'size_idx',
 ]
 
 TARGET_K = 6
+
+MIN_MINUTES_FOR_CENTROID = 800
 
 
 def fetch_player_heights():
@@ -130,7 +127,8 @@ def load_feature_data():
     """, conn)
 
     shot_creation = pd.read_sql_query("""
-        SELECT player_name, cs_pct, pu_pct, paint_pct as sc_paint_pct, cs_3_share
+        SELECT player_name, cs_pct, pu_pct, paint_pct as sc_paint_pct, cs_3_share,
+               pu_3_share
         FROM player_shot_creation
     """, conn)
 
@@ -142,13 +140,19 @@ def load_feature_data():
 
     tracking = pd.read_sql_query("""
         SELECT player_name, touches_pg, front_ct_touches_pg, time_of_poss_pg,
-               avg_sec_per_touch, avg_drib_per_touch, touches_per_min, front_ct_per_min
+               avg_sec_per_touch, avg_drib_per_touch, touches_per_min, front_ct_per_min,
+               post_touches_pg, paint_touches_pg
         FROM player_tracking_stats
+    """, conn)
+
+    measurements = pd.read_sql_query("""
+        SELECT player_name, height_inches, weight_lbs, wingspan_inches
+        FROM player_measurements
     """, conn)
 
     conn.close()
 
-    for tbl in [per100, positions, game_logs, usage, shot_zones, shot_creation, hustle, tracking]:
+    for tbl in [per100, positions, game_logs, usage, shot_zones, shot_creation, hustle, tracking, measurements]:
         tbl['_merge_key'] = tbl['player_name'].apply(_ascii_key)
 
     df = per100.merge(positions.drop(columns=['player_name']), on='_merge_key', how='inner')
@@ -158,6 +162,7 @@ def load_feature_data():
     df = df.merge(shot_creation.drop(columns=['player_name']), on='_merge_key', how='left')
     df = df.merge(hustle.drop(columns=['player_name']), on='_merge_key', how='left')
     df = df.merge(tracking.drop(columns=['player_name']), on='_merge_key', how='left')
+    df = df.merge(measurements.drop(columns=['player_name']), on='_merge_key', how='left')
     df = df.drop(columns=['_merge_key'])
 
     df['usg_pct'] = df['usg_pct'].fillna(df['usg_pct'].median())
@@ -171,6 +176,7 @@ def load_feature_data():
     df['pu_pct'] = df['pu_pct'].fillna(15.0)
     df['sc_paint_pct'] = df['sc_paint_pct'].fillna(40.0)
     df['cs_3_share'] = df['cs_3_share'].fillna(50.0)
+    df['pu_3_share'] = df['pu_3_share'].fillna(30.0)
 
     df['corner3_pct_of_3'] = np.where(
         df['three_fga'].fillna(0) > 0,
@@ -193,167 +199,244 @@ def load_feature_data():
     df['touches_pg'] = df['touches_pg'].fillna(40.0)
     df['front_ct_touches_pg'] = df['front_ct_touches_pg'].fillna(20.0)
     df['time_of_poss_pg'] = df['time_of_poss_pg'].fillna(2.0)
+    df['post_touches_pg'] = df['post_touches_pg'].fillna(1.0)
+    df['paint_touches_pg'] = df['paint_touches_pg'].fillna(3.0)
+
+    df['height_inches'] = df['height_inches'].fillna(df['height_inches'].median() if df['height_inches'].notna().any() else 79)
+    df['weight_lbs'] = df['weight_lbs'].fillna(df['weight_lbs'].median() if df['weight_lbs'].notna().any() else 215)
+    df['wingspan_inches'] = df['wingspan_inches'].fillna(df['wingspan_inches'].median() if df['wingspan_inches'].notna().any() else 82)
 
     shot_merged = df['rim_paint_pct'].notna().sum()
     hustle_merged = df['deflections_per48'].notna().sum()
     tracking_merged = df['touches_pg'].notna().sum()
+    size_merged = (df['height_inches'] != df['height_inches'].median()).sum() if df['height_inches'].notna().any() else 0
     print(f"  Shot zone data merged for {shot_merged}/{len(df)} players")
     print(f"  Hustle stats merged for {hustle_merged}/{len(df)} players")
     print(f"  Tracking stats merged for {tracking_merged}/{len(df)} players")
+    print(f"  Measurements merged for {size_merged}/{len(df)} players")
 
     return df
 
 
-def engineer_features(df):
-    df['fg3m_per100'] = np.where(
-        df['min_pg'] > 0,
-        df['fg3m_pg'] / df['min_pg'] * 100,
-        0
-    )
+def build_composite_indices(df):
+    scaler = StandardScaler()
 
-    df['guard_pct'] = df['pg_pct'] + df['sg_pct']
-    df['forward_pct'] = df['sf_pct'] + df['pf_pct']
-    df['big_pct'] = df['c_pct']
+    raw_features = [
+        'usg_pct', 'pu_pct', 'avg_sec_per_touch', 'avg_drib_per_touch',
+        'ast_per100', 'touches_per_min',
+        'rim_paint_pct', 'post_touches_pg', 'paint_touches_pg',
+        'three_pct', 'cs_pct', 'pu_3_share',
+        'cs_3_share', 'time_of_poss_pg',
+        'reb_per100', 'box_outs_per48',
+        'stl_per100', 'blk_per100', 'deflections_per48', 'contested_per48',
+        'height_inches', 'weight_lbs', 'wingspan_inches',
+    ]
 
-    df['ast_to_reb_ratio'] = np.where(
-        df['reb_per100'] > 0,
-        df['ast_per100'] / df['reb_per100'],
-        df['ast_per100']
-    )
-
-    df['scoring_versatility'] = np.where(
-        df['pts_per100'] > 0,
-        df['fg3m_per100'] / df['pts_per100'],
-        0
-    )
-
-    for col in FEATURES:
+    for col in raw_features:
         df[col] = df[col].fillna(0)
 
-    return df
+    z_df = pd.DataFrame(
+        scaler.fit_transform(df[raw_features]),
+        columns=[f'z_{c}' for c in raw_features],
+        index=df.index
+    )
+
+    df['creation_idx'] = (
+        z_df['z_usg_pct'] +
+        z_df['z_pu_pct'] +
+        z_df['z_avg_sec_per_touch'] +
+        z_df['z_avg_drib_per_touch']
+    )
+
+    df['playmaking_idx'] = (
+        z_df['z_ast_per100'] +
+        z_df['z_touches_per_min']
+    )
+
+    df['interior_idx'] = (
+        z_df['z_rim_paint_pct'] +
+        z_df['z_post_touches_pg'] +
+        z_df['z_paint_touches_pg']
+    )
+
+    df['perimeter_idx'] = (
+        z_df['z_three_pct'] +
+        z_df['z_cs_pct'] +
+        z_df['z_pu_3_share']
+    )
+
+    df['offball_idx'] = (
+        z_df['z_cs_3_share'] -
+        z_df['z_time_of_poss_pg']
+    )
+
+    df['rebound_idx'] = (
+        z_df['z_reb_per100'] +
+        z_df['z_box_outs_per48']
+    )
+
+    df['defense_idx'] = (
+        z_df['z_stl_per100'] +
+        z_df['z_blk_per100'] +
+        z_df['z_deflections_per48'] +
+        z_df['z_contested_per48']
+    )
+
+    df['size_idx'] = (
+        z_df['z_height_inches'] +
+        z_df['z_weight_lbs'] +
+        z_df['z_wingspan_inches']
+    )
+
+    corr = df[COMPOSITE_FEATURES].corr()
+    print("\n  Composite index correlation matrix:")
+    print(f"  {'':>16}", end='')
+    for c in COMPOSITE_FEATURES:
+        print(f" {c[:8]:>8}", end='')
+    print()
+    for i, row_name in enumerate(COMPOSITE_FEATURES):
+        print(f"  {row_name:>16}", end='')
+        for j, col_name in enumerate(COMPOSITE_FEATURES):
+            val = corr.iloc[i, j]
+            marker = '*' if abs(val) > 0.5 and i != j else ' '
+            print(f" {val:>7.2f}{marker}", end='')
+        print()
+
+    high_corr = []
+    for i in range(len(COMPOSITE_FEATURES)):
+        for j in range(i+1, len(COMPOSITE_FEATURES)):
+            r = abs(corr.iloc[i, j])
+            if r > 0.5:
+                high_corr.append((COMPOSITE_FEATURES[i], COMPOSITE_FEATURES[j], corr.iloc[i, j]))
+    if high_corr:
+        print(f"\n  WARNING: {len(high_corr)} feature pair(s) with |r| > 0.5:")
+        for a, b, r in high_corr:
+            print(f"    {a} <-> {b}: r={r:.3f}")
+    else:
+        print("\n  All composite indices have |r| < 0.5 — good orthogonality")
+
+    return df, scaler
 
 
 def label_cluster_scored(centroid, feature_names):
     c = dict(zip(feature_names, centroid))
 
-    pts = c.get('pts_per100', 0)
-    reb = c.get('reb_per100', 0)
-    ast = c.get('ast_per100', 0)
-    stl = c.get('stl_per100', 0)
-    blk = c.get('blk_per100', 0)
-    fg3m = c.get('fg3m_per100', 0)
-    usg = c.get('usg_pct', 0)
-    gpct = c.get('guard_pct', 0)
-    fpct = c.get('forward_pct', 0)
-    bpct = c.get('big_pct', 0)
-    rim_paint = c.get('rim_paint_pct', 0)
-    three = c.get('three_pct', 0)
-    cs = c.get('cs_pct', 0)
-    pu = c.get('pu_pct', 0)
-    defl = c.get('deflections_per48', 0)
-    contest = c.get('contested_per48', 0)
+    creation = c.get('creation_idx', 0)
+    playmaking = c.get('playmaking_idx', 0)
+    interior = c.get('interior_idx', 0)
+    perimeter = c.get('perimeter_idx', 0)
+    offball = c.get('offball_idx', 0)
+    rebound = c.get('rebound_idx', 0)
+    defense = c.get('defense_idx', 0)
+    size = c.get('size_idx', 0)
 
-    if bpct > 40 or (reb > 12 and blk > 1.5):
-        if rim_paint > 75 and three < 15:
-            return 'Traditional Big'
-        if three > 30 and cs > 35:
+    if size > 1.0 and interior > 0.5:
+        if perimeter > 0.5:
             return 'Stretch Big'
-        if fg3m > 4:
+        if playmaking > 0.5:
+            return 'Versatile Big'
+        return 'Traditional Big'
+
+    if size > 0.5 and rebound > 0.5:
+        if perimeter > 0.3:
             return 'Stretch Big'
         return 'Traditional Big'
 
-    if gpct > 60:
-        if ast > 7:
-            return 'Playmaker'
-        if defl > 4.5 and stl > 1.8:
-            return '3-and-D Wing'
-        return 'Combo Guard'
-
-    if fpct > 40:
-        if pts > 25 and usg > 22:
-            return 'Scoring Wing'
-        if (defl > 4.0 or stl > 1.8) and contest > 6:
-            return '3-and-D Wing'
-        if pts > 20 and usg > 18:
-            return 'Scoring Wing'
-        return 'Combo Guard'
-
-    if ast > 7:
+    if playmaking > 1.0 and creation > 0.5:
         return 'Playmaker'
-    if pts > 25:
+
+    if creation > 0.5 and defense < 0.0 and offball < 0.0:
         return 'Scoring Wing'
-    if bpct > 20:
-        if rim_paint > 75:
-            return 'Traditional Big'
-        if three > 30:
-            return 'Stretch Big'
-        return 'Traditional Big'
-    if defl > 4.0 and stl > 1.5:
+
+    if creation > 0.3 and perimeter > -0.5 and playmaking < 0.5:
+        return 'Scoring Wing'
+
+    if defense > 0.8 and perimeter > -0.5:
         return '3-and-D Wing'
+
+    if offball > 0.5 and defense > 0.3:
+        return '3-and-D Wing'
+
+    if creation > 0.3 and playmaking > 0.3:
+        return 'Combo Guard'
+
+    if perimeter > 0.5 and offball > 0.0:
+        return '3-and-D Wing'
+
+    if perimeter > 0 and defense < -1.0:
+        return 'Scoring Wing'
+
     return 'Combo Guard'
 
 
 def run_clustering(df, k=TARGET_K):
-    feature_df = df[FEATURES].copy()
+    feature_df = df[COMPOSITE_FEATURES].copy()
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(feature_df)
 
-    print(f"Using k={k} with {len(FEATURES)} features (including shot zones + creation)")
-    print("Features:", FEATURES)
-    print("\nSilhouette scores for reference:")
+    high_min_mask = df['total_minutes'] >= MIN_MINUTES_FOR_CENTROID
+    X_high_min = X_scaled[high_min_mask.values]
+
+    print(f"  Centroid training on {high_min_mask.sum()} players with {MIN_MINUTES_FOR_CENTROID}+ minutes")
+    print(f"  Full assignment for all {len(df)} players")
+
+    print(f"\n  Using k={k} with {len(COMPOSITE_FEATURES)} composite features")
+    print(f"  Features: {COMPOSITE_FEATURES}")
+    print("\n  Silhouette scores (high-minute players):")
     for test_k in range(5, 12):
         km_test = KMeans(n_clusters=test_k, n_init=20, random_state=42, max_iter=300)
-        labels_test = km_test.fit_predict(X_scaled)
-        score = silhouette_score(X_scaled, labels_test)
+        labels_test = km_test.fit_predict(X_high_min)
+        score = silhouette_score(X_high_min, labels_test)
         marker = " <-- chosen" if test_k == k else ""
-        print(f"  k={test_k}: silhouette={score:.4f}{marker}")
+        print(f"    k={test_k}: silhouette={score:.4f}{marker}")
 
     km = KMeans(n_clusters=k, n_init=30, random_state=42, max_iter=500)
+    km.fit(X_high_min)
+
     df = df.copy()
-    df['cluster'] = km.fit_predict(X_scaled)
+    df['cluster'] = km.predict(X_scaled)
+
+    distances = km.transform(X_scaled)
+    inv_dist = 1.0 / (distances + 1e-8)
+    cluster_probs = inv_dist / inv_dist.sum(axis=1, keepdims=True)
+
+    for i in range(k):
+        df[f'cluster_{i}_prob'] = cluster_probs[:, i]
 
     centroids_orig = scaler.inverse_transform(km.cluster_centers_)
 
     cluster_labels = {}
     label_counts = {}
     for i in range(k):
-        label = label_cluster_scored(centroids_orig[i], FEATURES)
+        label = label_cluster_scored(centroids_orig[i], COMPOSITE_FEATURES)
         label_counts[label] = label_counts.get(label, 0) + 1
         if label_counts[label] > 1:
-            c = dict(zip(FEATURES, centroids_orig[i]))
-            defl = c.get('deflections_per48', 0)
-            contest = c.get('contested_per48', 0)
-            stl = c.get('stl_per100', 0)
-            if '3-and-D' in label:
-                if defl > 4.0 and stl > 1.8:
-                    label = "3-and-D Guard" if c['guard_pct'] > 50 else "3-and-D Wing"
-                else:
-                    label = "Combo Guard"
-            elif c['fg3m_per100'] > 6:
-                label = "Scoring Guard"
-            elif c['pts_per100'] > 25 or c['usg_pct'] > 25:
-                label = f"{label} (Elite)"
+            c = dict(zip(COMPOSITE_FEATURES, centroids_orig[i]))
+            if c.get('defense_idx', 0) > 0.5:
+                label = f"{label} (Defensive)"
+            elif c.get('creation_idx', 0) > 0.5:
+                label = f"{label} (Offensive)"
             else:
                 label = f"{label} (Role)"
         cluster_labels[i] = label
 
-    print(f"\nCluster centroids (original scale):")
+    print(f"\n  Cluster centroids (composite indices):")
     for i in range(k):
-        c = dict(zip(FEATURES, centroids_orig[i]))
-        n = len(df[df['cluster'] == i])
-        print(f"  Cluster {i} [{cluster_labels[i]}] (n={n}): "
-              f"PTS={c['pts_per100']:.1f} REB={c['reb_per100']:.1f} AST={c['ast_per100']:.1f} "
-              f"STL={c['stl_per100']:.1f} BLK={c['blk_per100']:.1f} 3PM={c['fg3m_per100']:.1f} "
-              f"USG={c['usg_pct']:.1f} G%={c['guard_pct']:.0f} F%={c['forward_pct']:.0f} C%={c['big_pct']:.0f} "
-              f"RimPaint={c['rim_paint_pct']:.1f} 3PT%={c['three_pct']:.1f} "
-              f"C&S={c['cs_pct']:.1f} PU={c['pu_pct']:.1f} "
-              f"DEFL={c['deflections_per48']:.1f} CONTEST={c['contested_per48']:.1f}")
+        c = dict(zip(COMPOSITE_FEATURES, centroids_orig[i]))
+        n_total = len(df[df['cluster'] == i])
+        n_high = high_min_mask[df['cluster'] == i].sum()
+        print(f"    Cluster {i} [{cluster_labels[i]}] (n={n_total}, {n_high} high-min): "
+              f"CRE={c['creation_idx']:.2f} PLY={c['playmaking_idx']:.2f} "
+              f"INT={c['interior_idx']:.2f} PER={c['perimeter_idx']:.2f} "
+              f"OFF={c['offball_idx']:.2f} REB={c['rebound_idx']:.2f} "
+              f"DEF={c['defense_idx']:.2f} SIZ={c['size_idx']:.2f}")
 
     df['archetype'] = df['cluster'].map(cluster_labels)
 
     print("\n  Shot-zone-based big man reclassification...")
-    big_archetypes = ['Traditional Big', 'Stretch Big', 'Traditional Big (Elite)',
-                      'Traditional Big (Role)', 'Stretch Big (Elite)', 'Stretch Big (Role)']
+    big_archetypes = ['Traditional Big', 'Stretch Big', 'Traditional Big (Defensive)',
+                      'Traditional Big (Role)', 'Stretch Big (Offensive)', 'Stretch Big (Role)',
+                      'Traditional Big (Offensive)', 'Stretch Big (Defensive)']
     big_mask = df['archetype'].isin(big_archetypes)
 
     stretch_from_trad = 0
@@ -364,7 +447,7 @@ def run_clustering(df, k=TARGET_K):
         rp = player.get('rim_paint_pct', 50)
         tp = player.get('three_pct', 25)
         csp = player.get('cs_pct', 30)
-        fg3m = player.get('fg3m_per100', 0)
+        fg3m = player.get('fg3m_pg', 0) / max(player.get('min_pg', 1), 1) * 100
 
         if 'Traditional' in current and tp >= 30 and fg3m >= 3.0:
             df.at[idx, 'archetype'] = 'Stretch Big'
@@ -389,7 +472,6 @@ def run_clustering(df, k=TARGET_K):
         ast = player.get('ast_per100', 0)
         pts = player.get('pts_per100', 0)
         c_pct = player.get('c_pct', 0)
-        fg3m = player.get('fg3m_per100', 0)
         tpm = player.get('touches_per_min', 1.5)
 
         if ast >= POINT_CENTER_AST_THRESHOLD and pts >= POINT_CENTER_PTS_THRESHOLD:
@@ -419,7 +501,8 @@ def run_clustering(df, k=TARGET_K):
 
     print("\n  Position-based reclassification for frontcourt players in guard/wing archetypes...")
     non_big_archetypes = ['Scoring Wing', 'Scoring Guard', '3-and-D Wing', '3-and-D Guard',
-                          'Scoring Wing (Elite)', 'Scoring Wing (Role)', 'Combo Guard', 'Playmaker']
+                          'Scoring Wing (Offensive)', 'Scoring Wing (Role)', 'Combo Guard', 'Playmaker',
+                          'Combo Guard (Offensive)', 'Combo Guard (Defensive)', 'Combo Guard (Role)']
 
     clear_big_mask = (
         df['archetype'].isin(non_big_archetypes) &
@@ -436,16 +519,16 @@ def run_clustering(df, k=TARGET_K):
     height_map = fetch_player_heights()
     if height_map:
         df['_mk'] = df['player_name'].apply(_ascii_key)
-        df['height_inches'] = df['_mk'].map(height_map)
+        df['_height_check'] = df['_mk'].map(height_map)
         tall_borderline_mask = (
             df['archetype'].isin(non_big_archetypes) &
-            df['height_inches'].notna() &
-            (df['height_inches'] >= HEIGHT_THRESHOLD_INCHES) &
+            df['_height_check'].notna() &
+            (df['_height_check'] >= HEIGHT_THRESHOLD_INCHES) &
             ((df['c_pct'] + df['pf_pct']) >= 40) &
             ((df['c_pct'] + df['pf_pct']) < 50)
         )
         combined_mask = clear_big_mask | tweener_big_mask | tall_borderline_mask
-        df = df.drop(columns=['_mk', 'height_inches'])
+        df = df.drop(columns=['_mk', '_height_check'])
     else:
         combined_mask = clear_big_mask | tweener_big_mask
 
@@ -510,7 +593,7 @@ def run_clustering(df, k=TARGET_K):
         rp = player.get('rim_paint_pct', 50)
         tp = player.get('three_pct', 25)
         csp = player.get('cs_pct', 30)
-        fg3m = player.get('fg3m_per100', 0)
+        fg3m = player.get('fg3m_pg', 0) / max(player.get('min_pg', 1), 1) * 100
         ast = player.get('ast_per100', 0)
 
         if ast >= POINT_CENTER_AST_THRESHOLD:
@@ -549,8 +632,7 @@ def run_clustering(df, k=TARGET_K):
         c_pct = player.get('c_pct', 0)
         pf_pct = player.get('pf_pct', 0)
         sf_pct = player.get('sf_pct', 0)
-        guard_pct = player['guard_pct']
-        fg3m = player.get('fg3m_per100', 0)
+        guard_pct = player.get('pg_pct', 0) + player.get('sg_pct', 0)
         rp = player.get('rim_paint_pct', 50)
         tp = player.get('three_pct', 25)
         csp = player.get('cs_pct', 30)
@@ -585,15 +667,15 @@ def run_clustering(df, k=TARGET_K):
 
     print("\n  Guard playmaker reclassification (facilitator-first guards in Combo Guard)...")
     playmaker_reclass = 0
-    combo_guard_mask = df['archetype'] == 'Combo Guard'
+    combo_guard_variants = [a for a in df['archetype'].unique() if 'Combo Guard' in a]
+    combo_guard_mask = df['archetype'].isin(combo_guard_variants)
     for idx in df[combo_guard_mask].index:
         if idx in hybrid_routed_indices:
             continue
         player = df.loc[idx]
         ast = player.get('ast_per100', 0)
         pg_pct = player.get('pg_pct', 0)
-        guard_pct = player['guard_pct']
-        usg = player.get('usg_pct', 0)
+        guard_pct = player.get('pg_pct', 0) + player.get('sg_pct', 0)
         is_playmaker = False
         if pg_pct >= 70 and ast >= 6.0:
             is_playmaker = True
@@ -677,7 +759,10 @@ def validate_archetypes(df):
             else:
                 review_count += 1
             found_count += 1
-            print(f"  {match.iloc[0]['player_name']}: expected={expected}, got={actual} [{status}]")
+            prob_cols = [c for c in match.columns if c.startswith('cluster_') and c.endswith('_prob')]
+            top_probs = match.iloc[0][prob_cols].sort_values(ascending=False).head(3)
+            prob_str = ', '.join(f"C{c.split('_')[1]}={v:.0%}" for c, v in top_probs.items())
+            print(f"  {match.iloc[0]['player_name']}: expected={expected}, got={actual} [{status}]  ({prob_str})")
         else:
             print(f"  {player_fragment}: NOT IN TODAY'S SLATE")
 
@@ -690,7 +775,9 @@ def save_archetypes(df):
     conn = sqlite3.connect(DB_PATH)
     now = get_eastern_now().isoformat()
 
-    save_df = df[['player_name', 'team', 'true_position', 'archetype', 'base_archetype', 'cluster']].copy()
+    prob_cols = [c for c in df.columns if c.startswith('cluster_') and c.endswith('_prob')]
+    save_cols = ['player_name', 'team', 'true_position', 'archetype', 'base_archetype', 'cluster'] + prob_cols
+    save_df = df[save_cols].copy()
     save_df['computed_at'] = now
 
     BREF_TO_ESPN = {
@@ -750,7 +837,7 @@ def save_archetypes(df):
 
     save_df.to_sql('player_archetypes', conn, if_exists='replace', index=False)
 
-    print(f"\nSaved {len(save_df)} archetypes to player_archetypes table")
+    print(f"\nSaved {len(save_df)} archetypes to player_archetypes table (with soft cluster probabilities)")
 
     print("\nArchetype distribution:")
     for arch, count in df['archetype'].value_counts().sort_index().items():
@@ -761,24 +848,24 @@ def save_archetypes(df):
 
 def main():
     print("=" * 60)
-    print("PHILLIPS-STYLE PLAYER ARCHETYPE CLASSIFICATION")
-    print("K-Means + Shot Zones + Shot Creation + Hustle Stats")
+    print("PHILLIPS-STYLE PLAYER ARCHETYPE CLASSIFICATION v2")
+    print("8 Composite Indices + Minutes-Weighted Centroids + Soft Clustering")
     print("=" * 60)
 
-    print("\n1. Loading feature data (per-100 + positions + shot zones + shot creation + hustle)...")
+    print("\n1. Loading feature data (per-100 + positions + shots + hustle + tracking + measurements)...")
     df = load_feature_data()
     print(f"   Loaded {len(df)} players with complete data")
 
-    print("\n2. Engineering features...")
-    df = engineer_features(df)
+    print("\n2. Building 8 composite indices...")
+    df, raw_scaler = build_composite_indices(df)
 
-    print("\n3. Running K-Means clustering...")
-    df, km, scaler, labels = run_clustering(df)
+    print("\n3. Running minutes-weighted K-Means clustering...")
+    df, km, cluster_scaler, labels = run_clustering(df)
 
     print("\n4. Validating archetypes...")
     validate_archetypes(df)
 
-    print("\n5. Saving results...")
+    print("\n5. Saving results (with soft cluster probabilities)...")
     save_archetypes(df)
 
     print("\n6. Sample players by archetype:")
@@ -816,6 +903,18 @@ def main():
         avg_defl = subset['deflections_per48'].mean()
         avg_contest = subset['contested_per48'].mean()
         print(f"  {arch:<20} {n:>3} {avg_stl:>8.1f} {avg_blk:>8.1f} {avg_defl:>8.1f} {avg_contest:>11.1f}")
+
+    print("\n9. Composite Index Profile by Archetype:")
+    print(f"  {'Archetype':<20} {'N':>3} {'CRE':>6} {'PLY':>6} {'INT':>6} {'PER':>6} {'OFF':>6} {'REB':>6} {'DEF':>6} {'SIZ':>6}")
+    print(f"  {'-'*74}")
+    for arch in sorted(df['archetype'].unique()):
+        subset = df[df['archetype'] == arch]
+        n = len(subset)
+        avgs = subset[COMPOSITE_FEATURES].mean()
+        print(f"  {arch:<20} {n:>3}", end='')
+        for feat in COMPOSITE_FEATURES:
+            print(f" {avgs[feat]:>6.2f}", end='')
+        print()
 
     print("\nDone!")
     return df

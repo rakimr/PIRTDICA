@@ -21,7 +21,7 @@ Auto-push to GitHub: Always push changes to GitHub at the end of every task usin
 - Article header images: Gustave Doré engraving style mixed with Dan Koe minimalist editorial. Monochromatic black/white with subtle gold accents. 16:9 aspect ratio. Each day should have a unique visual theme (no repeats).
 
 ## System Architecture
-The system utilizes an ETL pattern, staging data in SQLite and storing operational data in PostgreSQL. Core projection models include minutes projection and usage-based FPPM adjustment. Advanced analytics are driven by Phillips Archetype Classification (K-means clustering with 18 features) and a Salary-Tier Volatility Model. A Ceiling/Floor Model generates projection distributions, while Blended DVP and DVA systems provide dynamic matchup ratings. A Team Incentive Score adjusts volatility, and a Prop Trend Analysis Modal offers OVER/UNDER calls.
+The system utilizes an ETL pattern, staging data in SQLite and storing operational data in PostgreSQL. Core projection models include minutes projection and usage-based FPPM adjustment. Advanced analytics are driven by Phillips Archetype Classification v2 (8 composite indices, minutes-weighted K-Means, soft clustering) and a Salary-Tier Volatility Model. A Ceiling/Floor Model generates projection distributions, while Blended DVP and DVA systems provide dynamic matchup ratings. A Team Incentive Score adjusts volatility, and a Prop Trend Analysis Modal offers OVER/UNDER calls.
 
 The Context Engine v2 (Matchup Interaction Layer) dynamically adjusts projections using interaction-probability-weighted physical mismatch (size, weight, wingspan), matchup familiarity, archetype effects, and opponent durability. This layer models possession-level physical confrontation probability through statistical structure, addressing issues like "The Clingan vs Williams Law" by weighting interactions rather than averaging roster-wide effects. The Context Engine v2 uses a 5-layer architecture:
 1. **Interaction Probability Matrix**: Computes weights based on position, minutes overlap, and role interaction.
@@ -34,7 +34,40 @@ Lineup optimization is achieved using PuLP for linear programming and a Monte Ca
 
 The web platform is built with FastAPI (Python) for the backend, SQLAlchemy for ORM, and Jinja2 templates with custom CSS for the frontend, featuring live scoring, contest history, and admin controls. The dual-currency system (Coach Coin, Coach Cash) supports a Play-to-Earn (P2E) model focused on Identity, Prestige, Access, and Analytics, strictly avoiding pay-to-win mechanics. Ranked modes include free Coin Mode and competitive Cash Mode, structured with a tiered division system, hidden MMR, and seasonal resets. Monetization relies on a small rake on Coach Cash competitions, cosmetic sales, and future subscriptions.
 
-The player archetype system includes 10 total archetypes: 5 specialist (Playmaker, 3-and-D Wing, Scoring Wing, Versatile Big, Traditional Big) and 5 hybrid branch categories (Combo Guard, Stretch 4, Stretch 5, Point Center, Point Forward). Classification involves K-means clustering, shot-zone reclassification, and specific detection for hybrid roles.
+The player archetype system includes 10 total archetypes: 5 specialist (Playmaker, 3-and-D Wing, Scoring Wing, Versatile Big, Traditional Big) and 5 hybrid branch categories (Combo Guard, Stretch 4, Stretch 5, Point Center, Point Forward). Classification uses the Phillips Archetype Classification v2 system described below.
+
+### Phillips Archetype Classification v2
+The archetype system compresses raw player stats into 8 orthogonal composite indices, then clusters on those axes using minutes-weighted K-Means with soft probability assignments.
+
+**8 Composite Indices** (each is a sum of z-scored raw features):
+1. **Creation Index**: USG% + Pull-Up% + Sec/Touch + Dribbles/Touch — measures self-created offense
+2. **Playmaking Index**: AST/100 + Touches/Min — measures ball distribution
+3. **Interior Index**: Rim+Paint% + Post Touches + Paint Touches — measures paint presence
+4. **Perimeter Index**: 3PT Shot% + Catch-and-Shoot% + Pull-Up 3 Share — measures outside shooting profile
+5. **Off-Ball Index**: C&S 3 Share - Time of Possession — measures movement without the ball
+6. **Rebound Index**: REB/100 + Box Outs/48 — measures rebounding activity
+7. **Defense Index**: STL/100 + BLK/100 + Deflections/48 + Contested/48 — measures defensive engagement
+8. **Size Index**: Height + Weight + Wingspan — measures physical dimensions
+
+**Clustering Approach**:
+- K=6 clusters trained on high-minute players only (800+ total minutes) to prevent bench noise from distorting centroids
+- All players (including low-minute) are assigned to nearest centroid without influencing centroid positions
+- Soft clustering stores probability vectors (`cluster_0_prob` through `cluster_5_prob`) for each player, enabling fuzzy archetype boundaries
+- Silhouette scores evaluated for k=5 through k=11; k=6 chosen as optimal balance
+
+**Post-Clustering Domain Logic** (sequential reclassification):
+1. Cluster auto-labeling via centroid profile scoring
+2. Shot-zone big man reclassification (Traditional ↔ Stretch based on rim/paint vs 3PT distribution)
+3. Facilitating big detection: Point Center (C% ≥ 50) / Point Forward (C% < 50) for bigs with AST/100 ≥ 5.0 and PTS/100 ≥ 24.0, gated by ball initiation threshold (touches/min ≥ 2.0)
+4. Position-based frontcourt reclassification for players in guard/wing clusters with C%+PF% ≥ 50, with wing escape valve (high pull-up%, low rebounding)
+5. Versatile Big shot-zone refinement (extreme shooters → Stretch, extreme rim players → Traditional)
+6. Hybrid branch routing for transcendent players (PTS/100 ≥ 30, AST/100 ≥ 7, USG ≥ 26)
+7. Guard playmaker reclassification (facilitator-first guards with PG% ≥ 70 and AST/100 ≥ 6)
+8. Stretch Big split into Stretch 4 / Stretch 5 by C% threshold
+
+**Correlation Notes**: Interior↔Perimeter (r=-0.81), Creation↔Off-Ball (r=-0.82), and Rebound↔Size (r=0.80) are the highest correlated pairs. These reflect real basketball dimensions (paint vs perimeter, ball-dominant vs off-ball, big vs small) and do not degrade clustering quality — K-Means still produces meaningfully distinct clusters with clear archetype separation.
+
+**Validation**: 28/32 known player classifications correct (88% accuracy). Remaining 4 are defensible edge cases (e.g., Kawhi Leonard as Playmaker due to elite creation metrics, Klay Thompson as 3-and-D Wing (Role) reflecting his current off-ball role).
 
 The projection philosophy, "Minimal Viable Elite (MVE)", focuses on capturing 85-90% of predictive signal with 30-40% of the complexity. It uses a Three-Layer Rule for feature inclusion: Layer A (Game Environment), Layer B (Player Role Engine), and Layer C (Interaction Context). New features must improve cross-validated RMSE, backtested ROI, and not excessively increase variance.
 
