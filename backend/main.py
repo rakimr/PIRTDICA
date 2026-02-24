@@ -496,14 +496,6 @@ async def trends(request: Request, db: Session = Depends(get_db)):
         charts_last_updated = datetime.fromtimestamp(latest_mtime, tz=EASTERN)
         charts_stale = charts_last_updated.date() < get_eastern_today()
 
-    pipeline_running = False
-    try:
-        import subprocess as _sp
-        ps_out = _sp.run(["pgrep", "-f", "run_daily_update.py"], capture_output=True, text=True)
-        pipeline_running = ps_out.returncode == 0
-    except:
-        pass
-
     explorer_players = []
     headshots = get_player_headshots()
     try:
@@ -560,39 +552,7 @@ async def trends(request: Request, db: Session = Depends(get_db)):
         "headshots": headshots,
         "charts_last_updated": charts_last_updated,
         "charts_stale": charts_stale,
-        "pipeline_running": pipeline_running,
     })
-
-@app.post("/trends/refresh")
-async def refresh_trends(request: Request):
-    import subprocess
-    import os
-
-    os.chdir("/home/runner/workspace")
-
-    pipeline_running = False
-    try:
-        ps_out = subprocess.run(["pgrep", "-f", "run_daily_update.py"], capture_output=True, text=True)
-        pipeline_running = ps_out.returncode == 0
-    except:
-        pass
-
-    if not pipeline_running:
-        try:
-            subprocess.run(["python", "scrape_player_salaries.py"], timeout=60, capture_output=True)
-            subprocess.run(["python", "scrape_game_odds.py"], timeout=60, capture_output=True)
-            subprocess.run(["python", "scrape_dvp.py"], timeout=60, capture_output=True)
-            subprocess.run(["python", "scrape_per100.py"], timeout=60, capture_output=True)
-            subprocess.run(["python", "dfs_players.py"], timeout=60, capture_output=True)
-            subprocess.run(["python", "scrape_player_props.py"], timeout=60, capture_output=True)
-            subprocess.run(["python", "analysis/player_value.py"], timeout=60, capture_output=True)
-            subprocess.run(["python", "generate_house_lineup.py", "--force"], timeout=120, capture_output=True)
-            subprocess.run(["python", "scrape_play_types.py"], timeout=180, capture_output=True)
-        except Exception as e:
-            print(f"Refresh error: {e}")
-
-    from starlette.responses import RedirectResponse
-    return RedirectResponse(url="/trends", status_code=303)
 
 @app.get("/leaderboard")
 async def leaderboard(request: Request, period: str = "daily", db: Session = Depends(get_db)):
