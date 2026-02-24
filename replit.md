@@ -20,6 +20,21 @@ Articles are written for **sportsbook bettors**, NOT fantasy players. Follow the
 - Format: `PLAYER NAME: Stat Edge vs Team` header, `TEAM vs TEAM | Position | Archetype` subheader.
 - Tone: Analytical, direct, no hype. Data-driven but readable. Written like you are explaining an edge to a sharp bettor.
 - Article header images: Gustave Doré engraving style mixed with Dan Koe minimalist editorial. Monochromatic black/white with subtle gold accents. 16:9 aspect ratio. Each day should have a unique visual theme (no repeats).
+- Previous header themes used: Feb 22 = figure on cliff/spiral of light, Feb 23 = infinite descending staircase with golden embers. Do NOT repeat these.
+
+### Article Accuracy Tracking & Lessons Learned
+
+**Feb 23 Article Results (SA vs DET, MEM vs SAC slate):**
+- **Ty Jerome**: DNP (illness). Article correctly flagged "Monitor his status" as first line. Lesson: always lead with injury caveats.
+- **De'Aaron Fox**: Points over 16.5 MISS (10 pts, 4-17 FG, 0-5 3PT). Steals 1+ HIT (2 steals). Role analysis was accurate (primary handler, 33 min, 7 ast). Scoring suppressed by Ausar Thompson's elite perimeter defense — Fox's pull-up heavy style (45.4% of attempts) is exactly what elite wing defenders neutralize.
+- **Olivier-Maxence Prosper**: Scoring HIT (17 pts on 7-9 FG, 78% efficiency). Started as predicted. Binary attack profile (rim + corner threes) confirmed. Rebounds lower than projected (3 reb in 23 min).
+- **Paul Reed**: Best call of the night. Blocks HIT (2 blocks in 20 min). Rebounds HIT (5 reb). SA's archetype vulnerability to Traditional Bigs played out exactly as described. Got 20 minutes (more than expected as 3rd center).
+
+**Key Blind Spot Identified: Individual Defender Quality**
+- The DVP/DVA system analyzes team-level defensive tendencies but does NOT account for elite individual defenders (e.g., Ausar Thompson clamping Fox).
+- Pull-up heavy scorers (self-creators) are most vulnerable to elite perimeter defenders. Catch-and-shoot players are harder to clamp individually.
+- Under MVE Three-Layer Rule, "defensive assignment quality" would be a Layer C candidate feature. Must pass validation rule (RMSE + ROI + variance) before inclusion.
+- The difference between "Fox had a bad game" (variance) and "Thompson made Fox have a bad game" (signal) is a meaningful distinction for future analysis.
 
 ## Projection Philosophy: Minimal Viable Elite (MVE)
 
