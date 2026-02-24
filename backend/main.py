@@ -281,21 +281,36 @@ async def home(request: Request, db: Session = Depends(get_db)):
     game_count = len(slate_games)
     if not user:
         try:
+            import math
             props_df = data_access.get_prop_recommendations()
-            if not props_df.empty and 'vs_book_edge' in props_df.columns:
+            if not props_df.empty:
                 props_df = props_df[props_df.get('salary', props_df.get('salary', 0)) > 0] if 'salary' in props_df.columns else props_df
-                top_props = props_df.nlargest(3, 'vs_book_edge')
-                for _, row in top_props.iterrows():
-                    rec = row.get('recommendation', 'OVER')
-                    stat = row.get('stat', '')
-                    line = row.get('book_line', '')
-                    edge = row.get('vs_book_edge', 0)
-                    name = row.get('player', row.get('player_name', ''))
-                    opp = row.get('opponent', '')
-                    edge_insights.append({
-                        "player": name, "stat": stat, "line": line,
-                        "edge": round(float(edge), 1), "rec": rec, "opponent": opp
-                    })
+                has_book = 'vs_book_edge' in props_df.columns and props_df['vs_book_edge'].notna().any()
+                edge_col = 'vs_book_edge' if has_book else 'edge_pct'
+                if edge_col in props_df.columns:
+                    valid = props_df[props_df[edge_col].notna() & props_df[edge_col].apply(lambda x: not (isinstance(x, float) and math.isnan(x)))]
+                    if not valid.empty:
+                        valid_abs = valid.copy()
+                        valid_abs['_abs_edge'] = valid_abs[edge_col].abs()
+                        top_props = valid_abs.nlargest(3, '_abs_edge')
+                        for _, row in top_props.iterrows():
+                            rec = row.get('recommendation', 'OVER')
+                            stat = row.get('stat', '')
+                            book_line = row.get('book_line', None)
+                            line_display = ''
+                            if book_line is not None and not (isinstance(book_line, float) and math.isnan(book_line)):
+                                line_display = str(book_line)
+                            elif row.get('adjusted_avg') is not None and not (isinstance(row.get('adjusted_avg'), float) and math.isnan(row.get('adjusted_avg', 0))):
+                                line_display = f"proj {row['adjusted_avg']}"
+                            edge_val = row.get(edge_col, 0)
+                            if isinstance(edge_val, float) and math.isnan(edge_val):
+                                edge_val = 0
+                            name = row.get('player', row.get('player_name', ''))
+                            opp = row.get('opponent', '')
+                            edge_insights.append({
+                                "player": name, "stat": stat, "line": line_display,
+                                "edge": round(float(edge_val), 1), "rec": rec, "opponent": opp
+                            })
         except:
             pass
         try:

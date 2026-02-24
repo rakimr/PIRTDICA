@@ -122,7 +122,7 @@
             {% for e in edge_insights %}
             <span class="edge-item {% if loop.first %}active{% endif %}">
                 <strong>{{ e.player }}</strong> {{ e.stat }} {{ e.rec }}
-                <span class="edge-line">{{ e.line }}</span>
+                {% if e.line %}<span class="edge-line">{{ e.line }}</span>{% endif %}
                 vs {{ e.opponent }}
                 <span class="edge-pct {% if e.edge > 0 %}edge-positive{% else %}edge-negative{% endif %}">{{ "%+.1f"|format(e.edge) }}% edge</span>
             </span>
