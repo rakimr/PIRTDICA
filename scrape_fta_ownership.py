@@ -2,11 +2,10 @@ import requests
 import pandas as pd
 from bs4 import BeautifulSoup
 import sqlite3
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from utils.timezone import get_eastern_date_str, get_eastern_now
 
 def scrape_fta_ownership():
-    today = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+    today = get_eastern_date_str()
 
     conn = sqlite3.connect("dfs_nba.db")
     cursor = conn.cursor()
@@ -58,7 +57,7 @@ def scrape_fta_ownership():
         draftkings_table = tables[0]
         fanduel_table = tables[1]
 
-    now = datetime.now(ZoneInfo("America/New_York")).isoformat()
+    now = get_eastern_now().isoformat()
     total_saved = 0
 
     for platform, table in [("FanDuel", fanduel_table), ("DraftKings", draftkings_table)]:

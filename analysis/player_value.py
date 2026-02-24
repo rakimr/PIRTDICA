@@ -10,6 +10,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
+from utils.timezone import get_eastern_date_str
 
 STAT_CATEGORIES = ['pts', 'reb', 'ast', 'stl', 'blk', '3pm']
 
@@ -277,9 +278,7 @@ def generate_ref_foul_chart(output_path='static/images/ref_foul_chart.png'):
     import sqlite3
     conn = sqlite3.connect("dfs_nba.db")
     
-    from datetime import datetime
-    from zoneinfo import ZoneInfo
-    today = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+    today = get_eastern_date_str()
     
     assignments = pd.read_sql_query(
         "SELECT home_team, away_team, crew_chief, referee, umpire FROM referee_assignments WHERE game_date = ?",
@@ -512,9 +511,7 @@ def _load_book_props():
     """Load player prop lines from The Odds API data."""
     try:
         conn = sqlite3.connect("dfs_nba.db")
-        from datetime import datetime
-        from zoneinfo import ZoneInfo
-        today = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+        today = get_eastern_date_str()
         df = pd.read_sql_query(
             "SELECT player_name, stat, line, over_odds, under_odds, bookmaker FROM player_props WHERE game_date = ?",
             conn, params=[today]

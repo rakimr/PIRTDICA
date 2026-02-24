@@ -582,7 +582,7 @@ def write_manual_injury(player_name, normalized_name, status="OUT", reason="Manu
 
     try:
         import sqlite3
-        from datetime import datetime
+        from utils.timezone import get_eastern_now
         conn = sqlite3.connect("dfs_nba.db")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS manual_injuries (
@@ -595,7 +595,7 @@ def write_manual_injury(player_name, normalized_name, status="OUT", reason="Manu
         """)
         conn.execute(
             "INSERT OR REPLACE INTO manual_injuries (player_name, status, reason, added_at) VALUES (?, ?, ?, ?)",
-            (normalized_name, status, reason, datetime.now().isoformat())
+            (normalized_name, status, reason, get_eastern_now().isoformat())
         )
         conn.commit()
         conn.close()

@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 import sqlite3
-from datetime import datetime
+from utils.timezone import get_eastern_now
 import time
 import re
 
@@ -72,7 +72,7 @@ def scrape_foul_rates():
                     "mpg": mpg,
                     "fouls_per_game": fouls_per_game,
                     "fouls_per_36": round(fouls_per_36, 2),
-                    "scraped_at": datetime.now().isoformat()
+                    "scraped_at": get_eastern_now().isoformat()
                 })
         except Exception as e:
             continue

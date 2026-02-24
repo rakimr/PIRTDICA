@@ -14,7 +14,7 @@ import threading
 import subprocess
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.timezone import get_eastern_today, get_eastern_now
+from utils.timezone import get_eastern_today, get_eastern_now, EASTERN
 
 from backend.database import engine, get_db, Base
 from backend import models, auth, data_access
@@ -493,8 +493,8 @@ async def trends(request: Request, db: Session = Depends(get_db)):
     charts_stale = True
     if chart_mtimes:
         latest_mtime = max(chart_mtimes)
-        charts_last_updated = datetime.fromtimestamp(latest_mtime)
-        charts_stale = charts_last_updated.date() < datetime.now().date()
+        charts_last_updated = datetime.fromtimestamp(latest_mtime, tz=EASTERN)
+        charts_stale = charts_last_updated.date() < get_eastern_today()
 
     pipeline_running = False
     try:
@@ -1325,7 +1325,7 @@ def run_daily_update():
         
         process.wait()
         refresh_status["success"] = process.returncode == 0
-        refresh_status["last_run"] = datetime.now().isoformat()
+        refresh_status["last_run"] = get_eastern_now().isoformat()
     except Exception as e:
         refresh_status["log"].append(f"Error: {str(e)}")
         refresh_status["success"] = False

@@ -13,7 +13,7 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 import sqlite3
-from datetime import datetime
+from utils.timezone import get_eastern_now
 
 def scrape_standings():
     """Scrape current NBA standings from ESPN."""
@@ -202,7 +202,7 @@ def save_standings(df):
             row['win_pct'],
             incentive,
             var_mult,
-            datetime.now().isoformat()
+            get_eastern_now().isoformat()
         ))
     
     conn.commit()

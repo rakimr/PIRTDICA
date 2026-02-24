@@ -14,8 +14,7 @@ import numpy as np
 from pulp import LpMaximize, LpProblem, LpVariable, lpSum, PULP_CBC_CMD
 import sqlite3
 from collections import Counter
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from utils.timezone import get_eastern_date_str, get_eastern_now
 import unicodedata
 import re
 import os
@@ -134,7 +133,7 @@ def apply_calibration(ownership_df, calibration):
 
 def save_ownership_snapshot(ownership_df):
     """Save today's ownership estimates for future calibration training."""
-    today = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+    today = get_eastern_date_str()
     try:
         conn = sqlite3.connect("dfs_nba.db")
         cursor = conn.cursor()
@@ -154,7 +153,7 @@ def save_ownership_snapshot(ownership_df):
 
         cursor.execute("DELETE FROM ownership_snapshots WHERE game_date = ?", (today,))
 
-        now = datetime.now(ZoneInfo("America/New_York")).isoformat()
+        now = get_eastern_now().isoformat()
 
         fta_data = {}
         try:
@@ -230,7 +229,7 @@ def update_calibration_factors():
             conn.close()
             return
 
-        now = datetime.now(ZoneInfo("America/New_York")).isoformat()
+        now = get_eastern_now().isoformat()
 
         for tier, group in df.groupby('salary_tier'):
             if len(group) < 3:

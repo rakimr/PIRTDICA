@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
-from datetime import datetime
+from utils.timezone import get_eastern_now
 import unicodedata
 import re
 import warnings
@@ -688,7 +688,7 @@ def validate_archetypes(df):
 
 def save_archetypes(df):
     conn = sqlite3.connect(DB_PATH)
-    now = datetime.now().isoformat()
+    now = get_eastern_now().isoformat()
 
     save_df = df[['player_name', 'team', 'true_position', 'archetype', 'base_archetype', 'cluster']].copy()
     save_df['computed_at'] = now
