@@ -412,7 +412,9 @@ def run_clustering(df, k=TARGET_K):
         label_counts[label] = label_counts.get(label, 0) + 1
         if label_counts[label] > 1:
             c = dict(zip(COMPOSITE_FEATURES, centroids_orig[i]))
-            if c.get('defense_idx', 0) > 0.5:
+            if label == '3-and-D Wing' and c.get('defense_idx', 0) < 0:
+                label = 'Shooting Wing'
+            elif c.get('defense_idx', 0) > 0.5:
                 label = f"{label} (Defensive)"
             elif c.get('creation_idx', 0) > 0.5:
                 label = f"{label} (Offensive)"
@@ -501,7 +503,8 @@ def run_clustering(df, k=TARGET_K):
 
     print("\n  Position-based reclassification for frontcourt players in guard/wing archetypes...")
     non_big_archetypes = ['Scoring Wing', 'Scoring Guard', '3-and-D Wing', '3-and-D Guard',
-                          'Scoring Wing (Offensive)', 'Scoring Wing (Role)', 'Combo Guard', 'Playmaker',
+                          'Shooting Wing', 'Scoring Wing (Offensive)', 'Scoring Wing (Role)',
+                          'Combo Guard', 'Playmaker',
                           'Combo Guard (Offensive)', 'Combo Guard (Defensive)', 'Combo Guard (Role)']
 
     clear_big_mask = (

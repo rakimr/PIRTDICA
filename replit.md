@@ -34,7 +34,7 @@ Lineup optimization is achieved using PuLP for linear programming and a Monte Ca
 
 The web platform is built with FastAPI (Python) for the backend, SQLAlchemy for ORM, and Jinja2 templates with custom CSS for the frontend, featuring live scoring, contest history, and admin controls. The dual-currency system (Coach Coin, Coach Cash) supports a Play-to-Earn (P2E) model focused on Identity, Prestige, Access, and Analytics, strictly avoiding pay-to-win mechanics. Ranked modes include free Coin Mode and competitive Cash Mode, structured with a tiered division system, hidden MMR, and seasonal resets. Monetization relies on a small rake on Coach Cash competitions, cosmetic sales, and future subscriptions.
 
-The player archetype system includes 10 total archetypes: 5 specialist (Playmaker, 3-and-D Wing, Scoring Wing, Versatile Big, Traditional Big) and 5 hybrid branch categories (Combo Guard, Stretch 4, Stretch 5, Point Center, Point Forward). Classification uses the Phillips Archetype Classification v2 system described below.
+The player archetype system includes 11 total archetypes: 5 specialist (Playmaker, 3-and-D Wing, Shooting Wing, Scoring Wing, Traditional Big) and 6 hybrid/role categories (Combo Guard, Versatile Big, Stretch 4, Stretch 5, Point Center, Point Forward). Classification uses the Phillips Archetype Classification v2 system described below.
 
 ### Phillips Archetype Classification v2
 The archetype system compresses raw player stats into 8 orthogonal composite indices, then clusters on those axes using minutes-weighted K-Means with soft probability assignments.
