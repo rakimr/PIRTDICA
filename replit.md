@@ -10,10 +10,12 @@ Auto-push to GitHub: Always push changes to GitHub at the end of every task usin
 ### Article Writing Guidelines (PIRTDICA Daily Picks)
 - **NO fantasy salary** ($7,300, etc.), **NO fantasy points projections** (proj_fp, ceiling, floor), **NO value ratios**, **NO FanDuel/DraftKings lineup talk**.
 - Focus on **prop bets**: points over/under, rebounds, assists, steals, blocks, threes. Reference actual book lines when available.
+- **Prop line precision**: Distinguish between over 1.5 (needs 2+) vs 1+ (alternate, needs just 1). For stats like steals/blocks where 1 is common but 2 is a spike, prefer 1+ alternate lines over O1.5. For stats with higher volume (points, rebounds, assists), use the .5 lines. Always consider whether the edge supports clearing the .5 threshold or just hitting the flat number.
 - Use **per game averages** and **per 100 possession rates** to establish baseline production.
 - Use **shot chart data** (rim/paint %, three %, pull-up vs catch-and-shoot) to explain HOW a player scores.
 - Use **DVP/DVA archetype matchup data** to explain WHY this specific matchup is exploitable (e.g., "+0.088 points per minute to Traditional Bigs").
 - Include **teammate context** (who creates shots, who spaces the floor, how the offense functions around this player).
+- **Roster accuracy**: Always verify current team rosters before writing. Players get traded mid-season — check the pipeline's salary/roster data to confirm who plays for which team. Never assume a player is still on their previous team.
 - Each player section ends with **"The stat to watch:"** giving a specific, actionable prop recommendation.
 - Close with **"THE BIGGER PICTURE"** section tying the picks together thematically.
 - Format: `PLAYER NAME: Stat Edge vs Team` header, `TEAM vs TEAM | Position | Archetype` subheader.
