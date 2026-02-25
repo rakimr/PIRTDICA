@@ -1,20 +1,17 @@
 player_name,team,opponent,position,salary,stat,player_avg,opp_allows,league_avg,extra_fp,edge_pct,recommendation
 Stephon Castle,SA,TOR,PG,7700,Points,16.6,26.0,24.0,2.0,8.4,TOR gives up +2.0 FP in Points to PGs
 De'Aaron Fox,SA,TOR,PG,7000,Points,19.1,26.0,24.0,2.0,8.4,TOR gives up +2.0 FP in Points to PGs
-Moses Moody,GS,MEM,SF,5600,Points,11.9,24.2,22.7,1.5,6.5,MEM gives up +1.5 FP in Points to SFs
 Clint Capela,HOU,SAC,C,3800,Rebounds,4.4,15.7,14.4,1.5,8.9,SAC gives up +1.5 FP in Rebounds to Cs
+Moses Moody,GS,MEM,SF,5600,Points,11.9,24.2,22.7,1.5,6.5,MEM gives up +1.5 FP in Points to SFs
 Jaylen Brown,BOS,DEN,SF,16000,Points,29.2,23.8,22.7,1.1,4.7,DEN gives up +1.1 FP in Points to SFs
-Donovan Mitchell,CLE,MIL,SG,9600,Rebounds,4.5,7.4,6.7,0.9,11.2,MIL gives up +0.9 FP in Rebounds to SGs
-DeMar DeRozan,SAC,HOU,SF,6700,Steals,1.2,2.0,1.7,0.9,17.0,HOU gives up +0.9 FP in Steals to SFs
-Isaiah Hartenstein,OKC,DET,C,6400,Steals,1.0,1.7,1.4,0.9,20.3,DET gives up +0.9 FP in Steals to Cs
 Reed Sheppard,HOU,SAC,SG,5700,Assists,3.0,6.0,5.4,0.9,11.1,SAC gives up +0.9 FP in Assists to SGs
+DeMar DeRozan,SAC,HOU,SF,6700,Steals,1.2,2.0,1.7,0.9,17.0,HOU gives up +0.9 FP in Steals to SFs
 Jamal Murray,DEN,BOS,PG,16000,Assists,7.5,8.9,8.4,0.8,6.3,BOS gives up +0.8 FP in Assists to PGs
 Jericho Sims,MIL,CLE,C,3900,Rebounds,4.5,15.0,14.4,0.7,4.0,CLE gives up +0.7 FP in Rebounds to Cs
 Reed Sheppard,HOU,SAC,SG,5700,Points,12.7,24.1,23.4,0.7,3.1,SAC gives up +0.7 FP in Points to SGs
-Myles Turner,MIL,CLE,C,5800,Rebounds,5.7,15.0,14.4,0.7,4.0,CLE gives up +0.7 FP in Rebounds to Cs
 Clint Capela,HOU,SAC,C,3800,Blocks,0.8,2.2,2.0,0.7,12.2,SAC gives up +0.7 FP in Blocks to Cs
+Myles Turner,MIL,CLE,C,5800,Rebounds,5.7,15.0,14.4,0.7,4.0,CLE gives up +0.7 FP in Rebounds to Cs
 Jaylen Brown,BOS,DEN,SF,16000,Assists,4.9,4.8,4.4,0.6,8.5,DEN gives up +0.6 FP in Assists to SFs
-De'Anthony Melton,GS,MEM,PG,5900,Points,12.7,24.6,24.0,0.6,2.6,MEM gives up +0.6 FP in Points to PGs
 Ryan Rollins,MIL,CLE,PG,8000,Points,17.2,24.6,24.0,0.6,2.6,CLE gives up +0.6 FP in Points to PGs
 Ryan Rollins,MIL,CLE,PG,8000,Assists,5.4,8.8,8.4,0.6,5.1,CLE gives up +0.6 FP in Assists to PGs
 Isaiah Joe,OKC,DET,SG,4800,Points,11.0,24.0,23.4,0.6,2.7,DET gives up +0.6 FP in Points to SGs
