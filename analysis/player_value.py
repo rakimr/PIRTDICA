@@ -3,6 +3,8 @@ Player Value Analysis and Prop Insights
 Calculates value metrics and identifies high-value prop opportunities using DVP data.
 """
 import os
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import pandas as pd
 import sqlite3
 import matplotlib
