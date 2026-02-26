@@ -22,52 +22,21 @@ import sqlite3
 import pandas as pd
 import numpy as np
 import time
+import sys
+import os
 from datetime import datetime
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from utils.nba_api_helpers import nba_api_call_with_retry, inter_call_delay
 
 DB_PATH = 'dfs_nba.db'
 SEASON = '2025-26'
-MAX_RETRIES = 2
-RETRY_DELAYS = [5, 15]
-NBA_TIMEOUT = 60
-
-NBA_HEADERS = {
-    'Host': 'stats.nba.com',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
-    'Accept': 'application/json, text/plain, */*',
-    'Accept-Language': 'en-US,en;q=0.5',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'x-nba-stats-origin': 'stats',
-    'x-nba-stats-token': 'true',
-    'Connection': 'keep-alive',
-    'Referer': 'https://www.nba.com/',
-    'Origin': 'https://www.nba.com',
-    'Sec-Fetch-Dest': 'empty',
-    'Sec-Fetch-Mode': 'cors',
-    'Sec-Fetch-Site': 'same-site',
-}
-
-
-def nba_api_call_with_retry(endpoint_class, label, **kwargs):
-    for attempt in range(MAX_RETRIES):
-        try:
-            result = endpoint_class(**kwargs, timeout=NBA_TIMEOUT, headers=NBA_HEADERS)
-            return result.get_data_frames()[0]
-        except Exception as e:
-            delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 15
-            print(f"  Attempt {attempt+1}/{MAX_RETRIES} for {label} failed: {e}")
-            if attempt < MAX_RETRIES - 1:
-                print(f"  Retrying in {delay}s...")
-                time.sleep(delay)
-    print(f"  WARNING: All attempts failed for {label} - NBA.com may be unreachable from this server")
-    return None
 
 
 def scrape_shot_locations():
     from nba_api.stats.endpoints import leaguedashplayershotlocations
 
     print("Fetching shot zone data from NBA.com (leaguedashplayershotlocations)...")
-    time.sleep(1)
 
     raw = nba_api_call_with_retry(
         leaguedashplayershotlocations.LeagueDashPlayerShotLocations,
@@ -149,7 +118,6 @@ def scrape_shot_creation():
     print("\nFetching shot creation data from NBA.com (leaguedashplayerptshot)...")
 
     print("  Fetching Overall totals...")
-    time.sleep(1)
     overall = nba_api_call_with_retry(
         leaguedashplayerptshot.LeagueDashPlayerPtShot, "shot creation - Overall",
         season=SEASON, season_type_all_star='Regular Season',
@@ -160,7 +128,7 @@ def scrape_shot_creation():
         return None
 
     print("  Fetching Catch and Shoot...")
-    time.sleep(2)
+    inter_call_delay()
     catch_shoot = nba_api_call_with_retry(
         leaguedashplayerptshot.LeagueDashPlayerPtShot, "shot creation - C&S",
         season=SEASON, season_type_all_star='Regular Season',
@@ -168,7 +136,7 @@ def scrape_shot_creation():
     )
 
     print("  Fetching Pull Ups...")
-    time.sleep(2)
+    inter_call_delay()
     pullups = nba_api_call_with_retry(
         leaguedashplayerptshot.LeagueDashPlayerPtShot, "shot creation - Pullups",
         season=SEASON, season_type_all_star='Regular Season',
@@ -176,7 +144,7 @@ def scrape_shot_creation():
     )
 
     print("  Fetching Less Than 10ft...")
-    time.sleep(2)
+    inter_call_delay()
     paint = nba_api_call_with_retry(
         leaguedashplayerptshot.LeagueDashPlayerPtShot, "shot creation - Paint",
         season=SEASON, season_type_all_star='Regular Season',
@@ -693,8 +661,11 @@ def main():
     print("=" * 60)
 
     zones_df = scrape_shot_locations()
+    inter_call_delay()
     creation_df = scrape_shot_creation()
+    inter_call_delay()
     hustle_df = scrape_hustle_stats()
+    inter_call_delay()
     tracking_df = scrape_tracking_stats()
 
     if zones_df is None and creation_df is None and hustle_df is None and tracking_df is None:

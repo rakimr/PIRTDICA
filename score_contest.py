@@ -19,19 +19,41 @@ def fetch_actual_stats_nba(game_date: date) -> pd.DataFrame:
     """Fetch actual player stats from NBA.com stats API (primary source).
     Returns official FanDuel FP values and minutes directly."""
     import time
+    import random
     try:
         from nba_api.stats.endpoints import PlayerGameLogs
+        from utils.nba_api_helpers import MAX_RETRIES, RETRY_DELAYS, NBA_TIMEOUT, get_nba_headers
         
         date_str = game_date.strftime("%m/%d/%Y")
-        time.sleep(1)
-        logs = PlayerGameLogs(
-            season_nullable='2025-26',
-            season_type_nullable='Regular Season',
-            date_from_nullable=date_str,
-            date_to_nullable=date_str,
-            league_id_nullable='00'
-        )
-        df = logs.get_data_frames()[0]
+        df = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                warmup = random.uniform(2, 5)
+                time.sleep(warmup)
+                headers = get_nba_headers()
+                logs = PlayerGameLogs(
+                    season_nullable='2025-26',
+                    season_type_nullable='Regular Season',
+                    date_from_nullable=date_str,
+                    date_to_nullable=date_str,
+                    league_id_nullable='00',
+                    timeout=NBA_TIMEOUT,
+                    headers=headers
+                )
+                df = logs.get_data_frames()[0]
+                break
+            except Exception as retry_err:
+                base_delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 60
+                jitter = random.uniform(-3, 3)
+                delay = max(3, base_delay + jitter)
+                print(f"  NBA.com attempt {attempt+1}/{MAX_RETRIES} failed: {retry_err}")
+                if attempt < MAX_RETRIES - 1:
+                    print(f"  Retrying in {delay:.0f}s...")
+                    time.sleep(delay)
+        
+        if df is None:
+            print(f"NBA.com unreachable after {MAX_RETRIES} attempts")
+            return pd.DataFrame()
         
         if df.empty:
             print(f"No NBA.com data for {game_date}")

@@ -1,27 +1,13 @@
 import sqlite3
 import time
+import random
+import sys
+import os
 from datetime import datetime
 from nba_api.stats.endpoints import synergyplaytypes
 
-MAX_RETRIES = 2
-RETRY_DELAYS = [5, 15]
-NBA_TIMEOUT = 60
-
-NBA_HEADERS = {
-    'Host': 'stats.nba.com',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
-    'Accept': 'application/json, text/plain, */*',
-    'Accept-Language': 'en-US,en;q=0.5',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'x-nba-stats-origin': 'stats',
-    'x-nba-stats-token': 'true',
-    'Connection': 'keep-alive',
-    'Referer': 'https://www.nba.com/',
-    'Origin': 'https://www.nba.com',
-    'Sec-Fetch-Dest': 'empty',
-    'Sec-Fetch-Mode': 'cors',
-    'Sec-Fetch-Site': 'same-site',
-}
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from utils.nba_api_helpers import MAX_RETRIES, RETRY_DELAYS, NBA_TIMEOUT, get_nba_headers, inter_call_delay
 
 PLAY_TYPES = [
     "Isolation", "Transition", "PRBallHandler", "PRRollman",
@@ -100,9 +86,11 @@ def scrape_play_types():
             if not api_reachable:
                 break
             try:
+                inter_call_delay()
                 df = None
                 for attempt in range(MAX_RETRIES):
                     try:
+                        headers = get_nba_headers()
                         synergy = synergyplaytypes.SynergyPlayTypes(
                             league_id='00',
                             per_mode_simple='PerGame',
@@ -112,14 +100,16 @@ def scrape_play_types():
                             season=SEASON_YEAR,
                             type_grouping_nullable=grouping,
                             timeout=NBA_TIMEOUT,
-                            headers=NBA_HEADERS
+                            headers=headers
                         )
                         df = synergy.get_data_frames()[0]
                         break
                     except Exception as retry_err:
                         err_str = str(retry_err).lower()
+                        base_delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 60
+                        jitter = random.uniform(-3, 3)
+                        delay = max(3, base_delay + jitter)
                         if 'timeout' in err_str or 'connection' in err_str or 'refused' in err_str or '403' in err_str or '429' in err_str:
-                            delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 15
                             if attempt < MAX_RETRIES - 1:
                                 print(f"    Retry {attempt+1}/{MAX_RETRIES} for {grouping} {play_type}: {retry_err}")
                                 time.sleep(delay)
@@ -128,7 +118,6 @@ def scrape_play_types():
                                 api_reachable = False
                                 df = None
                         else:
-                            delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 15
                             if attempt < MAX_RETRIES - 1:
                                 print(f"    Retry {attempt+1}/{MAX_RETRIES} for {grouping} {play_type}: {retry_err}")
                                 time.sleep(delay)

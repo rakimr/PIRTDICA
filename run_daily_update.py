@@ -51,7 +51,7 @@ def run_script(script_name, description):
     base_script = parts[0]
     cmd = [sys.executable, "-u"] + parts
     
-    timeout = 300 if base_script in NBA_COM_SCRIPTS else 600
+    timeout = 900 if base_script in NBA_COM_SCRIPTS else 600
     
     try:
         result = subprocess.run(

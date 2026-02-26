@@ -10,30 +10,15 @@ import sqlite3
 import pandas as pd
 import numpy as np
 import time
+import sys
+import os
 from datetime import datetime
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from utils.nba_api_helpers import MAX_RETRIES, NBA_TIMEOUT, get_nba_headers
 
 DB_PATH = 'dfs_nba.db'
 SEASON = '2025-26'
-MAX_RETRIES = 2
-RETRY_DELAYS = [5, 15]
-NBA_TIMEOUT = 60
-
-NBA_HEADERS = {
-    'Host': 'stats.nba.com',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
-    'Accept': 'application/json, text/plain, */*',
-    'Accept-Language': 'en-US,en;q=0.5',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'x-nba-stats-origin': 'stats',
-    'x-nba-stats-token': 'true',
-    'Connection': 'keep-alive',
-    'Referer': 'https://www.nba.com/',
-    'Origin': 'https://www.nba.com',
-    'Sec-Fetch-Dest': 'empty',
-    'Sec-Fetch-Mode': 'cors',
-    'Sec-Fetch-Site': 'same-site',
-}
 
 
 TEAM_NAME_TO_ABBR = {
@@ -53,12 +38,18 @@ TEAM_NAME_TO_ABBR = {
 def scrape_team_defense_shot_zones():
     from nba_api.stats.endpoints import leaguedashteamshotlocations
 
+    import random
     print("Fetching team opponent shot zone data from NBA.com...")
-    time.sleep(1)
+
+    RETRY_DELAYS = [5, 15, 30, 60]
+    warmup = random.uniform(2, 5)
+    print(f"  Warming up {warmup:.1f}s...")
+    time.sleep(warmup)
 
     raw = None
     for attempt in range(MAX_RETRIES):
         try:
+            headers = get_nba_headers()
             shot_locs = leaguedashteamshotlocations.LeagueDashTeamShotLocations(
                 season=SEASON,
                 season_type_all_star='Regular Season',
@@ -66,15 +57,17 @@ def scrape_team_defense_shot_zones():
                 per_mode_detailed='Totals',
                 measure_type_simple='Opponent',
                 timeout=NBA_TIMEOUT,
-                headers=NBA_HEADERS
+                headers=headers
             )
             raw = shot_locs.get_data_frames()[0]
             break
         except Exception as e:
-            delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 15
+            base_delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 60
+            jitter = random.uniform(-3, 3)
+            delay = max(3, base_delay + jitter)
             print(f"  Attempt {attempt+1}/{MAX_RETRIES} failed: {e}")
             if attempt < MAX_RETRIES - 1:
-                print(f"  Retrying in {delay}s...")
+                print(f"  Retrying in {delay:.0f}s...")
                 time.sleep(delay)
     
     if raw is None:

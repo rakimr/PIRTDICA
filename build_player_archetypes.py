@@ -68,10 +68,15 @@ MIN_MINUTES_FOR_CENTROID = 800
 def fetch_player_heights():
     try:
         from nba_api.stats.endpoints import leaguedashplayerbiostats
-        import time
-        time.sleep(0.6)
-        bio = leaguedashplayerbiostats.LeagueDashPlayerBioStats(season='2024-25')
-        df = bio.get_data_frames()[0]
+        from utils.nba_api_helpers import nba_api_call_with_retry
+        df = nba_api_call_with_retry(
+            leaguedashplayerbiostats.LeagueDashPlayerBioStats,
+            "player bio stats",
+            season='2024-25'
+        )
+        if df is None:
+            print("  WARNING: Could not fetch height data from NBA.com")
+            return {}
         height_map = {}
         for _, row in df.iterrows():
             name = row.get('PLAYER_NAME', '')

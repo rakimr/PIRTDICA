@@ -8,28 +8,12 @@ import pandas as pd
 import numpy as np
 import sqlite3
 import time
+import sys
+import os
 from datetime import datetime
 
-
-MAX_RETRIES = 2
-RETRY_DELAYS = [5, 15]
-NBA_TIMEOUT = 60
-
-NBA_HEADERS = {
-    'Host': 'stats.nba.com',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
-    'Accept': 'application/json, text/plain, */*',
-    'Accept-Language': 'en-US,en;q=0.5',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'x-nba-stats-origin': 'stats',
-    'x-nba-stats-token': 'true',
-    'Connection': 'keep-alive',
-    'Referer': 'https://www.nba.com/',
-    'Origin': 'https://www.nba.com',
-    'Sec-Fetch-Dest': 'empty',
-    'Sec-Fetch-Mode': 'cors',
-    'Sec-Fetch-Site': 'same-site',
-}
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from utils.nba_api_helpers import MAX_RETRIES, RETRY_DELAYS, NBA_TIMEOUT, get_nba_headers, nba_api_call_with_retry
 
 
 def calc_fanduel_fp(row):
@@ -46,24 +30,13 @@ def calc_fanduel_fp(row):
 def scrape_gamelogs():
     print("Fetching all player game logs from NBA.com...")
     
-    df = None
-    for attempt in range(MAX_RETRIES):
-        try:
-            gamelog = leaguegamelog.LeagueGameLog(
-                season='2025-26',
-                player_or_team_abbreviation='P',
-                season_type_all_star='Regular Season',
-                timeout=NBA_TIMEOUT,
-                headers=NBA_HEADERS
-            )
-            df = gamelog.get_data_frames()[0]
-            break
-        except Exception as e:
-            delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 15
-            print(f"  Attempt {attempt+1}/{MAX_RETRIES} failed: {e}")
-            if attempt < MAX_RETRIES - 1:
-                print(f"  Retrying in {delay}s...")
-                time.sleep(delay)
+    df = nba_api_call_with_retry(
+        leaguegamelog.LeagueGameLog,
+        "game logs",
+        season='2025-26',
+        player_or_team_abbreviation='P',
+        season_type_all_star='Regular Season'
+    )
     
     if df is None or len(df) == 0:
         conn = sqlite3.connect('dfs_nba.db')
