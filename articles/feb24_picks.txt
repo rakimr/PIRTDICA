@@ -1,0 +1,96 @@
+Ten games tonight. Atlanta is a 13.5-point road favorite in Washington. Minnesota visits Portland as 6.5-point favorites with a 236.5 total. Cleveland goes into New York as 3.5-point favorites. Charlotte is in Chicago with an 8.5-point spread and a 233.5 total. Miami visits Milwaukee as 6.5-point underdogs.
+
+The injury list is massive. Washington is missing Trae Young, Anthony Davis, Alex Sarr, D'Angelo Russell, and Cam Whitmore. That is five rotation players gone from a roster that was already rebuilding. Giannis Antetokounmpo and Damian Lillard are out for Milwaukee. Stephen Curry is out for Golden State. Devin Booker and Jusuf Nurkic are out for Phoenix. Jayson Tatum, Jaylen Brown, and Kristaps Porzingis are all out for Boston.
+
+When this many high-usage players sit, the production does not disappear. It gets redistributed to players whose rate stats already suggest they can carry a heavier load. The question is always: where does that production go, and does the matchup amplify it?
+
+Here are four players whose specific stat profiles align with tonight's matchup vulnerabilities. These are not fantasy lineup recommendations. These are prop bet targets backed by per-100 possession rates, shot chart profiles, and archetype matchup data.
+
+
+DYSON DANIELS: Steals vs Washington
+
+ATL @ WAS | Small Forward | Scoring Wing
+
+Daniels averages 1.8 steals per game this season. That number alone puts him in the top tier of the league. His per 100 possessions rate of 2.5 steals tells you what happens when the minutes increase, and tonight they will increase. Atlanta is a 13.5-point road favorite, which means Daniels should see a full workload in a game with a 236.5 total.
+
+His hustle profile confirms this is not a fluke. Daniels averages 5.93 deflections per 48 minutes and 8.44 contested shots per 48 minutes. He is an active, disruptive defender who creates turnovers through anticipation and length, not gambling. His 6.1 assists per game on 8.5 per 100 possessions show he is also a willing distributor, but his defensive activity is what separates him tonight.
+
+The matchup against Washington is the key. The DVA data shows Washington allows a +0.229 FPPM differential to Stretch 4 archetypes and +0.171 to Versatile Bigs, but the prop edge model flags Washington specifically for steals vulnerability against small forwards. Washington gives up +2.1 additional steals production to opposing SFs compared to league average. That is a 40.1% edge above baseline.
+
+The book has Daniels at 1.5 steals with -178 juice on the over. The market knows he steals the ball. But the adjusted projection of 2.3 steals in this matchup gives a 50.9% edge over the book line, the largest prop edge on tonight's entire slate. Washington is missing five rotation players tonight including Young, Davis, Sarr, Russell, and Whitmore. That depleted roster means more ball handling from less experienced players, which creates exactly the kind of loose ball environment where Daniels thrives.
+
+His shot chart shows a player who lives at the rim. 47.6% of his field goal attempts come at the restricted area, converting at 66.0%. Another 36.5% come in the paint. He does not need jumpers to score. He finishes in transition off the turnovers he creates, which means his steal production directly fuels his scoring.
+
+The stat to watch: Steals over 1.5 is the primary play. The 50.9% edge over the book line is the largest on the board tonight, driven by Washington's specific vulnerability to perimeter defenders with length and activity. Assists over 5.5 is the secondary angle at 24.0% edge over book. Daniels functions as a secondary playmaker alongside Jalen Johnson, and his 8.5 assists per 100 rate says the production scales with opportunity.
+
+
+JOSH GIDDEY: Assists and Rebounds vs Charlotte
+
+CHA @ CHI | Point Guard | Playmaker
+
+Giddey averages 8.5 assists per game this season, but his per 100 possessions rate of 13.0 puts him in a tier with the league's elite distributors. He is a Playmaker archetype running Chicago's offense, and tonight he faces a Charlotte defense that gives up +0.082 FPPM differential to Point Forwards, the archetype most similar to how Giddey plays: a tall, versatile facilitator who creates from multiple positions on the floor.
+
+The Coby White absence is critical context. With White out, Giddey absorbs additional ball handling responsibility. His usage rate has already been boosted to account for this, and the pipeline projects him at 32.7 minutes. His shot creation profile shows a balanced approach: 24.9% catch-and-shoot, 22.1% pull-up, with 73% of his threes coming off catch-and-shoot opportunities. He does not force. He moves the ball and finds the open man.
+
+His shot chart shows a player who operates from everywhere. 35.7% of his attempts come at the rim (converting at 58.9%), 23.2% in the paint, 6.8% from midrange, and 34.3% from three. Charlotte allows a 66.6% clip at the restricted area and 43.0% in the paint. That is a defense that does not protect the rim, and Giddey's ability to drive and kick creates assist opportunities when the defense collapses.
+
+The book has his assists at 5.5 with -162 on the over. His season average of 8.5 already clears that line by three full assists. The adjusted average of 8.1 gives a 47.9% edge over the book. Even accounting for the DVA showing a slight -0.28 differential for Playmakers against Charlotte, the gap between his actual production rate and the book line is enormous.
+
+The rebounds are the secondary angle. Giddey averages 8.2 rebounds per game with a 12.9 per 100 rate. The book has him at 5.5 rebounds with -128 juice. His adjusted projection of 7.8 gives a 42.4% edge over that line. At 6-foot-8, he is one of the tallest point guards in the league, and Charlotte's interior defense does not box out consistently.
+
+The stat to watch: Assists over 5.5 is the primary call. The 47.9% edge over book is the second-largest on tonight's slate. The line is set nearly three full assists below his season average, which means the book is pricing him like a backup rather than a starter. Rebounds over 5.5 is the stack play. His size and per-100 rebounding rate make this a natural pairing with the assists play.
+
+
+JALEN JOHNSON: Rebounds vs Washington
+
+ATL @ WAS | Power Forward | Point Forward
+
+Johnson averages 10.8 rebounds per game with a per 100 rate of 13.7. He is a Point Forward archetype, meaning he handles the ball, creates for others, and still crashes the glass. His 23.4 points, 10.8 rebounds, and 8.1 assists per game line is a triple-double caliber stat line, and tonight's game environment should push the rebounding number higher.
+
+Washington gives up +2.4 additional rebounds to opposing power forwards compared to league average, a 19.2% edge. That is the largest positional rebounding vulnerability on tonight's slate. The DVA data confirms it from the archetype angle: Washington allows a +0.248 FPPM differential to Point Centers (Johnson's closest archetype match among bigs) and +0.229 to Stretch 4s. The defense leaks production across every frontcourt archetype.
+
+Johnson is Atlanta's primary creator this season. His 27.9% pull-up rate and 31.4% rim attempt rate show a player who attacks downhill and creates contact. When he drives, he draws the defense toward the ball, and missed shots at the rim create offensive rebounding opportunities for a player who is already positioned near the basket.
+
+His shot chart shows 31.4% of attempts at the restricted area (73.0% conversion) and 31.7% in the paint. Washington allows 68.2% at the rim and 42.3% in the paint. Johnson operates in exactly the zones where Washington is weakest, and his physical tools at 6-foot-9 with a 7-foot-1 wingspan give him positional rebounding advantages that the DVP numbers reflect.
+
+The teammate context matters. Johnson is Atlanta's hub on both ends. He will play heavy minutes in a game where Atlanta is a 13.5-point favorite with a 236.5 total. That spread suggests the game could get out of hand early, but the high total means both teams are expected to score. More possessions means more shot attempts, which means more rebounds available. Washington's depleted roster, missing Sarr, Davis, and Young, means fewer bodies contesting boards on the defensive glass.
+
+The stat to watch: Rebounds is the primary call. Washington's +2.4 extra rebounds allowed to PFs is the largest positional edge on tonight's board. Johnson's 13.7 per 100 rate combined with increased minutes and usage makes this the most structurally sound prop on the slate. Points are the secondary angle. His 30.2 per 100 scoring rate against a Washington defense allowing 68.2% at the rim creates a natural scoring floor.
+
+
+DANIEL GAFFORD: Blocks vs Brooklyn
+
+DAL @ BKN | Center | Traditional Big
+
+Gafford averages 1.3 blocks per game on 21.5 minutes. That is the surface number. His per 100 possessions rate of 3.1 blocks is elite. It tells you that when Gafford is on the court, he is one of the most prolific shot blockers in the league. The limitation has always been minutes, not production rate.
+
+Tonight the minutes should come. Kyrie Irving and Dereck Lively II are both out for Dallas. Gafford is the starting center with a projected 32.4 minutes, well above his 21.5 season average. That expanded role means his per-100 production gets more runway.
+
+His shot chart tells the story of a pure interior player. 77.3% of his field goal attempts come at the restricted area. Another 21.1% come in the paint. He does not shoot threes. He does not take midrange jumpers. He finishes at the rim, and he protects it on the other end. His shot creation profile confirms this: only 1.6% catch-and-shoot and 1.6% pull-up. Everything is off cuts, rolls, and offensive rebounds.
+
+Brooklyn is the matchup that makes this work. The DVA data shows Brooklyn allows a +0.096 FPPM differential to Traditional Bigs, with the points differential at +0.090 per minute. Brooklyn's rim defense allows 68.0% at the restricted area and 45.8% in the paint, the highest paint field goal percentage among tonight's opponents. That is a defense that does not contest interior shots effectively, which is exactly where Gafford does all of his damage.
+
+The block opportunity comes from Brooklyn's offensive approach. Without a dominant interior scorer, Brooklyn's offense runs through perimeter actions that generate driving lanes. Gafford's 3.1 blocks per 100 rate means he is a legitimate weak-side help defender who swats shots at the rim. Brooklyn's paint attack gives him targets.
+
+The value here is the minutes gap. The book prices Gafford based on his 21.5-minute average. Tonight he should see 30+ minutes. A player who blocks shots at a 3.1 per 100 rate getting 50% more minutes than usual is a mathematical mismatch between the line and the projected opportunity.
+
+The stat to watch: Blocks is the primary call. His 3.1 per 100 block rate in expanded minutes against a Brooklyn defense that allows the highest paint field goal percentage on tonight's slate creates a structural edge. The minutes expansion is the catalyst. If the book has his blocks at 1.5, the adjusted projection in 32 minutes should push well above that line. Rebounds are the secondary play. His 14.5 per 100 rebound rate in extended minutes should produce boards at a rate the line does not account for.
+
+
+THE BIGGER PICTURE
+
+Tonight's slate is shaped by absence at scale. Washington is missing five rotation players and facing a full-strength Atlanta team as 13.5-point underdogs. Dallas is without its best player and starting center. Milwaukee is missing its two most important players. Boston is sitting its entire core. When this much talent sits simultaneously, the books struggle to reprice individual props quickly enough.
+
+The four picks here follow the same framework. Start with the rate stats to identify what a player actually produces per possession. Then check the shot chart to understand where and how they score. Then overlay the DVA matchup data to see if the opponent is specifically weak against that player's archetype. Finally, confirm the book line has not already adjusted.
+
+Daniels and Giddey are the highest-confidence plays. Daniels has the largest single-prop edge on the slate at 50.9% over book on steals, driven by Washington's specific vulnerability. Giddey's assists line is set nearly three assists below his season average, a gap that is difficult to explain regardless of matchup.
+
+Johnson is the structural play. Washington's positional rebounding weakness to PFs is the largest on the board, and their depleted frontcourt without Sarr and Davis amplifies the opportunity.
+
+Gafford is the minutes play. His per-100 rates are elite, and the gap between his usual playing time and tonight's projected minutes creates value the line has not captured.
+
+Every prop here targets a specific stat where the player's rate production, shot profile, and archetype matchup converge on the same conclusion. That is the edge.
+
+---
+
+@pirtdicaco

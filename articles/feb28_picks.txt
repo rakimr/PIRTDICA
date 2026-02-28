@@ -1,0 +1,86 @@
+Five games tonight. Toronto visits Washington as 13.5-point favorites in a 229.5-point total. Charlotte goes to Portland as 6.5-point underdogs in a 229.5-point total. New Orleans visits Utah as 6.5-point underdogs in a 245.5-point total, the highest on the slate. The Lakers are in Golden State as 3.5-point underdogs in a 226.5-point game. Houston goes to Miami as 2.5-point favorites in a 226.5-point total.
+
+The injury report is significant. Washington is missing Deni Avdija (injury management), Trae Young, D'Angelo Russell, and Alex Sarr. The Lakers are without Rui Hachimura and Kristaps Porzingis (both illness). Portland is missing Anfernee Simons and Shaedon Sharpe. Charlotte is without Tidjane Salaun and Liam McNeeley. New Orleans is missing Trey Murphy III and Dejounte Murray.
+
+A small slate means concentrated attention. Five games, ten teams, and a 245.5-point total in the New Orleans-Utah game that signals a pace-and-space environment built for volume. When the total is that high, the books are telling you both teams will push the ball. The edge lives in identifying which players benefit most from that tempo and which defensive weaknesses the books have not fully priced into individual prop lines.
+
+Here are four players whose per-100 possession rates, shot profiles, and archetype matchup data converge on specific stat edges. These are not fantasy lineup recommendations. These are prop bet targets.
+
+
+SCOTTIE BARNES: Points + Rebounds vs Washington
+
+TOR @ WAS | Power Forward | Point Forward
+
+Barnes averages 19.1 points and 8.2 rebounds per game on 34.3 minutes and 24.2% usage. His per 100 possessions rates of 27.6 points and 11.7 rebounds per 100 tell you he produces at a high volume relative to every minute on the floor. He is classified as a Point Forward archetype, a player who initiates offense from the forward position while crashing the glass. Tonight he faces Washington, the worst defense in the league against nearly every archetype classification.
+
+His shot chart reveals a player who attacks the paint relentlessly. 35.9% of his attempts come at the restricted area and 28.5% in the paint, giving him a combined 64.4% rim-and-paint shot distribution. His shot creation data confirms it: 55.7% paint production, 21.1% pull-up shooting, and 22.2% catch-and-shoot. Only 20.2% of his total attempts come from three, and 80.6% of those threes are catch-and-shoot. Barnes is not a perimeter scorer. He is a paint-first player who gets to the rim through drives and cuts, and who collects offensive rebounds by virtue of already being in the paint when shots go up.
+
+Washington's defense is the matchup that unlocks this. The DVA data shows Washington allows a +0.065 FPPM differential to Point Forwards, with the scoring component at +0.070 and the rebounding component at +0.047. Those are the two largest positive components in Washington's Point Forward matchup profile. Their DVP score of 52.7 against opposing power forwards is the worst in the league for that position. Washington gives up positive FPPM differentials to every single archetype, the only team on tonight's slate where that is true across the board.
+
+Washington is missing Deni Avdija, Alex Sarr, Trae Young, and D'Angelo Russell. Their depleted frontcourt means Tristan Vukcevic and the remaining bigs absorb the interior defensive load. Sarr's absence is critical for rebounding: his length and activity on the glass are Washington's best tools for limiting opponent boards, and without him, Barnes faces a softer frontcourt in the paint. Toronto is a 13.5-point road favorite, which creates blowout risk for fourth-quarter minutes, but Barnes's 34.3 minutes per game average suggests he plays the majority of the first three quarters regardless of score.
+
+Barnes's defensive profile adds secondary value. His 4.45 deflections per 48 minutes and 8.56 contested shots per 48 tell you he is active on the defensive end, which means he is engaged and positioned for long defensive rebounds that transition into fastbreak opportunities. His 2.1 blocks per game with a 2.1 per 100 rate further confirms the defensive activity level.
+
+The stat to watch: Points over 17.5 is the primary play. Barnes's 27.6 per 100 rate projects comfortably above this line in standard minutes, and Washington's +0.070 scoring differential to Point Forwards adds further margin. The book has this at -120/-106, which tells you the market sees it as close. The DVA data says it is not close. The secondary angle is rebounds over 8.5 at -102/-125. His 11.7 per 100 rate against a Washington frontcourt missing Alex Sarr creates a clear path above the line. Both props together form a dual-stat play: 18+ points and 9+ rebounds is a realistic outcome given the matchup data.
+
+
+ZION WILLIAMSON: Points vs Utah
+
+NO @ UTA | Power Forward | Versatile Big
+
+Williamson averages 24.5 points per game on 29.9 minutes and 27.2% usage. Those minutes look modest, but his per 100 possessions rate of 36.2 points is one of the highest in the league. He produces scoring volume at an extraordinary rate when he is on the floor. Every minute of Zion's court time is high-octane offense, and tonight he faces a Utah defense that allows positive production differentials to Versatile Bigs across every statistical category.
+
+His shot chart tells you everything about how he scores. 68.1% of his attempts come at the restricted area. Another 29.4% come in the paint. Combined, 97.5% of Zion Williamson's shots happen inside the paint. He has attempted exactly 3 three-pointers out of 548 total field goal attempts this season. His shot creation data is even more stark: 93.8% paint production. He does not shoot from the midrange. He does not shoot from three. He attacks the rim on nearly every possession, and he finishes at an elite rate because of his 6-foot-6, 284-pound frame and explosive athleticism.
+
+Utah's defense is a favorable matchup for this specific scoring profile. The DVA data shows Utah allows a +0.148 FPPM differential to Versatile Bigs, with the assist component at +0.050 the largest single piece. But the scoring piece matters here: +0.013 points per minute may look small, but the steal component at +0.012 and block component at +0.017 add peripheral contributions. More importantly, Utah's DVP score of 53.8 against opposing power forwards ranks as one of the worst in the league. Utah plays at a 102.0 pace, the fastest among tonight's home teams, and the game total of 245.5 is the highest on the slate. More possessions means more opportunities for Zion to get downhill and attack the rim.
+
+The game environment amplifies the scoring opportunity. New Orleans is a 6.5-point underdog, which means the game should remain competitive throughout, keeping Williamson on the floor for his full allocation of minutes. In competitive games where the outcome is in question, coaches do not sit their stars early. If Zion plays 30-32 minutes instead of his average 29.9, his 36.2 per 100 rate projects to approximately 22-24 points before any matchup adjustment.
+
+Williamson's 1.9 steals per 100 add a secondary dimension. Utah allows +0.012 steal differential to Versatile Bigs, and Zion's 3.19 deflections per 48 tell you he is active in the passing lanes despite his reputation as primarily an offensive player. Against a Utah team that will push pace and create transition opportunities, his steal activity could produce a 2+ steal game.
+
+The stat to watch: Points over 24.5 is the play. The book has this at -110/-122, a line that sits right at his season average. But the game environment says this is an above-average opportunity. The 245.5 total and Utah's 102.0 pace create more possessions than Zion sees in an average game. His 97.5% paint shot distribution means he is not dependent on three-point shooting variance. He gets to the rim, and he finishes. The over is the side here because the pace and total create the extra possessions needed to push his scoring above the season average.
+
+
+AMEN THOMPSON: Steals vs Miami
+
+HOU @ MIA | Point Guard | Scoring Wing
+
+Thompson averages 17.3 points, 7.6 rebounds, and 5.3 assists per game on 37.0 minutes and 20.1% usage. His per 100 possessions rate of 1.8 steals per 100 tells you he is an active defensive disruptor, but the real signal is in his physical profile and how he attacks the ball. He is classified as a Scoring Wing archetype, a player who creates his own offense through drives and rim attacks, but his defensive tools are what make this prop interesting tonight.
+
+His shot chart confirms the attacking style. 46.1% of his attempts come at the restricted area, with another 30.4% in the paint for a combined 76.5% rim-and-paint distribution. His shot creation data shows 68.9% paint production and 17.6% pull-up shooting. Thompson is a downhill attacker who lives in the lane. On the defensive end, this attacking mentality translates to aggressive positioning in passing lanes and active hands in the half court. His 3.42 deflections per 48 minutes confirm the disruption level.
+
+Miami's defense allows a +0.014 FPPM differential to Scoring Wings, with the scoring component at +0.041 the largest piece. But the steal-specific number is what matters for this play: Miami allows a -0.007 steal differential to Scoring Wings, which is actually slightly negative. So why is this a steal play?
+
+The answer is game context and Thompson's specific defensive matchup. Miami's backcourt tonight features Tyler Herro (26.3% usage, 30.2 minutes) as the primary ball handler. Herro is a scorer, not a distributor. He holds the ball, operates in isolation, and creates off the dribble. Thompson's length and lateral quickness matched up against Herro's ball-dominant style creates the exact defensive scenario that generates steals: an aggressive perimeter defender against a high-usage guard who exposes the ball during dribble moves. Miami plays at a 104.0 pace, the fastest of any home team tonight, which means more possessions and more ball-handling events for Thompson to attack.
+
+Houston is a 2.5-point road favorite, which means this game should be competitive throughout with full starter minutes. Thompson's 37.0 minutes per game is the highest of any player in this article, giving him the most possessions and the most defensive opportunities. At 1.8 steals per 100 over 37 minutes, his baseline projection is approximately 1.4 steals before any matchup or pace adjustment.
+
+The stat to watch: Steals over 1.5 is the play. The book has this at 116/-154, meaning the market sees this as roughly a coin flip leaning slightly toward the over. Thompson averages enough steal activity that he hits 2+ steals in a meaningful percentage of his games. Miami's 104.0 pace creates the extra possessions needed to push the probability above 50%. The 1+ alternate line is the safer floor, but at 1.8 per 100 over 37 minutes in a fast-paced game, the over 1.5 is where the value sits. His secondary play is points over 16.5 at -102/-125. His 24.2 per 100 rate in 37 minutes against a Miami defense that allows +0.041 scoring differential to Scoring Wings projects comfortably above the line.
+
+
+DEANDRE AYTON: Rebounds vs Golden State
+
+LAL @ GS | Center | Traditional Big
+
+Ayton averages 8.4 rebounds per game on 28.1 minutes and 17.0% usage. His per 100 possessions rate of 14.6 rebounds places him among the league's elite board crashers. He is classified as a Traditional Big archetype, a center who operates almost exclusively in the paint with 50.5% of his shots at the restricted area, 43.4% in the paint, and exactly 0.0% from three. He does not leave the interior. He is always in rebounding position.
+
+His hustle stats tell the story of his rebounding dominance. 13.71 contested shots per 48 minutes is an extraordinary number, meaning Ayton is constantly in the paint contesting and positioning for boards. His 1.88 box outs per 48 confirm the activity on the glass. His shot creation data shows 81.1% paint production and only 3.2% pull-up shooting. This is a player whose entire offensive existence happens at the rim and in the paint, which means on every possession, he is already positioned where rebounds occur.
+
+Golden State's DVA data shows a -0.019 FPPM differential against Traditional Bigs overall, but the rebounding component specifically is +0.010. That means Golden State allows Traditional Bigs to collect slightly more rebounds per minute than average. The broader defensive context matters more: Golden State's DVP score of 53.2 against opposing centers ranks in the bottom third of the league. Golden State is not a team that dominates the glass against traditional centers.
+
+The game environment supports the rebounding opportunity. The Lakers are 3.5-point underdogs in a 226.5-point total. This is projected as a competitive game throughout, which means Ayton should see his full 28-30 minutes without garbage-time reductions. The Lakers are missing Rui Hachimura and Kristaps Porzingis, which means Ayton's minutes could actually increase. With Hachimura out, the Lakers need Ayton's interior presence even more, and he becomes the primary rebounder in the frontcourt.
+
+Golden State's frontcourt presents the matchup that matters. Draymond Green (5.1 rebounds per game) and Al Horford (4.4 rebounds) are the primary bigs, with Kevon Looney potentially seeing minutes. None of these players are dominant rebounders. Green is a connector and playmaker who often rebounds by positioning rather than athleticism. Ayton's 6-foot-11, 250-pound frame and his relentless paint presence create a physical advantage on the glass against this undersized Golden State frontcourt.
+
+Ayton's 14.6 per 100 rate over 28 minutes projects to approximately 8.2 rebounds before matchup adjustments. The prop recommendations show a +0.30 DVA rebounding edge and +1.15 DVP edge for Ayton against Golden State, pushing the adjusted average to 9.0 rebounds.
+
+The stat to watch: Rebounds over 7.5 is the primary play. The book has this at -144/108, meaning the market already leans toward the over. But the juice tells you the market has not fully priced in the Hachimura and Porzingis absences. With those two out, Ayton's role as the sole interior anchor expands, and his minutes may push toward 30+. At 14.6 per 100 over 30 minutes, the projection is 8.8 rebounds, clearing the 7.5 line with margin. The secondary angle is points over 10.5 at 100/-132. His 22.8 per 100 scoring rate in the paint against a Golden State interior that is not elite at protecting the rim gives him a path above the line.
+
+
+THE BIGGER PICTURE
+
+Tonight's five-game slate is defined by interior dominance. Three of the four picks attack from the paint: Barnes with his 64.4% rim-and-paint distribution, Williamson with his 97.5% paint concentration, and Ayton with his 93.9% interior shot profile. Even Thompson, the most perimeter-capable player in this article, generates 76.5% of his offense inside the paint.
+
+The books set totals and spreads, but individual prop lines take longer to adjust for pace, missing players, and archetype-specific defensive vulnerabilities. Washington without Sarr, the Lakers without Hachimura and Porzingis, Utah pushing at a 102.0 pace with a 245.5 total — these are the structural conditions that create gaps between a player's seasonal average and their adjusted projection for tonight.
+
+The edge is not in who will score the most points. It is in who will exceed their prop line by the widest margin, and tonight the answer is the players who attack the paint against defenses that cannot protect it.

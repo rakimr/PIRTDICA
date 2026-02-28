@@ -1,0 +1,100 @@
+Six games tonight. San Antonio visits Toronto as 6.5-point favorites with a 230.5 total, the highest on the slate. Denver is in Boston as 3.5-point underdogs with a 229.5 total. Cleveland visits Milwaukee as 3.5-point favorites in a 222.5-point game. Houston goes to Sacramento as 13.5-point favorites in a 221.5 total. Golden State visits Memphis as 3.5-point underdogs, and Detroit is in Oklahoma City as 10.5-point underdogs.
+
+The injury landscape is wide. Cleveland is missing Donovan Mitchell, Evan Mobley, and Max Strus. James Harden is questionable with a thumb issue. Oklahoma City is without Chet Holmgren, Isaiah Hartenstein, Alex Caruso, and Jalen Williams. Milwaukee is missing Damian Lillard and Giannis Antetokounmpo. Houston is without Amen Thompson, Fred VanVleet, and Jae'Sean Tate. Memphis is missing Ja Morant, Santi Aldama, and Zach Edey.
+
+When multiple high-usage players are out, the books adjust the spread and total, but individual prop lines lag behind. The question is always the same: where does the redistributed production go, and does the matchup amplify the volume?
+
+Here are four players whose per-100 possession rates, shot profiles, and archetype matchup data converge on specific stat edges. These are not fantasy lineup recommendations. These are prop bet targets.
+
+
+DE'AARON FOX: Points vs Toronto
+
+SA @ TOR | Point Guard | Playmaker
+
+Fox averages 19.1 points per game this season on 25.0% usage. His per 100 possessions rate of 29.9 points tells you what happens when the volume scales, and tonight it should. San Antonio is a 6.5-point road favorite in a game with a 230.5 total, the highest on the slate. Fox will play heavy minutes in a game environment designed for scoring.
+
+His shot chart shows a diversified attacker. 21.2% of his attempts come at the restricted area, 26.6% in the paint, 14.4% from midrange, and 37.8% from three. He is not a one-zone scorer. His shot creation profile confirms it: 45.4% pull-up, 19.4% catch-and-shoot, 35.0% paint touches. He creates his own shot nearly half the time, which means his scoring does not depend on someone else setting him up.
+
+Toronto is the matchup that makes this work. The DVA data shows Toronto gives up a +0.122 FPPM differential to Playmakers, the archetype Fox is classified as. That ranks as one of Toronto's worst defensive matchup categories. The targeted play data confirms it from the positional angle: Toronto allows +2.0 additional points of production to opposing point guards compared to league average, an 8.4% edge.
+
+Toronto's defensive shot zone data tells the rest of the story. They allow 66.8% shooting at the restricted area and 44.3% in the paint. Their rim defense is below league average, and Fox attacks both zones with 47.8% of his total shots coming inside the paint. He also draws fouls on drives, creating free throw opportunities that inflate his scoring total beyond the field goal numbers.
+
+The book has Fox at 16.5 points. His season average of 19.1 already clears that line by 2.6 points. The adjusted projection with DVA overlay pushes to 21.3, giving a 28.8% edge over the book line. This is the largest vs-book edge on tonight's slate for a points prop with a confirmed line.
+
+The stat to watch: Points over 16.5 is the primary play. The 28.8% edge over book is driven by Toronto's specific vulnerability to Playmaker archetypes and their leaky interior defense. Fox's diversified shot chart means he has multiple paths to clear this line. Assists over 5.5 is the secondary angle. His 8.8 per 100 rate and Toronto's -0.122 FPPM weakness to playmaking guards create a natural scoring-plus-assists correlation.
+
+
+JAYLON TYSON: Rebounds vs Milwaukee
+
+CLE @ MIL | Small Forward | 3-and-D Wing
+
+Tyson averages 5.3 rebounds per game on 27.3 minutes. His per 100 possessions rate of 9.5 rebounds puts him in the upper tier for wing players. He is a 3-and-D Wing archetype at 6-foot-6, and tonight he faces a Milwaukee defense that has been one of the league's most exploitable on the glass.
+
+Milwaukee's DVA data is striking. They allow a +0.161 FPPM differential to Scoring Wings and +0.022 to 3-and-D Wings overall, but the positional data is where the real edge lives. Milwaukee gives up +0.5 additional rebounding production to opposing small forwards compared to league average, a 5.3% edge. The targeted play data flags Tyson specifically with a 36.4% edge over his book line of 4.5 rebounds.
+
+The context tonight amplifies this. Cleveland is missing Donovan Mitchell, Evan Mobley, and Max Strus. Mobley's absence is the critical piece for Tyson's rebounding. Mobley averages 8.3 rebounds per game as a 6-foot-11 frontcourt player. With him out, those contested boards shift to the remaining players on the floor. Tyson's 9.5 per 100 rebounding rate says he is already capable of absorbing that volume.
+
+His shot chart shows a player who lives around the basket. 33.4% of his attempts come at the restricted area and 19.3% in the paint, giving him a combined 52.7% rim-and-paint shot distribution. He is already positioned near the boards on his own offensive possessions. His 44.5% catch-and-shoot rate means the rest of his offense comes off movement, not ball-dominant isolation, which keeps him active on the glass rather than stuck at the perimeter waiting for a reset.
+
+Milwaukee's defensive shot zones show 27.5% of opponent attempts coming at the restricted area with a 68.3% conversion rate, and 17.4% in the paint at 38.2%. Their rim protection is league average, but their overall defensive rebounding has been a weakness with Giannis Antetokounmpo out.
+
+The book has Tyson at 4.5 rebounds with -102 juice on the over. His season average of 5.3 already sits above the line. The adjusted projection of 6.1 rebounds with Mobley out and DVA overlay gives the 36.4% edge that the prop model flagged.
+
+The stat to watch: Rebounds over 4.5 is the primary play. The combination of Mobley's absence, Tyson's 9.5 per 100 rebounding rate, and Milwaukee's weakened frontcourt without Giannis creates a structural rebounding advantage. His 52.7% rim-and-paint shot distribution keeps him in board position on both ends. This is a volume opportunity that the line has not fully adjusted for.
+
+
+REED SHEPPARD: Assists vs Sacramento
+
+HOU @ SAC | Shooting Guard | Playmaker
+
+Sheppard averages 3.0 assists per game on 24.6 minutes. That number understates his passing ability. His per 100 possessions rate of 6.2 assists puts him in a different category entirely, one that reflects what happens when the minutes and ball handling expand. Tonight they expand significantly.
+
+Houston is missing Amen Thompson, Fred VanVleet, and Jae'Sean Tate. Thompson and VanVleet are Houston's primary and secondary ball handlers. With both out, Sheppard moves into a primary creation role. The rotation detection projects him at 40.0 minutes with a starter bump, well above his 24.6-minute season average. His usage rate gets boosted to account for the additional ball handling responsibility.
+
+His hustle stats confirm this is a player who creates action when he touches the ball. He averages 6.89 deflections per 48 minutes, the highest among tonight's key players, and 6.56 contested shots per 48. He is an active, engaged defender whose hands-on style creates transition opportunities, and transition is where assists come easiest.
+
+The matchup against Sacramento is specifically favorable. The targeted play data shows Sacramento gives up +0.9 additional assist production to opposing shooting guards compared to league average, an 11.1% edge. The DVA data shows Sacramento allows a +0.055 FPPM differential to Playmakers, which is Sheppard's archetype classification. Sacramento's defense has been permissive to ball handlers all season.
+
+His shot creation profile shows a balanced player: 39.1% catch-and-shoot, 38.8% pull-up, 22.0% paint touches. He can both create for himself and create for others off the dribble. The 38.8% pull-up rate is notable because pull-up players draw defensive attention and create kick-out assists when the defense collapses. His 56.6% three-point attempt rate means defenses close out hard on him, which opens driving lanes for dump-off assists.
+
+The stat to watch: Assists is the primary play. The book line will be set based on his 3.0 per game average, but tonight he is functionally Houston's point guard with both Thompson and VanVleet out. His 6.2 per 100 rate in 40 projected minutes against a Sacramento defense that gives up assists to shooting guards at a league-high rate creates a significant gap between the line and the opportunity. This is a minutes expansion play that the prop market has likely not priced in. Look for the 3+ alternate line rather than over 3.5, since his average sits right at 3.0 and the .5 threshold adds unnecessary risk even with the expanded role.
+
+
+MYLES TURNER: Blocks vs Cleveland
+
+CLE @ MIL | Center | Stretch 5
+
+Turner averages 1.7 blocks per game on 28.3 minutes. His per 100 possessions rate of 2.7 blocks ranks him among the league's elite rim protectors. He is a Stretch 5 archetype, a player who spaces the floor on offense with 57.8% of his shots coming from three while anchoring the defense as a shot-blocking center.
+
+The matchup against Cleveland is specific. The prop edge model flags Turner's blocks at 1.5 with a 23.7% edge over the book line. Cleveland gives up +0.7 additional rebounding production to opposing centers, which suggests they attack the paint aggressively, creating more shot-blocking opportunities for the weak-side rim protector.
+
+Cleveland's offensive approach tonight matters. Without Mitchell, Mobley, and Strus, the Cavaliers will rely on Darius Garland — who is also out. This leaves a significantly depleted roster. Sam Merrill and Jaylon Tyson will handle increased ball-handling duties, and both are perimeter players whose drives into the paint are more likely to result in contested layups than finished shots. Turner is the help defender who punishes those drives.
+
+Turner's hustle profile confirms his rim protection value. He averages 14.49 contested shots per 48 minutes and 3.13 deflections per 48 minutes. Those 14.49 contested shots per 48 are the highest among tonight's featured players and tell you he is constantly in position to challenge shots at the rim.
+
+His shot creation breakdown shows 57.5% catch-and-shoot, 11.6% pull-up, and 30.5% paint touches on offense. He does not create off the dribble. He catches and shoots threes or finishes at the rim. This offensive simplicity means his defensive energy is preserved for shot-blocking rather than being depleted by creating offense.
+
+With Giannis and Lillard both out for Milwaukee, Turner's minutes should stay at their usual level or increase slightly. The game has a 222.5 total, and Milwaukee is at home as an underdog. Cleveland's depleted roster driving into Turner's rim protection is the structural setup for blocks.
+
+The stat to watch: Blocks 1+ is the play here, not over 1.5. Turner averages 1.7 blocks per game, which means he records at least 1 block in the vast majority of his games. The over 1.5 line requires him to get 2 blocks, which is a spike output for most games. The 1+ alternate line just needs him to block a single shot, and his 2.7 per 100 rate against a Cleveland team driving into the paint with backup ball handlers makes that outcome near-certain. This is where line precision matters: the edge is in the likelihood of recording a block, not in clearing the .5 threshold.
+
+
+THE BIGGER PICTURE
+
+Tonight's slate is defined by depletion across multiple rosters. Cleveland is missing its three best players. Oklahoma City is without four key rotation players. Milwaukee has no Giannis and no Lillard. Houston is missing both primary ball handlers. When this much talent sits, the books adjust totals and spreads, but individual player props take longer to recalibrate.
+
+The four picks follow the same framework. Start with the per-100 possession rates to identify what a player actually produces when they are on the court. Then check the shot chart to understand where and how they score. Then overlay the DVA archetype matchup data to see if the opponent is specifically vulnerable to that player's style. Finally, compare the projection to the book line.
+
+Fox is the highest-confidence play. The 28.8% edge over the book line on points is the largest on tonight's slate, driven by Toronto's specific vulnerability to Playmaker archetypes and Fox's diversified shot chart that gives him multiple paths to clear 16.5 points.
+
+Tyson is the absence play. Mobley's rebounding volume has to go somewhere, and Tyson's 9.5 per 100 rate against a Milwaukee team weakened on the glass without Giannis makes him the most likely recipient.
+
+Sheppard is the role expansion play. He functionally becomes Houston's point guard tonight with both Thompson and VanVleet out, and his 6.2 per 100 assist rate against Sacramento's permissive defense creates a significant gap between his usual line and tonight's opportunity.
+
+Turner is the matchup play, and the line precision matters. His 2.7 per 100 block rate against Cleveland's depleted roster driving into the paint needs the 1+ alternate, not the over 1.5. One block is near-certain. Two requires a spike.
+
+Every prop here targets a stat where the player's rate production, shot profile, and archetype matchup data converge on the same conclusion. That is the edge.
+
+---
+
+@pirtdicaco
