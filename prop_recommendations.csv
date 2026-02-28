@@ -1,37 +1,38 @@
 player,team,opponent,salary,value,stat,player_avg,adjusted_avg,extra_fp,edge_pct,recommendation,book_line,book_over,book_under,vs_book_edge,archetype,dva_edge,dvp_edge,blend
-Nique Clifford,SAC,DAL,5400,5.93,PTS,6.8,6.2,-0.6,-2.8,UNDER,13.5,-130.0,-102.0,-54.4,Shooting Wing,-0.11,-1.41,40/59 DVP/DVA
-Nique Clifford,SAC,DAL,5400,5.93,AST,1.7,1.8,0.2,2.4,UNDER,3.5,-152.0,114.0,-48.4,Shooting Wing,0.06,0.18,40/59 DVP/DVA
-Josh Giddey,CHI,POR,7400,6.69,REB,8.1,7.9,-0.2,-3.2,OVER,5.5,-154.0,116.0,43.8,Playmaker,-0.18,-0.22,40/59 DVP/DVA
-Deandre Ayton,LAL,PHO,5200,5.8,REB,8.5,10.0,1.8,10.4,OVER,7.5,-146.0,110.0,33.3,Traditional Big,2.14,0.57,40/59 DVP/DVA
-Julian Champagnie,SA,BKN,4300,5.72,PTS,11.1,11.2,0.1,0.4,OVER,8.5,-132.0,100.0,31.7,Shooting Wing,-0.25,0.59,40/59 DVP/DVA
-Deandre Ayton,LAL,PHO,5200,5.8,PTS,13.2,13.4,0.2,0.7,OVER,10.5,-102.0,-130.0,27.2,Traditional Big,0.01,0.37,40/59 DVP/DVA
-Davion Mitchell,MIA,PHI,4900,7.15,PTS,9.0,9.2,0.2,1.0,OVER,7.5,-114.0,-114.0,23.3,Playmaker,0.75,-0.49,40/59 DVP/DVA
-Bam Adebayo,MIA,PHI,8000,5.55,PTS,18.3,19.8,1.5,6.8,OVER,16.5,-128.0,-104.0,19.8,Stretch 5,3.25,-1.13,40/59 DVP/DVA
-Andrew Wiggins,MIA,PHI,6800,6.24,PTS,16.1,17.3,1.2,5.2,OVER,14.5,-125.0,-106.0,19.1,3-and-D Wing,1.63,0.49,40/59 DVP/DVA
-Jrue Holiday,POR,CHI,6900,6.53,PTS,15.7,15.0,-0.7,-2.8,UNDER,18.5,-112.0,-118.0,-18.7,Playmaker,-0.58,-0.79,40/59 DVP/DVA
-Josh Giddey,CHI,POR,7400,6.69,PTS,17.8,18.4,0.6,2.3,OVER,15.5,-114.0,-114.0,18.5,Playmaker,0.39,0.81,40/59 DVP/DVA
-Kyle Filipowski,UTA,NO,7500,5.41,PTS,9.9,11.2,1.3,6.3,UNDER,13.5,-132.0,100.0,-16.7,Stretch 5,0.71,2.27,40/59 DVP/DVA
-Isaac Okoro,CHI,POR,4000,5.57,PTS,9.2,8.8,-0.4,-1.6,UNDER,10.5,-118.0,-112.0,-15.9,3-and-D Wing,-0.21,-0.61,40/59 DVP/DVA
-Jrue Holiday,POR,CHI,6900,6.53,AST,6.3,7.5,1.8,14.5,OVER,6.5,-132.0,100.0,15.6,Playmaker,1.27,1.13,40/59 DVP/DVA
-Brandon Williams,DAL,SAC,5900,6.67,PTS,12.8,13.1,0.3,1.2,UNDER,15.5,-130.0,-102.0,-15.5,Playmaker,0.07,0.61,40/59 DVP/DVA
-Mark Williams,PHO,LAL,5500,6.04,PTS,11.7,9.8,-1.9,-8.9,UNDER,11.5,-114.0,-114.0,-14.9,Traditional Big,-1.15,-3.03,40/59 DVP/DVA
-De'Aaron Fox,SA,BKN,7200,5.58,PTS,19.1,18.9,-0.2,-0.7,OVER,16.5,-108.0,-122.0,14.7,Playmaker,0.93,-1.79,40/59 DVP/DVA
-Devin Vassell,SA,BKN,5200,5.39,PTS,14.4,14.1,-0.3,-1.1,OVER,12.5,-122.0,-108.0,13.2,Shooting Wing,-0.25,-0.25,40/59 DVP/DVA
-VJ Edgecombe,PHI,MIA,7000,5.63,PTS,15.3,16.3,1.0,4.5,OVER,14.5,-106.0,-125.0,12.7,Scoring Wing,1.24,0.75,40/59 DVP/DVA
-Collin Gillespie,PHO,LAL,6400,7.42,PTS,13.4,13.8,0.4,1.8,UNDER,15.5,-122.0,-108.0,-10.8,Playmaker,0.99,-0.39,40/59 DVP/DVA
-Daniel Gafford,DAL,SAC,5000,7.4,BLK,1.3,1.6,1.0,16.2,OVER,,,,,Traditional Big,0.31,0.34,40/59 DVP/DVA
-Daniel Gafford,DAL,SAC,5000,7.4,AST,1.0,0.7,-0.5,-7.6,UNDER,,,,,Traditional Big,-0.72,0.31,40/59 DVP/DVA
-DeAndre Jordan,NO,UTA,4500,8.91,BLK,1.5,1.8,0.9,14.5,OVER,,,,,Traditional Big,0.25,0.34,40/59 DVP/DVA
-Kevin Love,UTA,NO,3900,6.58,STL,0.3,0.2,-0.4,-9.6,UNDER,,,,,Versatile Big,-0.17,-0.11,40/59 DVP/DVA
-Davion Mitchell,MIA,PHI,4900,7.15,BLK,0.2,0.1,-0.3,-21.8,UNDER,,,,,Playmaker,-0.04,-0.23,40/59 DVP/DVA
-Jamaree Bouyea,PHO,LAL,3900,7.24,BLK,0.4,0.2,-0.5,-34.1,UNDER,,,,,Scoring Wing,-0.22,-0.13,40/59 DVP/DVA
-Jamaree Bouyea,PHO,LAL,3900,7.24,REB,1.9,1.4,-0.6,-8.5,UNDER,,,,,Scoring Wing,-0.32,-0.82,40/59 DVP/DVA
-Ben Sheppard,IND,CHA,4000,6.61,PTS,6.9,5.4,-1.5,-6.5,UNDER,,,,,Shooting Wing,-1.71,-1.25,40/59 DVP/DVA
-Isaiah Collier,UTA,NO,8100,6.61,REB,2.6,2.2,-0.5,-5.8,UNDER,,,,,Playmaker,-0.68,0.04,40/59 DVP/DVA
-Isaiah Collier,UTA,NO,8100,6.61,AST,7.3,7.5,0.3,4.1,OVER,,,,,Playmaker,0.31,0.09,40/59 DVP/DVA
-Kevin Love,UTA,NO,3900,6.58,PTS,6.9,5.5,-1.4,-5.9,UNDER,,,,,Versatile Big,-1.37,-1.33,40/59 DVP/DVA
-Ryan Dunn,PHO,LAL,3900,5.89,BLK,0.4,0.1,-0.9,-25.5,UNDER,,,,,Stretch 4,-0.3,-0.33,40/59 DVP/DVA
-Herbert Jones,NO,UTA,5100,5.75,STL,1.6,1.8,0.6,12.4,OVER,,,,,3-and-D Wing,0.24,0.17,40/59 DVP/DVA
-Clint Capela,HOU,ORL,3800,5.58,PTS,3.5,1.7,-1.8,-8.6,UNDER,,,,,Traditional Big,-1.58,-2.23,40/59 DVP/DVA
-Moritz Wagner,ORL,HOU,4000,5.49,REB,3.0,1.9,-1.3,-7.6,UNDER,,,,,Traditional Big,-0.38,-2.13,40/59 DVP/DVA
-Dominick Barlow,PHI,MIA,4200,5.36,AST,1.2,1.0,-0.4,-5.7,UNDER,,,,,Versatile Big,-0.44,0.05,40/59 DVP/DVA
+Kyshawn George,WAS,TOR,5600,4.6,AST,4.6,4.3,-0.5,-6.9,OVER,2.5,-150.0,118.0,71.7,Scoring Wing,-0.23,-0.42,40/59 DVP/DVA
+Austin Reaves,LAL,GS,8000,5.21,AST,5.5,5.2,-0.4,-5.3,OVER,3.5,102.0,-136.0,49.0,Combo Guard,-0.54,0.09,40/59 DVP/DVA
+Marcus Smart,LAL,GS,4000,5.98,PTS,9.5,9.6,0.1,0.6,OVER,6.5,-114.0,-114.0,48.3,Shooting Wing,0.26,-0.05,40/59 DVP/DVA
+Kel'el Ware,MIA,HOU,5500,5.33,PTS,11.3,10.9,-0.4,-2.0,OVER,7.5,-128.0,100.0,44.8,Stretch 5,-0.15,-0.87,40/59 DVP/DVA
+DeAndre Jordan,NO,UTA,4500,4.79,REB,8.0,7.8,-0.2,-1.1,OVER,5.5,-154.0,116.0,42.6,Traditional Big,-0.3,0.05,40/59 DVP/DVA
+Tristan Vukcevic,WAS,TOR,5000,6.36,PTS,7.9,6.9,-1.0,-4.6,UNDER,11.5,104.0,-132.0,-40.0,Traditional Big,-0.22,-2.17,40/59 DVP/DVA
+Kyshawn George,WAS,TOR,5600,4.6,PTS,14.8,13.8,-1.0,-4.3,OVER,10.5,-108.0,-118.0,31.6,Scoring Wing,-0.09,-2.31,40/59 DVP/DVA
+Brandin Podziemski,GS,LAL,7300,4.73,REB,5.0,4.7,-0.3,-3.8,UNDER,6.5,120.0,-160.0,-27.0,Playmaker,-0.31,-0.16,40/59 DVP/DVA
+Al Horford,GS,LAL,4600,4.81,PTS,8.0,6.6,-1.4,-6.6,UNDER,8.5,-130.0,-102.0,-22.5,Versatile Big,-0.23,-3.17,40/59 DVP/DVA
+LeBron James,LAL,GS,8400,5.22,AST,7.0,7.9,1.4,21.5,OVER,6.5,118.0,-158.0,22.3,Point Forward,1.4,0.28,40/59 DVP/DVA
+Ace Bailey,UTA,NO,5900,4.61,PTS,11.9,13.0,1.1,4.8,UNDER,16.5,-110.0,-120.0,-21.3,Shooting Wing,0.88,1.39,40/59 DVP/DVA
+Deandre Ayton,LAL,GS,5100,6.07,REB,8.4,9.0,0.8,4.4,OVER,7.5,-144.0,108.0,20.5,Traditional Big,0.3,1.15,40/59 DVP/DVA
+Scottie Barnes,TOR,WAS,9500,4.82,PTS,19.1,21.0,1.9,8.5,OVER,17.5,-120.0,-106.0,20.2,Point Forward,2.1,1.69,40/59 DVP/DVA
+Austin Reaves,LAL,GS,8000,5.21,PTS,24.6,24.4,-0.2,-0.7,OVER,20.5,-106.0,-125.0,19.3,Combo Guard,-0.22,-0.05,40/59 DVP/DVA
+Deandre Ayton,LAL,GS,5100,6.07,PTS,13.0,12.5,-0.5,-2.3,OVER,10.5,100.0,-132.0,19.0,Traditional Big,-0.46,-0.57,40/59 DVP/DVA
+Pelle Larsson,MIA,HOU,5300,4.69,PTS,10.2,9.6,-0.6,-2.8,UNDER,11.5,100.0,-128.0,-16.9,3-and-D Wing,-0.74,-0.51,40/59 DVP/DVA
+Scottie Barnes,TOR,WAS,9500,4.82,REB,8.2,9.9,2.0,16.4,OVER,8.5,-102.0,-125.0,16.3,Point Forward,1.41,2.1,40/59 DVP/DVA
+Brandin Podziemski,GS,LAL,7300,4.73,PTS,12.3,13.0,0.7,3.0,UNDER,15.5,-106.0,-125.0,-16.2,Playmaker,0.99,0.25,40/59 DVP/DVA
+Isaiah Collier,UTA,NO,7700,7.45,REB,2.5,2.1,-0.5,-5.9,UNDER,2.5,-132.0,100.0,-15.7,Playmaker,-0.68,0.04,40/59 DVP/DVA
+Josh Okogie,HOU,MIA,3700,7.34,PTS,5.3,4.7,-0.6,-2.6,UNDER,5.5,-106.0,-120.0,-14.6,3-and-D Wing,-1.51,0.75,40/59 DVP/DVA
+LeBron James,LAL,GS,8400,5.22,PTS,21.5,22.1,0.6,2.9,OVER,19.5,100.0,-132.0,13.6,Point Forward,1.29,-0.31,40/59 DVP/DVA
+Amen Thompson,HOU,MIA,8300,5.61,PTS,17.3,18.4,1.1,4.6,OVER,16.5,-102.0,-125.0,11.6,Scoring Wing,1.24,0.91,40/59 DVP/DVA
+Zion Williamson,NO,UTA,8900,4.57,PTS,21.9,23.5,1.6,7.2,OVER,24.5,-110.0,-122.0,-3.9,Versatile Big,0.39,3.49,40/59 DVP/DVA
+Isaiah Collier,UTA,NO,7700,7.45,AST,7.3,7.5,0.3,4.1,OVER,7.5,-128.0,-104.0,0.3,Playmaker,0.31,0.09,40/59 DVP/DVA
+Clint Capela,HOU,MIA,3800,6.93,PTS,3.6,3.1,-0.5,-2.3,UNDER,,,,,Traditional Big,-0.87,0.03,40/59 DVP/DVA
+Kevin Love,UTA,NO,4100,6.76,PTS,6.8,5.5,-1.3,-5.9,UNDER,,,,,Versatile Big,-1.37,-1.31,40/59 DVP/DVA
+A.J. Lawson,TOR,WAS,3700,6.22,REB,1.8,1.5,-0.3,-4.3,UNDER,,,,,Combo Guard,-0.23,-0.36,40/59 DVP/DVA
+Elijah Harkless,UTA,NO,4200,6.18,PTS,3.0,2.4,-0.6,-2.5,UNDER,,,,,Combo Guard,-2.04,1.55,40/59 DVP/DVA
+Elijah Harkless,UTA,NO,4200,6.18,BLK,0.1,-0.0,-0.3,-18.4,UNDER,,,,,Combo Guard,-0.18,-0.02,40/59 DVP/DVA
+Herbert Jones,NO,UTA,5600,5.42,STL,1.7,1.9,0.6,12.3,OVER,,,,,3-and-D Wing,0.24,0.17,40/59 DVP/DVA
+Kevin Love,UTA,NO,4100,6.76,STL,0.3,0.2,-0.4,-9.8,UNDER,,,,,Versatile Big,-0.17,-0.12,40/59 DVP/DVA
+Caleb Love,POR,CHA,3700,6.75,REB,2.5,2.1,-0.4,-6.0,UNDER,,,,,Shooting Wing,-0.2,-0.61,40/59 DVP/DVA
+Tristan Vukcevic,WAS,TOR,5000,6.36,AST,1.1,0.6,-0.8,-13.5,UNDER,,,,,Traditional Big,-0.17,-1.09,40/59 DVP/DVA
+Tristan Vukcevic,WAS,TOR,5000,6.36,STL,0.4,0.1,-0.8,-19.4,UNDER,,,,,Traditional Big,-0.32,-0.2,40/59 DVP/DVA
+DeAndre Jordan,NO,UTA,4500,4.79,BLK,1.2,1.5,0.9,14.8,OVER,,,,,Traditional Big,0.25,0.35,40/59 DVP/DVA
+Pelle Larsson,MIA,HOU,5300,4.69,BLK,0.2,0.1,-0.4,-17.0,UNDER,,,,,3-and-D Wing,-0.1,-0.19,40/59 DVP/DVA
+Brandin Podziemski,GS,LAL,7300,4.73,BLK,0.2,0.1,-0.4,-21.8,UNDER,,,,,Playmaker,-0.08,-0.22,40/59 DVP/DVA
