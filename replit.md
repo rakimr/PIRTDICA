@@ -6,6 +6,7 @@ PIRTDICA SPORTS CO. offers an NBA Daily Fantasy Sports (DFS) platform focused on
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 Auto-push to GitHub: Always push changes to GitHub at the end of every task using Replit's GitHub connector OAuth token.
+**Do NOT push to GitHub**: `articles/` directory and conversation logs. These are local-only and must never be committed or pushed.
 
 ### Article Writing Guidelines (PIRTDICA Daily Picks)
 - **NO fantasy salary** ($7,300, etc.), **NO fantasy points projections** (proj_fp, ceiling, floor), **NO value ratios**, **NO FanDuel/DraftKings lineup talk**.
