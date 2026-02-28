@@ -51,7 +51,7 @@ def run_script(script_name, description):
     base_script = parts[0]
     cmd = [sys.executable, "-u"] + parts
     
-    timeout = 900 if base_script in NBA_COM_SCRIPTS else 600
+    timeout = 300 if base_script in NBA_COM_SCRIPTS else 600
     
     try:
         result = subprocess.run(
@@ -75,6 +75,9 @@ def main():
     print("NBA DFS Daily Update")
     print("="*50)
     
+    from utils.nba_api_helpers import reset_circuit, get_circuit_info
+    reset_circuit()
+    
     success_count = 0
     fail_count = 0
     
@@ -83,6 +86,11 @@ def main():
             success_count += 1
         else:
             fail_count += 1
+    
+    circuit_info = get_circuit_info()
+    if circuit_info and circuit_info.get('tripped'):
+        print(f"\nCIRCUIT BREAKER: NBA.com was unreachable (tripped by: {circuit_info.get('tripped_by', 'unknown')})")
+        print("All subsequent NBA.com calls used cached data.")
     
     print("\n" + "="*50)
     print(f"Daily Update Complete: {success_count} succeeded, {fail_count} failed")

@@ -22,7 +22,13 @@ def fetch_actual_stats_nba(game_date: date) -> pd.DataFrame:
     import random
     try:
         from nba_api.stats.endpoints import PlayerGameLogs
-        from utils.nba_api_helpers import MAX_RETRIES, RETRY_DELAYS, NBA_TIMEOUT, get_nba_headers
+        from utils.nba_api_helpers import (MAX_RETRIES, RETRY_DELAYS, 
+            NBA_TIMEOUT_FIRST, NBA_TIMEOUT_RETRY, get_nba_headers,
+            is_circuit_open, trip_circuit)
+        
+        if is_circuit_open():
+            print("  CIRCUIT BREAKER: Skipping NBA.com stats — marked unreachable this run")
+            return pd.DataFrame()
         
         date_str = game_date.strftime("%m/%d/%Y")
         df = None
@@ -31,19 +37,20 @@ def fetch_actual_stats_nba(game_date: date) -> pd.DataFrame:
                 warmup = random.uniform(2, 5)
                 time.sleep(warmup)
                 headers = get_nba_headers()
+                timeout = NBA_TIMEOUT_FIRST if attempt == 0 else NBA_TIMEOUT_RETRY
                 logs = PlayerGameLogs(
                     season_nullable='2025-26',
                     season_type_nullable='Regular Season',
                     date_from_nullable=date_str,
                     date_to_nullable=date_str,
                     league_id_nullable='00',
-                    timeout=NBA_TIMEOUT,
+                    timeout=timeout,
                     headers=headers
                 )
                 df = logs.get_data_frames()[0]
                 break
             except Exception as retry_err:
-                base_delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 60
+                base_delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 15
                 jitter = random.uniform(-3, 3)
                 delay = max(3, base_delay + jitter)
                 print(f"  NBA.com attempt {attempt+1}/{MAX_RETRIES} failed: {retry_err}")
@@ -52,7 +59,8 @@ def fetch_actual_stats_nba(game_date: date) -> pd.DataFrame:
                     time.sleep(delay)
         
         if df is None:
-            print(f"NBA.com unreachable after {MAX_RETRIES} attempts")
+            print(f"NBA.com unreachable after {MAX_RETRIES} attempts — tripping circuit breaker")
+            trip_circuit("score_contest")
             return pd.DataFrame()
         
         if df.empty:

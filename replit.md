@@ -32,6 +32,8 @@ The Context Engine v2 (Matchup Interaction Layer) dynamically adjusts projection
 4. **Familiarity Effect**: Incorporates player-vs-team FPPM differentials.
 5. **Bidirectional Durability**: Adjusts for opponent stability.
 
+NBA.com API resilience uses a **circuit breaker pattern** (`utils/nba_api_helpers.py`). On the first NBA.com endpoint failure (2 retries × 45s/90s timeout), the circuit trips and all subsequent NBA.com calls in that pipeline run skip instantly with cached data fallback. State is shared via `/tmp/nba_circuit_breaker.json` and resets at the start of each pipeline run. This reduces worst-case NBA.com outage time from ~45 minutes to ~1 minute. Pipeline timeout for NBA.com scripts is 300s (down from 900s).
+
 Lineup optimization is achieved using PuLP for linear programming and a Monte Carlo optimizer. The platform features a "Beat the House" game against AI, and "Coach vs Coach" (H2H) competitive play with a lobby, coin escrow, and live scoring.
 
 The web platform is built with FastAPI (Python) for the backend, SQLAlchemy for ORM, and Jinja2 templates with custom CSS for the frontend, featuring live scoring, contest history, and admin controls. The dual-currency system (Coach Coin, Coach Cash) supports a Play-to-Earn (P2E) model focused on Identity, Prestige, Access, and Analytics, strictly avoiding pay-to-win mechanics. Ranked modes include free Coin Mode and competitive Cash Mode, structured with a tiered division system, hidden MMR, and seasonal resets. Monetization relies on a small rake on Coach Cash competitions, cosmetic sales, and future subscriptions.

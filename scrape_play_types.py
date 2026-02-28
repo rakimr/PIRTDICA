@@ -7,7 +7,7 @@ from datetime import datetime
 from nba_api.stats.endpoints import synergyplaytypes
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from utils.nba_api_helpers import MAX_RETRIES, RETRY_DELAYS, NBA_TIMEOUT, get_nba_headers, inter_call_delay
+from utils.nba_api_helpers import MAX_RETRIES, RETRY_DELAYS, NBA_TIMEOUT_FIRST, NBA_TIMEOUT_RETRY, get_nba_headers, inter_call_delay, is_circuit_open, trip_circuit
 
 PLAY_TYPES = [
     "Isolation", "Transition", "PRBallHandler", "PRRollman",
@@ -79,6 +79,10 @@ def scrape_play_types():
     all_rows = []
     api_reachable = True
 
+    if is_circuit_open():
+        print("  CIRCUIT BREAKER: Skipping play types — NBA.com marked unreachable this run")
+        api_reachable = False
+
     for grouping in ["Offensive", "Defensive"]:
         if not api_reachable:
             break
@@ -91,6 +95,7 @@ def scrape_play_types():
                 for attempt in range(MAX_RETRIES):
                     try:
                         headers = get_nba_headers()
+                        timeout = NBA_TIMEOUT_FIRST if attempt == 0 else NBA_TIMEOUT_RETRY
                         synergy = synergyplaytypes.SynergyPlayTypes(
                             league_id='00',
                             per_mode_simple='PerGame',
@@ -99,14 +104,14 @@ def scrape_play_types():
                             season_type_all_star='Regular Season',
                             season=SEASON_YEAR,
                             type_grouping_nullable=grouping,
-                            timeout=NBA_TIMEOUT,
+                            timeout=timeout,
                             headers=headers
                         )
                         df = synergy.get_data_frames()[0]
                         break
                     except Exception as retry_err:
                         err_str = str(retry_err).lower()
-                        base_delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 60
+                        base_delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 15
                         jitter = random.uniform(-3, 3)
                         delay = max(3, base_delay + jitter)
                         if 'timeout' in err_str or 'connection' in err_str or 'refused' in err_str or '403' in err_str or '429' in err_str:
@@ -114,7 +119,8 @@ def scrape_play_types():
                                 print(f"    Retry {attempt+1}/{MAX_RETRIES} for {grouping} {play_type}: {retry_err}")
                                 time.sleep(delay)
                             else:
-                                print(f"  NBA.com unreachable after {MAX_RETRIES} attempts for {grouping} {play_type}")
+                                print(f"  NBA.com unreachable after {MAX_RETRIES} attempts for {grouping} {play_type} — tripping circuit breaker")
+                                trip_circuit(f"play_types_{grouping}_{play_type}")
                                 api_reachable = False
                                 df = None
                         else:

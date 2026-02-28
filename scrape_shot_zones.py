@@ -27,10 +27,12 @@ import os
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from utils.nba_api_helpers import nba_api_call_with_retry, inter_call_delay
+from utils.nba_api_helpers import nba_api_call_with_retry, inter_call_delay, get_nba_headers, NBA_TIMEOUT_FIRST
 
 DB_PATH = 'dfs_nba.db'
 SEASON = '2025-26'
+NBA_TIMEOUT = NBA_TIMEOUT_FIRST
+NBA_HEADERS = get_nba_headers()
 
 
 def scrape_shot_locations():

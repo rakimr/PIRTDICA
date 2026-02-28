@@ -13,7 +13,7 @@ import os
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from utils.nba_api_helpers import MAX_RETRIES, RETRY_DELAYS, NBA_TIMEOUT, get_nba_headers, nba_api_call_with_retry
+from utils.nba_api_helpers import nba_api_call_with_retry
 
 
 def calc_fanduel_fp(row):

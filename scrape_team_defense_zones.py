@@ -15,7 +15,7 @@ import os
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from utils.nba_api_helpers import MAX_RETRIES, NBA_TIMEOUT, get_nba_headers
+from utils.nba_api_helpers import MAX_RETRIES, NBA_TIMEOUT_FIRST, NBA_TIMEOUT_RETRY, get_nba_headers, is_circuit_open, trip_circuit
 
 DB_PATH = 'dfs_nba.db'
 SEASON = '2025-26'
@@ -41,34 +41,42 @@ def scrape_team_defense_shot_zones():
     import random
     print("Fetching team opponent shot zone data from NBA.com...")
 
-    RETRY_DELAYS = [5, 15, 30, 60]
-    warmup = random.uniform(2, 5)
-    print(f"  Warming up {warmup:.1f}s...")
-    time.sleep(warmup)
+    if is_circuit_open():
+        print("  CIRCUIT BREAKER: Skipping team defense zones — NBA.com marked unreachable this run")
+        raw = None
+    else:
+        RETRY_DELAYS = [5, 15]
+        warmup = random.uniform(2, 5)
+        print(f"  Warming up {warmup:.1f}s...")
+        time.sleep(warmup)
 
-    raw = None
-    for attempt in range(MAX_RETRIES):
-        try:
-            headers = get_nba_headers()
-            shot_locs = leaguedashteamshotlocations.LeagueDashTeamShotLocations(
-                season=SEASON,
-                season_type_all_star='Regular Season',
-                distance_range='By Zone',
-                per_mode_detailed='Totals',
-                measure_type_simple='Opponent',
-                timeout=NBA_TIMEOUT,
-                headers=headers
-            )
-            raw = shot_locs.get_data_frames()[0]
-            break
-        except Exception as e:
-            base_delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 60
-            jitter = random.uniform(-3, 3)
-            delay = max(3, base_delay + jitter)
-            print(f"  Attempt {attempt+1}/{MAX_RETRIES} failed: {e}")
-            if attempt < MAX_RETRIES - 1:
-                print(f"  Retrying in {delay:.0f}s...")
-                time.sleep(delay)
+        raw = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                headers = get_nba_headers()
+                timeout = NBA_TIMEOUT_FIRST if attempt == 0 else NBA_TIMEOUT_RETRY
+                shot_locs = leaguedashteamshotlocations.LeagueDashTeamShotLocations(
+                    season=SEASON,
+                    season_type_all_star='Regular Season',
+                    distance_range='By Zone',
+                    per_mode_detailed='Totals',
+                    measure_type_simple='Opponent',
+                    timeout=timeout,
+                    headers=headers
+                )
+                raw = shot_locs.get_data_frames()[0]
+                break
+            except Exception as e:
+                base_delay = RETRY_DELAYS[attempt] if attempt < len(RETRY_DELAYS) else 15
+                jitter = random.uniform(-3, 3)
+                delay = max(3, base_delay + jitter)
+                print(f"  Attempt {attempt+1}/{MAX_RETRIES} failed: {e}")
+                if attempt < MAX_RETRIES - 1:
+                    print(f"  Retrying in {delay:.0f}s...")
+                    time.sleep(delay)
+        
+        if raw is None:
+            trip_circuit("team_defense_zones")
     
     if raw is None:
         conn = sqlite3.connect(DB_PATH)
