@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}PIRTDICA{% endblock %}</title>
+    <meta name="description" content="PIRTDICA Sports Co. — Basketball Analysis">
+    <meta property="og:title" content="PIRTDICA Sports Co. — Basketball Analysis">
+    <meta property="og:description" content="Advanced basketball analytics and competitive fantasy sports.">
+    <meta property="og:image" content="{{ request.url_for('static', path='images/pirtdica_logo.png') }}">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="PIRTDICA Sports Co. — Basketball Analysis">
+    <meta name="twitter:description" content="Advanced basketball analytics and competitive fantasy sports.">
+    <meta name="twitter:image" content="{{ request.url_for('static', path='images/pirtdica_logo.png') }}">
     <link rel="icon" type="image/png" href="/static/favicon.png">
     <link rel="stylesheet" href="/static/css/style.css?v={{ range(1, 99999) | random }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
