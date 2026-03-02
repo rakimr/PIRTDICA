@@ -18,6 +18,7 @@ Auto-push to GitHub: Always push changes to GitHub at the end of every task usin
 - Use **DVP/DVA archetype matchup data** to explain WHY this specific matchup is exploitable (e.g., "+0.088 points per minute to Traditional Bigs").
 - Include **teammate context** (who creates shots, who spaces the floor, how the offense functions around this player).
 - **Roster accuracy**: Always verify current team rosters before writing. Players get traded mid-season — check the pipeline's salary/roster data to confirm who plays for which team. Never assume a player is still on their previous team.
+  - The trade deadline has passed. Major moves include: Lillard no longer on MIL, Durant to HOU, Vucevic to BOS, Trae Young to WAS, Anthony Davis to WAS, Garland to LAC, Porzingis to GS, Brook Lopez to LAC, Myles Turner to MIL, Kyle Kuzma to MIL, Jimmy Butler to GS, Al Horford to GS, Cameron Johnson to DEN, Bradley Beal to LAC, D'Angelo Russell to WAS, Cam Thomas to MIL.
 - Each player section ends with **"The stat to watch:"** giving a specific, actionable prop recommendation.
 - Close with **"THE BIGGER PICTURE"** section tying the picks together thematically.
 - Format: `PLAYER NAME: Stat Edge vs Team` header, `TEAM vs TEAM | Position | Archetype` subheader.
