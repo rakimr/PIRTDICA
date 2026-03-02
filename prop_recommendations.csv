@@ -1,42 +1,33 @@
 player,team,opponent,salary,value,stat,player_avg,adjusted_avg,extra_fp,edge_pct,recommendation,book_line,book_over,book_under,vs_book_edge,archetype,dva_edge,dvp_edge,blend
-Kyshawn George,WAS,TOR,5600,4.6,AST,4.6,4.3,-0.5,-6.9,OVER,2.5,-150.0,118.0,71.7,Scoring Wing,-0.23,-0.42,40/59 DVP/DVA
-Toumani Camara,POR,CHA,5700,4.51,PTS,13.1,13.9,0.8,3.7,OVER,8.5,-112.0,-118.0,64.1,Stretch 4,0.95,0.69,40/59 DVP/DVA
-Austin Reaves,LAL,GS,8000,5.34,AST,5.5,5.2,-0.4,-5.3,OVER,3.5,102.0,-136.0,49.0,Combo Guard,-0.54,0.09,40/59 DVP/DVA
-Marcus Smart,LAL,GS,4000,6.69,PTS,9.5,9.6,0.1,0.6,OVER,6.5,-114.0,-114.0,48.3,Shooting Wing,0.26,-0.05,40/59 DVP/DVA
-Kel'el Ware,MIA,HOU,5500,5.31,PTS,11.3,10.9,-0.4,-2.0,OVER,7.5,-128.0,100.0,44.8,Stretch 5,-0.15,-0.87,40/59 DVP/DVA
-DeAndre Jordan,NO,UTA,4500,4.79,REB,8.0,7.8,-0.2,-1.1,OVER,5.5,-154.0,116.0,42.6,Traditional Big,-0.3,0.05,40/59 DVP/DVA
-Tristan Vukcevic,WAS,TOR,5000,6.36,PTS,7.9,6.9,-1.0,-4.6,UNDER,11.5,104.0,-132.0,-40.0,Traditional Big,-0.22,-2.17,40/59 DVP/DVA
-Kyshawn George,WAS,TOR,5600,4.6,PTS,14.8,13.8,-1.0,-4.3,OVER,10.5,-108.0,-118.0,31.6,Scoring Wing,-0.09,-2.31,40/59 DVP/DVA
-Brandin Podziemski,GS,LAL,7300,4.65,REB,5.0,4.7,-0.3,-3.8,UNDER,6.5,120.0,-160.0,-27.0,Playmaker,-0.31,-0.16,40/59 DVP/DVA
-Jamal Shead,TOR,WAS,4200,4.51,PTS,7.1,8.1,1.0,4.2,OVER,6.5,-106.0,-120.0,24.7,Playmaker,1.0,1.01,40/59 DVP/DVA
-Al Horford,GS,LAL,4600,4.72,PTS,8.0,6.6,-1.4,-6.6,UNDER,8.5,-130.0,-102.0,-22.5,Versatile Big,-0.23,-3.17,40/59 DVP/DVA
-LeBron James,LAL,GS,8400,5.68,AST,7.0,7.9,1.4,21.5,OVER,6.5,118.0,-158.0,22.3,Point Forward,1.4,0.28,40/59 DVP/DVA
-Ace Bailey,UTA,NO,5900,4.61,PTS,11.9,13.0,1.1,4.8,UNDER,16.5,-110.0,-120.0,-21.3,Shooting Wing,0.88,1.39,40/59 DVP/DVA
-Deandre Ayton,LAL,GS,5100,6.22,REB,8.4,9.0,0.8,4.4,OVER,7.5,-144.0,108.0,20.5,Traditional Big,0.3,1.15,40/59 DVP/DVA
-Scottie Barnes,TOR,WAS,9500,5.69,PTS,19.1,21.0,1.9,8.5,OVER,17.5,-120.0,-106.0,20.2,Point Forward,2.1,1.69,40/59 DVP/DVA
-Austin Reaves,LAL,GS,8000,5.34,PTS,24.6,24.4,-0.2,-0.7,OVER,20.5,-106.0,-125.0,19.3,Combo Guard,-0.22,-0.05,40/59 DVP/DVA
-Deandre Ayton,LAL,GS,5100,6.22,PTS,13.0,12.5,-0.5,-2.3,OVER,10.5,100.0,-132.0,19.0,Traditional Big,-0.46,-0.57,40/59 DVP/DVA
-Pelle Larsson,MIA,HOU,5300,4.67,PTS,10.2,9.6,-0.6,-2.8,UNDER,11.5,100.0,-128.0,-16.9,3-and-D Wing,-0.74,-0.51,40/59 DVP/DVA
-Scottie Barnes,TOR,WAS,9500,5.69,REB,8.2,9.9,2.0,16.4,OVER,8.5,-102.0,-125.0,16.3,Point Forward,1.41,2.1,40/59 DVP/DVA
-Brandin Podziemski,GS,LAL,7300,4.65,PTS,12.3,13.0,0.7,3.0,UNDER,15.5,-106.0,-125.0,-16.2,Playmaker,0.99,0.25,40/59 DVP/DVA
-Isaiah Collier,UTA,NO,7700,7.45,REB,2.5,2.1,-0.5,-5.9,UNDER,2.5,-132.0,100.0,-15.7,Playmaker,-0.68,0.04,40/59 DVP/DVA
-LeBron James,LAL,GS,8400,5.68,PTS,21.5,22.1,0.6,2.9,OVER,19.5,100.0,-132.0,13.6,Point Forward,1.29,-0.31,40/59 DVP/DVA
-Amen Thompson,HOU,MIA,8300,5.64,PTS,17.3,18.4,1.1,4.6,OVER,16.5,-102.0,-125.0,11.6,Scoring Wing,1.24,0.91,40/59 DVP/DVA
-Reed Sheppard,HOU,MIA,6200,4.8,PTS,13.1,13.9,0.8,3.5,UNDER,15.5,-115.0,-111.0,-10.3,Playmaker,0.84,0.75,40/59 DVP/DVA
-Zion Williamson,NO,UTA,8900,4.57,PTS,21.9,23.5,1.6,7.2,OVER,24.5,-110.0,-122.0,-3.9,Versatile Big,0.39,3.49,40/59 DVP/DVA
-Isaiah Collier,UTA,NO,7700,7.45,AST,7.3,7.5,0.3,4.1,OVER,7.5,-128.0,-104.0,0.3,Playmaker,0.31,0.09,40/59 DVP/DVA
-Jonathan Mogbo,TOR,WAS,3500,6.42,STL,0.2,0.0,-0.5,-12.2,UNDER,,,,,Traditional Big,-0.22,-0.1,40/59 DVP/DVA
-A.J. Lawson,TOR,WAS,3700,6.37,REB,1.8,1.5,-0.3,-4.3,UNDER,,,,,Combo Guard,-0.23,-0.36,40/59 DVP/DVA
-Kevin Love,UTA,NO,4100,6.76,STL,0.3,0.2,-0.4,-9.8,UNDER,,,,,Versatile Big,-0.17,-0.12,40/59 DVP/DVA
-Clint Capela,HOU,MIA,3800,6.97,PTS,3.6,3.1,-0.5,-2.3,UNDER,,,,,Traditional Big,-0.87,0.03,40/59 DVP/DVA
-Kevin Love,UTA,NO,4100,6.76,PTS,6.8,5.5,-1.3,-5.9,UNDER,,,,,Versatile Big,-1.37,-1.31,40/59 DVP/DVA
-Caleb Love,POR,CHA,3700,6.75,REB,2.5,2.1,-0.4,-6.0,UNDER,,,,,Shooting Wing,-0.2,-0.61,40/59 DVP/DVA
-Tristan Vukcevic,WAS,TOR,5000,6.36,STL,0.4,0.1,-0.8,-19.4,UNDER,,,,,Traditional Big,-0.32,-0.2,40/59 DVP/DVA
-Herbert Jones,NO,UTA,5600,5.42,STL,1.7,1.9,0.6,12.3,OVER,,,,,3-and-D Wing,0.24,0.17,40/59 DVP/DVA
-Tristan Vukcevic,WAS,TOR,5000,6.36,AST,1.1,0.6,-0.8,-13.5,UNDER,,,,,Traditional Big,-0.17,-1.09,40/59 DVP/DVA
-Elijah Harkless,UTA,NO,4200,6.18,PTS,3.0,2.4,-0.6,-2.5,UNDER,,,,,Combo Guard,-2.04,1.55,40/59 DVP/DVA
-Elijah Harkless,UTA,NO,4200,6.18,BLK,0.1,-0.0,-0.3,-18.4,UNDER,,,,,Combo Guard,-0.18,-0.02,40/59 DVP/DVA
-Pelle Larsson,MIA,HOU,5300,4.67,BLK,0.2,0.1,-0.4,-17.0,UNDER,,,,,3-and-D Wing,-0.1,-0.19,40/59 DVP/DVA
-DeAndre Jordan,NO,UTA,4500,4.79,BLK,1.2,1.5,0.9,14.8,OVER,,,,,Traditional Big,0.25,0.35,40/59 DVP/DVA
-Brandin Podziemski,GS,LAL,7300,4.65,BLK,0.2,0.1,-0.4,-21.8,UNDER,,,,,Playmaker,-0.08,-0.22,40/59 DVP/DVA
-Toumani Camara,POR,CHA,5700,4.51,BLK,0.4,0.2,-0.5,-13.9,UNDER,,,,,Stretch 4,-0.19,-0.14,40/59 DVP/DVA
+Keyonte George,UTA,DEN,7500,6.95,REB,3.9,4.2,0.4,5.3,OVER,2.5,-122.0,-110.0,68.9,Combo Guard,0.94,-0.61,39/60 DVP/DVA
+Keyonte George,UTA,DEN,7500,6.95,AST,6.5,7.5,1.5,12.0,OVER,4.5,-125.0,-106.0,66.8,Combo Guard,1.72,-0.09,39/60 DVP/DVA
+Tristan Vukcevic,WAS,HOU,5100,4.28,REB,2.8,1.7,-1.3,-7.3,UNDER,4.5,116.0,-154.0,-61.1,Traditional Big,-0.38,-2.08,39/60 DVP/DVA
+Keyonte George,UTA,DEN,7500,6.95,PTS,23.6,24.5,0.9,3.9,OVER,17.5,-122.0,-108.0,40.3,Combo Guard,1.44,0.2,39/60 DVP/DVA
+Tristan Vukcevic,WAS,HOU,5100,4.28,PTS,8.0,6.7,-1.3,-6.0,UNDER,10.5,-130.0,-102.0,-36.0,Traditional Big,-1.69,-0.67,39/60 DVP/DVA
+Al Horford,GS,LAC,4700,4.29,PTS,8.0,6.3,-1.7,-7.8,UNDER,9.5,100.0,-132.0,-33.5,Versatile Big,-2.61,-0.27,39/60 DVP/DVA
+Draymond Green,GS,LAC,5600,4.04,PTS,8.5,5.8,-2.7,-12.0,UNDER,8.5,-114.0,-114.0,-32.1,Versatile Big,-2.61,-2.91,39/60 DVP/DVA
+Kyle Filipowski,UTA,DEN,7200,4.49,PTS,10.0,9.9,-0.1,-0.7,UNDER,13.5,-102.0,-130.0,-27.0,Stretch 5,-0.32,0.13,39/60 DVP/DVA
+Kyle Filipowski,UTA,DEN,7200,4.49,REB,6.6,5.7,-1.1,-6.5,UNDER,7.5,-136.0,102.0,-24.5,Stretch 5,-1.05,-0.78,39/60 DVP/DVA
+De'Anthony Melton,GS,LAC,5800,4.81,PTS,12.6,11.8,-0.8,-3.4,UNDER,15.5,-122.0,-108.0,-24.0,Scoring Wing,-1.74,0.6,39/60 DVP/DVA
+Ace Bailey,UTA,DEN,6100,4.41,PTS,11.9,11.8,-0.1,-0.5,UNDER,15.5,-106.0,-125.0,-23.9,Shooting Wing,-0.71,0.82,39/60 DVP/DVA
+Kyshawn George,WAS,HOU,5900,4.32,PTS,14.8,13.9,-0.9,-3.8,OVER,11.5,104.0,-138.0,21.1,Scoring Wing,-1.06,-0.58,39/60 DVP/DVA
+Brook Lopez,LAC,GS,4900,6.32,PTS,7.3,7.5,0.2,1.0,UNDER,9.5,-110.0,-120.0,-20.9,Stretch 5,0.79,-0.67,39/60 DVP/DVA
+Julian Strawther,DEN,UTA,3900,4.78,PTS,6.8,8.4,1.6,6.9,UNDER,10.5,100.0,-132.0,-20.3,3-and-D Wing,2.13,0.72,39/60 DVP/DVA
+De'Anthony Melton,GS,LAC,5800,4.81,STL,1.6,1.8,0.6,9.5,OVER,1.5,138.0,-186.0,19.4,Scoring Wing,0.25,0.1,39/60 DVP/DVA
+Ryan Rollins,MIL,BOS,7400,4.25,PTS,17.0,14.2,-2.8,-11.5,UNDER,17.5,-102.0,-130.0,-18.7,Playmaker,-3.01,-2.4,39/60 DVP/DVA
+Tari Eason,HOU,WAS,6400,4.29,PTS,11.5,11.8,0.3,1.4,UNDER,14.5,100.0,-132.0,-18.5,3-and-D Wing,-0.82,2.02,39/60 DVP/DVA
+Bobby Portis,MIL,BOS,5600,4.35,PTS,13.3,12.4,-0.9,-4.0,OVER,10.5,-102.0,-130.0,18.0,Stretch 4,-1.31,-0.31,39/60 DVP/DVA
+Jamal Murray,DEN,UTA,9600,5.83,PTS,25.3,27.1,1.8,7.6,OVER,24.5,-128.0,-104.0,10.8,Playmaker,1.86,1.8,39/60 DVP/DVA
+Reed Sheppard,HOU,WAS,6300,4.34,PTS,13.1,13.9,0.8,3.4,UNDER,15.5,-132.0,100.0,-10.3,Playmaker,1.0,0.5,39/60 DVP/DVA
+Kevin Durant,HOU,WAS,9500,4.05,PTS,26.2,26.3,0.1,0.6,OVER,24.5,-132.0,100.0,7.5,Scoring Wing,-1.09,2.02,39/60 DVP/DVA
+Jaylen Brown,BOS,MIL,10200,4.25,PTS,29.0,30.2,1.2,5.3,OVER,29.5,102.0,-136.0,2.4,Combo Guard,1.86,0.22,39/60 DVP/DVA
+Kawhi Leonard,LAC,GS,10400,4.96,PTS,27.9,28.3,0.4,1.8,OVER,28.5,-106.0,-125.0,-0.7,Playmaker,0.78,-0.18,39/60 DVP/DVA
+Kawhi Leonard,LAC,GS,10400,4.96,BLK,0.5,0.3,-0.6,-24.4,UNDER,,,,,Playmaker,-0.13,-0.29,39/60 DVP/DVA
+Oscar Tshiebwe,UTA,DEN,3700,4.38,AST,0.8,0.3,-0.8,-13.5,UNDER,,,,,Traditional Big,-0.64,-0.38,39/60 DVP/DVA
+Myles Turner,MIL,BOS,5500,4.75,AST,1.5,0.9,-0.8,-14.1,UNDER,,,,,Stretch 5,-0.68,-0.38,39/60 DVP/DVA
+Amen Thompson,HOU,WAS,8400,5.16,STL,1.5,1.7,0.7,12.4,OVER,,,,,Scoring Wing,0.15,0.4,39/60 DVP/DVA
+Bobby Portis,MIL,BOS,5600,4.35,STL,0.5,0.1,-1.2,-26.0,UNDER,,,,,Stretch 4,-0.25,-0.62,39/60 DVP/DVA
+Bobby Portis,MIL,BOS,5600,4.35,BLK,0.2,0.1,-0.3,-8.9,UNDER,,,,,Stretch 4,-0.03,-0.24,39/60 DVP/DVA
+Oscar Tshiebwe,UTA,DEN,3700,4.38,STL,0.2,0.0,-0.6,-13.7,UNDER,,,,,Traditional Big,-0.25,-0.11,39/60 DVP/DVA
+Oscar Tshiebwe,UTA,DEN,3700,4.38,BLK,0.0,-0.5,-1.6,-27.2,UNDER,,,,,Traditional Big,-0.58,-0.46,39/60 DVP/DVA
+Sam Hauser,BOS,MIL,4200,4.26,STL,0.5,0.1,-1.1,-23.2,UNDER,,,,,Stretch 4,-0.51,-0.12,39/60 DVP/DVA
