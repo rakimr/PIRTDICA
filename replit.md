@@ -6,6 +6,7 @@ PIRTDICA SPORTS CO. offers an NBA Daily Fantasy Sports (DFS) platform focused on
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 Auto-push to GitHub: Always push changes to GitHub at the end of every task using Replit's GitHub connector OAuth token.
+**Daily auto-push**: `run_daily_update.py` automatically commits and pushes pipeline data (CSVs, chart images) to GitHub after each run, keeping the live site current. Standalone `push_to_github.py` can also be run manually.
 **Do NOT push to GitHub**: `articles/` directory and conversation logs. These are local-only and must never be committed or pushed.
 
 ### Article Writing Guidelines (PIRTDICA Daily Picks)
