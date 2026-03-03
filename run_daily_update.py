@@ -54,7 +54,12 @@ def run_script(script_name, description):
     base_script = parts[0]
     cmd = [sys.executable, "-u"] + parts
     
-    timeout = 300 if base_script in NBA_COM_SCRIPTS else 600
+    if base_script == "scrape_nba_gamelogs.py":
+        timeout = 1800
+    elif base_script in NBA_COM_SCRIPTS:
+        timeout = 300
+    else:
+        timeout = 600
     
     try:
         result = subprocess.run(

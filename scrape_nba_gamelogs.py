@@ -39,6 +39,18 @@ def scrape_gamelogs():
     )
     
     if df is None or len(df) == 0:
+        print("WARNING: NBA.com unreachable — trying Basketball Reference fallback...")
+        try:
+            from scrape_bref_gamelogs import scrape_gamelogs_bref
+            result = scrape_gamelogs_bref()
+            if result is not None:
+                print("Basketball Reference fallback succeeded")
+                return pd.DataFrame()
+            else:
+                print("Basketball Reference fallback returned no new data")
+        except Exception as e:
+            print(f"Basketball Reference fallback failed: {e}")
+
         conn = sqlite3.connect('dfs_nba.db')
         try:
             existing = pd.read_sql("SELECT COUNT(*) as cnt FROM player_volatility", conn)
@@ -47,10 +59,10 @@ def scrape_gamelogs():
             cnt = 0
         conn.close()
         if cnt > 0:
-            print(f"WARNING: NBA.com unreachable - using cached data ({cnt} players in player_volatility)")
+            print(f"Using cached data ({cnt} players in player_volatility)")
             return None
         else:
-            print("ERROR: NBA.com unreachable and no cached data available")
+            print("ERROR: No data source available and no cached data")
             return None
     
     print(f"Got {len(df)} game log entries for {df['PLAYER_NAME'].nunique()} players")
