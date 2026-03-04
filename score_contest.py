@@ -350,6 +350,26 @@ def score_contest(contest_date: date = None, force: bool = False):
         print(f"Achievement system error: {e}")
     
     try:
+        from backend.events import emit_contest_result
+        for entry in entries:
+            try:
+                emit_contest_result(
+                    db, entry.user_id,
+                    score=entry.actual_score or 0,
+                    house_score=entry.house_actual_score or 0,
+                    beat_house=entry.beat_house or False,
+                    rank=entry.rank or 0,
+                    payout=entry.coins_earned or 0,
+                )
+            except Exception as e:
+                print(f"Notification error for user {entry.user_id}: {e}")
+        db.commit()
+        print(f"Contest notifications sent for {len(entries)} entries")
+    except Exception as e:
+        db.rollback()
+        print(f"Notification system error: {e}")
+    
+    try:
         from backend.main import settle_h2h_challenges
         settle_h2h_challenges(db)
     except Exception as e:

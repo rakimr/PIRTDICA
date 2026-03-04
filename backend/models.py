@@ -719,3 +719,39 @@ class GameOddsLive(Base):
     total = Column(Float)
     scraped_at = Column(String(50))
     updated_at = Column(DateTime, server_default=func.now())
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    __table_args__ = (
+        UniqueConstraint('user_id', 'type', 'title', 'created_at', name='uq_notification_dedup'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    type = Column(String(30), nullable=False)
+    priority = Column(Integer, nullable=False, default=3)
+    title = Column(String(200), nullable=False)
+    body = Column(Text)
+    action_url = Column(String(500), nullable=True)
+    is_read = Column(Boolean, default=False, index=True)
+    created_at = Column(DateTime, server_default=func.now())
+    expires_at = Column(DateTime, nullable=True)
+
+    user = relationship("User", backref="notifications")
+
+
+class EmailQueue(Base):
+    __tablename__ = "email_queue"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    email_type = Column(String(50), nullable=False)
+    subject = Column(String(500), nullable=False)
+    body_html = Column(Text, nullable=False)
+    status = Column(String(20), default="pending", index=True)
+    created_at = Column(DateTime, server_default=func.now())
+    sent_at = Column(DateTime, nullable=True)
+    error = Column(Text, nullable=True)
+
+    user = relationship("User", backref="email_queue")

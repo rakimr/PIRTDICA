@@ -38,6 +38,27 @@
                 {% if user %}
                     <a href="/history">History</a>
                     <a href="/shop">Shop</a>
+                    <div class="notif-wrapper" id="notifWrapper">
+                        <button class="notif-bell" id="notifBell" onclick="toggleNotifications()" aria-label="Notifications">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                            <span class="notif-badge" id="notifBadge" style="display:none;">0</span>
+                        </button>
+                        <div class="notif-dropdown" id="notifDropdown" style="display:none;">
+                            <div class="notif-header">
+                                <span class="notif-title">Notifications</span>
+                                <button class="notif-mark-all" onclick="markAllRead()">Mark all read</button>
+                            </div>
+                            <div class="notif-tabs">
+                                <button class="notif-tab active" data-category="all" onclick="switchTab(this)">All</button>
+                                <button class="notif-tab" data-category="competitive" onclick="switchTab(this)">Competitive</button>
+                                <button class="notif-tab" data-category="financial" onclick="switchTab(this)">Financial</button>
+                                <button class="notif-tab" data-category="system" onclick="switchTab(this)">System</button>
+                            </div>
+                            <div class="notif-list" id="notifList">
+                                <div class="notif-empty">No notifications</div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="user-menu">
                         <a href="/profile/{{ user.username }}">{{ user.display_name }}</a>
                         <a href="/logout">Logout</a>

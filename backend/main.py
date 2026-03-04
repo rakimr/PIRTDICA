@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, Depends, Form, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
@@ -384,6 +384,13 @@ async def register(
         description="Welcome bonus!"
     ))
     db.commit()
+    
+    try:
+        from backend.events import emit_welcome
+        emit_welcome(db, user.id, username)
+        db.commit()
+    except Exception:
+        pass
     
     token = auth.create_session(db, user.id)
     response = RedirectResponse(url="/", status_code=303)
@@ -2685,6 +2692,50 @@ async def h2h_ranked_queue(request: Request, match_type: str = Form("ranked"), d
         db.commit()
         return RedirectResponse(url="/h2h?queued=1", status_code=303)
 
+@app.get("/api/notifications")
+async def api_notifications(request: Request, category: str = None,
+                            limit: int = 20, offset: int = 0,
+                            db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+    from backend.notifications import get_notifications, notification_to_dict
+    notifs = get_notifications(db, user.id, category=category, limit=limit, offset=offset)
+    return JSONResponse({"notifications": [notification_to_dict(n) for n in notifs]})
+
+
+@app.get("/api/notifications/unread-count")
+async def api_notifications_unread(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        return JSONResponse({"count": 0})
+    from backend.notifications import get_unread_count
+    return JSONResponse({"count": get_unread_count(db, user.id)})
+
+
+@app.post("/api/notifications/{notification_id}/read")
+async def api_notification_mark_read(request: Request, notification_id: int,
+                                     db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+    from backend.notifications import mark_read
+    success = mark_read(db, user.id, notification_id)
+    db.commit()
+    return JSONResponse({"success": success})
+
+
+@app.post("/api/notifications/read-all")
+async def api_notifications_read_all(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+    from backend.notifications import mark_all_read
+    count = mark_all_read(db, user.id)
+    db.commit()
+    return JSONResponse({"marked": count})
+
+
 def settle_h2h_challenges(db: Session):
     locked_challenges = db.query(models.H2HChallenge).filter(
         models.H2HChallenge.status == "locked"
@@ -2831,6 +2882,48 @@ def settle_h2h_challenges(db: Session):
                     check_ranked_achievements(db, loser_user.id, challenge, loser_result)
                 except Exception as e:
                     print(f"Ranked achievement check error: {e}")
+
+                try:
+                    from backend.events import emit_rank_change
+                    emit_rank_change(
+                        db, winner_user.id,
+                        old_mmr=winner_result["old_mmr"], new_mmr=winner_result["new_mmr"],
+                        old_division=winner_result["old_division"], new_division=winner_result["new_division"],
+                        mmr_change=winner_result["mmr_change"],
+                        promoted=winner_result.get("promoted", False),
+                        demoted=winner_result.get("demoted", False),
+                    )
+                    emit_rank_change(
+                        db, loser_user.id,
+                        old_mmr=loser_result["old_mmr"], new_mmr=loser_result["new_mmr"],
+                        old_division=loser_result["old_division"], new_division=loser_result["new_division"],
+                        mmr_change=loser_result["mmr_change"],
+                        promoted=loser_result.get("promoted", False),
+                        demoted=loser_result.get("demoted", False),
+                    )
+                except Exception as e:
+                    print(f"Rank notification error: {e}")
+
+        try:
+            from backend.events import emit_h2h_result
+            if challenge.winner_id:
+                loser_id = challenge.opponent_id if challenge.winner_id == challenge.challenger_id else challenge.challenger_id
+                winner_u = db.query(models.User).filter(models.User.id == challenge.winner_id).first()
+                loser_u = db.query(models.User).filter(models.User.id == loser_id).first()
+                w_score = challenge.challenger_score if challenge.winner_id == challenge.challenger_id else challenge.opponent_score
+                l_score = challenge.opponent_score if challenge.winner_id == challenge.challenger_id else challenge.challenger_score
+                is_ranked_match = (challenge.match_type or "casual") in ("ranked", "match_night")
+                w_mmr_delta = challenge.mmr_change_challenger if challenge.winner_id == challenge.challenger_id else challenge.mmr_change_opponent
+                l_mmr_delta = challenge.mmr_change_opponent if challenge.winner_id == challenge.challenger_id else challenge.mmr_change_challenger
+                if winner_u and loser_u:
+                    emit_h2h_result(db, challenge.winner_id, loser_u.display_name or loser_u.username,
+                                    won=True, user_score=w_score, opponent_score=l_score,
+                                    mmr_change=w_mmr_delta or 0, is_ranked=is_ranked_match)
+                    emit_h2h_result(db, loser_id, winner_u.display_name or winner_u.username,
+                                    won=False, user_score=l_score, opponent_score=w_score,
+                                    mmr_change=l_mmr_delta or 0, is_ranked=is_ranked_match)
+        except Exception as e:
+            print(f"H2H notification error: {e}")
 
         try:
             from backend.achievements import check_h2h_achievements

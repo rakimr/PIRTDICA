@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     initTableSorting();
     initTableSearch();
+    initNotifications();
 });
 
 function initTableSorting() {
@@ -62,4 +63,128 @@ function initTableSearch() {
             });
         });
     });
+}
+
+let notifCurrentCategory = 'all';
+
+function initNotifications() {
+    const bell = document.getElementById('notifBell');
+    if (!bell) return;
+
+    fetchUnreadCount();
+    setInterval(fetchUnreadCount, 60000);
+
+    document.addEventListener('click', function(e) {
+        const wrapper = document.getElementById('notifWrapper');
+        const dropdown = document.getElementById('notifDropdown');
+        if (wrapper && dropdown && !wrapper.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+}
+
+function fetchUnreadCount() {
+    fetch('/api/notifications/unread-count')
+        .then(r => r.json())
+        .then(data => {
+            const badge = document.getElementById('notifBadge');
+            if (!badge) return;
+            if (data.count > 0) {
+                badge.textContent = data.count > 99 ? '99+' : data.count;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        })
+        .catch(() => {});
+}
+
+function toggleNotifications() {
+    const dropdown = document.getElementById('notifDropdown');
+    if (!dropdown) return;
+    const isOpen = dropdown.style.display !== 'none';
+    dropdown.style.display = isOpen ? 'none' : 'block';
+    if (!isOpen) {
+        loadNotifications(notifCurrentCategory);
+    }
+}
+
+function switchTab(btn) {
+    document.querySelectorAll('.notif-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    notifCurrentCategory = btn.dataset.category;
+    loadNotifications(notifCurrentCategory);
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    var d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+}
+
+function loadNotifications(category) {
+    const list = document.getElementById('notifList');
+    if (!list) return;
+    list.innerHTML = '<div class="notif-loading">Loading...</div>';
+
+    const url = category && category !== 'all'
+        ? '/api/notifications?category=' + category + '&limit=20'
+        : '/api/notifications?limit=20';
+
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.notifications || data.notifications.length === 0) {
+                list.innerHTML = '<div class="notif-empty">No notifications</div>';
+                return;
+            }
+            list.innerHTML = '';
+            data.notifications.forEach(n => {
+                const item = document.createElement('div');
+                item.className = 'notif-item' + (n.is_read ? '' : ' notif-unread');
+                item.dataset.id = n.id;
+                item.dataset.url = n.action_url || '';
+                item.addEventListener('click', function() {
+                    clickNotification(parseInt(this.dataset.id), this.dataset.url);
+                });
+
+                const catLabels = {
+                    competitive: 'Competitive',
+                    financial: 'Financial',
+                    system: 'System'
+                };
+                const catClass = n.category ? 'notif-cat notif-cat-' + escapeHtml(n.category) : '';
+                const catLabel = catLabels[n.category] || '';
+
+                var topHtml = '<div class="notif-item-top">';
+                if (catLabel) topHtml += '<span class="' + catClass + '">' + catLabel + '</span>';
+                topHtml += '<span class="notif-time">' + escapeHtml(n.time_ago) + '</span></div>';
+
+                item.innerHTML = topHtml +
+                    '<div class="notif-item-title">' + escapeHtml(n.title) + '</div>' +
+                    '<div class="notif-item-body">' + escapeHtml(n.body) + '</div>';
+
+                list.appendChild(item);
+            });
+        })
+        .catch(() => {
+            list.innerHTML = '<div class="notif-empty">Failed to load</div>';
+        });
+}
+
+function clickNotification(id, url) {
+    fetch('/api/notifications/' + id + '/read', { method: 'POST' })
+        .then(() => {
+            fetchUnreadCount();
+            if (url && url.startsWith('/')) window.location.href = url;
+        });
+}
+
+function markAllRead() {
+    fetch('/api/notifications/read-all', { method: 'POST' })
+        .then(() => {
+            fetchUnreadCount();
+            loadNotifications(notifCurrentCategory);
+        });
 }
