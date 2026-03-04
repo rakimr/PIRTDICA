@@ -1,38 +1,37 @@
 player,team,opponent,salary,value,stat,player_avg,adjusted_avg,extra_fp,edge_pct,recommendation,book_line,book_over,book_under,vs_book_edge,archetype,dva_edge,dvp_edge,blend
-Russell Westbrook,SAC,PHO,6200,6.47,REB,5.4,5.7,0.3,4.0,OVER,3.5,-104.0,-125.0,61.9,Playmaker,0.61,-0.26,39/60 DVP/DVA
-Jalen Suggs,ORL,WAS,6700,7.05,STL,1.9,2.2,0.9,14.4,OVER,1.5,-166.0,124.0,46.0,Playmaker,0.22,0.39,39/60 DVP/DVA
+Russell Westbrook,SAC,PHO,6200,6.11,REB,5.4,5.7,0.3,4.0,OVER,3.5,-104.0,-125.0,61.9,Playmaker,0.61,-0.26,39/60 DVP/DVA
+Jalen Suggs,ORL,WAS,6700,8.35,STL,1.9,2.2,0.9,14.4,OVER,1.5,-166.0,124.0,46.0,Playmaker,0.22,0.39,39/60 DVP/DVA
 DeAndre Jordan,NO,LAL,3800,6.43,REB,7.0,6.5,-0.6,-3.5,OVER,4.5,114.0,-152.0,44.3,Traditional Big,-0.53,-0.48,39/60 DVP/DVA
 Deandre Ayton,LAL,NO,5100,6.56,PTS,12.8,13.6,0.8,3.6,OVER,9.5,-110.0,-120.0,43.0,Traditional Big,-0.15,2.21,39/60 DVP/DVA
 Marcus Smart,LAL,NO,4200,5.86,PTS,9.5,10.5,1.0,4.2,OVER,7.5,-112.0,-118.0,39.8,Shooting Wing,0.58,1.61,39/60 DVP/DVA
-Julian Champagnie,SA,PHI,4600,5.55,REB,5.8,6.2,0.5,5.5,OVER,4.5,-162.0,122.0,38.5,Shooting Wing,0.5,0.33,39/60 DVP/DVA
+Julian Champagnie,SA,PHI,4600,6.05,REB,5.8,6.2,0.5,5.5,OVER,4.5,-162.0,122.0,38.5,Shooting Wing,0.5,0.33,39/60 DVP/DVA
 Davion Mitchell,MIA,BKN,4800,6.19,AST,6.9,7.3,0.5,4.4,OVER,5.5,-154.0,116.0,32.1,Playmaker,0.53,0.11,39/60 DVP/DVA
 Deandre Ayton,LAL,NO,5100,6.56,REB,8.3,9.8,1.8,10.5,OVER,7.5,-104.0,-128.0,31.0,Traditional Big,1.72,1.22,39/60 DVP/DVA
-Brandon Williams,DAL,CHA,6300,7.59,PTS,13.0,11.8,-1.2,-5.2,UNDER,16.5,-112.0,-118.0,-28.8,Playmaker,-1.47,-0.91,39/60 DVP/DVA
+Brandon Williams,DAL,CHA,6300,7.43,PTS,13.0,11.8,-1.2,-5.2,UNDER,16.5,-112.0,-118.0,-28.8,Playmaker,-1.47,-0.91,39/60 DVP/DVA
 Mark Williams,PHO,SAC,5200,7.2,PTS,11.6,14.5,2.9,13.6,OVER,11.5,-110.0,-120.0,26.4,Traditional Big,2.56,3.51,39/60 DVP/DVA
-Julius Randle,MIN,MEM,7900,5.48,PTS,21.5,23.2,1.7,7.3,OVER,18.5,-130.0,-102.0,25.2,Versatile Big,2.09,1.0,39/60 DVP/DVA
-De'Aaron Fox,SA,PHI,6900,6.44,PTS,18.8,18.5,-0.3,-1.2,OVER,15.5,-106.0,-125.0,19.4,Playmaker,0.17,-1.01,39/60 DVP/DVA
-Luguentz Dort,OKC,CHI,3900,6.12,PTS,8.7,11.3,2.6,11.3,OVER,9.5,-132.0,100.0,18.6,Shooting Wing,1.31,4.5,39/60 DVP/DVA
-Russell Westbrook,SAC,PHO,6200,6.47,PTS,15.2,15.8,0.6,2.5,OVER,13.5,-125.0,-106.0,16.9,Playmaker,1.35,-0.59,39/60 DVP/DVA
-Scottie Barnes,TOR,NY,9400,5.81,BLK,1.6,1.7,0.3,9.1,OVER,1.5,126.0,-168.0,14.1,Point Forward,0.14,0.07,39/60 DVP/DVA
-VJ Edgecombe,PHI,SA,7300,5.42,PTS,15.5,15.2,-0.3,-1.2,UNDER,17.5,-118.0,-112.0,-13.1,Scoring Wing,-0.09,-0.59,39/60 DVP/DVA
-Scottie Barnes,TOR,NY,9400,5.81,PTS,19.1,18.2,-0.9,-4.0,OVER,16.5,-106.0,-125.0,10.2,Point Forward,-1.25,-0.4,39/60 DVP/DVA
+Julius Randle,MIN,MEM,7900,5.5,PTS,21.5,23.2,1.7,7.3,OVER,18.5,-130.0,-102.0,25.2,Versatile Big,2.09,1.0,39/60 DVP/DVA
+De'Aaron Fox,SA,PHI,6900,6.41,PTS,18.8,18.5,-0.3,-1.2,OVER,15.5,-106.0,-125.0,19.4,Playmaker,0.17,-1.01,39/60 DVP/DVA
+Luguentz Dort,OKC,CHI,3900,6.57,PTS,8.7,11.3,2.6,11.3,OVER,9.5,-132.0,100.0,18.6,Shooting Wing,1.31,4.5,39/60 DVP/DVA
+Russell Westbrook,SAC,PHO,6200,6.11,PTS,15.2,15.8,0.6,2.5,OVER,13.5,-125.0,-106.0,16.9,Playmaker,1.35,-0.59,39/60 DVP/DVA
+Scottie Barnes,TOR,NY,9400,5.78,BLK,1.6,1.7,0.3,9.1,OVER,1.5,126.0,-168.0,14.1,Point Forward,0.14,0.07,39/60 DVP/DVA
+Scottie Barnes,TOR,NY,9400,5.78,PTS,19.1,18.2,-0.9,-4.0,OVER,16.5,-106.0,-125.0,10.2,Point Forward,-1.25,-0.4,39/60 DVP/DVA
 Bam Adebayo,MIA,BKN,8100,5.62,PTS,18.6,19.3,0.7,3.1,OVER,20.5,-102.0,-130.0,-6.0,Stretch 5,0.85,0.41,39/60 DVP/DVA
-Jamal Shead,TOR,NY,4100,6.3,PTS,7.1,6.2,-0.9,-3.9,UNDER,6.5,-108.0,-122.0,-5.1,Playmaker,-0.23,-2.01,39/60 DVP/DVA
+Jamal Shead,TOR,NY,4100,6.27,PTS,7.1,6.2,-0.9,-3.9,UNDER,6.5,-108.0,-122.0,-5.1,Playmaker,-0.23,-2.01,39/60 DVP/DVA
 Mark Williams,PHO,SAC,5200,7.2,REB,8.1,8.8,0.9,5.2,OVER,8.5,-102.0,-130.0,4.1,Traditional Big,0.37,1.32,39/60 DVP/DVA
-Aaron Wiggins,OKC,CHI,4700,9.07,AST,1.8,1.5,-0.4,-6.1,UNDER,,,,,Shooting Wing,-0.57,0.2,39/60 DVP/DVA
-Sam Merrill,CLE,DET,4300,7.49,REB,2.3,2.0,-0.3,-4.2,UNDER,,,,,Shooting Wing,-0.1,-0.56,39/60 DVP/DVA
-Brandon Williams,DAL,CHA,6300,7.59,REB,2.9,2.4,-0.6,-8.3,UNDER,,,,,Playmaker,-0.44,-0.61,39/60 DVP/DVA
-Jamal Shead,TOR,NY,4100,6.3,REB,1.9,1.4,-0.7,-9.0,UNDER,,,,,Playmaker,-0.57,-0.51,39/60 DVP/DVA
-Ryan Nembhard,DAL,CHA,3800,6.52,PTS,6.7,5.5,-1.2,-5.2,UNDER,,,,,Playmaker,-1.47,-0.91,39/60 DVP/DVA
-Ryan Nembhard,DAL,CHA,3800,6.52,REB,1.8,1.3,-0.6,-8.3,UNDER,,,,,Playmaker,-0.44,-0.61,39/60 DVP/DVA
-DeAndre Jordan,NO,LAL,3800,6.43,AST,0.4,0.1,-0.4,-7.0,UNDER,,,,,Traditional Big,-0.2,-0.39,39/60 DVP/DVA
+Desmond Bane,ORL,WAS,7600,5.62,PTS,20.3,20.7,0.4,1.7,OVER,21.5,-130.0,-102.0,-3.8,Scoring Wing,0.31,0.51,39/60 DVP/DVA
+Sam Merrill,CLE,DET,4300,7.66,REB,2.3,2.0,-0.3,-4.2,UNDER,,,,,Shooting Wing,-0.1,-0.56,39/60 DVP/DVA
+Aaron Wiggins,OKC,CHI,4700,9.19,AST,1.8,1.5,-0.4,-6.1,UNDER,,,,,Shooting Wing,-0.57,0.2,39/60 DVP/DVA
+Goga Bitadze,ORL,WAS,3600,14.76,BLK,1.2,1.9,2.2,36.7,OVER,,,,,Traditional Big,0.64,0.84,39/60 DVP/DVA
+Isaac Okoro,CHI,OKC,4100,6.39,AST,1.6,1.3,-0.4,-6.6,UNDER,,,,,3-and-D Wing,-0.61,0.2,39/60 DVP/DVA
 DeAndre Jordan,NO,LAL,3800,6.43,PTS,4.3,2.2,-2.1,-9.8,UNDER,,,,,Traditional Big,-1.54,-2.99,39/60 DVP/DVA
-Luguentz Dort,OKC,CHI,3900,6.12,AST,1.3,1.1,-0.4,-5.9,UNDER,,,,,Shooting Wing,-0.57,0.25,39/60 DVP/DVA
-Caris LeVert,DET,CLE,3700,5.74,PTS,7.5,6.4,-1.1,-4.8,UNDER,,,,,Scoring Wing,-1.71,-0.17,39/60 DVP/DVA
-Vladislav Goldin,MIA,BKN,3500,5.84,BLK,0.5,0.4,-0.4,-6.3,UNDER,,,,,Traditional Big,-0.23,0.04,39/60 DVP/DVA
-Isaac Okoro,CHI,OKC,4100,5.96,AST,1.6,1.3,-0.4,-6.6,UNDER,,,,,3-and-D Wing,-0.61,0.2,39/60 DVP/DVA
+Luguentz Dort,OKC,CHI,3900,6.57,AST,1.3,1.1,-0.4,-5.9,UNDER,,,,,Shooting Wing,-0.57,0.25,39/60 DVP/DVA
+Brandon Williams,DAL,CHA,6300,7.43,REB,2.9,2.4,-0.6,-8.3,UNDER,,,,,Playmaker,-0.44,-0.61,39/60 DVP/DVA
+DeAndre Jordan,NO,LAL,3800,6.43,AST,0.4,0.1,-0.4,-7.0,UNDER,,,,,Traditional Big,-0.2,-0.39,39/60 DVP/DVA
+Ryan Nembhard,DAL,CHA,3800,6.39,REB,1.8,1.3,-0.6,-8.3,UNDER,,,,,Playmaker,-0.44,-0.61,39/60 DVP/DVA
+Ryan Nembhard,DAL,CHA,3800,6.39,PTS,6.7,5.5,-1.2,-5.2,UNDER,,,,,Playmaker,-1.47,-0.91,39/60 DVP/DVA
+Jamal Shead,TOR,NY,4100,6.27,REB,1.9,1.4,-0.7,-9.0,UNDER,,,,,Playmaker,-0.57,-0.51,39/60 DVP/DVA
 Vladislav Goldin,MIA,BKN,3500,5.84,REB,0.5,-0.0,-0.6,-3.7,UNDER,,,,,Traditional Big,-0.65,-0.38,39/60 DVP/DVA
-Luke Kornet,SA,PHI,4300,5.73,STL,0.5,0.3,-0.7,-16.7,UNDER,,,,,Traditional Big,-0.25,-0.2,39/60 DVP/DVA
-Luke Kornet,SA,PHI,4300,5.73,AST,1.9,1.4,-0.7,-12.1,UNDER,,,,,Traditional Big,-0.22,-0.89,39/60 DVP/DVA
-Caris LeVert,DET,CLE,3700,5.74,REB,1.7,1.3,-0.5,-5.7,UNDER,,,,,Scoring Wing,-0.63,-0.17,39/60 DVP/DVA
-Julius Randle,MIN,MEM,7900,5.48,BLK,0.3,0.2,-0.4,-11.0,UNDER,,,,,Versatile Big,-0.2,-0.03,39/60 DVP/DVA
+Vladislav Goldin,MIA,BKN,3500,5.84,BLK,0.5,0.4,-0.4,-6.3,UNDER,,,,,Traditional Big,-0.23,0.04,39/60 DVP/DVA
+Luke Kornet,SA,PHI,4300,5.71,AST,1.9,1.4,-0.7,-12.1,UNDER,,,,,Traditional Big,-0.22,-0.89,39/60 DVP/DVA
+Luke Kornet,SA,PHI,4300,5.71,STL,0.5,0.3,-0.7,-16.7,UNDER,,,,,Traditional Big,-0.25,-0.2,39/60 DVP/DVA
+Julius Randle,MIN,MEM,7900,5.5,BLK,0.3,0.2,-0.4,-11.0,UNDER,,,,,Versatile Big,-0.2,-0.03,39/60 DVP/DVA
