@@ -106,86 +106,26 @@ def main():
     
     push_to_github()
 
-def get_github_token():
-    hostname = os.environ.get("REPLIT_CONNECTORS_HOSTNAME", "")
-    identity = os.environ.get("REPL_IDENTITY", "")
-    if not hostname or not identity:
-        return None
-    
-    url = f"https://{hostname}/api/v2/connection?include_secrets=true&connector_names=github"
-    req = urllib.request.Request(url, headers={
-        "Accept": "application/json",
-        "X-Replit-Token": f"repl {identity}"
-    })
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read())
-            items = data.get("items", [])
-            if items:
-                return items[0]["settings"]["access_token"]
-    except Exception as e:
-        print(f"  Could not retrieve GitHub token: {e}")
-    return None
-
-PIPELINE_OUTPUT_FILES = [
-    "dfs_players.csv",
-    "dfs_players_valued.csv",
-    "ownership_projections.csv",
-    "prop_recommendations.csv",
-    "targeted_plays.csv",
-    "static/images/dvp_heatmap.png",
-    "static/images/ref_foul_chart.png",
-    "static/images/upside_chart.png",
-    "static/images/value_chart.png",
-]
-
 def push_to_github():
     print(f"\n{'='*50}")
     print("Auto-Push to GitHub")
     print(f"{'='*50}")
-    
-    token = get_github_token()
-    if not token:
-        print("  SKIPPED: GitHub token not available")
-        return
-    
-    today = datetime.now().strftime("%Y-%m-%d")
-    remote_url = f"https://x-access-token:{token}@github.com/rakimr/PIRTDICA.git"
-    
-    existing = [f for f in PIPELINE_OUTPUT_FILES if os.path.exists(os.path.join("/home/runner/workspace", f))]
-    if not existing:
-        print("  No pipeline output files found to push")
-        return
-    
-    add_files = " ".join(existing)
-    cmd = (
-        f'cd /home/runner/workspace && '
-        f'rm -f .git/index.lock && '
-        f'git add {add_files} && '
-        f'git diff --cached --quiet && echo "NO_CHANGES" || '
-        f'(git commit -m "Daily pipeline update {today}" && '
-        f'git push {remote_url} main --no-thin 2>&1 && echo "PUSH_OK")'
-    )
-    
     try:
         result = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True, timeout=90,
-            env={**os.environ}
+            [sys.executable, "push_to_github.py"],
+            cwd="/home/runner/workspace",
+            capture_output=True, text=True, timeout=120
         )
         output = result.stdout.strip()
-        
-        if "NO_CHANGES" in output:
-            print("  No changes to push — GitHub is up to date")
-        elif "PUSH_OK" in output:
-            print(f"  Pushed daily update for {today} to GitHub")
-        else:
-            stderr = result.stderr.strip() if result.stderr else ""
-            safe_out = output[-200:] if output else ""
-            safe_err = stderr[-200:] if stderr else ""
-            for s in [safe_out, safe_err]:
-                if "x-access-token" in s:
-                    s = "[output redacted — contains token]"
-            print(f"  Push result: {safe_out or safe_err}")
+        if output:
+            for line in output.split('\n'):
+                if line.strip() and not line.startswith('='):
+                    print(f"  {line.strip()}")
+        if result.returncode != 0 and result.stderr:
+            safe_err = result.stderr.strip()[-200:]
+            if "x-access-token" in safe_err or "Bearer" in safe_err:
+                safe_err = "[error redacted — contains token]"
+            print(f"  Push error: {safe_err}")
     except subprocess.TimeoutExpired:
         print("  Push timed out — will retry next run")
     except Exception as e:
