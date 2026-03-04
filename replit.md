@@ -9,80 +9,22 @@ Auto-push to GitHub: Always push changes to GitHub at the end of every task usin
 **Daily auto-push**: `run_daily_update.py` automatically commits and pushes pipeline data (CSVs, chart images) to GitHub after each run, keeping the live site current. Standalone `push_to_github.py` can also be run manually.
 **Do NOT push to GitHub**: `articles/` directory and conversation logs. These are local-only and must never be committed or pushed.
 
-### Article Writing Guidelines (PIRTDICA Daily Picks)
-- **NO fantasy salary** ($7,300, etc.), **NO fantasy points projections** (proj_fp, ceiling, floor), **NO value ratios**, **NO FanDuel/DraftKings lineup talk**.
-- Focus on **prop bets**: points over/under, rebounds, assists, steals, blocks, threes. Reference actual book lines when available.
-- **Prop line precision**: Distinguish between over 1.5 (needs 2+) vs 1+ (alternate, needs just 1). For stats like steals/blocks where 1 is common but 2 is a spike, prefer 1+ alternate lines over O1.5. For stats with higher volume (points, rebounds, assists), use the .5 lines. Always consider whether the edge supports clearing the .5 threshold or just hitting the flat number.
-- Use **per game averages** and **per 100 possession rates** to establish baseline production.
-- Use **shot chart data** (rim/paint %, three %, pull-up vs catch-and-shoot) to explain HOW a player scores.
-- Use **DVP/DVA archetype matchup data** to explain WHY this specific matchup is exploitable (e.g., "+0.088 points per minute to Traditional Bigs").
-- Include **teammate context** (who creates shots, who spaces the floor, how the offense functions around this player).
-- **Roster accuracy**: Always verify current team rosters before writing. Players get traded mid-season — check the pipeline's salary/roster data to confirm who plays for which team. Never assume a player is still on their previous team.
-  - The trade deadline has passed. Major moves include: Lillard no longer on MIL, Durant to HOU, Vucevic to BOS, Trae Young to WAS, Anthony Davis to WAS, Garland to LAC, Porzingis to GS, Brook Lopez to LAC, Myles Turner to MIL, Kyle Kuzma to MIL, Jimmy Butler to GS, Al Horford to GS, Cameron Johnson to DEN, Bradley Beal to LAC, D'Angelo Russell to WAS, Cam Thomas to MIL.
-- Each player section ends with **"The stat to watch:"** giving a specific, actionable prop recommendation.
-- Close with **"THE BIGGER PICTURE"** section tying the picks together thematically.
-- Format: `PLAYER NAME: Stat Edge vs Team` header, `TEAM vs TEAM | Position | Archetype` subheader.
-- Tone: Analytical, direct, no hype. Data-driven but readable. Written like you are explaining an edge to a sharp bettor.
-- Article header images: Gustave Doré engraving style mixed with Dan Koe minimalist editorial. Monochromatic black/white with subtle gold accents. 16:9 aspect ratio. Each day should have a unique visual theme (no repeats).
-
 ## System Architecture
 The system utilizes an ETL pattern, staging data in SQLite and storing operational data in PostgreSQL. Core projection models include minutes projection and usage-based FPPM adjustment. Advanced analytics are driven by Phillips Archetype Classification v2 (8 composite indices, minutes-weighted K-Means, soft clustering) and a Salary-Tier Volatility Model. A Ceiling/Floor Model generates projection distributions, while Blended DVP and DVA systems provide dynamic matchup ratings. A Team Incentive Score adjusts volatility, and a Prop Trend Analysis Modal offers OVER/UNDER calls.
 
-The Context Engine v2 (Matchup Interaction Layer) dynamically adjusts projections using interaction-probability-weighted physical mismatch (size, weight, wingspan), matchup familiarity, archetype effects, and opponent durability. This layer models possession-level physical confrontation probability through statistical structure, addressing issues like "The Clingan vs Williams Law" by weighting interactions rather than averaging roster-wide effects. The Context Engine v2 uses a 5-layer architecture:
-1. **Interaction Probability Matrix**: Computes weights based on position, minutes overlap, and role interaction.
-2. **Interaction-Weighted Size Impact**: Adjusts for size differences (height, weight, wingspan) gated by interior usage.
-3. **Interaction-Weighted Archetype Matchup**: Applies archetype-vs-archetype FPPM differentials.
-4. **Familiarity Effect**: Incorporates player-vs-team FPPM differentials.
-5. **Bidirectional Durability**: Adjusts for opponent stability.
+The Context Engine v2 (Matchup Interaction Layer) dynamically adjusts projections using interaction-probability-weighted physical mismatch, matchup familiarity, archetype effects, and opponent durability. This layer models possession-level physical confrontation probability through statistical structure.
 
-NBA.com API resilience uses a **circuit breaker pattern** (`utils/nba_api_helpers.py`). On the first NBA.com endpoint failure (2 retries × 45s/90s timeout), the circuit trips and all subsequent NBA.com calls in that pipeline run skip instantly with cached data fallback. State is shared via `/tmp/nba_circuit_breaker.json` and resets at the start of each pipeline run. This reduces worst-case NBA.com outage time from ~45 minutes to ~1 minute. Pipeline timeout for NBA.com scripts is 300s (down from 900s).
-
-**Basketball Reference fallback** (`scrape_bref_gamelogs.py`): When NBA.com game logs fail, the pipeline automatically falls back to scraping box scores from Basketball Reference. This is incremental — it only fetches dates not already in the database. Each date's data is saved immediately so partial runs aren't lost. The scraper uses 3.0s delays between requests to respect Basketball Reference's rate limits. The game logs script (`scrape_nba_gamelogs.py`) has a 1800s timeout to accommodate the fallback. Run `python scrape_bref_gamelogs.py --incremental` for manual backfills. BR team abbreviation mapping: BRK→BKN, CHO→CHA.
+NBA.com API resilience uses a **circuit breaker pattern** (`utils/nba_api_helpers.py`) with cached data fallback to reduce outage time. **Basketball Reference fallback** (`scrape_bref_gamelogs.py`) is implemented when NBA.com game logs fail, incrementally scraping box scores.
 
 Lineup optimization is achieved using PuLP for linear programming and a Monte Carlo optimizer. The platform features a "Beat the House" game against AI, and "Coach vs Coach" (H2H) competitive play with a lobby, coin escrow, and live scoring.
 
 The web platform is built with FastAPI (Python) for the backend, SQLAlchemy for ORM, and Jinja2 templates with custom CSS for the frontend, featuring live scoring, contest history, and admin controls. The dual-currency system (Coach Coin, Coach Cash) supports a Play-to-Earn (P2E) model focused on Identity, Prestige, Access, and Analytics, strictly avoiding pay-to-win mechanics. Ranked modes include free Coin Mode and competitive Cash Mode, structured with a tiered division system, hidden MMR, and seasonal resets. Monetization relies on a small rake on Coach Cash competitions, cosmetic sales, and future subscriptions.
 
-The player archetype system includes 11 total archetypes: 5 specialist (Playmaker, 3-and-D Wing, Shooting Wing, Scoring Wing, Traditional Big) and 6 hybrid/role categories (Combo Guard, Versatile Big, Stretch 4, Stretch 5, Point Center, Point Forward). Classification uses the Phillips Archetype Classification v2 system described below.
+The player archetype system includes 11 total archetypes, classified using the Phillips Archetype Classification v2 system. This system compresses raw player stats into 8 orthogonal composite indices (Creation, Playmaking, Interior, Perimeter, Off-Ball, Rebound, Defense, Size), then clusters on those axes using minutes-weighted K-Means with soft probability assignments. Post-clustering domain logic refines these classifications based on shot-zone data, facilitating roles, and position.
 
-### Phillips Archetype Classification v2
-The archetype system compresses raw player stats into 8 orthogonal composite indices, then clusters on those axes using minutes-weighted K-Means with soft probability assignments.
+The projection philosophy, "Minimal Viable Elite (MVE)", focuses on capturing 85-90% of predictive signal with 30-40% of the complexity, using a Three-Layer Rule for feature inclusion. A chart screenshot infrastructure exists via `/chart-screenshot/{chart_type}/{target}` using synchronous XHR + raw Canvas API for immediate rendering, with Playwright + nix Chromium automating batch screenshot capture.
 
-**8 Composite Indices** (each is a sum of z-scored raw features):
-1. **Creation Index**: USG% + Pull-Up% + Sec/Touch + Dribbles/Touch — measures self-created offense
-2. **Playmaking Index**: AST/100 + Touches/Min — measures ball distribution
-3. **Interior Index**: Rim+Paint% + Post Touches + Paint Touches — measures paint presence
-4. **Perimeter Index**: 3PT Shot% + Catch-and-Shoot% + Pull-Up 3 Share — measures outside shooting profile
-5. **Off-Ball Index**: C&S 3 Share - Time of Possession — measures movement without the ball
-6. **Rebound Index**: REB/100 + Box Outs/48 — measures rebounding activity
-7. **Defense Index**: STL/100 + BLK/100 + Deflections/48 + Contested/48 — measures defensive engagement
-8. **Size Index**: Height + Weight + Wingspan — measures physical dimensions
-
-**Clustering Approach**:
-- K=6 clusters trained on high-minute players only (800+ total minutes) to prevent bench noise from distorting centroids
-- All players (including low-minute) are assigned to nearest centroid without influencing centroid positions
-- Soft clustering stores probability vectors (`cluster_0_prob` through `cluster_5_prob`) for each player, enabling fuzzy archetype boundaries
-- Silhouette scores evaluated for k=5 through k=11; k=6 chosen as optimal balance
-
-**Post-Clustering Domain Logic** (sequential reclassification):
-1. Cluster auto-labeling via centroid profile scoring
-2. Shot-zone big man reclassification (Traditional ↔ Stretch based on rim/paint vs 3PT distribution)
-3. Facilitating big detection: Point Center (C% ≥ 50) / Point Forward (C% < 50) for bigs with AST/100 ≥ 5.0 and PTS/100 ≥ 24.0, gated by ball initiation threshold (touches/min ≥ 2.0)
-4. Position-based frontcourt reclassification for players in guard/wing clusters with C%+PF% ≥ 50, with wing escape valve (high pull-up%, low rebounding)
-5. Versatile Big shot-zone refinement (extreme shooters → Stretch, extreme rim players → Traditional)
-6. Hybrid branch routing for transcendent players (PTS/100 ≥ 30, AST/100 ≥ 7, USG ≥ 26)
-7. Guard playmaker reclassification (facilitator-first guards with PG% ≥ 70 and AST/100 ≥ 6)
-8. Stretch Big split into Stretch 4 / Stretch 5 by C% threshold
-
-**Correlation Notes**: Interior↔Perimeter (r=-0.81), Creation↔Off-Ball (r=-0.82), and Rebound↔Size (r=0.80) are the highest correlated pairs. These reflect real basketball dimensions (paint vs perimeter, ball-dominant vs off-ball, big vs small) and do not degrade clustering quality — K-Means still produces meaningfully distinct clusters with clear archetype separation.
-
-**Validation**: 28/32 known player classifications correct (88% accuracy). Remaining 4 are defensible edge cases (e.g., Kawhi Leonard as Playmaker due to elite creation metrics, Klay Thompson as 3-and-D Wing (Role) reflecting his current off-ball role).
-
-The projection philosophy, "Minimal Viable Elite (MVE)", focuses on capturing 85-90% of predictive signal with 30-40% of the complexity. It uses a Three-Layer Rule for feature inclusion: Layer A (Game Environment), Layer B (Player Role Engine), and Layer C (Interaction Context). New features must improve cross-validated RMSE, backtested ROI, and not excessively increase variance.
-
-A chart screenshot infrastructure exists via `/chart-screenshot/{chart_type}/{target}` using synchronous XHR + raw Canvas API for immediate rendering, with Playwright + nix Chromium automating batch screenshot capture.
-
-Avatar & Identity Design Direction follows a "Strategic Minimalism meets Editorial Sports Design" style with a "Nike campaign meets tech startup meets esports broadcast" vibe. Design rules include a white background, black primary vector, 3-4px line weight, single accent color (unless legendary tier), circular 1:1 badge format, no gradients, and a specific accent palette. The Coach Shop framework dictates that cosmetics must communicate Skill, Status, or Story, and critically, must never mimic rank colors, division badge shapes, or champion aesthetics to maintain the integrity of skill-based competition.
+Avatar & Identity Design Direction follows a "Strategic Minimalism meets Editorial Sports Design" style with a "Nike campaign meets tech startup meets esports broadcast" vibe. Design rules include a white background, black primary vector, 3-4px line weight, single accent color, circular 1:1 badge format, no gradients, and a specific accent palette. Cosmetics must communicate Skill, Status, or Story, and critically, must never mimic rank colors, division badge shapes, or champion aesthetics.
 
 ## External Dependencies
 
@@ -104,7 +46,7 @@ Avatar & Identity Design Direction follows a "Strategic Minimalism meets Editori
 ### Databases
 - **SQLite:** Staging database (`dfs_nba.db`) for local pipeline scraping.
 - **PostgreSQL:** Production database for web platform and pipeline output, including `player_measurements_live`, `matchup_history_live`, `archetype_matchup_profiles_live`, and various other `*_live` tables.
-- **Supabase:** Used for syncing platform tables from local PostgreSQL.
+- **Supabase:** Used for syncing platform tables from local PostgreSQL, with RLS enabled on all 40 public tables.
 
 ### Python Libraries
 - `requests`, `BeautifulSoup`: Web scraping
