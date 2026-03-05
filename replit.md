@@ -28,6 +28,22 @@ The projection philosophy, "Minimal Viable Elite (MVE)", focuses on capturing 85
 
 Avatar & Identity Design Direction follows a "Strategic Minimalism meets Editorial Sports Design" style with a "Nike campaign meets tech startup meets esports broadcast" vibe. Design rules include a white background, black primary vector, 3-4px line weight, single accent color, circular 1:1 badge format, no gradients, and a specific accent palette. Cosmetics must communicate Skill, Status, or Story, and critically, must never mimic rank colors, division badge shapes, or champion aesthetics.
 
+## Daily Articles
+
+### Article Format
+Articles target sportsbook bettors with prop bet analysis. Format: slate overview paragraph (games, totals, spreads, injury context), then 4 deep-dive player sections, then "THE BIGGER PICTURE" closing section. Each player section follows this structure:
+- **Headline**: PLAYER NAME: Descriptive Edge Title
+- **Subtitle line**: AWAY @ HOME | Position | Archetype
+- **Body paragraphs** (3-5 per player): Per-game averages, per-100 possession rates, shot creation profile (catch-and-shoot %, pull-up %, paint %), shot zone distribution (restricted area, paint, mid, three), DVA matchup data with specific FPPM differentials and sample sizes, hustle stats (deflections/48, contested shots/48, box-outs/48), physical measurements, injury context for teammates and opponents, book lines with juice, game environment (total, spread, line weight).
+- **Closing line**: "The stat to watch:" — specific prop recommendation with structural reasoning.
+- Sections separated by `---` dividers.
+- Tone: analytical, not hype. Let the data speak. No exclamation marks in analysis. Competitive framing throughout.
+- These are prop bet targets, NOT fantasy lineup recommendations. State this explicitly in the intro.
+- Files saved to `articles/` directory (local-only, never pushed to GitHub).
+
+### Article Header Images
+Style: **Gustave Doré-inspired black and white engravings**. Gothic cathedral interiors with soaring arches and vaulted ceilings. Basketball hoops integrated into stone columns like sacred relics. A cloaked scholar figure studying at a wooden desk with scrolls, books, and candlelight. Silhouettes of basketball players moving through the cathedral nave. Dramatic rays of light streaming from rose windows. Detailed crosshatching technique, fine line engraving, black ink on white paper. Renaissance woodcut aesthetic meets basketball arena. No text, no logos, no color. Aspect ratio 16:9. Files saved to `articles/` as `{date}_header.png`.
+
 ## External Dependencies
 
 ### Web Scraping Targets
