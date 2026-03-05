@@ -4332,6 +4332,17 @@ th[data-sortable].sort-desc::after {
 }
 
 @media (max-width: 768px) {
+    .notif-wrapper {
+        width: 100%;
+        justify-content: flex-start;
+        padding: 0.75rem 1.5rem;
+        box-sizing: border-box;
+    }
+
+    .notif-title {
+        letter-spacing: 0.3px;
+    }
+
     .notif-dropdown {
         position: fixed;
         top: 60px;
