@@ -14,7 +14,7 @@ The system utilizes an ETL pattern, staging data in SQLite and storing operation
 
 The Context Engine v2 (Matchup Interaction Layer) dynamically adjusts projections using interaction-probability-weighted physical mismatch, matchup familiarity, archetype effects, and opponent durability. This layer models possession-level physical confrontation probability through statistical structure.
 
-NBA.com API resilience uses a **circuit breaker pattern** (`utils/nba_api_helpers.py`) with cached data fallback to reduce outage time. **Basketball Reference fallback** (`scrape_bref_gamelogs.py`) is implemented when NBA.com game logs fail, incrementally scraping box scores.
+NBA.com API resilience uses a **circuit breaker pattern** (`utils/nba_api_helpers.py`) with cached data fallback to reduce outage time. **Basketball Reference fallback** (`scrape_bref_gamelogs.py`) is implemented when NBA.com game logs fail, incrementally scraping box scores. **ESPN injury indicators** (`scrape_depth_charts.py`, `scrape_espn_injuries.py`) capture `(IL)` markers from depth charts plus OUT/QUESTIONABLE/DAY-TO-DAY statuses from the injuries page, merging both sources into `injury_alerts`. Rotation detection (`detect_rotation_changes.py`) also reads depth chart `injury_indicator` column directly as a fallback.
 
 Lineup optimization is achieved using PuLP for linear programming and a Monte Carlo optimizer. The platform features a "Beat the House" game against AI, and "Coach vs Coach" (H2H) competitive play with a lobby, coin escrow, and live scoring.
 

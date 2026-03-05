@@ -2,6 +2,7 @@ import requests
 import pandas as pd
 from bs4 import BeautifulSoup
 import sqlite3
+import re
 from datetime import datetime
 from team_map import TEAM_MAP
 from baseline_minutes import get_baseline_minutes
@@ -20,6 +21,7 @@ CREATE TABLE IF NOT EXISTS depth_charts (
     position_slot TEXT,
     player_name TEXT,
     baseline_min REAL,
+    injury_indicator TEXT,
     scraped_at TEXT
 )
 """)
@@ -77,25 +79,35 @@ for table in team_tables:
 
         position_slot, _ = text.split(" - ", 1)
 
-        # Extract full name from hyperlink
+        injury_indicator = None
+        marker_match = re.search(r'\(([A-Z]+)\)', text)
+        if marker_match:
+            marker = marker_match.group(1)
+            if marker in ('IL', 'INJ', 'OUT', 'O', 'DNP', 'SSPD', 'SUS'):
+                injury_indicator = 'OUT'
+            elif marker in ('D', 'DTD'):
+                injury_indicator = 'DOUBTFUL'
+            elif marker in ('Q', 'GTD'):
+                injury_indicator = 'QUESTIONABLE'
+
         link = td.find("a")
         if link:
             href = link.get("href", "")
             try:
-                # Extract slug: /id/xxxxxxx/first-last
                 slug = href.rstrip("/").split("/")[-1]
                 full_name = slug.replace("-", " ").title()
             except:
                 full_name = link.get_text(strip=True)
         else:
-            # Fallback: use the text after the dash
             full_name = text.split(" - ")[-1].strip()
+            full_name = re.sub(r'\s*\([A-Z]+\)\s*', '', full_name).strip()
 
         rows.append({
             "team": team_abbr,
             "position_slot": position_slot,
             "player_name": full_name,
             "baseline_min": get_baseline_minutes(position_slot),
+            "injury_indicator": injury_indicator,
             "scraped_at": datetime.utcnow().isoformat()
         })
 
@@ -109,6 +121,12 @@ if not df.empty:
     df.to_sql("depth_charts", conn, if_exists="append", index=False)
     print(f"Depth charts scraped successfully. {len(df)} rows saved.")
     print(df.head(10))
+
+    il_players = df[df['injury_indicator'].notna()]
+    if len(il_players) > 0:
+        print(f"\n=== Depth Chart Injury Indicators: {len(il_players)} players ===")
+        for _, p in il_players.iterrows():
+            print(f"  {p['player_name']:25s} ({p['team']}) {p['position_slot']:5s} -> {p['injury_indicator']}")
 else:
     print("No depth chart data found.")
 
