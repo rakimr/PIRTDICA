@@ -3070,6 +3070,31 @@ th[data-sortable].sort-desc::after {
     font-weight: bold;
 }
 
+.prop-conf-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+.prop-conf-high {
+    background: #e6f4ea;
+    color: #0f9d58;
+    border: 1px solid #b7e1cd;
+}
+.prop-conf-low {
+    background: #fce8e6;
+    color: #d72638;
+    border: 1px solid #f5c6cb;
+}
+.prop-low-confidence {
+    opacity: 0.55;
+}
+.prop-low-confidence:hover {
+    opacity: 0.85;
+}
+
 .trend-btn-cell {
     padding: 0.25rem 0.5rem !important;
     text-align: center;

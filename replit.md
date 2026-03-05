@@ -26,6 +26,8 @@ The player archetype system includes 11 total archetypes, classified using the P
 
 The projection philosophy, "Minimal Viable Elite (MVE)", focuses on capturing 85-90% of predictive signal with 30-40% of the complexity, using a Three-Layer Rule for feature inclusion. A chart screenshot infrastructure exists via `/chart-screenshot/{chart_type}/{target}` using synchronous XHR + raw Canvas API for immediate rendering, with Playwright + nix Chromium automating batch screenshot capture.
 
+The **Prop Confidence Filter** (`analysis/player_value.py`) gates sportsbook prop recommendations on four criteria before surfacing them as article picks: (1) historical hit rate >= 55% at the book line, (2) coefficient of variation <= 0.55, (3) last-5-game trend >= 80% of season average, (4) minimum 15 game logs. Plays failing any gate are flagged `confidence: LOW` and sorted below HIGH confidence plays. This filter applies ONLY to prop bet recommendations — it does not affect DFS roster optimization.
+
 Avatar & Identity Design Direction follows a "Strategic Minimalism meets Editorial Sports Design" style with a "Nike campaign meets tech startup meets esports broadcast" vibe. Design rules include a white background, black primary vector, 3-4px line weight, single accent color, circular 1:1 badge format, no gradients, and a specific accent palette. Cosmetics must communicate Skill, Status, or Story, and critically, must never mimic rank colors, division badge shapes, or champion aesthetics.
 
 ## Daily Articles
