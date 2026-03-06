@@ -248,9 +248,13 @@ def generate_house_lineup(force=False, exclude_teams=None):
     
     snapshot_added = 0
     snapshot_updated = 0
+    seen_norms = set()
     for _, player_data in players_df.iterrows():
         raw_name = str(player_data.get('player_name', ''))
         norm_name = normalize_player_name(raw_name)
+        if norm_name in seen_norms:
+            continue
+        seen_norms.add(norm_name)
         
         proj_min_val = float(player_data.get('projected_min', 0)) if pd.notna(player_data.get('projected_min')) else None
         proj_fp_val = float(player_data.get('proj_fp', 0)) if pd.notna(player_data.get('proj_fp')) else None
