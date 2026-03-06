@@ -3094,6 +3094,41 @@ th[data-sortable].sort-desc::after {
 .prop-low-confidence:hover {
     opacity: 0.85;
 }
+.composite-score-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.82rem;
+    font-weight: 800;
+    min-width: 28px;
+    text-align: center;
+    letter-spacing: 0.02em;
+}
+.score-high {
+    background: #1a1a1a;
+    color: #0f9d58;
+    border: 1.5px solid #0f9d58;
+}
+.score-mid {
+    background: #1a1a1a;
+    color: #f4b400;
+    border: 1.5px solid #f4b400;
+}
+.score-low {
+    background: #1a1a1a;
+    color: #888;
+    border: 1.5px solid #555;
+}
+.prop-factors {
+    font-size: 0.68rem;
+    color: #999;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    display: block;
+    margin-top: 2px;
+    max-width: 220px;
+    white-space: normal;
+}
 
 .trend-btn-cell {
     padding: 0.25rem 0.5rem !important;
