@@ -3214,7 +3214,8 @@ th[data-sortable].sort-desc::after {
 
 .trend-modal-legend {
     display: flex;
-    gap: 1.5rem;
+    flex-wrap: wrap;
+    gap: 0.6rem 1.25rem;
     justify-content: center;
     padding: 0.6rem 1.5rem 0;
     font-family: 'Marvel', sans-serif;
@@ -3241,6 +3242,18 @@ th[data-sortable].sort-desc::after {
 
 .legend-grey {
     border-color: #6b7280;
+}
+
+.legend-amber {
+    border-color: #d97706;
+    border-style: dashed;
+}
+
+.legend-bar {
+    display: inline-block;
+    width: 14px;
+    height: 12px;
+    border-radius: 2px;
 }
 
 .trend-modal-footer {
