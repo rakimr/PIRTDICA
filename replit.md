@@ -38,6 +38,25 @@ The web UI displays composite score badges, projected values, and projection fac
 
 Avatar & Identity Design Direction follows a "Strategic Minimalism meets Editorial Sports Design" style with a "Nike campaign meets tech startup meets esports broadcast" vibe. Design rules include a white background, black primary vector, 3-4px line weight, single accent color, circular 1:1 badge format, no gradients, and a specific accent palette. Cosmetics must communicate Skill, Status, or Story, and must never mimic rank colors, division badge shapes, or champion aesthetics.
 
+## Daily Chat Output Formats
+
+**Grading Report Table** (used after games are final):
+`Hit or Miss | Player | Stat | Book | Pirtdica Projection | Actual | ProjMin | ActMin`
+Use ✓ for hit, ✗ for miss, — for DNP. Record shown below table as X/Y (Z%).
+
+**HIGH Confidence Picks Table** (pre-game):
+`# | Player | Game | Stat | Player Avg | Line | Projected | Edge | Pick`
+Edge shown as +X.X% (OVER) or -X.X% (UNDER).
+
+**Props Table** (all props with lines, sorted by edge):
+`Player | Stat | Call | Line | Proj | Edge | Conf | Hit% | Score`
+
+**Analysis Output** (pre-game narrative):
+Slate overview paragraph → player-by-player breakdown (matchup/archetype/DVA/factors/last 5/stat to watch) → 5-day HIGH trend.
+
+**Grading Analysis** (post-game per-pick narrative):
+✅/❌ Player — STAT CALL | HIT/MISS | Actual (margin) → What happened → Why model was right/wrong.
+
 Daily Articles target sportsbook bettors with prop bet analysis. Article format includes a slate overview, four deep-dive player sections, and a "THE BIGGER PICTURE" closing section. Each player section provides detailed analytical breakdowns. The tone is analytical, data-driven, and competitive, explicitly stating that these are prop bet targets, not fantasy lineup recommendations. Article files are saved locally.
 
 Article Header Images are in a Gustave Doré-inspired black and white engraving style, featuring Gothic cathedral interiors with integrated basketball elements and cloaked scholar figures. No text, no logos, no color, 16:9 aspect ratio.
