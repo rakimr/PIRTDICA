@@ -4387,3 +4387,189 @@ th[data-sortable].sort-desc::after {
         max-height: calc(100vh - 80px);
     }
 }
+
+.articles-page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem 0 3rem;
+}
+
+.article-header-wrap {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.article-header-img {
+    width: 100%;
+    max-width: 960px;
+    height: auto;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.article-meta h1 {
+    font-family: 'Righteous', sans-serif;
+    font-size: 1.8rem;
+    letter-spacing: 2px;
+    margin-bottom: 0.25rem;
+}
+
+.article-date {
+    color: #888;
+    font-size: 0.95rem;
+}
+
+.article-section {
+    margin-bottom: 2.5rem;
+}
+
+.article-section h2 {
+    font-family: 'Righteous', sans-serif;
+    font-size: 1.3rem;
+    letter-spacing: 1px;
+    border-bottom: 2px solid #1a1a1a;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.article-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.article-table thead th {
+    background: #1a1a1a;
+    color: #fff;
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+    font-family: 'Righteous', sans-serif;
+    font-weight: 400;
+    letter-spacing: 0.5px;
+    font-size: 0.8rem;
+}
+
+.article-table tbody td {
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.article-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+.player-name-cell {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.edge-positive {
+    color: #0F9D58;
+    font-weight: 600;
+}
+
+.edge-negative {
+    color: #D72638;
+    font-weight: 600;
+}
+
+.pick-badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-family: 'Righteous', sans-serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+    font-weight: 400;
+}
+
+.pick-over {
+    background: #0F9D58;
+    color: #fff;
+}
+
+.pick-under {
+    background: #D72638;
+    color: #fff;
+}
+
+.analysis-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.analysis-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+}
+
+.analysis-player-info h3 {
+    font-family: 'Righteous', sans-serif;
+    font-size: 1.1rem;
+    margin: 0 0 0.2rem;
+}
+
+.analysis-meta {
+    font-size: 0.8rem;
+    color: #888;
+}
+
+.analysis-body p {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin-bottom: 0.6rem;
+    color: #333;
+}
+
+.analysis-call {
+    font-weight: 700;
+    color: #1a1a1a;
+    font-size: 0.95rem;
+    padding-top: 0.25rem;
+    border-top: 1px solid #e5e7eb;
+    margin-top: 0.5rem;
+}
+
+.no-article {
+    text-align: center;
+    padding: 4rem 1rem;
+}
+
+.no-article h1 {
+    font-family: 'Righteous', sans-serif;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.no-article p {
+    color: #888;
+}
+
+.table-wrap {
+    overflow-x: auto;
+}
+
+@media (max-width: 768px) {
+    .article-meta h1 {
+        font-size: 1.3rem;
+    }
+
+    .article-table {
+        font-size: 0.8rem;
+    }
+
+    .article-table thead th,
+    .article-table tbody td {
+        padding: 0.4rem 0.5rem;
+    }
+
+    .analysis-header {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}

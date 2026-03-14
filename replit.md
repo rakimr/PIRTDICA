@@ -26,6 +26,8 @@ The player archetype system includes 11 total archetypes, classified using the P
 
 The projection philosophy, "Minimal Viable Elite (MVE)", focuses on capturing 85-90% of predictive signal with 30-40% of the complexity, using a Three-Layer Rule for feature inclusion. A chart screenshot infrastructure exists via `/chart-screenshot/{chart_type}/{target}` using synchronous XHR + raw Canvas API for immediate rendering, with Playwright + nix Chromium automating batch screenshot capture.
 
+Article header images are generated via `generate_header.py` using Pillow (pure Python, no browser). It reads HIGH confidence picks from `prop_recommendations.csv`, fetches circular ESPN CDN headshots, and renders the white-background centered layout at 800px wide. Righteous font is downloaded to `/tmp/Righteous-Regular.ttf` from GitHub each session. ESPN team IDs must use the confirmed map (LAL=13, MIA=14, NY=18, PHI=20, etc.). Run: `python generate_header.py [YYYY-MM-DD]`.
+
 The Stat-Specific Projection Engine generates projected values for each stat type (PTS, REB, AST, STL, BLK) using dedicated projection functions that incorporate ALL available data sources: recency-weighted averages, pace factor, game total factor, DVA/DVP blended edges, shot zone vs team defense alignment, shot creation self-sufficiency, physical measurements, hustle stats, archetype composite indices, opponent play type vulnerabilities, matchup history, teammate injury usage redistribution, and probabilistic minutes modeling. Each projection returns a value and a list of named factors with magnitudes.
 
 The Probabilistic Minutes Model replaces the old deterministic minutes approach with an empirically-calibrated distribution-aware system. It uses percentile and volatility models based on game log availability, and includes a blowout decay curve.
@@ -54,8 +56,10 @@ Edge shown as +X.X% (OVER) or -X.X% (UNDER).
 **Analysis Output** (pre-game narrative):
 Slate overview paragraph → player-by-player breakdown (matchup/archetype/DVA/factors/last 5/stat to watch) → 5-day HIGH trend.
 
-**Grading Analysis** (post-game per-pick narrative):
-✅/❌ Player — STAT CALL | HIT/MISS | Actual (margin) → What happened → Why model was right/wrong.
+**Grading Report** (post-game full output):
+Header: "Key Takeaways & Grading Report (Mar DD) 🏀"
+Then the grading table (Hit or Miss | Player | Stat | Book | Pirtdica Projection | Actual | ProjMin | ActMin).
+Then narrative paragraphs: lead with the best/cleanest win, group hits together, then address each miss individually with explanation (blowout, shooting collapse, trend miss, etc). End record shown below table as X/Y (Z%).
 
 Daily Articles target sportsbook bettors with prop bet analysis. Article format includes a slate overview, four deep-dive player sections, and a "THE BIGGER PICTURE" closing section. Each player section provides detailed analytical breakdowns. The tone is analytical, data-driven, and competitive, explicitly stating that these are prop bet targets, not fantasy lineup recommendations. Article files are saved locally.
 

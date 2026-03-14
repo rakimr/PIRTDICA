@@ -157,6 +157,28 @@ async def chart_screenshot_route(request: Request, chart_type: str, target: str)
         "request": request, "chart_type": chart_type, "target": target
     })
 
+@app.get("/articles")
+async def articles_page(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    today = get_eastern_today()
+    article = db.query(models.DailyArticle).filter(
+        models.DailyArticle.slate_date == today
+    ).first()
+    picks = []
+    analysis = []
+    if article:
+        if article.picks_json:
+            picks = json.loads(article.picks_json)
+        if article.analysis_json:
+            analysis = json.loads(article.analysis_json)
+    return templates.TemplateResponse("articles.html", {
+        "request": request,
+        "user": user,
+        "article": article,
+        "picks": picks,
+        "analysis": analysis,
+    })
+
 @app.get("/")
 async def home(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)

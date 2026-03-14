@@ -741,6 +741,18 @@ class Notification(Base):
     user = relationship("User", backref="notifications")
 
 
+class DailyArticle(Base):
+    __tablename__ = "daily_articles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    slate_date = Column(Date, nullable=False, unique=True, index=True)
+    header_image_path = Column(String(255))
+    picks_json = Column(Text)
+    analysis_json = Column(Text)
+    game_count = Column(Integer, default=0)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class EmailQueue(Base):
     __tablename__ = "email_queue"
 
