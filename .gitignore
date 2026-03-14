@@ -180,3 +180,6 @@ cython_debug/
 
 articles/
 attached_assets/
+
+# Stripe keys (loaded from Replit connection)
+.stripe_keys.json
