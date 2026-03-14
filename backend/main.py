@@ -167,10 +167,16 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
     picks = []
     analysis = []
     if article:
-        if article.picks_json:
-            picks = json.loads(article.picks_json)
-        if article.analysis_json:
-            analysis = json.loads(article.analysis_json)
+        try:
+            if article.picks_json:
+                picks = json.loads(article.picks_json)
+        except (json.JSONDecodeError, TypeError):
+            picks = []
+        try:
+            if article.analysis_json:
+                analysis = json.loads(article.analysis_json)
+        except (json.JSONDecodeError, TypeError):
+            analysis = []
     return templates.TemplateResponse("articles.html", {
         "request": request,
         "user": user,
