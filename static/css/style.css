@@ -123,6 +123,12 @@ a:hover {
     margin-left: 2px;
 }
 
+.nav-lock-icon.unlocked {
+    opacity: 0.8;
+    color: #22c55e;
+    stroke: #22c55e;
+}
+
 .btn-play {
     background: var(--bg-card);
     color: var(--text) !important;
