@@ -216,7 +216,6 @@ async def subscribe_success(request: Request, db: Session = Depends(get_db)):
     from backend.stripe_billing import (get_stripe_client, resolve_plan_from_subscription,
                                          upsert_user_subscription, cancel_individual_subs_for_bundle,
                                          sync_user_subscription_fields)
-    from backend.events import emit_subscription_activated
     user = get_current_user(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
@@ -235,17 +234,20 @@ async def subscribe_success(request: Request, db: Session = Depends(get_db)):
                 sub, plan_key = resolve_plan_from_subscription(client, session.subscription)
                 user.stripe_customer_id = session.customer
                 period_end = datetime.fromtimestamp(sub.current_period_end) if sub.current_period_end else None
-                upsert_user_subscription(db, user.id, sub.id, plan_key, sub.status, period_end)
+                _, is_new = upsert_user_subscription(db, user.id, sub.id, plan_key, sub.status, period_end)
                 sync_user_subscription_fields(db, user, plan_key, sub.id, sub.status, sub.current_period_end)
                 if plan_key == "bundle":
                     cancel_individual_subs_for_bundle(db, user.id, sub.id)
-                emit_subscription_activated(db, user.id, user.username, plan_key)
+                if is_new:
+                    from backend.events import emit_subscription_activated
+                    emit_subscription_activated(db, user.id, user.username, plan_key)
                 db.commit()
-                from backend.email_service import process_email_queue
-                try:
-                    process_email_queue(db)
-                except Exception:
-                    pass
+                if is_new:
+                    from backend.email_service import process_email_queue
+                    try:
+                        process_email_queue(db)
+                    except Exception:
+                        pass
         except Exception as e:
             print(f"[Stripe] Error retrieving session: {e}")
     return RedirectResponse(url=redirect_map.get(plan_param, "/"), status_code=303)
