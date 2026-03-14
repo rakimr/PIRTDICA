@@ -30,6 +30,11 @@ class User(Base):
     ranked_losses = Column(Integer, default=0)
     ranked_streak = Column(Integer, default=0)  # positive = win streak, negative = loss streak
     is_banned = Column(Boolean, default=False)
+    stripe_customer_id = Column(String(255), nullable=True)
+    stripe_subscription_id = Column(String(255), nullable=True)
+    subscription_status = Column(String(50), default=None, nullable=True)
+    subscription_plan = Column(String(50), default=None, nullable=True)
+    subscription_current_period_end = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     
     entries = relationship("ContestEntry", back_populates="user")
@@ -148,8 +153,6 @@ class CashTransaction(Base):
     transaction_type = Column(String(50), nullable=False)
     description = Column(String(255))
     created_at = Column(DateTime, server_default=func.now())
-    
-    user = relationship("User", back_populates="cash_transactions")
 
 class ShopItem(Base):
     __tablename__ = "shop_items"

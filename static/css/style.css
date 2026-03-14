@@ -4558,6 +4558,208 @@ th[data-sortable].sort-desc::after {
     overflow-x: auto;
 }
 
+.paywall-container {
+    display: flex;
+    justify-content: center;
+    padding: 2rem 0 3rem;
+}
+
+.paywall-card {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 12px;
+    padding: 2.5rem 2rem;
+    max-width: 440px;
+    width: 100%;
+    text-align: center;
+}
+
+.paywall-lock {
+    margin-bottom: 1rem;
+    color: #1a1a1a;
+}
+
+.paywall-card h2 {
+    font-family: 'Righteous', cursive;
+    font-size: 1.6rem;
+    letter-spacing: 1px;
+    margin-bottom: 0.25rem;
+}
+
+.paywall-subtitle {
+    color: #6b7280;
+    font-size: 0.95rem;
+    margin-bottom: 1.5rem;
+}
+
+.paywall-features {
+    text-align: left;
+    margin-bottom: 1.5rem;
+}
+
+.paywall-feature {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0;
+    font-size: 0.9rem;
+    color: #374151;
+}
+
+.paywall-feature svg {
+    flex-shrink: 0;
+    color: #0F9D58;
+}
+
+.paywall-price {
+    margin-bottom: 1.25rem;
+}
+
+.paywall-amount {
+    font-family: 'Righteous', cursive;
+    font-size: 2.5rem;
+    color: #1a1a1a;
+}
+
+.paywall-period {
+    font-size: 1rem;
+    color: #6b7280;
+}
+
+.paywall-btn {
+    display: block;
+    width: 100%;
+    font-size: 1.1rem;
+    padding: 0.9rem 2rem;
+}
+
+.paywall-login-hint {
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
+.subscribe-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.subscribe-modal {
+    background: #fff;
+    border-radius: 12px;
+    padding: 2.5rem 2rem;
+    max-width: 420px;
+    width: 90%;
+    text-align: center;
+    position: relative;
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.subscribe-modal-close {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #9ca3af;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.subscribe-modal-close:hover {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.subscribe-modal h2 {
+    font-family: 'Righteous', cursive;
+    font-size: 1.4rem;
+    margin-bottom: 0.5rem;
+}
+
+.subscribe-modal p {
+    color: #6b7280;
+    font-size: 0.9rem;
+    margin-bottom: 1.25rem;
+    line-height: 1.5;
+}
+
+.subscribe-modal .paywall-features {
+    margin-bottom: 1.25rem;
+}
+
+.subscribe-modal .paywall-price {
+    margin-bottom: 1rem;
+}
+
+.subscribe-modal .btn {
+    display: block;
+    width: 100%;
+    margin-bottom: 0.5rem;
+}
+
+.subscribe-modal .modal-dismiss {
+    font-size: 0.85rem;
+    color: #9ca3af;
+    cursor: pointer;
+    background: none;
+    border: none;
+    margin-top: 0.25rem;
+}
+
+.subscribe-modal .modal-dismiss:hover {
+    color: #6b7280;
+}
+
+.subscription-status-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.subscription-status-card h3 {
+    font-family: 'Marvel', sans-serif;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.sub-status-active {
+    color: #0F9D58;
+    font-weight: 700;
+}
+
+.sub-status-inactive {
+    color: #6b7280;
+}
+
 @media (max-width: 768px) {
     .article-meta h1 {
         font-size: 1.3rem;

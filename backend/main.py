@@ -159,6 +159,7 @@ async def chart_screenshot_route(request: Request, chart_type: str, target: str)
 
 @app.get("/articles")
 async def articles_page(request: Request, db: Session = Depends(get_db)):
+    from backend.stripe_billing import is_subscriber, get_publishable_key
     user = get_current_user(request, db)
     today = get_eastern_today()
     article = db.query(models.DailyArticle).filter(
@@ -166,7 +167,8 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
     ).first()
     picks = []
     analysis = []
-    if article:
+    has_access = is_subscriber(user)
+    if article and has_access:
         try:
             if article.picks_json:
                 picks = json.loads(article.picks_json)
@@ -183,7 +185,132 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
         "article": article,
         "picks": picks,
         "analysis": analysis,
+        "has_access": has_access,
     })
+
+@app.get("/subscribe")
+async def subscribe_page(request: Request, db: Session = Depends(get_db)):
+    from backend.stripe_billing import create_checkout_session, is_subscriber
+    user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    if is_subscriber(user):
+        return RedirectResponse(url="/articles", status_code=303)
+    base_url = str(request.base_url).rstrip("/")
+    session, customer_id = create_checkout_session(
+        user,
+        success_url=f"{base_url}/subscribe/success?session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{base_url}/articles",
+    )
+    if user.stripe_customer_id != customer_id:
+        user.stripe_customer_id = customer_id
+        db.commit()
+    return RedirectResponse(url=session.url, status_code=303)
+
+
+@app.get("/subscribe/success")
+async def subscribe_success(request: Request, db: Session = Depends(get_db)):
+    from backend.stripe_billing import get_stripe_client
+    user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    session_id = request.query_params.get("session_id")
+    if session_id:
+        client = get_stripe_client()
+        try:
+            session = client.checkout.Session.retrieve(session_id)
+            session_user_id = (session.metadata or {}).get("user_id", "")
+            if str(user.id) != str(session_user_id):
+                print(f"[Stripe] Session user_id mismatch: session={session_user_id}, logged_in={user.id}")
+                return RedirectResponse(url="/articles", status_code=303)
+            if session.subscription:
+                sub = client.Subscription.retrieve(session.subscription)
+                user.stripe_subscription_id = sub.id
+                user.stripe_customer_id = session.customer
+                user.subscription_status = sub.status
+                user.subscription_plan = "pro"
+                if sub.current_period_end:
+                    user.subscription_current_period_end = datetime.fromtimestamp(sub.current_period_end)
+                db.commit()
+        except Exception as e:
+            print(f"[Stripe] Error retrieving session: {e}")
+    return RedirectResponse(url="/articles", status_code=303)
+
+
+@app.post("/stripe/webhook")
+async def stripe_webhook(request: Request):
+    from backend.stripe_billing import construct_webhook_event
+    from backend.database import SessionLocal
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+    try:
+        event = construct_webhook_event(payload, sig_header)
+    except Exception as e:
+        print(f"[Stripe Webhook] Verification failed: {e}")
+        return JSONResponse({"error": "Invalid signature"}, status_code=400)
+
+    db = SessionLocal()
+    try:
+        if event.type == "checkout.session.completed":
+            session = event.data.object
+            customer_id = session.get("customer")
+            subscription_id = session.get("subscription")
+            if customer_id and subscription_id:
+                user = db.query(models.User).filter(models.User.stripe_customer_id == customer_id).first()
+                if user:
+                    from backend.stripe_billing import get_stripe_client
+                    client = get_stripe_client()
+                    sub = client.Subscription.retrieve(subscription_id)
+                    user.stripe_subscription_id = subscription_id
+                    user.subscription_status = sub.status
+                    user.subscription_plan = "pro"
+                    if sub.current_period_end:
+                        user.subscription_current_period_end = datetime.fromtimestamp(sub.current_period_end)
+                    db.commit()
+
+        elif event.type in ("invoice.payment_succeeded", "customer.subscription.updated"):
+            sub_data = event.data.object
+            if event.type == "invoice.payment_succeeded":
+                subscription_id = sub_data.get("subscription")
+            else:
+                subscription_id = sub_data.get("id")
+            if subscription_id:
+                user = db.query(models.User).filter(models.User.stripe_subscription_id == subscription_id).first()
+                if user:
+                    from backend.stripe_billing import get_stripe_client
+                    client = get_stripe_client()
+                    sub = client.Subscription.retrieve(subscription_id)
+                    user.subscription_status = sub.status
+                    if sub.current_period_end:
+                        user.subscription_current_period_end = datetime.fromtimestamp(sub.current_period_end)
+                    db.commit()
+
+        elif event.type == "customer.subscription.deleted":
+            sub_data = event.data.object
+            subscription_id = sub_data.get("id")
+            if subscription_id:
+                user = db.query(models.User).filter(models.User.stripe_subscription_id == subscription_id).first()
+                if user:
+                    user.subscription_status = "canceled"
+                    db.commit()
+    except Exception as e:
+        print(f"[Stripe Webhook] Error processing {event.type}: {e}")
+    finally:
+        db.close()
+
+    return JSONResponse({"received": True})
+
+
+@app.get("/billing")
+async def billing_portal(request: Request, db: Session = Depends(get_db)):
+    from backend.stripe_billing import create_billing_portal_session
+    user = get_current_user(request, db)
+    if not user or not user.stripe_customer_id:
+        return RedirectResponse(url="/articles", status_code=303)
+    base_url = str(request.base_url).rstrip("/")
+    session = create_billing_portal_session(user.stripe_customer_id, f"{base_url}/profile/{user.username}")
+    return RedirectResponse(url=session.url, status_code=303)
+
 
 @app.get("/")
 async def home(request: Request, db: Session = Depends(get_db)):
@@ -423,6 +550,9 @@ async def register(
     token = auth.create_session(db, user.id)
     response = RedirectResponse(url="/", status_code=303)
     set_session_cookie(response, token)
+    from backend.stripe_billing import is_subscriber
+    if not is_subscriber(user):
+        response.set_cookie("show_subscribe_prompt", "1", max_age=60, httponly=False)
     return response
 
 @app.get("/login")
@@ -452,6 +582,9 @@ async def login(
     token = auth.create_session(db, user.id)
     response = RedirectResponse(url="/", status_code=303)
     set_session_cookie(response, token)
+    from backend.stripe_billing import is_subscriber
+    if not is_subscriber(user):
+        response.set_cookie("show_subscribe_prompt", "1", max_age=60, httponly=False)
     return response
 
 @app.get("/logout")
