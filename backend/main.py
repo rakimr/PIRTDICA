@@ -258,7 +258,7 @@ async def home(request: Request, db: Session = Depends(get_db)):
                         slate_games.append({"away": row[0], "home": row[1], "spread": row[2], "total": row[3]})
                 except Exception:
                     pass
-        else:
+        if not slate_games:
             import sqlite3 as sl3
             conn_g = sl3.connect("dfs_nba.db")
             cur_g = conn_g.cursor()
