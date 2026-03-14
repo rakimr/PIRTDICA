@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, Depends, Form, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
@@ -113,6 +113,16 @@ def set_session_cookie(response: Response, token: str):
         httponly=True,
         samesite="lax"
     )
+
+def html_redirect(url: str, token: str = None, extra_cookies: dict = None):
+    html = f'<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url={url}"><title>Redirecting...</title></head><body><p>Redirecting to <a href="{url}">{url}</a>...</p></body></html>'
+    response = HTMLResponse(content=html, status_code=200)
+    if token:
+        set_session_cookie(response, token)
+    if extra_cookies:
+        for k, v in extra_cookies.items():
+            response.set_cookie(k, v["value"], max_age=v.get("max_age", 60), httponly=v.get("httponly", False))
+    return response
 
 def normalize_name(name):
     import unicodedata
@@ -561,39 +571,52 @@ async def register(
             "error": "Username or email already exists"
         })
     
-    user = models.User(
-        username=username,
-        email=email,
-        password_hash=auth.hash_password(password),
-        display_name=username,
-        coins=100
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    
-    db.add(models.CurrencyTransaction(
-        user_id=user.id,
-        amount=100,
-        transaction_type="signup_bonus",
-        description="Welcome bonus!"
-    ))
-    db.commit()
-    
+    try:
+        user = models.User(
+            username=username,
+            email=email,
+            password_hash=auth.hash_password(password),
+            display_name=username,
+            coins=100
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    except Exception as e:
+        db.rollback()
+        print(f"[Register] Error creating user: {e}")
+        return templates.TemplateResponse("register.html", {
+            "request": request,
+            "error": "Username or email already exists"
+        })
+
+    try:
+        db.add(models.CurrencyTransaction(
+            user_id=user.id,
+            amount=100,
+            transaction_type="signup_bonus",
+            description="Welcome bonus!"
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
+
     try:
         from backend.events import emit_welcome
         emit_welcome(db, user.id, username)
         db.commit()
     except Exception:
-        pass
+        db.rollback()
     
     token = auth.create_session(db, user.id)
-    response = RedirectResponse(url="/", status_code=303)
-    set_session_cookie(response, token)
-    from backend.stripe_billing import has_any_subscription
-    if not has_any_subscription(user, db):
-        response.set_cookie("show_subscribe_prompt", "1", max_age=60, httponly=False)
-    return response
+    extra_cookies = {}
+    try:
+        from backend.stripe_billing import has_any_subscription
+        if not has_any_subscription(user, db):
+            extra_cookies["show_subscribe_prompt"] = {"value": "1", "max_age": 60, "httponly": False}
+    except Exception:
+        extra_cookies["show_subscribe_prompt"] = {"value": "1", "max_age": 60, "httponly": False}
+    return html_redirect("/", token=token, extra_cookies=extra_cookies)
 
 @app.get("/login")
 async def login_page(request: Request):
@@ -620,12 +643,11 @@ async def login(
         })
     
     token = auth.create_session(db, user.id)
-    response = RedirectResponse(url="/", status_code=303)
-    set_session_cookie(response, token)
+    extra_cookies = {}
     from backend.stripe_billing import has_any_subscription
     if not has_any_subscription(user, db):
-        response.set_cookie("show_subscribe_prompt", "1", max_age=60, httponly=False)
-    return response
+        extra_cookies["show_subscribe_prompt"] = {"value": "1", "max_age": 60, "httponly": False}
+    return html_redirect("/", token=token, extra_cookies=extra_cookies)
 
 @app.get("/logout")
 async def logout(request: Request, db: Session = Depends(get_db)):
