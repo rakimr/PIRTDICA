@@ -159,7 +159,7 @@ async def chart_screenshot_route(request: Request, chart_type: str, target: str)
 
 @app.get("/articles")
 async def articles_page(request: Request, db: Session = Depends(get_db)):
-    from backend.stripe_billing import is_subscriber
+    from backend.stripe_billing import has_picks_access
     user = get_current_user(request, db)
     today = get_eastern_today()
     article = db.query(models.DailyArticle).filter(
@@ -167,7 +167,7 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
     ).first()
     picks = []
     analysis = []
-    has_access = is_subscriber(user)
+    has_access = has_picks_access(user)
     if article and has_access:
         try:
             if article.picks_json:
@@ -190,17 +190,20 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/subscribe")
 async def subscribe_page(request: Request, db: Session = Depends(get_db)):
-    from backend.stripe_billing import create_checkout_session, is_subscriber
+    from backend.stripe_billing import create_checkout_session, has_any_subscription
     user = get_current_user(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
-    if is_subscriber(user):
-        return RedirectResponse(url="/articles", status_code=303)
+    plan_key = request.query_params.get("plan", "picks")
+    if plan_key not in ("picks", "statpack", "bundle"):
+        plan_key = "picks"
+    cancel_map = {"picks": "/articles", "statpack": "/trends", "bundle": "/"}
     base_url = str(request.base_url).rstrip("/")
     session, customer_id = create_checkout_session(
         user,
-        success_url=f"{base_url}/subscribe/success?session_id={{CHECKOUT_SESSION_ID}}",
-        cancel_url=f"{base_url}/articles",
+        success_url=f"{base_url}/subscribe/success?session_id={{CHECKOUT_SESSION_ID}}&plan={plan_key}",
+        cancel_url=f"{base_url}{cancel_map.get(plan_key, '/')}",
+        plan_key=plan_key,
     )
     if user.stripe_customer_id != customer_id:
         user.stripe_customer_id = customer_id
@@ -210,10 +213,12 @@ async def subscribe_page(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/subscribe/success")
 async def subscribe_success(request: Request, db: Session = Depends(get_db)):
-    from backend.stripe_billing import get_stripe_client
+    from backend.stripe_billing import get_stripe_client, resolve_plan_from_subscription
     user = get_current_user(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
+    plan_param = request.query_params.get("plan", "picks")
+    redirect_map = {"picks": "/articles", "statpack": "/trends", "bundle": "/"}
     session_id = request.query_params.get("session_id")
     if session_id:
         client = get_stripe_client()
@@ -224,17 +229,17 @@ async def subscribe_success(request: Request, db: Session = Depends(get_db)):
                 print(f"[Stripe] Session user_id mismatch: session={session_user_id}, logged_in={user.id}")
                 return RedirectResponse(url="/articles", status_code=303)
             if session.subscription:
-                sub = client.Subscription.retrieve(session.subscription)
+                sub, plan_key = resolve_plan_from_subscription(client, session.subscription)
                 user.stripe_subscription_id = sub.id
                 user.stripe_customer_id = session.customer
                 user.subscription_status = sub.status
-                user.subscription_plan = "pro"
+                user.subscription_plan = plan_key
                 if sub.current_period_end:
                     user.subscription_current_period_end = datetime.fromtimestamp(sub.current_period_end)
                 db.commit()
         except Exception as e:
             print(f"[Stripe] Error retrieving session: {e}")
-    return RedirectResponse(url="/articles", status_code=303)
+    return RedirectResponse(url=redirect_map.get(plan_param, "/"), status_code=303)
 
 
 @app.post("/stripe/webhook")
@@ -258,12 +263,12 @@ async def stripe_webhook(request: Request):
             if customer_id and subscription_id:
                 user = db.query(models.User).filter(models.User.stripe_customer_id == customer_id).first()
                 if user:
-                    from backend.stripe_billing import get_stripe_client
+                    from backend.stripe_billing import get_stripe_client, resolve_plan_from_subscription
                     client = get_stripe_client()
-                    sub = client.Subscription.retrieve(subscription_id)
+                    sub, plan_key = resolve_plan_from_subscription(client, subscription_id)
                     user.stripe_subscription_id = subscription_id
                     user.subscription_status = sub.status
-                    user.subscription_plan = "pro"
+                    user.subscription_plan = plan_key
                     if sub.current_period_end:
                         user.subscription_current_period_end = datetime.fromtimestamp(sub.current_period_end)
                     db.commit()
@@ -277,10 +282,11 @@ async def stripe_webhook(request: Request):
             if subscription_id:
                 user = db.query(models.User).filter(models.User.stripe_subscription_id == subscription_id).first()
                 if user:
-                    from backend.stripe_billing import get_stripe_client
+                    from backend.stripe_billing import get_stripe_client, resolve_plan_from_subscription
                     client = get_stripe_client()
-                    sub = client.Subscription.retrieve(subscription_id)
+                    sub, plan_key = resolve_plan_from_subscription(client, subscription_id)
                     user.subscription_status = sub.status
+                    user.subscription_plan = plan_key
                     if sub.current_period_end:
                         user.subscription_current_period_end = datetime.fromtimestamp(sub.current_period_end)
                     db.commit()
@@ -550,8 +556,8 @@ async def register(
     token = auth.create_session(db, user.id)
     response = RedirectResponse(url="/", status_code=303)
     set_session_cookie(response, token)
-    from backend.stripe_billing import is_subscriber
-    if not is_subscriber(user):
+    from backend.stripe_billing import has_any_subscription
+    if not has_any_subscription(user):
         response.set_cookie("show_subscribe_prompt", "1", max_age=60, httponly=False)
     return response
 
@@ -582,8 +588,8 @@ async def login(
     token = auth.create_session(db, user.id)
     response = RedirectResponse(url="/", status_code=303)
     set_session_cookie(response, token)
-    from backend.stripe_billing import is_subscriber
-    if not is_subscriber(user):
+    from backend.stripe_billing import has_any_subscription
+    if not has_any_subscription(user):
         response.set_cookie("show_subscribe_prompt", "1", max_age=60, httponly=False)
     return response
 
@@ -598,9 +604,15 @@ async def logout(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/trends")
 async def trends(request: Request, db: Session = Depends(get_db)):
+    from backend.stripe_billing import has_statpack_access
     user = get_current_user(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
+    if not has_statpack_access(user):
+        return templates.TemplateResponse("trends_paywall.html", {
+            "request": request,
+            "user": user,
+        })
     import pandas as pd
     import time
     
