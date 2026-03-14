@@ -221,6 +221,7 @@ def sync_sqlite_table(sqlite_table, pg_table):
 
 PLATFORM_TABLES = [
     "shop_items",
+    "daily_articles",
 ]
 
 
