@@ -1,7 +1,7 @@
 # PIRTDICA SPORTS CO. - NBA DFS Platform
 
 ## Overview
-PIRTDICA SPORTS CO. offers an NBA Daily Fantasy Sports (DFS) platform focused on accurate player projections through advanced analytics like sophisticated player archetype classification and and salary-tier volatility modeling. Its core purpose is to provide a skill-based esports competition platform, moving beyond traditional gambling. Key features include a "Beat the House" game using Monte Carlo simulation, competitive play against AI, and a dual-currency economy (Coach Coin for engagement, Coach Cash for competition) designed to boost user retention and build community. The platform aims to establish a new standard for competitive fantasy sports with a business vision to capture market share in competitive fantasy sports and esports.
+PIRTDICA SPORTS CO. offers an NBA Daily Fantasy Sports (DFS) platform focused on accurate player projections through advanced analytics like sophisticated player archetype classification and salary-tier volatility modeling. Its core purpose is to provide a skill-based esports competition platform, moving beyond traditional gambling. Key features include a "Beat the House" game using Monte Carlo simulation, competitive play against AI, and a single-currency economy (Coach Coin) earned through gameplay. The platform aims to establish a new standard for competitive fantasy sports with a business vision to capture market share in competitive fantasy sports and esports.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -18,7 +18,7 @@ Team resolution handles "2TM"/"3TM" players from Basketball Reference by mapping
 
 Lineup optimization is achieved using PuLP for linear programming and a Monte Carlo optimizer. The platform features a "Beat the House" game against AI, and "Coach vs Coach" (H2H) competitive play with a lobby, coin escrow, and live scoring.
 
-The web platform is built with FastAPI (Python) for the backend, SQLAlchemy for ORM, and Jinja2 templates with custom CSS for the frontend, featuring live scoring, contest history, and admin controls. The dual-currency system (Coach Coin, Coach Cash) supports a Play-to-Earn (P2E) model focused on Identity, Prestige, Access, and Analytics, strictly avoiding pay-to-win mechanics. Ranked modes include free Coin Mode and competitive Cash Mode, structured with a tiered division system, hidden MMR, and seasonal resets. Monetization relies on a small rake on Coach Cash competitions, cosmetic sales, and future subscriptions.
+The web platform is built with FastAPI (Python) for the backend, SQLAlchemy for ORM, and Jinja2 templates with custom CSS for the frontend, featuring live scoring, contest history, and admin controls. The single-currency system (Coach Coin) supports a Play-to-Earn (P2E) model focused on Identity, Prestige, Access, and Analytics, strictly avoiding pay-to-win mechanics. Coach Coin is earned by beating the AI-generated House lineup and through achievements. H2H matches and the shop all use Coach Coin. Ranked modes include a tiered division system, hidden MMR, and seasonal resets. Monetization relies on a small rake on H2H competitions, cosmetic sales, and future subscriptions.
 
 The notification system provides in-app notifications with 4 priority levels, category filtering, and a bell icon dropdown. Event emitters are wired into contest scoring, H2H settlement, and registration. The email system uses Resend API with a queue, rate limiting, and inactive-user-only delivery. RLS is enabled on Supabase.
 

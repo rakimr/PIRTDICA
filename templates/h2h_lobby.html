@@ -115,22 +115,15 @@ select option:disabled { color: #9ca3af; }
     <div class="h2h-section">
         <h2>Create Custom Match</h2>
         <form class="create-form" method="POST" action="/h2h/create" id="createChallengeForm">
-            <div class="mode-toggle">
-                <input type="radio" name="currency_mode" value="coin" id="mode-coin" checked>
-                <label for="mode-coin">Coin Mode</label>
-                <input type="radio" name="currency_mode" value="cash" id="mode-cash">
-                <label for="mode-cash">Cash Mode</label>
-            </div>
             <label for="wager">Entry Fee:</label>
             <select name="wager" id="wager">
                 {% for val in [5, 10, 25, 50, 100, 250, 500] %}
-                <option value="{{ val }}" data-coin-ok="{{ 'yes' if val <= user.coins else 'no' }}" data-cash-ok="{{ 'yes' if val <= user.coach_cash else 'no' }}" {{ 'selected' if val == 10 else '' }}>{{ val }}</option>
+                <option value="{{ val }}" data-coin-ok="{{ 'yes' if val <= user.coins else 'no' }}" {{ 'selected' if val == 10 else '' }}>{{ val }}</option>
                 {% endfor %}
             </select>
             <button type="submit" class="btn btn-primary" id="createBtn">Create Match</button>
             <div class="wallet-display">
                 <span class="wallet-badge active" id="coinBadge">{{ user.coins }} Coach Coin</span>
-                <span class="wallet-badge" id="cashBadge">{{ user.coach_cash }} Coach Cash</span>
             </div>
         </form>
     </div>
@@ -147,12 +140,11 @@ select option:disabled { color: #9ca3af; }
             <div class="challenge-card">
                 <div class="challenge-info">
                     <span class="challenge-user">{{ c.challenger.display_name or c.challenger.username }}</span>
-                    <span class="challenge-fee">{{ c.wager }} {{ 'CC' if (c.currency_mode or 'coin') == 'coin' else '$' }}</span>
-                    <span class="challenge-mode mode-{{ c.currency_mode or 'coin' }}">{{ (c.currency_mode or 'coin')|upper }} MODE</span>
+                    <span class="challenge-fee">{{ c.wager }} CC</span>
                     <span class="match-type-badge type-{{ c.match_type or 'casual' }}">{{ (c.match_type or 'casual')|upper }}</span>
                 </div>
                 <div class="challenge-actions">
-                    <form method="POST" action="/h2h/accept/{{ c.id }}" style="display:inline;" class="accept-form" data-wager="{{ c.wager }}" data-mode="{{ c.currency_mode or 'coin' }}">
+                    <form method="POST" action="/h2h/accept/{{ c.id }}" style="display:inline;" class="accept-form" data-wager="{{ c.wager }}" data-mode="coin">
                         <button type="submit" class="btn-accept">Accept</button>
                     </form>
                 </div>
@@ -178,8 +170,7 @@ select option:disabled { color: #9ca3af; }
                         <span>vs</span>
                         <span class="challenge-user">You</span>
                     {% endif %}
-                    <span class="challenge-fee">{{ c.wager }} {{ 'CC' if (c.currency_mode or 'coin') == 'coin' else '$' }}</span>
-                    <span class="challenge-mode mode-{{ c.currency_mode or 'coin' }}">{{ (c.currency_mode or 'coin')|upper }}</span>
+                    <span class="challenge-fee">{{ c.wager }} CC</span>
                     <span class="match-type-badge type-{{ c.match_type or 'casual' }}">{{ (c.match_type or 'casual')|upper }}</span>
                     <span class="challenge-status status-{{ c.status }}">{{ c.status }}</span>
                 </div>
@@ -235,8 +226,7 @@ select option:disabled { color: #9ca3af; }
                         </span>
                         {% endif %}
                     {% endif %}
-                    <span class="challenge-fee">{{ c.wager }}</span>
-                    <span class="challenge-mode mode-{{ c.currency_mode or 'coin' }}">{{ (c.currency_mode or 'coin')|upper }}</span>
+                    <span class="challenge-fee">{{ c.wager }} CC</span>
                     <span class="match-type-badge type-{{ c.match_type or 'casual' }}">{{ (c.match_type or 'casual')|upper }}</span>
                 </div>
                 <div class="challenge-actions">
@@ -259,24 +249,14 @@ select option:disabled { color: #9ca3af; }
 
 <script>
 const userCoins = {{ user.coins }};
-const userCash = {{ user.coach_cash }};
-const modeRadios = document.querySelectorAll('input[name="currency_mode"]');
 const wagerSelect = document.getElementById('wager');
-const coinBadge = document.getElementById('coinBadge');
-const cashBadge = document.getElementById('cashBadge');
-
-function getSelectedMode() {
-    const checked = document.querySelector('input[name="currency_mode"]:checked');
-    return checked ? checked.value : 'coin';
-}
 
 function updateWagerOptions() {
-    const mode = getSelectedMode();
-    const balance = mode === 'coin' ? userCoins : userCash;
+    if (!wagerSelect) return;
     const options = wagerSelect.querySelectorAll('option');
     options.forEach(function(opt) {
         const val = parseInt(opt.value);
-        if (val > balance) {
+        if (val > userCoins) {
             opt.disabled = true;
             opt.textContent = val + ' (insufficient)';
         } else {
@@ -284,32 +264,16 @@ function updateWagerOptions() {
             opt.textContent = val;
         }
     });
-    if (coinBadge && cashBadge) {
-        if (mode === 'coin') {
-            coinBadge.classList.add('active');
-            cashBadge.classList.remove('active');
-        } else {
-            cashBadge.classList.add('active');
-            coinBadge.classList.remove('active');
-        }
-    }
 }
-
-modeRadios.forEach(function(r) {
-    r.addEventListener('change', updateWagerOptions);
-});
 updateWagerOptions();
 
 var form = document.getElementById('createChallengeForm');
 if (form) {
     form.addEventListener('submit', function(e) {
-        var mode = getSelectedMode();
         var entryFee = parseInt(wagerSelect.value);
-        var balance = mode === 'coin' ? userCoins : userCash;
-        var label = mode === 'coin' ? 'Coach Coin' : 'Coach Cash';
-        if (entryFee > balance) {
+        if (entryFee > userCoins) {
             e.preventDefault();
-            alert('Not enough ' + label + '. You have ' + balance + ' but need ' + entryFee + '.');
+            alert('Not enough Coach Coin. You have ' + userCoins + ' but need ' + entryFee + '.');
         }
     });
 }
@@ -317,12 +281,9 @@ if (form) {
 document.querySelectorAll('.accept-form').forEach(function(f) {
     f.addEventListener('submit', function(e) {
         var entryFee = parseInt(f.dataset.wager);
-        var mode = f.dataset.mode || 'coin';
-        var balance = mode === 'coin' ? userCoins : userCash;
-        var label = mode === 'coin' ? 'Coach Coin' : 'Coach Cash';
-        if (entryFee > balance) {
+        if (entryFee > userCoins) {
             e.preventDefault();
-            alert('Not enough ' + label + '. You have ' + balance + ' but need ' + entryFee + ' to accept.');
+            alert('Not enough Coach Coin. You have ' + userCoins + ' but need ' + entryFee + ' to accept.');
         }
     });
 });

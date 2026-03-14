@@ -35,7 +35,6 @@ class User(Base):
     entries = relationship("ContestEntry", back_populates="user")
     achievements = relationship("UserAchievement", back_populates="user")
     currency_transactions = relationship("CurrencyTransaction", back_populates="user")
-    cash_transactions = relationship("CashTransaction", back_populates="user")
     h2h_challenges_created = relationship("H2HChallenge", foreign_keys="H2HChallenge.challenger_id", back_populates="challenger")
 
 class Contest(Base):

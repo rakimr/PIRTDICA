@@ -60,7 +60,7 @@
             {% if match_type in ['ranked', 'match_night'] %}
                 {{ (match_type or 'ranked')|upper }} MATCH
             {% else %}
-                {{ challenge.wager }} {{ 'CC' if (challenge.currency_mode or 'coin') == 'coin' else 'Coach Cash' }} | CUSTOM
+                {{ challenge.wager }} CC | CUSTOM
             {% endif %}
         </div>
     </div>
@@ -87,7 +87,7 @@
             {% else %}
             {% set total_pot = challenge.wager * 2 %}
             {% set house_cut = [1, (total_pot * 0.1)|int]|max %}
-            <p>You earned {{ total_pot - house_cut }} {{ 'Coach Coin' if (challenge.currency_mode or 'coin') == 'coin' else 'Coach Cash' }}!</p>
+            <p>You earned {{ total_pot - house_cut }} Coach Coin!</p>
             {% endif %}
         </div>
         {% elif challenge.winner_id %}
