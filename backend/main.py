@@ -203,7 +203,7 @@ async def subscribe_page(request: Request, db: Session = Depends(get_db)):
     from backend.stripe_billing import create_checkout_session, has_any_subscription
     user = get_current_user(request, db)
     if not user:
-        return RedirectResponse(url="/login", status_code=303)
+        return html_redirect("/login")
     plan_key = request.query_params.get("plan", "picks")
     if plan_key not in ("picks", "statpack", "bundle"):
         plan_key = "picks"
@@ -218,7 +218,7 @@ async def subscribe_page(request: Request, db: Session = Depends(get_db)):
     if user.stripe_customer_id != customer_id:
         user.stripe_customer_id = customer_id
         db.commit()
-    return RedirectResponse(url=session.url, status_code=303)
+    return html_redirect(session.url)
 
 
 @app.get("/subscribe/success")
@@ -228,7 +228,7 @@ async def subscribe_success(request: Request, db: Session = Depends(get_db)):
                                          sync_user_subscription_fields)
     user = get_current_user(request, db)
     if not user:
-        return RedirectResponse(url="/login", status_code=303)
+        return html_redirect("/login")
     plan_param = request.query_params.get("plan", "picks")
     redirect_map = {"picks": "/articles", "statpack": "/trends", "bundle": "/"}
     session_id = request.query_params.get("session_id")
@@ -239,7 +239,7 @@ async def subscribe_success(request: Request, db: Session = Depends(get_db)):
             session_user_id = (session.metadata or {}).get("user_id", "")
             if str(user.id) != str(session_user_id):
                 print(f"[Stripe] Session user_id mismatch: session={session_user_id}, logged_in={user.id}")
-                return RedirectResponse(url="/articles", status_code=303)
+                return html_redirect("/articles")
             if session.subscription:
                 sub, plan_key = resolve_plan_from_subscription(client, session.subscription)
                 user.stripe_customer_id = session.customer
@@ -260,7 +260,7 @@ async def subscribe_success(request: Request, db: Session = Depends(get_db)):
                         pass
         except Exception as e:
             print(f"[Stripe] Error retrieving session: {e}")
-    return RedirectResponse(url=redirect_map.get(plan_param, "/"), status_code=303)
+    return html_redirect(redirect_map.get(plan_param, "/"))
 
 
 @app.post("/stripe/webhook")
@@ -356,10 +356,10 @@ async def billing_portal(request: Request, db: Session = Depends(get_db)):
     from backend.stripe_billing import create_billing_portal_session
     user = get_current_user(request, db)
     if not user or not user.stripe_customer_id:
-        return RedirectResponse(url="/articles", status_code=303)
+        return html_redirect("/articles")
     base_url = str(request.base_url).rstrip("/")
     session = create_billing_portal_session(user.stripe_customer_id, f"{base_url}/profile/{user.username}")
-    return RedirectResponse(url=session.url, status_code=303)
+    return html_redirect(session.url)
 
 
 @app.get("/")
@@ -654,7 +654,7 @@ async def logout(request: Request, db: Session = Depends(get_db)):
     token = request.cookies.get("session_token")
     if token:
         auth.delete_session(db, token)
-    response = RedirectResponse(url="/", status_code=303)
+    response = html_redirect("/")
     response.delete_cookie("session_token")
     return response
 
@@ -663,7 +663,7 @@ async def trends(request: Request, db: Session = Depends(get_db)):
     from backend.stripe_billing import has_statpack_access
     user = get_current_user(request, db)
     if not user:
-        return RedirectResponse(url="/login", status_code=303)
+        return html_redirect("/login")
     if not has_statpack_access(user, db):
         return templates.TemplateResponse("trends_paywall.html", {
             "request": request,
@@ -1020,7 +1020,7 @@ async def profile(request: Request, username: str, db: Session = Depends(get_db)
 async def history(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     if not user:
-        return RedirectResponse(url="/login", status_code=303)
+        return html_redirect("/login")
     
     entries = db.query(models.ContestEntry).filter(
         models.ContestEntry.user_id == user.id
@@ -1091,7 +1091,7 @@ async def history(request: Request, db: Session = Depends(get_db)):
 async def shop(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     if not user:
-        return RedirectResponse(url="/login", status_code=303)
+        return html_redirect("/login")
     
     items = db.query(models.ShopItem).filter(models.ShopItem.is_active == True).all()
     owned_items = db.query(models.UserItem.item_id).filter(
@@ -1157,7 +1157,7 @@ async def buy_item(request: Request, item_id: int, db: Session = Depends(get_db)
     
     db.commit()
     
-    return RedirectResponse(url="/shop", status_code=303)
+    return html_redirect("/shop")
 
 @app.post("/shop/equip/{item_id}")
 async def equip_item(request: Request, item_id: int, db: Session = Depends(get_db)):
@@ -1188,7 +1188,7 @@ async def equip_item(request: Request, item_id: int, db: Session = Depends(get_d
         user.equipped_badges = json.dumps(current)
     
     db.commit()
-    return RedirectResponse(url="/shop", status_code=303)
+    return html_redirect("/shop")
 
 @app.post("/shop/unequip/{item_id}")
 async def unequip_item(request: Request, item_id: int, db: Session = Depends(get_db)):
@@ -1210,13 +1210,13 @@ async def unequip_item(request: Request, item_id: int, db: Session = Depends(get
         user.equipped_badges = json.dumps(current)
     
     db.commit()
-    return RedirectResponse(url="/shop", status_code=303)
+    return html_redirect("/shop")
 
 @app.get("/play")
 async def play(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     if not user:
-        return RedirectResponse(url="/login", status_code=303)
+        return html_redirect("/login")
     
     today = get_eastern_today()
     contest = db.query(models.Contest).filter(models.Contest.slate_date == today).first()
@@ -1233,7 +1233,7 @@ async def play(request: Request, db: Session = Depends(get_db)):
     ).first()
     
     if existing_entry:
-        return RedirectResponse(url=f"/entry/{existing_entry.id}", status_code=303)
+        return html_redirect(f"/entry/{existing_entry.id}")
     
     import pandas as pd
     from datetime import datetime
@@ -1436,7 +1436,7 @@ async def submit_lineup(request: Request, db: Session = Depends(get_db)):
         db.rollback()
         print(f"Achievement check error: {e}")
     
-    return RedirectResponse(url=f"/entry/{entry.id}", status_code=303)
+    return html_redirect(f"/entry/{entry.id}")
 
 @app.get("/entry/{entry_id}")
 async def view_entry(request: Request, entry_id: int, db: Session = Depends(get_db)):
@@ -2328,7 +2328,7 @@ async def api_team_schemes(team: str = None):
 async def h2h_lobby(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     if not user:
-        return RedirectResponse(url="/login", status_code=303)
+        return html_redirect("/login")
 
     today = get_eastern_today()
     contest = db.query(models.Contest).filter(models.Contest.slate_date == today).first()
@@ -2387,10 +2387,10 @@ async def h2h_create(request: Request, wager: int = Form(...), db: Session = Dep
         raise HTTPException(status_code=400, detail="No active contest today")
 
     if wager < 5 or wager > 500:
-        return RedirectResponse(url=f"/h2h?error=Entry+fee+must+be+between+5+and+500+Coach+Coin", status_code=303)
+        return html_redirect(f"/h2h?error=Entry+fee+must+be+between+5+and+500+Coach+Coin")
 
     if user.coins < wager:
-        return RedirectResponse(url=f"/h2h?error=Not+enough+Coach+Coin.+You+have+{user.coins}+but+tried+to+wager+{wager}.", status_code=303)
+        return html_redirect(f"/h2h?error=Not+enough+Coach+Coin.+You+have+{user.coins}+but+tried+to+wager+{wager}.")
     user.coins -= wager
     db.add(models.CurrencyTransaction(
         user_id=user.id,
@@ -2410,7 +2410,7 @@ async def h2h_create(request: Request, wager: int = Form(...), db: Session = Dep
     db.add(challenge)
     db.commit()
 
-    return RedirectResponse(url="/h2h", status_code=303)
+    return html_redirect("/h2h")
 
 @app.post("/h2h/accept/{challenge_id}")
 async def h2h_accept(request: Request, challenge_id: int, db: Session = Depends(get_db)):
@@ -2422,12 +2422,12 @@ async def h2h_accept(request: Request, challenge_id: int, db: Session = Depends(
     if not challenge:
         raise HTTPException(status_code=404, detail="Challenge not found")
     if challenge.status != "open":
-        return RedirectResponse(url="/h2h?error=Challenge+is+no+longer+open", status_code=303)
+        return html_redirect("/h2h?error=Challenge+is+no+longer+open")
     if challenge.challenger_id == user.id:
-        return RedirectResponse(url="/h2h?error=Cannot+accept+your+own+challenge", status_code=303)
+        return html_redirect("/h2h?error=Cannot+accept+your+own+challenge")
 
     if user.coins < challenge.wager:
-        return RedirectResponse(url=f"/h2h?error=Not+enough+Coach+Coin.+You+have+{user.coins}+but+need+{challenge.wager}+to+accept.", status_code=303)
+        return html_redirect(f"/h2h?error=Not+enough+Coach+Coin.+You+have+{user.coins}+but+need+{challenge.wager}+to+accept.")
     user.coins -= challenge.wager
     db.add(models.CurrencyTransaction(
         user_id=user.id,
@@ -2440,7 +2440,7 @@ async def h2h_accept(request: Request, challenge_id: int, db: Session = Depends(
     challenge.status = "accepted"
     db.commit()
 
-    return RedirectResponse(url=f"/h2h/match/{challenge.id}", status_code=303)
+    return html_redirect(f"/h2h/match/{challenge.id}")
 
 @app.post("/h2h/cancel/{challenge_id}")
 async def h2h_cancel(request: Request, challenge_id: int, db: Session = Depends(get_db)):
@@ -2466,13 +2466,13 @@ async def h2h_cancel(request: Request, challenge_id: int, db: Session = Depends(
     challenge.status = "cancelled"
     db.commit()
 
-    return RedirectResponse(url="/h2h", status_code=303)
+    return html_redirect("/h2h")
 
 @app.get("/h2h/lineup/{challenge_id}")
 async def h2h_lineup(request: Request, challenge_id: int, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     if not user:
-        return RedirectResponse(url="/login", status_code=303)
+        return html_redirect("/login")
 
     challenge = db.query(models.H2HChallenge).filter(models.H2HChallenge.id == challenge_id).first()
     if not challenge:
@@ -2484,9 +2484,9 @@ async def h2h_lineup(request: Request, challenge_id: int, db: Session = Depends(
         raise HTTPException(status_code=403, detail="You are not part of this challenge")
 
     if is_challenger and challenge.challenger_lineup_submitted:
-        return RedirectResponse(url=f"/h2h/match/{challenge_id}", status_code=303)
+        return html_redirect(f"/h2h/match/{challenge_id}")
     if is_opponent and challenge.opponent_lineup_submitted:
-        return RedirectResponse(url=f"/h2h/match/{challenge_id}", status_code=303)
+        return html_redirect(f"/h2h/match/{challenge_id}")
 
     opponent_name = ""
     if is_challenger and challenge.opponent:
@@ -2659,13 +2659,13 @@ async def h2h_submit_lineup(request: Request, db: Session = Depends(get_db)):
 
     db.commit()
 
-    return RedirectResponse(url=f"/h2h/match/{challenge.id}", status_code=303)
+    return html_redirect(f"/h2h/match/{challenge.id}")
 
 @app.get("/h2h/match/{challenge_id}")
 async def h2h_match(request: Request, challenge_id: int, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     if not user:
-        return RedirectResponse(url="/login", status_code=303)
+        return html_redirect("/login")
 
     challenge = db.query(models.H2HChallenge).filter(models.H2HChallenge.id == challenge_id).first()
     if not challenge:
@@ -2798,7 +2798,7 @@ async def h2h_ranked_queue(request: Request, match_type: str = Form("ranked"), d
     today = get_eastern_today()
     contest = db.query(models.Contest).filter(models.Contest.slate_date == today).first()
     if not contest or contest.status != "open":
-        return RedirectResponse(url="/h2h?error=No+active+contest+today", status_code=303)
+        return html_redirect("/h2h?error=No+active+contest+today")
     
     if match_type not in ("ranked", "match_night"):
         match_type = "ranked"
@@ -2810,7 +2810,7 @@ async def h2h_ranked_queue(request: Request, match_type: str = Form("ranked"), d
         models.H2HChallenge.status == "open"
     ).first()
     if existing:
-        return RedirectResponse(url="/h2h?error=Already+in+ranked+queue", status_code=303)
+        return html_redirect("/h2h?error=Already+in+ranked+queue")
     
     mmr_low, mmr_high = get_matchmaking_range(user.mmr or 1000)
     
@@ -2828,7 +2828,7 @@ async def h2h_ranked_queue(request: Request, match_type: str = Form("ranked"), d
         match.opponent_id = user.id
         match.status = "accepted"
         db.commit()
-        return RedirectResponse(url=f"/h2h/match/{match.id}", status_code=303)
+        return html_redirect(f"/h2h/match/{match.id}")
     else:
         challenge = models.H2HChallenge(
             contest_id=contest.id,
@@ -2840,7 +2840,7 @@ async def h2h_ranked_queue(request: Request, match_type: str = Form("ranked"), d
         )
         db.add(challenge)
         db.commit()
-        return RedirectResponse(url="/h2h?queued=1", status_code=303)
+        return html_redirect("/h2h?queued=1")
 
 @app.get("/api/notifications")
 async def api_notifications(request: Request, category: str = None,
