@@ -13,6 +13,7 @@ CATEGORY_MAP = {
     "edge_alert": "competitive",
     "payout": "financial",
     "currency": "financial",
+    "subscription": "financial",
     "account": "system",
     "welcome": "system",
 }

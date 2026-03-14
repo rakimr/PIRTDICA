@@ -110,6 +110,42 @@ def emit_promotion_result(db: Session, user_id: int, promoted: bool,
     )
 
 
+def emit_subscription_activated(db: Session, user_id: int, username: str, plan_key: str):
+    from backend.stripe_billing import PLAN_DISPLAY_NAMES
+
+    plan_name = PLAN_DISPLAY_NAMES.get(plan_key, plan_key)
+
+    access_map = {
+        "picks": "Articles page (daily HIGH Confidence Props analysis)",
+        "statpack": "Chart Gallery (DVP heatmaps, referee analysis, archetype clusters, shot charts)",
+        "bundle": "Articles page and Chart Gallery — the complete analytics suite",
+    }
+    access_desc = access_map.get(plan_key, "premium content")
+
+    action_map = {
+        "picks": "/articles",
+        "statpack": "/trends",
+        "bundle": "/articles",
+    }
+
+    create_notification(
+        db, user_id,
+        type="subscription",
+        priority=1,
+        title=f"{plan_name} activated",
+        body=f"Your {plan_name} subscription is now active. You have access to: {access_desc}.",
+        action_url=action_map.get(plan_key, "/"),
+    )
+
+    try:
+        from backend.email_service import queue_email
+        from backend.email_templates import subscription_activated_email
+        subject, html = subscription_activated_email(username, plan_name, access_desc)
+        queue_email(db, user_id, "subscription_activated", subject, html)
+    except Exception as e:
+        print(f"[Email] Failed to queue subscription email for user {user_id}: {e}")
+
+
 def emit_welcome(db: Session, user_id: int, username: str):
     create_notification(
         db, user_id,

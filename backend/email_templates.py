@@ -81,6 +81,22 @@ def contest_result_email(username: str, score: float, house_score: float,
     return subject, _base_template(content)
 
 
+def subscription_activated_email(username: str, plan_name: str, access_description: str) -> tuple[str, str]:
+    subject = f"Your {plan_name} subscription is active"
+    content = f"""
+<h2>Subscription Confirmed</h2>
+<div style="text-align: center; margin: 24px 0;">
+<div class="stat-label">PLAN</div>
+<div class="stat" style="font-size: 24px;">{plan_name}</div>
+</div>
+<p>{username}, your subscription is now active. Here's what you've unlocked:</p>
+<p><strong>{access_description}</strong></p>
+<p>You can manage your subscription anytime from your profile page.</p>
+<a href="https://pirtdica.com/billing" class="cta">MANAGE SUBSCRIPTION</a>
+"""
+    return subject, _base_template(content)
+
+
 def rank_change_email(username: str, old_mmr: int, new_mmr: int,
                       mmr_change: int, division: str,
                       promoted: bool = False) -> tuple[str, str]:

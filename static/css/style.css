@@ -117,6 +117,12 @@ a:hover {
     text-decoration: none;
 }
 
+.nav-lock-icon {
+    opacity: 0.5;
+    vertical-align: -1px;
+    margin-left: 2px;
+}
+
 .btn-play {
     background: var(--bg-card);
     color: var(--text) !important;

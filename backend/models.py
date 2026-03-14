@@ -755,6 +755,21 @@ class DailyArticle(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class UserSubscription(Base):
+    __tablename__ = "user_subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    stripe_subscription_id = Column(String(255), nullable=False, unique=True)
+    plan = Column(String(50), nullable=False)
+    status = Column(String(50), nullable=False, default="active")
+    current_period_end = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", backref="subscriptions")
+
+
 class EmailQueue(Base):
     __tablename__ = "email_queue"
 

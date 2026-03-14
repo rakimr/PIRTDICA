@@ -167,7 +167,7 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
     ).first()
     picks = []
     analysis = []
-    has_access = has_picks_access(user)
+    has_access = has_picks_access(user, db)
     if article and has_access:
         try:
             if article.picks_json:
@@ -213,7 +213,10 @@ async def subscribe_page(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/subscribe/success")
 async def subscribe_success(request: Request, db: Session = Depends(get_db)):
-    from backend.stripe_billing import get_stripe_client, resolve_plan_from_subscription
+    from backend.stripe_billing import (get_stripe_client, resolve_plan_from_subscription,
+                                         upsert_user_subscription, cancel_individual_subs_for_bundle,
+                                         sync_user_subscription_fields)
+    from backend.events import emit_subscription_activated
     user = get_current_user(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
@@ -230,13 +233,19 @@ async def subscribe_success(request: Request, db: Session = Depends(get_db)):
                 return RedirectResponse(url="/articles", status_code=303)
             if session.subscription:
                 sub, plan_key = resolve_plan_from_subscription(client, session.subscription)
-                user.stripe_subscription_id = sub.id
                 user.stripe_customer_id = session.customer
-                user.subscription_status = sub.status
-                user.subscription_plan = plan_key
-                if sub.current_period_end:
-                    user.subscription_current_period_end = datetime.fromtimestamp(sub.current_period_end)
+                period_end = datetime.fromtimestamp(sub.current_period_end) if sub.current_period_end else None
+                upsert_user_subscription(db, user.id, sub.id, plan_key, sub.status, period_end)
+                sync_user_subscription_fields(db, user, plan_key, sub.id, sub.status, sub.current_period_end)
+                if plan_key == "bundle":
+                    cancel_individual_subs_for_bundle(db, user.id, sub.id)
+                emit_subscription_activated(db, user.id, user.username, plan_key)
                 db.commit()
+                from backend.email_service import process_email_queue
+                try:
+                    process_email_queue(db)
+                except Exception:
+                    pass
         except Exception as e:
             print(f"[Stripe] Error retrieving session: {e}")
     return RedirectResponse(url=redirect_map.get(plan_param, "/"), status_code=303)
@@ -256,6 +265,10 @@ async def stripe_webhook(request: Request):
 
     db = SessionLocal()
     try:
+        from backend.stripe_billing import (get_stripe_client, resolve_plan_from_subscription,
+                                             upsert_user_subscription, cancel_individual_subs_for_bundle,
+                                             sync_user_subscription_fields)
+
         if event.type == "checkout.session.completed":
             session = event.data.object
             customer_id = session.get("customer")
@@ -263,14 +276,16 @@ async def stripe_webhook(request: Request):
             if customer_id and subscription_id:
                 user = db.query(models.User).filter(models.User.stripe_customer_id == customer_id).first()
                 if user:
-                    from backend.stripe_billing import get_stripe_client, resolve_plan_from_subscription
                     client = get_stripe_client()
                     sub, plan_key = resolve_plan_from_subscription(client, subscription_id)
-                    user.stripe_subscription_id = subscription_id
-                    user.subscription_status = sub.status
-                    user.subscription_plan = plan_key
-                    if sub.current_period_end:
-                        user.subscription_current_period_end = datetime.fromtimestamp(sub.current_period_end)
+                    period_end = datetime.fromtimestamp(sub.current_period_end) if sub.current_period_end else None
+                    _, is_new = upsert_user_subscription(db, user.id, subscription_id, plan_key, sub.status, period_end)
+                    sync_user_subscription_fields(db, user, plan_key, subscription_id, sub.status, sub.current_period_end)
+                    if plan_key == "bundle":
+                        cancel_individual_subs_for_bundle(db, user.id, subscription_id)
+                    if is_new:
+                        from backend.events import emit_subscription_activated
+                        emit_subscription_activated(db, user.id, user.username, plan_key)
                     db.commit()
 
         elif event.type in ("invoice.payment_succeeded", "customer.subscription.updated"):
@@ -280,25 +295,42 @@ async def stripe_webhook(request: Request):
             else:
                 subscription_id = sub_data.get("id")
             if subscription_id:
-                user = db.query(models.User).filter(models.User.stripe_subscription_id == subscription_id).first()
+                from backend.models import UserSubscription
+                user_sub = db.query(UserSubscription).filter(
+                    UserSubscription.stripe_subscription_id == subscription_id
+                ).first()
+                user = None
+                if user_sub:
+                    user = db.query(models.User).filter(models.User.id == user_sub.user_id).first()
+                if not user:
+                    user = db.query(models.User).filter(models.User.stripe_subscription_id == subscription_id).first()
                 if user:
-                    from backend.stripe_billing import get_stripe_client, resolve_plan_from_subscription
                     client = get_stripe_client()
                     sub, plan_key = resolve_plan_from_subscription(client, subscription_id)
-                    user.subscription_status = sub.status
-                    user.subscription_plan = plan_key
-                    if sub.current_period_end:
-                        user.subscription_current_period_end = datetime.fromtimestamp(sub.current_period_end)
+                    period_end = datetime.fromtimestamp(sub.current_period_end) if sub.current_period_end else None
+                    upsert_user_subscription(db, user.id, subscription_id, plan_key, sub.status, period_end)
+                    sync_user_subscription_fields(db, user, plan_key, subscription_id, sub.status, sub.current_period_end)
                     db.commit()
 
         elif event.type == "customer.subscription.deleted":
             sub_data = event.data.object
             subscription_id = sub_data.get("id")
             if subscription_id:
-                user = db.query(models.User).filter(models.User.stripe_subscription_id == subscription_id).first()
-                if user:
-                    user.subscription_status = "canceled"
+                from backend.models import UserSubscription
+                user_sub = db.query(UserSubscription).filter(
+                    UserSubscription.stripe_subscription_id == subscription_id
+                ).first()
+                if user_sub:
+                    user_sub.status = "canceled"
+                    user = db.query(models.User).filter(models.User.id == user_sub.user_id).first()
+                    if user and user.stripe_subscription_id == subscription_id:
+                        user.subscription_status = "canceled"
                     db.commit()
+                else:
+                    user = db.query(models.User).filter(models.User.stripe_subscription_id == subscription_id).first()
+                    if user:
+                        user.subscription_status = "canceled"
+                        db.commit()
     except Exception as e:
         print(f"[Stripe Webhook] Error processing {event.type}: {e}")
     finally:
@@ -557,7 +589,7 @@ async def register(
     response = RedirectResponse(url="/", status_code=303)
     set_session_cookie(response, token)
     from backend.stripe_billing import has_any_subscription
-    if not has_any_subscription(user):
+    if not has_any_subscription(user, db):
         response.set_cookie("show_subscribe_prompt", "1", max_age=60, httponly=False)
     return response
 
@@ -589,7 +621,7 @@ async def login(
     response = RedirectResponse(url="/", status_code=303)
     set_session_cookie(response, token)
     from backend.stripe_billing import has_any_subscription
-    if not has_any_subscription(user):
+    if not has_any_subscription(user, db):
         response.set_cookie("show_subscribe_prompt", "1", max_age=60, httponly=False)
     return response
 
@@ -608,7 +640,7 @@ async def trends(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
-    if not has_statpack_access(user):
+    if not has_statpack_access(user, db):
         return templates.TemplateResponse("trends_paywall.html", {
             "request": request,
             "user": user,
@@ -939,6 +971,9 @@ async def profile(request: Request, username: str, db: Session = Depends(get_db)
                 "data": bd,
             })
     
+    from backend.stripe_billing import get_user_plan_display
+    plan_display = get_user_plan_display(db, profile_user.id) if current_user and current_user.id == profile_user.id else None
+
     return templates.TemplateResponse("profile.html", {
         "request": request,
         "user": current_user,
@@ -954,6 +989,7 @@ async def profile(request: Request, username: str, db: Session = Depends(get_db)
         "success": success_msg,
         "theme_data": theme_data,
         "cosmetic_badges": cosmetic_badges,
+        "plan_display": plan_display,
     })
 
 @app.get("/history")

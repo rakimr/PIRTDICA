@@ -85,13 +85,8 @@
         </div>
         <div style="flex: 1; min-width: 200px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem;">
             <h3 style="font-family: 'Marvel', sans-serif; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem;">SUBSCRIPTION</h3>
-            {% if profile.subscription_status == 'active' %}
-            <p style="font-size: 1.1rem; font-weight: 700; margin: 0; color: #0F9D58;">
-                {% if profile.subscription_plan == 'bundle' %}PIRTDICA Bundle
-                {% elif profile.subscription_plan == 'statpack' %}PIRTDICA Stat Pack
-                {% elif profile.subscription_plan == 'picks' %}PIRTDICA Picks
-                {% else %}Active{% endif %}
-            </p>
+            {% if plan_display and plan_display != 'Free' %}
+            <p style="font-size: 1.1rem; font-weight: 700; margin: 0; color: #0F9D58;">{{ plan_display }}</p>
             <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
                 {% if profile.subscription_current_period_end %}
                 Renews {{ profile.subscription_current_period_end.strftime('%B %-d, %Y') }}
