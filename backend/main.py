@@ -629,10 +629,15 @@ async def login(
     db: Session = Depends(get_db)
 ):
     user = db.query(models.User).filter(models.User.username == username).first()
-    if not user or not auth.verify_password(password, user.password_hash):
+    if not user:
         return templates.TemplateResponse("login.html", {
             "request": request,
-            "error": "Invalid username or password"
+            "error": "Wrong username — no account found with that name"
+        })
+    if not auth.verify_password(password, user.password_hash):
+        return templates.TemplateResponse("login.html", {
+            "request": request,
+            "error": "Wrong password — try again"
         })
     
     if getattr(user, 'is_banned', False):
