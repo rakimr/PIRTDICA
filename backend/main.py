@@ -159,7 +159,7 @@ async def chart_screenshot_route(request: Request, chart_type: str, target: str)
 
 @app.get("/articles")
 async def articles_page(request: Request, db: Session = Depends(get_db)):
-    from backend.stripe_billing import is_subscriber, get_publishable_key
+    from backend.stripe_billing import is_subscriber
     user = get_current_user(request, db)
     today = get_eastern_today()
     article = db.query(models.DailyArticle).filter(
