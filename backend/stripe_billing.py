@@ -12,6 +12,7 @@ def _load_stripe_keys():
         return _stripe_keys
     secret = os.environ.get("STRIPE_SECRET_KEY", "")
     publishable = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
+    source = "environment variables" if secret else None
     if not secret:
         keys_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".stripe_keys.json")
         if os.path.exists(keys_file):
@@ -21,9 +22,13 @@ def _load_stripe_keys():
                     data = json.load(f)
                 secret = data.get("secret", "")
                 publishable = data.get("publishable", "")
-                logger.info("Stripe keys loaded from .stripe_keys.json")
+                source = ".stripe_keys.json"
             except Exception as e:
                 logger.error(f"Failed to read .stripe_keys.json: {e}")
+    if secret:
+        print(f"[Stripe] Keys loaded from {source} (secret: {secret[:8]}...)")
+    else:
+        print("[Stripe] WARNING: No Stripe keys found — checked STRIPE_SECRET_KEY env var and .stripe_keys.json")
     _stripe_keys = {"secret": secret, "publishable": publishable}
     return _stripe_keys
 
