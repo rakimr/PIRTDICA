@@ -20,6 +20,10 @@ PIPELINE_OUTPUT_FILES = [
     "static/images/value_chart.png",
 ]
 
+def _find_article_headers():
+    import glob
+    return glob.glob("static/images/article_header_*.png")
+
 SOURCE_CODE_FILES = [
     "backend/__init__.py",
     "backend/main.py",
@@ -180,7 +184,7 @@ def main():
     today = datetime.now().strftime("%Y-%m-%d %H:%M")
     cwd = "/home/runner/workspace"
 
-    all_files = PIPELINE_OUTPUT_FILES + SOURCE_CODE_FILES
+    all_files = PIPELINE_OUTPUT_FILES + _find_article_headers() + SOURCE_CODE_FILES
     existing = []
     for f in all_files:
         full = os.path.join(cwd, f)
