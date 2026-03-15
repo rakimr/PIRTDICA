@@ -659,9 +659,12 @@ async def login(
     
     token = auth.create_session(db, user.id)
     extra_cookies = {}
-    from backend.stripe_billing import has_any_subscription
-    if not has_any_subscription(user, db):
-        extra_cookies["show_subscribe_prompt"] = {"value": "1", "max_age": 60, "httponly": False}
+    try:
+        from backend.stripe_billing import has_any_subscription
+        if not has_any_subscription(user, db):
+            extra_cookies["show_subscribe_prompt"] = {"value": "1", "max_age": 60, "httponly": False}
+    except Exception as e:
+        print(f"[LOGIN] Stripe check failed for {username}, skipping: {e}")
     return html_redirect("/", token=token, extra_cookies=extra_cookies)
 
 @app.get("/logout")
