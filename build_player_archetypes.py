@@ -621,6 +621,51 @@ def run_clustering(df, k=TARGET_K):
     if stretch_fix or trad_fix:
         print(f"  VB refinement: {stretch_fix} -> Stretch, {trad_fix} -> Traditional")
 
+    print("\n  Position/size guardrail: reclassifying guards/wings misclassified as bigs...")
+    big_labels = ['Traditional Big', 'Versatile Big', 'Stretch Big']
+    guard_wing_in_big_mask = (
+        df['archetype'].isin(big_labels) &
+        (df['true_position'].isin(['PG', 'SG', 'SF', 'PG-SG', 'SG-SF', 'SG-PG'])) &
+        (df['size_idx'] < 1.0) &
+        ((df.get('c_pct', pd.Series(0, index=df.index)) if 'c_pct' in df.columns else pd.Series(0, index=df.index)) < 15)
+    )
+    guard_wing_escape = 0
+    for idx in df[guard_wing_in_big_mask].index:
+        player = df.loc[idx]
+        old_arch = player['archetype']
+        creation = player.get('creation_idx', 0)
+        perimeter = player.get('perimeter_idx', 0)
+        defense = player.get('defense_idx', 0)
+        interior = player.get('interior_idx', 0)
+        playmaking = player.get('playmaking_idx', 0)
+        pg_pct = player.get('pg_pct', 0)
+        sg_pct = player.get('sg_pct', 0)
+        sf_pct = player.get('sf_pct', 0)
+
+        if defense >= 2.0 and perimeter > -1.0:
+            new_arch = '3-and-D Wing'
+        elif defense >= 2.0 and perimeter <= -1.0:
+            new_arch = 'Scoring Wing'
+        elif creation >= 1.5 or playmaking >= 1.5:
+            if (pg_pct + sg_pct) >= 70:
+                new_arch = 'Combo Guard'
+            else:
+                new_arch = 'Scoring Wing'
+        elif perimeter >= 0.5:
+            new_arch = 'Shooting Wing'
+        elif interior >= 1.5:
+            new_arch = 'Scoring Wing'
+        else:
+            new_arch = '3-and-D Wing'
+
+        df.at[idx, 'archetype'] = new_arch
+        guard_wing_escape += 1
+        print(f"    {player['player_name']} ({player['true_position']}, size={player['size_idx']:.2f}): "
+              f"{old_arch} -> {new_arch} "
+              f"(CRE={creation:.2f} PER={perimeter:.2f} DEF={defense:.2f} INT={interior:.2f})")
+
+    print(f"  Guard/wing guardrail: {guard_wing_escape} players reclassified out of big archetypes")
+
     print("\n  Hybrid branch routing for transcendent players...")
     elite_mask = (
         (df['pts_per100'] >= 30.0) &
