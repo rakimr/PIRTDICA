@@ -1,0 +1,69 @@
+<div class="pricing-grid">
+    <div class="pricing-card">
+        <div class="pricing-card-header">
+            <h3>PIRTDICA Picks</h3>
+            <p class="pricing-tagline">Daily prop analysis &amp; betting edges</p>
+        </div>
+        <div class="pricing-card-features">
+            <div class="pricing-feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg><span>HIGH Confidence prop picks</span></div>
+            <div class="pricing-feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg><span>Matchup &amp; archetype analysis</span></div>
+            <div class="pricing-feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg><span>Composite scoring &amp; edges</span></div>
+        </div>
+        <div class="pricing-card-price">
+            <span class="pricing-amount">$9</span>
+            <span class="pricing-interval">/week</span>
+        </div>
+        {% if user %}
+        <a href="/subscribe?plan=picks" class="btn btn-primary pricing-btn">Subscribe</a>
+        {% else %}
+        <a href="/register" class="btn btn-primary pricing-btn">Sign Up</a>
+        {% endif %}
+    </div>
+
+    <div class="pricing-card">
+        <div class="pricing-card-header">
+            <h3>PIRTDICA Stat Pack</h3>
+            <p class="pricing-tagline">Full Chart Gallery access</p>
+        </div>
+        <div class="pricing-card-features">
+            <div class="pricing-feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg><span>DVP heatmaps &amp; referee analysis</span></div>
+            <div class="pricing-feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg><span>Archetype clusters &amp; shot charts</span></div>
+            <div class="pricing-feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg><span>Team schemes &amp; DVA tables</span></div>
+        </div>
+        <div class="pricing-card-price">
+            <span class="pricing-amount">$16</span>
+            <span class="pricing-interval">/week</span>
+        </div>
+        {% if user %}
+        <a href="/subscribe?plan=statpack" class="btn btn-primary pricing-btn">Subscribe</a>
+        {% else %}
+        <a href="/register" class="btn btn-primary pricing-btn">Sign Up</a>
+        {% endif %}
+    </div>
+
+    <div class="pricing-card pricing-card-featured">
+        <div class="pricing-badge">BEST VALUE</div>
+        <div class="pricing-card-header">
+            <h3>PIRTDICA Bundle</h3>
+            <p class="pricing-tagline">Picks + Stat Pack — everything included</p>
+        </div>
+        <div class="pricing-card-features">
+            <div class="pricing-feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg><span>All PIRTDICA Picks features</span></div>
+            <div class="pricing-feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg><span>All Stat Pack &amp; Chart Gallery</span></div>
+            <div class="pricing-feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg><span>Complete analytics suite</span></div>
+        </div>
+        <div class="pricing-card-price">
+            <div class="pricing-savings">
+                <span class="pricing-original">$100</span>
+                <span class="pricing-discount">40% OFF</span>
+            </div>
+            <span class="pricing-amount">$60</span>
+            <span class="pricing-interval">/month</span>
+        </div>
+        {% if user %}
+        <a href="/subscribe?plan=bundle" class="btn btn-primary pricing-btn">Subscribe</a>
+        {% else %}
+        <a href="/register" class="btn btn-primary pricing-btn">Sign Up</a>
+        {% endif %}
+    </div>
+</div>

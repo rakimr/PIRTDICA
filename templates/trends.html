@@ -343,7 +343,7 @@
     {% if props %}
     <div class="trends-section">
         <h2>Prop Recommendations</h2>
-        <p class="chart-description">Our projections vs FanDuel book lines. Sorted by largest edge where our model disagrees with the market.</p>
+        <p class="chart-description">Stat-specific projections vs FanDuel book lines. Sorted by composite score — a weighted blend of edge size, DVA strength, game environment, consistency, and trend. <span style="color:#0f9d58; font-weight:600;">GREEN</span> = high confidence. <span style="color:#d72638; font-weight:600;">RED</span> = proceed with caution. Projection factors show what drove each pick.</p>
         <div class="table-controls">
             <input type="text" class="table-search" data-table="props-table" placeholder="Search player...">
         </div>
@@ -351,6 +351,7 @@
             <table id="props-table">
                 <thead>
                     <tr>
+                        <th data-sortable="number">Score</th>
                         <th data-sortable="text">Player</th>
                         <th data-sortable="text">vs</th>
                         <th data-sortable="text">Stat</th>
@@ -358,20 +359,23 @@
                         <th data-sortable="number">Proj</th>
                         <th data-sortable="number">Line</th>
                         <th data-sortable="number">Edge%</th>
+                        <th data-sortable="number">Hit%</th>
                         <th data-sortable="text">Call</th>
                         <th>Trend</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for prop in props %}
-                    <tr>
-                        <td>{{ prop.player }}</td>
+                    <tr{% if prop.confidence is defined and prop.confidence == 'LOW' %} class="prop-low-confidence" title="{{ prop.confidence_reasons if prop.confidence_reasons is defined and prop.confidence_reasons else 'Low confidence' }}"{% endif %}>
+                        <td><span class="composite-score-badge {% if prop.composite_score is defined and prop.composite_score is not none and prop.composite_score == prop.composite_score %}{% if prop.composite_score >= 50 %}score-high{% elif prop.composite_score >= 30 %}score-mid{% else %}score-low{% endif %}{% endif %}">{{ '%.0f'|format(prop.composite_score) if prop.composite_score is defined and prop.composite_score is not none and prop.composite_score == prop.composite_score else '—' }}</span></td>
+                        <td>{{ prop.player }}{% if prop.projection_factors is defined and prop.projection_factors %}<br><span class="prop-factors">{{ prop.projection_factors }}</span>{% endif %}</td>
                         <td>{{ prop.opponent }}</td>
                         <td>{{ prop.stat }}</td>
                         <td>{{ prop.player_avg }}</td>
-                        <td>{{ prop.adjusted_avg }}</td>
+                        <td><strong>{{ prop.projected_value if prop.projected_value is defined and prop.projected_value is not none and prop.projected_value == prop.projected_value else prop.adjusted_avg }}</strong></td>
                         <td>{{ prop.book_line if prop.book_line is not none and prop.book_line == prop.book_line else '—' }}</td>
                         <td class="{% if prop.vs_book_edge is not none and prop.vs_book_edge == prop.vs_book_edge %}{% if prop.vs_book_edge > 15 %}fp-positive{% elif prop.vs_book_edge < -15 %}fp-negative{% else %}fp-neutral{% endif %}{% endif %}">{{ '%+.1f'|format(prop.vs_book_edge) if prop.vs_book_edge is not none and prop.vs_book_edge == prop.vs_book_edge else '—' }}</td>
+                        <td>{% if prop.confidence is defined %}<span class="prop-conf-badge prop-conf-{{ prop.confidence|lower }}">{% if prop.hit_rate is defined and prop.hit_rate is not none and prop.hit_rate == prop.hit_rate %}{{ prop.hit_rate }}%{% else %}—{% endif %}</span>{% else %}—{% endif %}</td>
                         <td class="{% if prop.recommendation == 'OVER' %}over-cell{% else %}under-cell{% endif %}">{{ prop.recommendation }}</td>
                         <td class="trend-btn-cell"><button class="trend-analysis-btn" data-player="{{ prop.player }}" data-stat="{{ prop.stat }}" data-line="{{ prop.book_line if prop.book_line is not none and prop.book_line == prop.book_line else '' }}" data-call="{{ prop.recommendation }}" title="View trend">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>

@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}PIRTDICA - Daily Articles{% endblock %}
+
+{% block content %}
+<section class="articles-page">
+    {% if article %}
+    <div class="article-header-wrap">
+        {% if article.header_image_path %}
+        <img src="{{ article.header_image_path }}" alt="PIRTDICA HIGH Confidence Picks" class="article-header-img">
+        {% endif %}
+        <div class="article-meta">
+            <h1>HIGH CONFIDENCE PROPS</h1>
+            <p class="article-date">{{ article.slate_date.strftime('%B %-d, %Y') }} &mdash; {{ article.game_count }} Game{{ 's' if article.game_count != 1 else '' }} on the Slate</p>
+        </div>
+    </div>
+
+    {% if has_access %}
+    {% if picks %}
+    <div class="article-section">
+        <h2>Today's HIGH Confidence Picks</h2>
+        <div class="table-wrap">
+            <table class="props-table article-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Player</th>
+                        <th>Game</th>
+                        <th>Stat</th>
+                        <th>Avg</th>
+                        <th>Line</th>
+                        <th>Projected</th>
+                        <th>Edge</th>
+                        <th>Pick</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in picks %}
+                    <tr>
+                        <td>{{ p.rank }}</td>
+                        <td class="player-name-cell">{{ p.player }}</td>
+                        <td>{{ p.game }}</td>
+                        <td>{{ p.stat }}</td>
+                        <td>{{ p.avg }}</td>
+                        <td>{{ p.line }}</td>
+                        <td>{{ p.projected }}</td>
+                        <td class="{% if p.edge.startswith('+') %}edge-positive{% else %}edge-negative{% endif %}">{{ p.edge }}</td>
+                        <td><span class="pick-badge pick-{{ p.pick|lower }}">{{ p.pick }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if analysis %}
+    <div class="article-section">
+        <h2>Key Analysis</h2>
+        {% for a in analysis %}
+        <div class="analysis-card">
+            <div class="analysis-header">
+                <div class="analysis-player-info">
+                    <h3>{{ a.player }}</h3>
+                    <span class="analysis-meta">{{ a.archetype }} &middot; {{ a.team }} vs {{ a.opponent }} &middot; {{ a.stat }}</span>
+                </div>
+                <span class="pick-badge pick-{{ a.call|lower }}">{{ a.call }}</span>
+            </div>
+            <div class="analysis-body">
+                {% for para in a.analysis.split('\n\n') %}
+                    {% if para.startswith('**') %}
+                    <p class="analysis-call">{{ para|replace('**', '') }}</p>
+                    {% else %}
+                    <p>{{ para }}</p>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="paywall-container">
+        <div class="paywall-lock" style="text-align: center; margin-bottom: 1.5rem;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48" style="color: var(--text-muted);">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+        </div>
+        {% include "pricing_cards.html" %}
+        {% if not user %}
+        <p class="paywall-login-hint" style="text-align: center; margin-top: 1rem;">Already have an account? <a href="/login">Login</a></p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="no-article">
+        <h1>No Article Today</h1>
+        <p>Today's HIGH Confidence Props haven't been generated yet. Check back after the daily pipeline runs.</p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}
