@@ -182,6 +182,7 @@ def main():
         sys.exit(1)
 
     today = datetime.now().strftime("%Y-%m-%d %H:%M")
+    commit_msg = " ".join(sys.argv[1:]).strip() if len(sys.argv) > 1 else ""
     cwd = "/home/runner/workspace"
 
     all_files = PIPELINE_OUTPUT_FILES + _find_article_headers() + SOURCE_CODE_FILES
@@ -228,8 +229,13 @@ def main():
     }, token=token)
     new_tree_sha = tree["sha"]
 
+    if commit_msg:
+        full_msg = f"{commit_msg} ({today})"
+    else:
+        full_msg = f"Daily pipeline update ({today})"
+
     new_commit = gh_api(f"/repos/{REPO}/git/commits", method="POST", data={
-        "message": f"Update {today} — pipeline data + notification system",
+        "message": full_msg,
         "tree": new_tree_sha,
         "parents": [commit_sha],
     }, token=token)
@@ -240,7 +246,7 @@ def main():
     }, token=token)
 
     print(f"  Pushed {len(tree_items)} files to GitHub ({new_commit_sha[:8]})")
-    print(f"  Commit: Update {today}")
+    print(f"  Commit: {full_msg}")
 
 
 if __name__ == "__main__":

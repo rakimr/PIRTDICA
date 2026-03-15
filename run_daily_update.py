@@ -112,8 +112,10 @@ def push_to_github():
     print("Auto-Push to GitHub")
     print(f"{'='*50}")
     try:
+        from datetime import datetime
+        date_str = datetime.now().strftime("%b %d")
         result = subprocess.run(
-            [sys.executable, "push_to_github.py"],
+            [sys.executable, "push_to_github.py", f"Daily pipeline data — {date_str}"],
             cwd="/home/runner/workspace",
             capture_output=True, text=True, timeout=120
         )
