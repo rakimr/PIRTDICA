@@ -4914,7 +4914,43 @@ th[data-sortable].sort-desc::after {
 @media (max-width: 768px) {
     .pricing-grid {
         grid-template-columns: 1fr;
-        max-width: 360px;
+        max-width: 320px;
+        gap: 0.75rem;
+    }
+
+    .pricing-card {
+        padding: 1rem 1rem;
+    }
+
+    .pricing-card-features {
+        margin-bottom: 0.75rem;
+    }
+
+    .pricing-feature {
+        padding: 0.2rem 0;
+        font-size: 0.78rem;
+    }
+
+    .pricing-amount {
+        font-size: 1.5rem;
+    }
+
+    .pricing-card-header h3 {
+        font-size: 0.95rem;
+    }
+
+    .pricing-tagline {
+        font-size: 0.75rem;
+        margin: 0 0 0.5rem;
+    }
+
+    .pricing-card-price {
+        margin-bottom: 0.5rem;
+    }
+
+    .pricing-btn {
+        font-size: 0.85rem;
+        padding: 0.5rem 0.75rem;
     }
 
     .article-meta h1 {
@@ -4935,8 +4971,31 @@ th[data-sortable].sort-desc::after {
         gap: 0.5rem;
     }
 
+    .subscribe-modal-overlay {
+        align-items: flex-start;
+        padding: 1rem 0;
+    }
+
     .subscribe-modal-wide {
         max-width: 95%;
-        padding: 1.5rem 1rem;
+        padding: 1.25rem 1rem;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .subscribe-modal-wide h2 {
+        font-size: 1.1rem;
+        margin-bottom: 0.15rem;
+    }
+
+    .subscribe-modal-wide > p {
+        font-size: 0.8rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .subscribe-modal-wide .modal-dismiss {
+        margin-top: 0.5rem;
+        padding: 0.6rem 1.5rem;
+        font-size: 0.9rem;
     }
 }
