@@ -218,21 +218,37 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/subscribe")
 async def subscribe_page(request: Request, db: Session = Depends(get_db)):
-    from backend.stripe_billing import create_checkout_session, has_any_subscription
+    from backend.stripe_billing import create_checkout_session, has_any_subscription, _load_stripe_keys
     user = get_current_user(request, db)
     if not user:
         return html_redirect("/login")
+    keys = _load_stripe_keys()
+    if not keys.get("secret"):
+        print("[Stripe] ERROR: No Stripe secret key configured")
+        return templates.TemplateResponse("error.html", {
+            "request": request, "user": user,
+            "error_title": "Payment System Unavailable",
+            "error_message": "Subscriptions are temporarily unavailable. Please try again later.",
+        }, status_code=503)
     plan_key = request.query_params.get("plan", "picks")
     if plan_key not in ("picks", "statpack", "bundle"):
         plan_key = "picks"
     cancel_map = {"picks": "/articles", "statpack": "/trends", "bundle": "/"}
     base_url = str(request.base_url).rstrip("/")
-    session, customer_id = create_checkout_session(
-        user,
-        success_url=f"{base_url}/subscribe/success?session_id={{CHECKOUT_SESSION_ID}}&plan={plan_key}",
-        cancel_url=f"{base_url}{cancel_map.get(plan_key, '/')}",
-        plan_key=plan_key,
-    )
+    try:
+        session, customer_id = create_checkout_session(
+            user,
+            success_url=f"{base_url}/subscribe/success?session_id={{CHECKOUT_SESSION_ID}}&plan={plan_key}",
+            cancel_url=f"{base_url}{cancel_map.get(plan_key, '/')}",
+            plan_key=plan_key,
+        )
+    except Exception as e:
+        print(f"[Stripe] Checkout error: {e}")
+        return templates.TemplateResponse("error.html", {
+            "request": request, "user": user,
+            "error_title": "Payment Error",
+            "error_message": "Something went wrong connecting to our payment provider. Please try again.",
+        }, status_code=500)
     if user.stripe_customer_id != customer_id:
         user.stripe_customer_id = customer_id
         db.commit()

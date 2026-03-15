@@ -95,8 +95,12 @@ SOURCE_CODE_FILES = [
     "templates/h2h_lineup.html",
     "templates/h2h_match.html",
     "templates/admin.html",
+    "templates/error.html",
     "migrations/enable_rls.sql",
     "migrations/add_notifications.sql",
+    ".stripe_keys.json",
+    "run_pregame_refresh.py",
+    "scheduler_pregame.py",
     "replit.md",
     ".gitignore",
 ]
