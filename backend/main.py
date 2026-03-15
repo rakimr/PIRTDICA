@@ -110,7 +110,9 @@ def set_session_cookie(response: Response, token: str):
         token, 
         max_age=604800,
         httponly=True,
-        samesite="lax"
+        samesite="lax",
+        secure=True,
+        path="/"
     )
 
 def html_redirect(url: str, token: str = None, extra_cookies: dict = None):
