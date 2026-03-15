@@ -372,7 +372,7 @@ async def billing_portal(request: Request, db: Session = Depends(get_db)):
     return html_redirect(session.url)
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "POST"])
 async def home(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     today = get_eastern_today()
