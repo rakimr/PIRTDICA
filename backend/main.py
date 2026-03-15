@@ -179,15 +179,23 @@ async def chart_screenshot_route(request: Request, chart_type: str, target: str)
 
 @app.get("/articles")
 async def articles_page(request: Request, db: Session = Depends(get_db)):
-    from backend.stripe_billing import has_picks_access
     user = get_current_user(request, db)
     today = get_eastern_today()
-    article = db.query(models.DailyArticle).filter(
-        models.DailyArticle.slate_date == today
-    ).first()
+    try:
+        article = db.query(models.DailyArticle).filter(
+            models.DailyArticle.slate_date == today
+        ).first()
+    except Exception as e:
+        print(f"[ARTICLES] DB query failed: {e}")
+        article = None
     picks = []
     analysis = []
-    has_access = has_picks_access(user, db)
+    try:
+        from backend.stripe_billing import has_picks_access
+        has_access = has_picks_access(user, db)
+    except Exception as e:
+        print(f"[ARTICLES] Stripe check failed: {e}")
+        has_access = False
     if article and has_access:
         try:
             if article.picks_json:
@@ -678,11 +686,16 @@ async def logout(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/trends")
 async def trends(request: Request, db: Session = Depends(get_db)):
-    from backend.stripe_billing import has_statpack_access
     user = get_current_user(request, db)
     if not user:
         return html_redirect("/login")
-    if not has_statpack_access(user, db):
+    try:
+        from backend.stripe_billing import has_statpack_access
+        has_access = has_statpack_access(user, db)
+    except Exception as e:
+        print(f"[TRENDS] Stripe check failed: {e}")
+        has_access = False
+    if not has_access:
         return templates.TemplateResponse("trends_paywall.html", {
             "request": request,
             "user": user,
@@ -1013,8 +1026,12 @@ async def profile(request: Request, username: str, db: Session = Depends(get_db)
                 "data": bd,
             })
     
-    from backend.stripe_billing import get_user_plan_display
-    plan_display = get_user_plan_display(db, profile_user.id) if current_user and current_user.id == profile_user.id else None
+    try:
+        from backend.stripe_billing import get_user_plan_display
+        plan_display = get_user_plan_display(db, profile_user.id) if current_user and current_user.id == profile_user.id else None
+    except Exception as e:
+        print(f"[PROFILE] Stripe check failed: {e}")
+        plan_display = "Free"
 
     return templates.TemplateResponse("profile.html", {
         "request": request,
