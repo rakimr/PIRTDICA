@@ -117,6 +117,8 @@ def _parse_factors(factors_text):
             parsed['share'] = part
         elif 'Size' in part:
             parsed['size'] = part
+        elif 'ROLE CHANGE' in part:
+            parsed['role_change'] = part
         elif 'Blowout' in part:
             parsed['blowout'] = part
         elif 'Playmaking' in part or 'P&R' in part:
@@ -240,6 +242,27 @@ def build_analysis_text(row, dfs_df):
         paragraphs.append(combined)
 
     context_parts = []
+
+    if 'role_change' in factors:
+        rc_text = factors['role_change']
+        if '↑' in rc_text:
+            import re as _rc_re
+            rc_match = _rc_re.search(r'\((\d+)→(\d+) min\)', rc_text)
+            if rc_match:
+                old_min, new_min = rc_match.group(1), rc_match.group(2)
+                context_parts.append(
+                    f"this is a role change situation — {last_name} has jumped from {old_min} to {new_min} minutes per game recently, "
+                    f"and our model weights his recent production more heavily as a result"
+                )
+        elif '↓' in rc_text:
+            import re as _rc_re
+            rc_match = _rc_re.search(r'\((\d+)→(\d+) min\)', rc_text)
+            if rc_match:
+                old_min, new_min = rc_match.group(1), rc_match.group(2)
+                context_parts.append(
+                    f"his minutes have dropped significantly from {old_min} to {new_min} per game, "
+                    f"indicating a reduced role that the model accounts for"
+                )
 
     if 'injury' in factors:
         inj_text = factors['injury']
