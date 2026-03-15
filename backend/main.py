@@ -27,6 +27,17 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="PIRTDICA")
 
+import traceback as _tb
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    print(f"[UNHANDLED ERROR] {request.method} {request.url.path}: {exc}")
+    _tb.print_exc()
+    return HTMLResponse(
+        content=f"<h1>Internal Server Error</h1><p>Something went wrong. Please try again.</p>",
+        status_code=500
+    )
+
 class NoCacheMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
@@ -111,13 +122,11 @@ def set_session_cookie(response: Response, token: str):
         max_age=604800,
         httponly=True,
         samesite="lax",
-        secure=True,
         path="/"
     )
 
 def html_redirect(url: str, token: str = None, extra_cookies: dict = None):
-    html = f'<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url={url}"><title>Redirecting...</title></head><body><p>Redirecting to <a href="{url}">{url}</a>...</p></body></html>'
-    response = HTMLResponse(content=html, status_code=200)
+    response = RedirectResponse(url=url, status_code=303)
     if token:
         set_session_cookie(response, token)
     if extra_cookies:
