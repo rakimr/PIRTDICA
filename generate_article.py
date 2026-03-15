@@ -36,15 +36,108 @@ def build_game_label(player_name, player_team, opponent, dfs_df):
     return f"{opponent} @ {player_team}"
 
 
+STAT_LABELS = {
+    'PTS': 'points', 'REB': 'rebounds', 'AST': 'assists',
+    'STL': 'steals', 'BLK': 'blocks', '3PM': 'threes', 'TO': 'turnovers',
+}
+
+STAT_LOG_COL = {
+    'PTS': 'pts', 'REB': 'reb', 'AST': 'ast',
+    'STL': 'stl', 'BLK': 'blk', '3PM': 'fg3m', 'TO': 'tov',
+}
+
+
+def _get_recent_games(player_name, stat, n=5):
+    import sqlite3
+    try:
+        conn = sqlite3.connect("dfs_nba.db")
+        col = STAT_LOG_COL.get(stat, stat.lower())
+        rows = conn.execute(
+            f"SELECT game_date, matchup, {col}, min FROM player_game_logs "
+            f"WHERE player_name = ? ORDER BY game_date DESC LIMIT ?",
+            (player_name, n)
+        ).fetchall()
+        conn.close()
+        return [{'date': r[0], 'matchup': r[1], 'val': r[2], 'min': r[3]} for r in rows]
+    except Exception:
+        return []
+
+
+def _get_matchup_history(player_name, opponent):
+    import sqlite3
+    try:
+        conn = sqlite3.connect("dfs_nba.db")
+        rows = conn.execute(
+            "SELECT vs_fp_avg, season_fp_avg, fp_diff, matchup_score, games_vs "
+            "FROM matchup_history WHERE player_name = ? AND opponent = ?",
+            (player_name, opponent)
+        ).fetchall()
+        conn.close()
+        if rows:
+            return {'vs_fp_avg': rows[0][0], 'season_fp_avg': rows[0][1],
+                    'fp_diff': rows[0][2], 'score': rows[0][3], 'games': rows[0][4]}
+    except Exception:
+        pass
+    return None
+
+
+def _parse_factors(factors_text):
+    if not factors_text or str(factors_text) == 'nan':
+        return {}
+    parsed = {}
+    for part in str(factors_text).split(';'):
+        part = part.strip()
+        if not part:
+            continue
+        if 'DVA' in part:
+            parsed['dva'] = part
+        elif 'DVP' in part:
+            parsed['dvp'] = part
+        elif 'Recent' in part or 'trend' in part.lower():
+            parsed['trend'] = part
+        elif 'Pace' in part:
+            parsed['pace'] = part
+        elif 'Total' in part and 'total' not in parsed:
+            parsed['total'] = part
+        elif 'Usage' in part or 'usage' in part:
+            parsed['usage'] = part
+        elif 'Min' in part and 'proj' in part.lower():
+            parsed['minutes'] = part
+        elif 'Teammate' in part or 'OUT' in part:
+            parsed['injury'] = part
+        elif 'H2H' in part:
+            parsed['h2h'] = part
+        elif 'ShotZone' in part:
+            parsed['shotzone'] = part
+        elif 'Redistrib' in part:
+            parsed['redistrib'] = part
+        elif 'RES' in part:
+            parsed['rebound_env'] = part
+        elif 'Share' in part:
+            parsed['share'] = part
+        elif 'Size' in part:
+            parsed['size'] = part
+        elif 'Blowout' in part:
+            parsed['blowout'] = part
+        elif 'Playmaking' in part or 'P&R' in part:
+            parsed['playmaking'] = part
+        else:
+            parsed.setdefault('other', [])
+            parsed['other'].append(part)
+    return parsed
+
+
 def build_analysis_text(row, dfs_df):
     player = row['player']
+    last_name = player.split()[-1] if ' ' in player else player
     stat = row['stat']
+    stat_label = STAT_LABELS.get(stat, stat.lower())
     team = row['team']
     opponent = row['opponent']
     archetype = row.get('archetype', '')
-    book_line = row.get('book_line', 0)
-    projected = row.get('projected_value', row.get('adjusted_avg', 0))
-    player_avg = row.get('player_avg', 0)
+    book_line = _safe_float(row.get('book_line', 0))
+    projected = _safe_float(row.get('projected_value', row.get('adjusted_avg', 0)))
+    player_avg = _safe_float(row.get('player_avg', 0))
     vs_book_edge = _safe_float(row.get('vs_book_edge', 0))
     dva_edge = _safe_float(row.get('dva_edge', 0))
     dvp_edge = _safe_float(row.get('dvp_edge', 0))
@@ -53,60 +146,183 @@ def build_analysis_text(row, dfs_df):
     cv = _safe_float(row.get('cv', 0))
     recommendation = row.get('recommendation', '')
     projection_factors = row.get('projection_factors', '')
-    pace_factor = row.get('pace_factor', 0)
-    total_factor = row.get('total_factor', 0)
     projected_min = _safe_float(row.get('projected_min', 0))
     composite_score = _safe_float(row.get('composite_score', 0))
     blend = row.get('blend', '')
-    usage_boost = row.get('usage_boost', 0)
+    usage_boost = _safe_float(row.get('usage_boost', 0))
 
     call = "OVER" if "OVER" in str(recommendation).upper() else "UNDER"
     edge_sign = "+" if vs_book_edge > 0 else ""
     edge_str = f"{edge_sign}{vs_book_edge:.1f}%"
 
     dfs_row = dfs_df[dfs_df['player_name'] == player]
-    salary = int(dfs_row.iloc[0]['salary']) if len(dfs_row) else row.get('salary', 0)
-    implied_total = dfs_row.iloc[0].get('implied_total', 0) if len(dfs_row) else 0
+    salary = int(dfs_row.iloc[0]['salary']) if len(dfs_row) else int(_safe_float(row.get('salary', 0)))
+    implied_total = float(dfs_row.iloc[0].get('implied_total', 0)) if len(dfs_row) else 0
+
+    recent_games = _get_recent_games(player, stat)
+    matchup_hist = _get_matchup_history(player, opponent)
+    factors = _parse_factors(projection_factors)
 
     paragraphs = []
 
-    matchup_line = f"{player} ({archetype}) faces {opponent} tonight"
-    if implied_total and float(implied_total) > 0:
-        matchup_line += f" in a game with a {float(implied_total):.1f} implied total"
-    matchup_line += "."
-    paragraphs.append(matchup_line)
+    trending_up = last5_avg > player_avg if last5_avg and player_avg else None
+    if recent_games and len(recent_games) >= 3:
+        game_strs = []
+        for g in recent_games[:3]:
+            from datetime import datetime as _dt
+            try:
+                gd = _dt.strptime(g['date'], '%Y-%m-%d')
+                date_str = gd.strftime('%b %-d')
+            except Exception:
+                date_str = g['date']
+            opp_short = g['matchup'].split()[-1] if g['matchup'] else '?'
+            game_strs.append(f"{int(g['val'])} {stat_label} against {opp_short} ({date_str})")
 
-    dva_direction = "favorable" if dva_edge > 0 else "tough"
-    dvp_direction = "favorable" if dvp_edge > 0 else "tough"
-    if abs(dva_edge) > 0.5 or abs(dvp_edge) > 0.5:
-        edge_parts = []
-        if abs(dva_edge) > 0.5:
-            edge_parts.append(f"DVA edge of {'+' if dva_edge > 0 else ''}{dva_edge:.1f} ({dva_direction} archetype matchup)")
-        if abs(dvp_edge) > 0.5:
-            edge_parts.append(f"DVP edge of {'+' if dvp_edge > 0 else ''}{dvp_edge:.1f} ({dvp_direction} positional matchup)")
-        paragraphs.append(f"The matchup data shows a {' and '.join(edge_parts)} using the {blend} blend.")
+        if call == "OVER" and trending_up:
+            opener = f"{player} has been on a tear lately."
+        elif call == "OVER" and not trending_up:
+            opener = f"The numbers say {player} is due for a bounce-back."
+        elif call == "UNDER" and not trending_up:
+            opener = f"{player} has been cooling off, and tonight's matchup doesn't help."
+        else:
+            opener = f"The market has {player} set at {book_line} {stat_label} tonight, and the data tells an interesting story."
 
-    if last5_avg and float(last5_avg) > 0:
-        trend_dir = "above" if float(last5_avg) > float(player_avg) else "below"
-        paragraphs.append(
-            f"Over his last 5 games, {player.split()[1]} is averaging {float(last5_avg):.1f} {stat}, "
-            f"trending {trend_dir} his season average of {float(player_avg):.1f}."
+        recent_line = f"{opener} In his last three games: {', '.join(game_strs)}."
+        if last5_avg > 0:
+            trend_word = "up" if trending_up else "down"
+            recent_line += f" His 5-game rolling average sits at {last5_avg:.1f}, trending {trend_word} from his season mark of {player_avg:.1f}."
+        paragraphs.append(recent_line)
+    else:
+        opener = f"{player} ({archetype}) faces {opponent} tonight"
+        if implied_total and implied_total > 0:
+            opener += f" in a game with a {implied_total:.1f} implied total"
+        opener += f", and the books have his {stat_label} line set at {book_line}."
+        paragraphs.append(opener)
+
+    matchup_parts = []
+    if archetype:
+        if call == "OVER":
+            if dva_edge > 0.5:
+                matchup_parts.append(
+                    f"As a {archetype}, {last_name} draws a favorable archetype matchup against {opponent}'s defense — "
+                    f"the DVA model flags a {dva_edge:+.1f} edge, meaning {opponent} has historically struggled to contain this player profile"
+                )
+            elif dva_edge < -0.5:
+                matchup_parts.append(
+                    f"The archetype matchup is slightly negative (DVA {dva_edge:+.1f}), but other factors override it"
+                )
+        else:
+            if dva_edge < -0.5:
+                matchup_parts.append(
+                    f"{opponent}'s defense has been particularly effective against {archetype}s this season (DVA {dva_edge:+.1f}), "
+                    f"suggesting {last_name} may have a harder time finding his rhythm in this one"
+                )
+
+    if abs(dvp_edge) > 0.5:
+        if dvp_edge > 0:
+            matchup_parts.append(
+                f"positionally, {opponent} ranks as a {stat_label}-friendly matchup (DVP {dvp_edge:+.1f})"
+            )
+        else:
+            matchup_parts.append(
+                f"positionally, {opponent} has been stingy in this category (DVP {dvp_edge:+.1f})"
+            )
+
+    if matchup_parts:
+        combined = matchup_parts[0]
+        for mp in matchup_parts[1:]:
+            if combined[-1] != '.':
+                combined += ". " + mp[0].upper() + mp[1:]
+            else:
+                combined += " " + mp[0].upper() + mp[1:]
+        if combined[-1] != '.':
+            combined += "."
+        paragraphs.append(combined)
+
+    context_parts = []
+
+    if 'injury' in factors:
+        inj_text = factors['injury']
+        if '+' in inj_text:
+            context_parts.append(
+                f"There's a teammate absence factor here — {inj_text.replace('Teammate ', '').lower()}, "
+                f"which should open up additional opportunities for {last_name}"
+            )
+
+    if usage_boost and usage_boost > 3:
+        context_parts.append(
+            f"his projected usage is elevated ({usage_boost:.1f}% boost), suggesting an expanded role tonight"
         )
 
-    if hit_rate and float(hit_rate) > 0:
-        paragraphs.append(
-            f"This {call} has a {float(hit_rate):.0f}% historical hit rate with a consistency score (CV) of {float(cv):.2f}."
+    if implied_total and implied_total > 115:
+        context_parts.append(
+            f"the game environment is conducive with a {implied_total:.1f} implied team total"
+        )
+    elif implied_total and implied_total < 105:
+        context_parts.append(
+            f"the implied team total of {implied_total:.1f} points to a lower-scoring affair"
         )
 
-    factors_text = str(projection_factors) if projection_factors and str(projection_factors) != 'nan' else ''
-    if factors_text:
-        factor_parts = [f.strip() for f in factors_text.split(';') if f.strip()]
-        if factor_parts:
-            paragraphs.append("Key projection factors: " + ", ".join(factor_parts) + ".")
+    if 'pace' in factors:
+        pace_text = factors['pace']
+        try:
+            import re as _re
+            pace_val = _re.search(r'(\d+\.\d+)x', pace_text)
+            if pace_val:
+                pv = float(pace_val.group(1))
+                if pv > 1.01:
+                    context_parts.append("an uptick in pace adds possessions")
+                elif pv < 0.99:
+                    context_parts.append("a slower pace environment could limit possessions")
+        except Exception:
+            pass
+
+    if 'blowout' in factors:
+        context_parts.append(f"the blowout risk caps his upside slightly ({factors['blowout']})")
+
+    if context_parts:
+        intro = "Beyond the matchup data, " if matchup_parts else "The game context matters here — "
+        paragraphs.append(intro + ", ".join(context_parts) + ".")
+
+    if matchup_hist and matchup_hist.get('games', 0) >= 2:
+        fp_diff = matchup_hist.get('fp_diff', 0)
+        games_played = matchup_hist.get('games', 0)
+        if fp_diff > 2:
+            paragraphs.append(
+                f"History backs this up: in {games_played} meetings against {opponent} this season, "
+                f"{last_name} has averaged {fp_diff:+.1f} fantasy points above his season baseline."
+            )
+        elif fp_diff < -2:
+            paragraphs.append(
+                f"It's worth noting that {last_name} has underperformed against {opponent} this season, "
+                f"averaging {abs(fp_diff):.1f} fantasy points below his baseline across {games_played} meetings."
+            )
+
+    reliability = ""
+    if hit_rate > 65:
+        reliability = f"This is one of the more reliable plays on the board — the {call} has cleared at a {hit_rate:.0f}% rate this season"
+    elif hit_rate > 55:
+        reliability = f"The {call} has cleared at a solid {hit_rate:.0f}% rate this season"
+    elif hit_rate > 0 and hit_rate < 40:
+        reliability = f"The historical hit rate is low ({hit_rate:.0f}%), but the current projection data and matchup context override the backward-looking numbers"
+
+    if cv > 0 and cv < 0.25:
+        if reliability:
+            reliability += f", and {last_name} has been remarkably consistent (CV: {cv:.2f})"
+        else:
+            reliability = f"{last_name} has been remarkably consistent in this category (CV: {cv:.2f})"
+    elif cv > 0.6:
+        if reliability:
+            reliability += f". The variance is elevated (CV: {cv:.2f}), so size your position accordingly"
+        else:
+            reliability = f"The variance here is elevated (CV: {cv:.2f}), so this is a higher-risk, higher-reward play"
+
+    if reliability:
+        paragraphs.append(reliability + ".")
 
     paragraphs.append(
-        f"**The Call: {call} {book_line} {stat}** — Projected at {float(projected):.1f} ({edge_str} edge). "
-        f"Composite score: {float(composite_score):.1f}."
+        f"**The Call: {call} {book_line} {stat}** — We project {last_name} at {projected:.1f} {stat_label} tonight "
+        f"({edge_str} edge vs. the book). Composite score: {composite_score:.1f}."
     )
 
     return "\n\n".join(paragraphs)
