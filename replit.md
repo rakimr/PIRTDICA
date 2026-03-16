@@ -33,35 +33,41 @@ HIGH Confidence Prop Classification requires: hit rate >= 58%, CV <= 0.45, last-
 
 Avatar & Identity Design Direction follows a "Strategic Minimalism meets Editorial Sports Design" style with specific design rules and an accent palette. Cosmetics communicate Skill, Status, or Story.
 
+## Session Memory (see `session_memory.md` for full detail)
+- March 12, 2026: Gold-standard 80% hit rate slate (6 book-line plays). Full narrative analysis and winning patterns in `session_memory.md`.
+- March 15, 2026: 0-7 root cause analysis drove Task #5 (confidence tightening) and Task #6 (Usage Redistribution v2).
+- Winning pattern keys: usage redistribution from injured stars, DVP/DVA double alignment, game total/pace environments, last-5 avg clearing book lines, high composite scores.
+- Unresolved bugs: `_detect_role_change` Series truth value error; article deduplication (player with 2 HIGH picks only shows first).
+
 ## External Dependencies
 
 ### Web Scraping Targets
-- **ESPN:** Depth charts
-- **RotoGrinders, FantasyPros:** Player lineups, injury alerts, FanDuel salaries
-- **TeamRankings:** Game odds/spreads
-- **HashtagBasketball:** Defense vs Position stats
-- **Basketball Reference:** Player stats, historical game logs
-- **NBA.com Stats API:** Player game logs, stats, hustle stats
-- **NBAStuffer:** Historical referee statistics
-- **SportsDatabase:** Historic betting lines
-- **FantasyTeamAdvice.com:** FanDuel NBA ownership data
+- ESPN: Depth charts
+- RotoGrinders, FantasyPros: Player lineups, injury alerts, FanDuel salaries
+- TeamRankings: Game odds/spreads
+- HashtagBasketball: Defense vs Position stats
+- Basketball Reference: Player stats, historical game logs
+- NBA.com Stats API: Player game logs, stats, hustle stats
+- NBAStuffer: Historical referee statistics
+- SportsDatabase: Historic betting lines
+- FantasyTeamAdvice.com: FanDuel NBA ownership data
 
 ### APIs
-- **The Odds API:** Player prop lines (FanDuel)
-- **plaintextsports.com/nba:** Live scoring data
-- **Resend API:** Email service
+- The Odds API: Player prop lines (FanDuel)
+- plaintextsports.com/nba: Live scoring data
+- Resend API: Email service
 
 ### Databases
-- **SQLite:** Staging database (`dfs_nba.db`)
-- **PostgreSQL:** Production database
-- **Supabase:** Used for syncing platform tables
+- SQLite: Staging database (dfs_nba.db)
+- PostgreSQL: Production database
+- Supabase: Used for syncing platform tables
 
 ### Python Libraries
-- `requests`, `BeautifulSoup`: Web scraping
-- `pandas`, `numpy`: Data manipulation
-- `sqlite3`: SQLite interaction
-- `PuLP`: Linear programming
-- `scikit-learn`: K-means clustering
-- `nba_api`: NBA.com stats API wrapper
-- `playwright`: Headless browser for chart screenshot capture
-- `stripe`: Stripe payment processing
+- requests, BeautifulSoup: Web scraping
+- pandas, numpy: Data manipulation
+- sqlite3: SQLite interaction
+- PuLP: Linear programming
+- scikit-learn: K-means clustering
+- nba_api: NBA.com stats API wrapper
+- playwright: Headless browser for chart screenshot capture
+- stripe: Stripe payment processing
