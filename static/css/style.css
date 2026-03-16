@@ -4551,6 +4551,37 @@ th[data-sortable].sort-desc::after {
     margin-top: 0.5rem;
 }
 
+.pre-lock-banner {
+    text-align: center;
+    padding: 3rem 2rem;
+    margin: 1rem 0 2rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-card);
+}
+
+.pre-lock-icon {
+    margin-bottom: 1rem;
+    color: var(--accent);
+    opacity: 0.7;
+}
+
+.pre-lock-banner h2 {
+    font-family: 'Righteous', sans-serif;
+    font-size: 1.4rem;
+    letter-spacing: 1px;
+    margin-bottom: 0.75rem;
+    color: var(--text);
+}
+
+.pre-lock-banner p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    max-width: 520px;
+    margin: 0 auto;
+}
+
 .no-article {
     text-align: center;
     padding: 4rem 1rem;

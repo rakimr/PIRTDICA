@@ -16,6 +16,18 @@
     </div>
 
     {% if has_access %}
+    {% if pre_lock %}
+    <div class="pre-lock-banner">
+        <div class="pre-lock-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+            </svg>
+        </div>
+        <h2>Picks are brewing.</h2>
+        <p>Closer to lock, richer the data. Final picks drop after the pre-game refresh &mdash; check back 10 minutes before tip-off for the sharpest edges.</p>
+    </div>
+    {% else %}
     {% if picks %}
     <div class="article-section">
         <h2>Today's HIGH Confidence Picks</h2>
@@ -78,6 +90,7 @@
         </div>
         {% endfor %}
     </div>
+    {% endif %}
     {% endif %}
 
     {% else %}

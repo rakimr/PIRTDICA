@@ -196,17 +196,34 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"[ARTICLES] Stripe check failed: {e}")
         has_access = False
+    pre_lock = False
     if article and has_access:
-        try:
-            if article.picks_json:
-                picks = json.loads(article.picks_json)
-        except (json.JSONDecodeError, TypeError):
-            picks = []
-        try:
-            if article.analysis_json:
-                analysis = json.loads(article.analysis_json)
-        except (json.JSONDecodeError, TypeError):
-            analysis = []
+        from zoneinfo import ZoneInfo
+        now_et = get_eastern_now()
+        refresh_time = now_et.replace(hour=18, minute=45, second=0, microsecond=0)
+        if now_et < refresh_time:
+            article_refreshed_after = False
+            if article.updated_at:
+                article_updated = article.updated_at
+                if article_updated.tzinfo is None:
+                    article_updated = article_updated.replace(tzinfo=ZoneInfo("UTC"))
+                article_updated_et = article_updated.astimezone(EASTERN)
+                if article_updated_et >= refresh_time:
+                    article_refreshed_after = True
+            if not article_refreshed_after:
+                pre_lock = True
+
+        if not pre_lock:
+            try:
+                if article.picks_json:
+                    picks = json.loads(article.picks_json)
+            except (json.JSONDecodeError, TypeError):
+                picks = []
+            try:
+                if article.analysis_json:
+                    analysis = json.loads(article.analysis_json)
+            except (json.JSONDecodeError, TypeError):
+                analysis = []
     return templates.TemplateResponse("articles.html", {
         "request": request,
         "user": user,
@@ -214,6 +231,7 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
         "picks": picks,
         "analysis": analysis,
         "has_access": has_access,
+        "pre_lock": pre_lock,
     })
 
 @app.get("/subscribe")

@@ -623,11 +623,17 @@ Remember: return ONLY a JSON array with "player" and "analysis" keys. Each analy
 
         analyses = json.loads(cleaned)
 
+        if not isinstance(analyses, list):
+            print("Claude returned non-array JSON — falling back to template")
+            return None
+
         result = {}
         for item in analyses:
-            player = item.get('player', '')
-            analysis = item.get('analysis', '')
-            if player and analysis:
+            if not isinstance(item, dict):
+                continue
+            player = str(item.get('player', '')).strip()
+            analysis = str(item.get('analysis', '')).strip()
+            if player and analysis and len(analysis) > 50:
                 result[player] = analysis
 
         matched = sum(1 for p in seen if p in result)
