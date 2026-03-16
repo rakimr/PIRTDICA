@@ -128,6 +128,13 @@ def create_checkout_session(user, success_url, cancel_url, plan_key="picks"):
     price_id = ensure_product_and_price(plan_key)
 
     customer_id = user.stripe_customer_id
+    if customer_id:
+        try:
+            client.Customer.retrieve(customer_id)
+        except Exception:
+            logger.warning(f"Stored customer {customer_id} not found in current Stripe environment — creating new customer")
+            customer_id = None
+
     if not customer_id:
         customer = client.Customer.create(
             email=user.email,
