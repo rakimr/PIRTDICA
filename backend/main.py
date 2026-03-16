@@ -235,6 +235,8 @@ async def subscribe_page(request: Request, db: Session = Depends(get_db)):
         plan_key = "picks"
     cancel_map = {"picks": "/articles", "statpack": "/trends", "bundle": "/"}
     base_url = str(request.base_url).rstrip("/")
+    if base_url.startswith("http://") and request.headers.get("x-forwarded-proto") == "https":
+        base_url = base_url.replace("http://", "https://", 1)
     try:
         session, customer_id = create_checkout_session(
             user,
@@ -394,6 +396,8 @@ async def billing_portal(request: Request, db: Session = Depends(get_db)):
     if not user or not user.stripe_customer_id:
         return html_redirect("/articles")
     base_url = str(request.base_url).rstrip("/")
+    if base_url.startswith("http://") and request.headers.get("x-forwarded-proto") == "https":
+        base_url = base_url.replace("http://", "https://", 1)
     session = create_billing_portal_session(user.stripe_customer_id, f"{base_url}/profile/{user.username}")
     return html_redirect(session.url)
 
