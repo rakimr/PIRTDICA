@@ -197,21 +197,23 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
         print(f"[ARTICLES] Stripe check failed: {e}")
         has_access = False
     pre_lock = False
+    PREGAME_REFRESH_ET = 18, 45
+    PREGAME_FALLBACK_ET = 19, 30
     if article and has_access:
         from zoneinfo import ZoneInfo
         now_et = get_eastern_now()
-        refresh_time = now_et.replace(hour=18, minute=45, second=0, microsecond=0)
-        if now_et < refresh_time:
-            article_refreshed_after = False
-            if article.updated_at:
-                article_updated = article.updated_at
-                if article_updated.tzinfo is None:
-                    article_updated = article_updated.replace(tzinfo=ZoneInfo("UTC"))
-                article_updated_et = article_updated.astimezone(EASTERN)
-                if article_updated_et >= refresh_time:
-                    article_refreshed_after = True
-            if not article_refreshed_after:
-                pre_lock = True
+        refresh_time = now_et.replace(hour=PREGAME_REFRESH_ET[0], minute=PREGAME_REFRESH_ET[1], second=0, microsecond=0)
+        fallback_time = now_et.replace(hour=PREGAME_FALLBACK_ET[0], minute=PREGAME_FALLBACK_ET[1], second=0, microsecond=0)
+        article_refreshed = False
+        if article.updated_at:
+            article_updated = article.updated_at
+            if article_updated.tzinfo is None:
+                article_updated = article_updated.replace(tzinfo=ZoneInfo("UTC"))
+            article_updated_et = article_updated.astimezone(EASTERN)
+            if article_updated_et >= refresh_time:
+                article_refreshed = True
+        if not article_refreshed and now_et < fallback_time:
+            pre_lock = True
 
         if not pre_lock:
             try:
