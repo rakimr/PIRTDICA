@@ -84,10 +84,18 @@ def ensure_product_and_price(plan_key="picks"):
         return PRICE_ID_CACHE[cache_key]
 
     plan = PLANS[plan_key]
-    products = client.Product.search(query=f"name:'{plan['name']}'", limit=1)
-    if products.data:
-        product = products.data[0]
-    else:
+
+    product = None
+    try:
+        all_products = client.Product.list(limit=100, active=True)
+        for p in all_products.data:
+            if p.name == plan["name"]:
+                product = p
+                break
+    except Exception as e:
+        logger.error(f"Failed to list Stripe products: {e}")
+
+    if not product:
         product = client.Product.create(
             name=plan["name"],
             description=plan["description"],

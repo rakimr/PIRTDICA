@@ -243,7 +243,9 @@ async def subscribe_page(request: Request, db: Session = Depends(get_db)):
             plan_key=plan_key,
         )
     except Exception as e:
-        print(f"[Stripe] Checkout error: {e}")
+        import traceback
+        print(f"[Stripe] Checkout error: {type(e).__name__}: {e}")
+        traceback.print_exc()
         return templates.TemplateResponse("error.html", {
             "request": request, "user": user,
             "error_title": "Payment Error",
