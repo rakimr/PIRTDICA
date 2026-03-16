@@ -33,7 +33,8 @@ HIGH Confidence Prop Classification requires: hit rate >= 58%, CV <= 0.45, last-
 
 Avatar & Identity Design Direction follows a "Strategic Minimalism meets Editorial Sports Design" style with specific design rules and an accent palette. Cosmetics communicate Skill, Status, or Story.
 
-## Session Memory (see `session_memory.md` for full detail)
+## Session Memory
+Source of truth for historical narrative detail and session logs: `session_memory.md`. Always read both `replit.md` and `session_memory.md` for full context.
 - March 12, 2026: Gold-standard 80% hit rate slate (6 book-line plays). Full narrative analysis and winning patterns in `session_memory.md`.
 - March 15, 2026: 0-7 root cause analysis drove Task #5 (confidence tightening) and Task #6 (Usage Redistribution v2).
 - Winning pattern keys: usage redistribution from injured stars, DVP/DVA double alignment, game total/pace environments, last-5 avg clearing book lines, high composite scores.
