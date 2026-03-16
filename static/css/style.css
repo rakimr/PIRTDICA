@@ -4509,39 +4509,6 @@ th[data-sortable].sort-desc::after {
     color: #fff;
 }
 
-.result-badge {
-    display: inline-block;
-    padding: 0.2rem 0.6rem;
-    border-radius: 4px;
-    font-family: 'Righteous', sans-serif;
-    font-size: 0.75rem;
-    letter-spacing: 0.5px;
-    font-weight: 400;
-}
-
-.result-win {
-    background: #0F9D58;
-    color: #fff;
-}
-
-.result-loss {
-    background: #D72638;
-    color: #fff;
-}
-
-.result-push {
-    background: #F5A623;
-    color: #fff;
-}
-
-tr.result-win {
-    background: rgba(15, 157, 88, 0.06);
-}
-
-tr.result-loss {
-    background: rgba(215, 38, 56, 0.06);
-}
-
 .analysis-card {
     background: #fff;
     border: 1px solid #e5e7eb;

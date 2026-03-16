@@ -18,17 +18,7 @@
     {% if has_access %}
     {% if picks %}
     <div class="article-section">
-        {% if graded %}
-        <h2>HIGH Confidence Picks — Results</h2>
-        {% set wins = picks|selectattr('result', 'defined')|selectattr('result', 'equalto', 'WIN')|list|length %}
-        {% set losses = picks|selectattr('result', 'defined')|selectattr('result', 'equalto', 'LOSS')|list|length %}
-        {% set pushes = picks|selectattr('result', 'defined')|selectattr('result', 'equalto', 'PUSH')|list|length %}
-        <p class="record-summary" style="text-align:center;font-family:'Righteous',sans-serif;font-size:1.1rem;margin-bottom:1rem;">
-            Record: <span style="color:{% if wins > losses %}#0F9D58{% elif losses > wins %}#D72638{% else %}#666{% endif %}">{{ wins }}-{{ losses }}{% if pushes %}-{{ pushes }}{% endif %}</span>
-        </p>
-        {% else %}
         <h2>Today's HIGH Confidence Picks</h2>
-        {% endif %}
         <div class="table-wrap">
             <table class="props-table article-table">
                 <thead>
@@ -42,15 +32,11 @@
                         <th>Projected</th>
                         <th>Edge</th>
                         <th>Pick</th>
-                        {% if graded %}
-                        <th>Actual</th>
-                        <th>Result</th>
-                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
                     {% for p in picks %}
-                    <tr class="{% if graded and p.result is defined %}result-{{ p.result|lower }}{% endif %}">
+                    <tr>
                         <td>{{ p.rank }}</td>
                         <td class="player-name-cell">{{ p.player }}</td>
                         <td>{{ p.game }}</td>
@@ -60,16 +46,6 @@
                         <td>{{ p.projected }}</td>
                         <td class="{% if p.edge.startswith('+') %}edge-positive{% else %}edge-negative{% endif %}">{{ p.edge }}</td>
                         <td><span class="pick-badge pick-{{ p.pick|lower }}">{{ p.pick }}</span></td>
-                        {% if graded %}
-                        <td>{{ p.actual if p.actual is defined else '—' }}</td>
-                        <td>
-                            {% if p.result is defined %}
-                            <span class="result-badge result-{{ p.result|lower }}">{{ p.result }}</span>
-                            {% else %}
-                            —
-                            {% endif %}
-                        </td>
-                        {% endif %}
                     </tr>
                     {% endfor %}
                 </tbody>
