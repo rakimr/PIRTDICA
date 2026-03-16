@@ -452,6 +452,94 @@ def _build_pick_context(row, dfs_df):
     return ctx
 
 
+def _build_slate_context(dfs_df, high_rows):
+    games = {}
+    for _, row in dfs_df.iterrows():
+        t = str(row.get('team', ''))
+        o = str(row.get('opponent', ''))
+        loc = str(row.get('location', '')).lower()
+        imp = _safe_float(row.get('implied_total', 0))
+        if t and o:
+            if loc == 'away':
+                key = f"{t} @ {o}"
+            else:
+                key = f"{o} @ {t}"
+            if key not in games:
+                games[key] = {'game': key, 'implied_totals': []}
+            if imp > 0:
+                games[key]['implied_totals'].append(imp)
+
+    game_summaries = []
+    for key, g in sorted(games.items()):
+        totals = g['implied_totals']
+        avg_total = sum(totals) / len(totals) if totals else 0
+        game_summaries.append(f"{key} (implied total ~{avg_total:.0f})" if avg_total > 0 else key)
+
+    import sqlite3
+    key_absences = []
+    try:
+        conn = sqlite3.connect("dfs_nba.db")
+        injuries = conn.execute(
+            "SELECT player_name, status, reason FROM injuries WHERE status IN ('OUT', 'Doubtful') "
+            "ORDER BY player_name"
+        ).fetchall()
+        conn.close()
+        for name, status, reason in injuries:
+            match = dfs_df[dfs_df['player_name'] == name]
+            if not match.empty:
+                team = match.iloc[0].get('team', '')
+                usg = _safe_float(match.iloc[0].get('usg_pct', 0))
+                if usg > 18:
+                    reason_str = f" ({reason})" if reason and str(reason) != 'nan' else ""
+                    key_absences.append(f"{name} ({team}, {usg:.1f}% USG) — {status}{reason_str}")
+    except Exception:
+        pass
+
+    if not key_absences:
+        out_details_col = high_rows.get('out_player_details')
+        if out_details_col is not None:
+            seen_out = set()
+            for val in out_details_col:
+                if not val or str(val) in ('', 'nan'):
+                    continue
+                try:
+                    import ast
+                    details = ast.literal_eval(str(val))
+                    for p in details:
+                        if p['name'] not in seen_out:
+                            seen_out.add(p['name'])
+                            key_absences.append(
+                                f"{p['name']} ({p.get('archetype', '?')}, {p['usg']:.1f}% USG, {p['mpg']:.1f} MPG) — OUT"
+                            )
+                except Exception:
+                    continue
+
+    ctx = f"SLATE: {len(games)} games — {', '.join(game_summaries)}"
+    if key_absences:
+        ctx += f"\n\nKEY ABSENCES:\n" + "\n".join(f"- {a}" for a in key_absences[:15])
+    return ctx
+
+
+FEW_SHOT_EXAMPLES = """
+EXAMPLE ANALYSES (from a gold-standard 80% hit rate slate — match this quality):
+
+**RUI HACHIMURA — PTS OVER 9.5 (CHI @ LAL)**
+The line is almost insultingly low. Hachimura averages 11.6 on the season and the model has him at 16.3 in 35 projected minutes. Chicago is the best power forward matchup in the league right now — +3.8 DVP edge — and LAL is missing Hayes, Smart, and Kleber, pushing Rui into a heavier offensive role (+4.2 usage boost). He's hit this line in back-to-back meetings with CHI and the 240 game total creates an ideal scoring environment. Top composite score on the slate at 72.9.
+
+**The Call: OVER 9.5 PTS** — We project Hachimura at 16.3 points tonight (+8.7% edge vs. the book). Composite score: 72.9.
+
+**TRE JONES — AST OVER 4.5 (CHI @ LAL)**
+Jones runs this Bulls offense and averages 5.5 assists — a full assist above the book line. The model projects 6.8 in 31 minutes, with Ayo Dosunmu OUT redistributing 0.5 extra assists his way. His playmaking composite index of 3.1 is strong, both DVA (+0.73) and DVP (+0.79) are positive, and the 240 game total means plenty of possessions. Hit rate of 64.6% is the second-highest among all HIGH picks today. The one caution: last 5 average is 4.6, slightly below his season mark — but the matchup and usage context override that dip.
+
+**The Call: OVER 4.5 AST** — We project Jones at 6.8 assists tonight (+51.1% edge vs. the book). Composite score: 65.2.
+
+**DYLAN HARPER — PTS OVER 10.5 (DEN @ SA)**
+Harper's been heating up — last 5 average of 13.0 already clears the line by 2.5 points. He's scored in a DEN matchup before (+2.4 H2H edge) and the game environment is elite: second-highest total on the slate at 240, fast pace on both sides. DVA +0.6 confirms his archetype produces well against Denver's coverage scheme. The line at 10.5 hasn't caught up to his recent form, which is exactly the inefficiency we're targeting.
+
+**The Call: OVER 10.5 PTS** — We project Harper at 14.5 points tonight (+38.1% edge vs. the book). Composite score: 61.8.
+"""
+
+
 def build_analysis_claude(high_rows, dfs_df):
     api_key = os.environ.get("AI_INTEGRATIONS_ANTHROPIC_API_KEY")
     base_url = os.environ.get("AI_INTEGRATIONS_ANTHROPIC_BASE_URL")
@@ -471,6 +559,7 @@ def build_analysis_claude(high_rows, dfs_df):
     if not pick_contexts:
         return None
 
+    slate_context = _build_slate_context(dfs_df, high_rows)
     picks_json = json.dumps(pick_contexts, indent=2, default=str)
 
     system_prompt = """You are a sharp NBA DFS analyst writing for PIRTDICA SPORTS CO., a competitive fantasy sports platform. Your audience is sportsbook bettors looking for HIGH confidence prop picks.
@@ -485,6 +574,7 @@ WRITING STYLE:
 - Never use generic filler — every sentence should contain data or insight
 - When players have an Opportunity Spike (out players creating usage vacuum), lead with that angle
 - Reference the book line and explain why the market is wrong
+- Connect picks to slate-wide context (game totals, key absences, pace environments) when relevant
 
 OUTPUT FORMAT:
 Return a JSON array where each element has:
@@ -493,11 +583,17 @@ Return a JSON array where each element has:
 
 Return ONLY the JSON array, no other text."""
 
-    user_prompt = f"""Write HIGH confidence prop analysis for today's slate. Here are the picks with full model data:
+    user_prompt = f"""Write HIGH confidence prop analysis for today's slate.
+
+{slate_context}
+
+{FEW_SHOT_EXAMPLES}
+
+Now write analyses for today's picks. Here is the full model data for each pick:
 
 {picks_json}
 
-Remember: return ONLY a JSON array with "player" and "analysis" keys. Each analysis should be 3-4 paragraphs (150-250 words), data-driven, and end with a bold **The Call:** line."""
+Remember: return ONLY a JSON array with "player" and "analysis" keys. Each analysis should be 3-4 paragraphs (150-250 words), data-driven, and end with a bold **The Call:** line. Match the quality and specificity of the examples above."""
 
     try:
         from anthropic import Anthropic
