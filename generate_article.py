@@ -2,12 +2,14 @@
 Generate daily article content for the PIRTDICA Articles page.
 Usage: python generate_article.py [YYYY-MM-DD]
        Defaults to today's date.
-Reads HIGH confidence picks from prop_recommendations.csv, builds analysis text,
-generates header image, and saves everything to PostgreSQL.
+Reads HIGH confidence picks from prop_recommendations.csv, builds analysis text
+using Claude AI (with template fallback), generates header image, and saves
+everything to PostgreSQL.
 """
 import os
 import sys
 import json
+import time
 import pandas as pd
 from datetime import date, datetime
 
@@ -129,7 +131,7 @@ def _parse_factors(factors_text):
     return parsed
 
 
-def build_analysis_text(row, dfs_df):
+def build_analysis_text_template(row, dfs_df):
     player = row['player']
     last_name = player.split()[-1] if ' ' in player else player
     stat = row['stat']
@@ -351,6 +353,209 @@ def build_analysis_text(row, dfs_df):
     return "\n\n".join(paragraphs)
 
 
+def _build_pick_context(row, dfs_df):
+    player = row['player']
+    stat = row['stat']
+    stat_label = STAT_LABELS.get(stat, stat.lower())
+    team = row['team']
+    opponent = row['opponent']
+    archetype = row.get('archetype', '')
+    book_line = _safe_float(row.get('book_line', 0))
+    projected = _safe_float(row.get('projected_value', row.get('adjusted_avg', 0)))
+    player_avg = _safe_float(row.get('player_avg', 0))
+    vs_book_edge = _safe_float(row.get('vs_book_edge', 0))
+    dva_edge = _safe_float(row.get('dva_edge', 0))
+    dvp_edge = _safe_float(row.get('dvp_edge', 0))
+    hit_rate = _safe_float(row.get('hit_rate', 0))
+    last5_avg = _safe_float(row.get('last5_avg', 0))
+    cv = _safe_float(row.get('cv', 0))
+    recommendation = row.get('recommendation', '')
+    projected_min = _safe_float(row.get('projected_min', 0))
+    composite_score = _safe_float(row.get('composite_score', 0))
+    usage_boost = _safe_float(row.get('usage_boost', 0))
+    opportunity_index = _safe_float(row.get('opportunity_index', 0))
+    opportunity_spike = row.get('opportunity_spike', False)
+    out_player_details = row.get('out_player_details', '')
+    confidence_reasons = row.get('confidence_reasons', '')
+    projection_factors = row.get('projection_factors', '')
+    pace_factor = _safe_float(row.get('pace_factor', 0))
+    total_factor = _safe_float(row.get('total_factor', 0))
+    blend = row.get('blend', '')
+
+    call = "OVER" if "OVER" in str(recommendation).upper() else "UNDER"
+
+    dfs_row = dfs_df[dfs_df['player_name'] == player]
+    salary = int(dfs_row.iloc[0]['salary']) if len(dfs_row) else int(_safe_float(row.get('salary', 0)))
+    implied_total = float(dfs_row.iloc[0].get('implied_total', 0)) if len(dfs_row) else 0
+
+    recent_games = _get_recent_games(player, stat)
+    matchup_hist = _get_matchup_history(player, opponent)
+
+    game_label = build_game_label(player, team, opponent, dfs_df)
+
+    ctx = {
+        'player': player,
+        'stat': stat,
+        'stat_label': stat_label,
+        'team': team,
+        'opponent': opponent,
+        'game': game_label,
+        'archetype': archetype,
+        'book_line': book_line,
+        'projected': round(projected, 1),
+        'player_avg': round(player_avg, 1),
+        'vs_book_edge': round(vs_book_edge, 1),
+        'dva_edge': round(dva_edge, 2),
+        'dvp_edge': round(dvp_edge, 2),
+        'hit_rate': round(hit_rate, 1),
+        'last5_avg': round(last5_avg, 1),
+        'cv': round(cv, 3),
+        'call': call,
+        'projected_min': round(projected_min, 1),
+        'composite_score': round(composite_score, 1),
+        'salary': salary,
+        'implied_total': round(implied_total, 1),
+        'usage_boost': round(usage_boost, 1),
+        'blend': str(blend),
+        'confidence_reasons': str(confidence_reasons),
+        'projection_factors': str(projection_factors),
+    }
+
+    if opportunity_index and opportunity_index > 0:
+        ctx['opportunity_index'] = round(opportunity_index, 2)
+    if opportunity_spike and str(opportunity_spike).lower() == 'true':
+        ctx['opportunity_spike'] = True
+    if out_player_details and str(out_player_details) not in ('', 'nan'):
+        try:
+            import ast
+            details = ast.literal_eval(str(out_player_details))
+            ctx['out_players'] = [
+                f"{p['name']} ({p['archetype']}, {p['usg']:.1f}% USG, {p['mpg']:.1f} MPG)"
+                for p in details
+            ]
+        except Exception:
+            ctx['out_player_details_raw'] = str(out_player_details)[:300]
+
+    if pace_factor and pace_factor > 0:
+        ctx['pace_factor'] = round(pace_factor, 3)
+    if total_factor and total_factor > 0:
+        ctx['total_factor'] = round(total_factor, 3)
+
+    if recent_games:
+        ctx['recent_games'] = [
+            {'date': g['date'], 'matchup': g['matchup'], 'val': g['val'], 'min': g['min']}
+            for g in recent_games[:5]
+        ]
+    if matchup_hist:
+        ctx['matchup_history'] = matchup_hist
+
+    return ctx
+
+
+def build_analysis_claude(high_rows, dfs_df):
+    api_key = os.environ.get("AI_INTEGRATIONS_ANTHROPIC_API_KEY")
+    base_url = os.environ.get("AI_INTEGRATIONS_ANTHROPIC_BASE_URL")
+    if not api_key or not base_url:
+        print("Claude API not configured — falling back to template engine")
+        return None
+
+    pick_contexts = []
+    seen = set()
+    for _, row in high_rows.iterrows():
+        player = row['player']
+        if player in seen:
+            continue
+        seen.add(player)
+        pick_contexts.append(_build_pick_context(row, dfs_df))
+
+    if not pick_contexts:
+        return None
+
+    picks_json = json.dumps(pick_contexts, indent=2, default=str)
+
+    system_prompt = """You are a sharp NBA DFS analyst writing for PIRTDICA SPORTS CO., a competitive fantasy sports platform. Your audience is sportsbook bettors looking for HIGH confidence prop picks.
+
+WRITING STYLE:
+- Conversational but data-driven — like a sharp bettor talking to another sharp
+- Lead with the strongest angle for each pick (usage redistribution, matchup edge, recent form, game environment)
+- Cite specific numbers: DVA/DVP edges, hit rates, last-5 averages, projected minutes, usage boosts, composite scores
+- Explain WHY the model likes the pick, not just that it does
+- Keep each analysis 3-4 paragraphs (150-250 words)
+- End each analysis with a bold call line: **The Call: OVER/UNDER X.X STAT** with the projected value and edge
+- Never use generic filler — every sentence should contain data or insight
+- When players have an Opportunity Spike (out players creating usage vacuum), lead with that angle
+- Reference the book line and explain why the market is wrong
+
+OUTPUT FORMAT:
+Return a JSON array where each element has:
+- "player": exact player name (must match input)
+- "analysis": the full analysis text with paragraphs separated by double newlines
+
+Return ONLY the JSON array, no other text."""
+
+    user_prompt = f"""Write HIGH confidence prop analysis for today's slate. Here are the picks with full model data:
+
+{picks_json}
+
+Remember: return ONLY a JSON array with "player" and "analysis" keys. Each analysis should be 3-4 paragraphs (150-250 words), data-driven, and end with a bold **The Call:** line."""
+
+    try:
+        from anthropic import Anthropic
+
+        client = Anthropic(api_key=api_key, base_url=base_url)
+
+        print(f"Calling Claude for {len(pick_contexts)} pick analyses...")
+        start_time = time.time()
+
+        message = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=8192,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+
+        elapsed = time.time() - start_time
+        response_text = message.content[0].text
+        print(f"Claude response received in {elapsed:.1f}s ({len(response_text)} chars)")
+
+        cleaned = response_text.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+            if cleaned.endswith("```"):
+                cleaned = cleaned[:-3]
+            cleaned = cleaned.strip()
+
+        analyses = json.loads(cleaned)
+
+        result = {}
+        for item in analyses:
+            player = item.get('player', '')
+            analysis = item.get('analysis', '')
+            if player and analysis:
+                result[player] = analysis
+
+        matched = sum(1 for p in seen if p in result)
+        print(f"Claude analyses parsed: {matched}/{len(seen)} players matched")
+
+        if matched < len(seen) * 0.5:
+            print(f"WARNING: Low match rate ({matched}/{len(seen)}) — falling back to template")
+            return None
+
+        return result
+
+    except json.JSONDecodeError as e:
+        print(f"Claude JSON parse error: {e}")
+        print(f"Response preview: {response_text[:500] if 'response_text' in dir() else 'N/A'}")
+        return None
+    except Exception as e:
+        error_msg = str(e)
+        if "FREE_CLOUD_BUDGET_EXCEEDED" in error_msg:
+            print(f"Claude budget exceeded — falling back to template engine")
+        else:
+            print(f"Claude API error: {error_msg}")
+        return None
+
+
 def generate_article(target_date=None):
     if target_date is None:
         target_date = date.today()
@@ -420,6 +625,12 @@ def generate_article(target_date=None):
             'composite_score': round(_safe_float(row.get('composite_score', 0)), 1),
         })
 
+    claude_analyses = build_analysis_claude(high, dfs_df)
+    if claude_analyses:
+        print(f"Using Claude AI analyses for article")
+    else:
+        print(f"Using template engine for article")
+
     analysis_data = []
     seen_analysis = set()
     for _, row in high.iterrows():
@@ -427,7 +638,10 @@ def generate_article(target_date=None):
         if player in seen_analysis:
             continue
         seen_analysis.add(player)
-        analysis_text = build_analysis_text(row, dfs_df)
+        if claude_analyses and player in claude_analyses:
+            analysis_text = claude_analyses[player]
+        else:
+            analysis_text = build_analysis_text_template(row, dfs_df)
         call = "OVER" if "OVER" in str(row.get('recommendation', '')).upper() else "UNDER"
         analysis_data.append({
             'player': player,
