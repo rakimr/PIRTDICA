@@ -22,6 +22,10 @@
     box-sizing: border-box;
 }
 
+html {
+    overflow-x: hidden;
+}
+
 body {
     font-family: 'Marvel', sans-serif;
     background: var(--bg);
@@ -5028,5 +5032,314 @@ th[data-sortable].sort-desc::after {
         margin-top: 0.5rem;
         padding: 0.6rem 1.5rem;
         font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 768px) {
+    body {
+        font-size: 15px;
+    }
+
+    .container {
+        padding: 1.5rem 1rem;
+    }
+
+    .hero {
+        padding: 2.5rem 1.25rem;
+        margin-bottom: 1.5rem;
+        border-radius: 12px;
+    }
+
+    .hero h1 {
+        font-size: 1.8rem;
+    }
+
+    .hero p {
+        font-size: 1rem;
+    }
+
+    .countdown-display {
+        font-size: 1.8rem;
+    }
+
+    .feature-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .feature-card {
+        padding: 1.25rem;
+    }
+
+    .feature-card h3 {
+        font-size: 1rem;
+    }
+
+    .feature-card p {
+        font-size: 0.85rem;
+    }
+
+    .leaderboard-page {
+        padding: 1rem 0;
+    }
+
+    .leaderboard-page h1 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .leaderboard-card {
+        padding: 0;
+        border-radius: 8px;
+    }
+
+    .leaderboard-table th,
+    .leaderboard-table td {
+        padding: 0.6rem 0.5rem;
+        font-size: 0.8rem;
+        white-space: nowrap;
+    }
+
+    .leaderboard-table th {
+        font-size: 0.7rem;
+    }
+
+    .medal {
+        width: 24px;
+        height: 24px;
+        font-size: 0.75rem;
+    }
+
+    .period-tabs {
+        gap: 0.4rem;
+    }
+
+    .tab {
+        padding: 0.5rem 0.9rem;
+        font-size: 0.85rem;
+    }
+
+    .profile-wallet {
+        flex-direction: column !important;
+        gap: 1rem !important;
+    }
+
+    .profile-wallet > div {
+        min-width: 0 !important;
+    }
+
+    .profile-header {
+        padding: 1.25rem !important;
+    }
+
+    .profile-stats-summary {
+        gap: 0.75rem !important;
+    }
+
+    .profile-stats-summary .stat .value {
+        font-size: 1.3rem;
+    }
+
+    .profile-stats-summary .stat .label {
+        font-size: 0.7rem;
+    }
+
+    .rank-section,
+    .h2h-stats-section,
+    .achievements-section {
+        padding: 1rem !important;
+    }
+
+    .rank-section h2,
+    .h2h-stats-section h2,
+    .achievements-section h2 {
+        font-size: 1.2rem !important;
+        margin-bottom: 0.75rem !important;
+    }
+
+    .articles-page {
+        padding: 0.75rem 0 2rem;
+    }
+
+    .article-header-img {
+        border-radius: 6px;
+    }
+
+    .article-meta h1 {
+        font-size: 1.2rem;
+        letter-spacing: 1px;
+    }
+
+    .article-section h2 {
+        font-size: 1.05rem;
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .article-table {
+        font-size: 0.75rem;
+        min-width: 500px;
+    }
+
+    .article-table thead th,
+    .article-table tbody td {
+        padding: 0.35rem 0.4rem;
+    }
+
+    .analysis-card {
+        padding: 1rem;
+    }
+
+    .analysis-player-info h3 {
+        font-size: 0.95rem;
+    }
+
+    .analysis-body p {
+        font-size: 0.82rem;
+    }
+
+    .pre-lock-banner {
+        padding: 2rem 1.25rem;
+    }
+
+    .pre-lock-banner h2 {
+        font-size: 1.15rem;
+    }
+
+    .pre-lock-banner p {
+        font-size: 0.85rem;
+    }
+
+    .billing-page {
+        padding: 1.5rem 0.75rem !important;
+    }
+
+    .billing-page h1 {
+        font-size: 1.4rem !important;
+    }
+
+    .billing-sub-card {
+        padding: 1rem !important;
+    }
+
+    .billing-actions {
+        flex-direction: column !important;
+    }
+
+    .billing-plans-grid {
+        flex-direction: column !important;
+        align-items: center !important;
+    }
+
+    .billing-plans-grid > div {
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    .shop-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+    }
+
+    .shop-item {
+        padding: 1rem;
+    }
+
+    .shop-item h3 {
+        font-size: 0.9rem;
+    }
+
+    .items-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 0.75rem;
+    }
+
+    .house-lineup-section h2 {
+        font-size: 1.3rem;
+    }
+
+    .lineup-card {
+        padding: 1rem;
+    }
+
+    .lineup-table th,
+    .lineup-table td {
+        padding: 0.5rem 0.4rem;
+        font-size: 0.8rem;
+    }
+
+    .btn-large {
+        padding: 0.65rem 1.5rem;
+        font-size: 0.95rem;
+    }
+
+    .auth-card {
+        padding: 1.75rem;
+        margin: 0 0.5rem;
+    }
+
+    .features h2 {
+        font-size: 1.4rem;
+    }
+
+    .awards-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+
+    .award-card {
+        padding: 1rem;
+    }
+
+    .award-card h3 {
+        font-size: 0.75rem;
+    }
+
+    .award-name {
+        font-size: 1rem;
+    }
+
+    .coach-awards h2 {
+        font-size: 1.3rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 1rem 0.75rem;
+    }
+
+    .hero h1 {
+        font-size: 1.5rem;
+    }
+
+    .countdown-display {
+        font-size: 1.5rem;
+    }
+
+    .leaderboard-table th,
+    .leaderboard-table td {
+        padding: 0.45rem 0.35rem;
+        font-size: 0.72rem;
+    }
+
+    .profile-stats-summary {
+        flex-wrap: wrap;
+    }
+
+    .profile-stats-summary .stat .value {
+        font-size: 1.1rem;
+    }
+
+    .shop-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+    }
+
+    .shop-item .preview {
+        font-size: 2rem;
     }
 }
