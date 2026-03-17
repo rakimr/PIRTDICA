@@ -458,13 +458,23 @@ async def billing_page(request: Request, db: Session = Depends(get_db)):
 async def billing_portal_redirect(request: Request, db: Session = Depends(get_db)):
     from backend.stripe_billing import create_billing_portal_session
     user = get_current_user(request, db)
-    if not user or not user.stripe_customer_id:
+    if not user:
+        return html_redirect("/login")
+    if not user.stripe_customer_id:
         return html_redirect("/billing")
     base_url = str(request.base_url).rstrip("/")
     if base_url.startswith("http://") and request.headers.get("x-forwarded-proto") == "https":
         base_url = base_url.replace("http://", "https://", 1)
-    session = create_billing_portal_session(user.stripe_customer_id, f"{base_url}/billing")
-    return html_redirect(session.url)
+    try:
+        session = create_billing_portal_session(user.stripe_customer_id, f"{base_url}/billing")
+        return html_redirect(session.url)
+    except Exception as e:
+        print(f"[Stripe] Portal session error: {e}")
+        return templates.TemplateResponse("error.html", {
+            "request": request, "user": user,
+            "error_title": "Billing Portal Unavailable",
+            "error_message": "Could not connect to the billing portal. Please try again in a moment.",
+        }, status_code=503)
 
 
 @app.api_route("/", methods=["GET", "POST"])
