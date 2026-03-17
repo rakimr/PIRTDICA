@@ -863,18 +863,25 @@ async def trends(request: Request, db: Session = Depends(get_db)):
     explorer_players = []
     headshots = get_player_headshots()
     try:
+        def _safe_normalize(name):
+            if not name or not isinstance(name, str):
+                return ''
+            return normalize_name(name).lower()
+
         explorer_df = dfs_df.copy() if not dfs_df.empty else pd.DataFrame()
         injury_df = data_access.get_injury_alerts()
 
         inj_norm_map = {}
         if not injury_df.empty:
+            injury_df = injury_df.dropna(subset=['player_name'])
             for _, irow in injury_df.iterrows():
-                nk = normalize_name(irow['player_name']).lower()
-                inj_norm_map[nk] = irow['status']
+                nk = _safe_normalize(irow['player_name'])
+                if nk:
+                    inj_norm_map[nk] = irow['status']
 
         if not explorer_df.empty:
             explorer_df['injury_status'] = explorer_df['player_name'].apply(
-                lambda n: inj_norm_map.get(normalize_name(n).lower(), '')
+                lambda n: inj_norm_map.get(_safe_normalize(n), '')
             )
             if 'true_position' in explorer_df.columns:
                 pos_df = data_access.get_player_positions()
@@ -908,7 +915,7 @@ async def trends(request: Request, db: Session = Depends(get_db)):
         if not salary_df.empty and not injury_df.empty:
             existing_norm = set()
             if not explorer_df.empty:
-                existing_norm = set(explorer_df['player_name'].apply(lambda n: normalize_name(n).lower()))
+                existing_norm = set(explorer_df['player_name'].apply(_safe_normalize))
 
             opp_map = {}
             try:
@@ -925,45 +932,51 @@ async def trends(request: Request, db: Session = Depends(get_db)):
                 pass
 
             today_teams = set(opp_map.keys())
+            if not today_teams:
+                pass
+            else:
+                seen_norm = set(existing_norm)
+                missing_rows = []
+                salary_df = salary_df.dropna(subset=['player_name'])
+                for _, srow in salary_df.iterrows():
+                    pname = srow['player_name']
+                    nk = _safe_normalize(pname)
+                    if not nk or nk in seen_norm:
+                        continue
+                    status = inj_norm_map.get(nk, '')
+                    if not status:
+                        continue
+                    team = srow.get('team', '')
+                    if team not in today_teams:
+                        continue
+                    fd_pos = str(srow.get('position', '') or '')
+                    pos = fd_pos.split('/')[0] if fd_pos else ''
+                    opp = opp_map.get(team, '')
+                    missing_rows.append({
+                        'player_name': pname,
+                        'true_position': pos,
+                        'team': team,
+                        'opponent': opp,
+                        'injury_status': status,
+                    })
+                    seen_norm.add(nk)
 
-            missing_rows = []
-            for _, srow in salary_df.iterrows():
-                pname = srow['player_name']
-                nk = normalize_name(pname).lower()
-                if nk in existing_norm:
-                    continue
-                status = inj_norm_map.get(nk, '')
-                if not status:
-                    continue
-                team = srow.get('team', '')
-                if today_teams and team not in today_teams:
-                    continue
-                fd_pos = str(srow.get('position', '') or '')
-                pos = fd_pos.split('/')[0] if fd_pos else ''
-                opp = opp_map.get(team, '')
-                missing_rows.append({
-                    'player_name': pname,
-                    'true_position': pos,
-                    'team': team,
-                    'opponent': opp,
-                    'injury_status': status,
-                })
-
-            if missing_rows:
-                missing_df = pd.DataFrame(missing_rows)
-                if explorer_df.empty:
-                    explorer_df = missing_df
-                else:
-                    keep = ['player_name', 'true_position', 'team', 'opponent', 'injury_status']
-                    keep = [c for c in keep if c in explorer_df.columns]
-                    explorer_df = pd.concat([explorer_df[keep], missing_df[keep]], ignore_index=True)
+                if missing_rows:
+                    missing_df = pd.DataFrame(missing_rows)
+                    if explorer_df.empty:
+                        explorer_df = missing_df
+                    else:
+                        keep = ['player_name', 'true_position', 'team', 'opponent', 'injury_status']
+                        keep = [c for c in keep if c in explorer_df.columns]
+                        explorer_df = pd.concat([explorer_df[keep], missing_df[keep]], ignore_index=True)
 
         if not explorer_df.empty:
             keep_cols = ['player_name', 'true_position', 'team', 'opponent', 'injury_status']
             keep_cols = [c for c in keep_cols if c in explorer_df.columns]
             explorer_players = explorer_df[keep_cols].to_dict('records')
-    except:
-        pass
+    except Exception:
+        import traceback
+        traceback.print_exc()
 
     return templates.TemplateResponse("trends.html", {
         "request": request,

@@ -86,7 +86,9 @@ def get_player_salaries_game_times():
 
 def get_player_salaries():
     if use_postgres():
-        return _pg_query("SELECT player_name, team, salary, position FROM player_salaries_live")
+        result = _pg_query("SELECT player_name, team, salary, position FROM player_salaries_live")
+        if not result.empty:
+            return result
     try:
         import sqlite3
         conn = sqlite3.connect("dfs_nba.db")
