@@ -1,5 +1,5 @@
 """
-Pre-Game Article Refresh — runs at 6:45 PM ET
+Pre-Game Article Refresh — runs at 6:20 PM ET
 Re-scrapes injuries, rebuilds projections, regenerates the article,
 and pushes to GitHub so the live site reflects late-breaking news.
 """
@@ -61,7 +61,7 @@ def push_to_github():
     try:
         date_str = datetime.now().strftime("%b %d")
         result = subprocess.run(
-            [sys.executable, "push_to_github.py", f"Pre-game refresh — {date_str} 6:45 PM"],
+            [sys.executable, "push_to_github.py", f"Pre-game refresh — {date_str} 6:20 PM"],
             cwd="/home/runner/workspace",
             capture_output=True, text=True, timeout=120
         )
@@ -82,7 +82,7 @@ def push_to_github():
 
 def main():
     print("=" * 50)
-    print("PRE-GAME ARTICLE REFRESH (6:45 PM ET)")
+    print("PRE-GAME ARTICLE REFRESH (6:20 PM ET)")
     print(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 50)
 
