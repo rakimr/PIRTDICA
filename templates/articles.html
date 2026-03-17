@@ -109,9 +109,15 @@
     {% endif %}
 
     {% else %}
-    <div class="no-article">
-        <h1>No Article Today</h1>
-        <p>Today's HIGH Confidence Props haven't been generated yet. Check back after the daily pipeline runs.</p>
+    <div class="pre-lock-banner">
+        <div class="pre-lock-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+            </svg>
+        </div>
+        <h2>Picks are brewing.</h2>
+        <p>Closer to lock, richer the data. Final picks drop after the pre-game refresh &mdash; check back 10 minutes before tip-off for the sharpest edges.</p>
     </div>
     {% endif %}
 </section>
