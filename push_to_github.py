@@ -247,6 +247,7 @@ def main():
 
     gh_api(f"/repos/{REPO}/git/refs/heads/{BRANCH}", method="PATCH", data={
         "sha": new_commit_sha,
+        "force": True,
     }, token=token)
 
     print(f"  Pushed {len(tree_items)} files to GitHub ({new_commit_sha[:8]})")
