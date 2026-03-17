@@ -864,13 +864,18 @@ async def trends(request: Request, db: Session = Depends(get_db)):
     headshots = get_player_headshots()
     try:
         explorer_df = dfs_df.copy() if not dfs_df.empty else pd.DataFrame()
+        injury_df = data_access.get_injury_alerts()
+
+        inj_norm_map = {}
+        if not injury_df.empty:
+            for _, irow in injury_df.iterrows():
+                nk = normalize_name(irow['player_name']).lower()
+                inj_norm_map[nk] = irow['status']
+
         if not explorer_df.empty:
-            injury_df = data_access.get_injury_alerts()
-            if not injury_df.empty:
-                inj_map = dict(zip(injury_df['player_name'], injury_df['status']))
-                explorer_df['injury_status'] = explorer_df['player_name'].map(inj_map).fillna('')
-            else:
-                explorer_df['injury_status'] = ''
+            explorer_df['injury_status'] = explorer_df['player_name'].apply(
+                lambda n: inj_norm_map.get(normalize_name(n).lower(), '')
+            )
             if 'true_position' in explorer_df.columns:
                 pos_df = data_access.get_player_positions()
                 derived_map = {}
@@ -898,6 +903,62 @@ async def trends(request: Request, db: Session = Depends(get_db)):
                 explorer_df['true_position'] = explorer_df.apply(resolve_position, axis=1)
             if 'opponent' in explorer_df.columns:
                 explorer_df['opponent'] = explorer_df['opponent'].fillna('')
+
+        salary_df = data_access.get_player_salaries()
+        if not salary_df.empty and not injury_df.empty:
+            existing_norm = set()
+            if not explorer_df.empty:
+                existing_norm = set(explorer_df['player_name'].apply(lambda n: normalize_name(n).lower()))
+
+            opp_map = {}
+            try:
+                odds_df = data_access._pg_query("SELECT away_team, home_team FROM game_odds_live") if data_access.use_postgres() else pd.DataFrame()
+                if odds_df.empty:
+                    import sqlite3 as _sq
+                    _conn = _sq.connect("dfs_nba.db")
+                    odds_df = pd.read_sql_query("SELECT away_team, home_team FROM game_odds", _conn)
+                    _conn.close()
+                for _, orow in odds_df.iterrows():
+                    opp_map[orow['away_team']] = orow['home_team']
+                    opp_map[orow['home_team']] = orow['away_team']
+            except Exception:
+                pass
+
+            today_teams = set(opp_map.keys())
+
+            missing_rows = []
+            for _, srow in salary_df.iterrows():
+                pname = srow['player_name']
+                nk = normalize_name(pname).lower()
+                if nk in existing_norm:
+                    continue
+                status = inj_norm_map.get(nk, '')
+                if not status:
+                    continue
+                team = srow.get('team', '')
+                if today_teams and team not in today_teams:
+                    continue
+                fd_pos = str(srow.get('position', '') or '')
+                pos = fd_pos.split('/')[0] if fd_pos else ''
+                opp = opp_map.get(team, '')
+                missing_rows.append({
+                    'player_name': pname,
+                    'true_position': pos,
+                    'team': team,
+                    'opponent': opp,
+                    'injury_status': status,
+                })
+
+            if missing_rows:
+                missing_df = pd.DataFrame(missing_rows)
+                if explorer_df.empty:
+                    explorer_df = missing_df
+                else:
+                    keep = ['player_name', 'true_position', 'team', 'opponent', 'injury_status']
+                    keep = [c for c in keep if c in explorer_df.columns]
+                    explorer_df = pd.concat([explorer_df[keep], missing_df[keep]], ignore_index=True)
+
+        if not explorer_df.empty:
             keep_cols = ['player_name', 'true_position', 'team', 'opponent', 'injury_status']
             keep_cols = [c for c in keep_cols if c in explorer_df.columns]
             explorer_players = explorer_df[keep_cols].to_dict('records')

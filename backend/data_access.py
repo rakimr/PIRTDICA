@@ -84,6 +84,22 @@ def get_player_salaries_game_times():
         return pd.DataFrame(columns=["game", "game_time"])
 
 
+def get_player_salaries():
+    if use_postgres():
+        return _pg_query("SELECT player_name, team, salary, position FROM player_salaries_live")
+    try:
+        import sqlite3
+        conn = sqlite3.connect("dfs_nba.db")
+        df = pd.read_sql_query(
+            "SELECT player_name, team, salary, position FROM player_salaries",
+            conn
+        )
+        conn.close()
+        return df
+    except Exception:
+        return pd.DataFrame(columns=["player_name", "team", "salary", "position"])
+
+
 def get_injury_alerts():
     if use_postgres():
         return _pg_query(
