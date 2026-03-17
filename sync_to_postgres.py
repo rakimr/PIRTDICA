@@ -63,6 +63,31 @@ def create_tables():
     print("PostgreSQL tables created/verified.")
 
 
+def _pandas_dtype_to_pg(dtype):
+    dtype_str = str(dtype)
+    if dtype_str in ('float64', 'float32'):
+        return 'DOUBLE PRECISION'
+    elif dtype_str == 'int64':
+        return 'BIGINT'
+    elif dtype_str == 'int32':
+        return 'INTEGER'
+    elif dtype_str in ('bool', 'boolean'):
+        return 'BOOLEAN'
+    else:
+        return 'TEXT'
+
+
+def _add_missing_columns(conn, pg_table, df, pg_cols, source_cols):
+    missing_cols = source_cols - pg_cols
+    if not missing_cols:
+        return pg_cols
+    for col in sorted(missing_cols):
+        pg_type = _pandas_dtype_to_pg(df[col].dtype)
+        conn.execute(text(f'ALTER TABLE {pg_table} ADD COLUMN IF NOT EXISTS "{col}" {pg_type}'))
+    print(f"  Added {len(missing_cols)} new columns to {pg_table}: {sorted(missing_cols)}")
+    return pg_cols | missing_cols
+
+
 def _calc_batch_size(num_cols):
     max_params = 400
     batch = max(1, max_params // max(num_cols, 1))
@@ -128,23 +153,7 @@ def sync_csv(csv_path, pg_table):
             pg_cols = {row[0] for row in pg_cols_result}
 
             csv_cols = set(df.columns)
-
-            missing_cols = csv_cols - pg_cols
-            if missing_cols:
-                for col in sorted(missing_cols):
-                    dtype = df[col].dtype
-                    if dtype in ('float64', 'float32'):
-                        pg_type = 'DOUBLE PRECISION'
-                    elif dtype in ('int64', 'int32'):
-                        pg_type = 'INTEGER'
-                    elif dtype == 'bool':
-                        pg_type = 'BOOLEAN'
-                    else:
-                        pg_type = 'TEXT'
-                    conn.execute(text(f'ALTER TABLE {pg_table} ADD COLUMN "{col}" {pg_type}'))
-                print(f"  Added {len(missing_cols)} new columns to {pg_table}: {sorted(missing_cols)}")
-                pg_cols = pg_cols | missing_cols
-
+            pg_cols = _add_missing_columns(conn, pg_table, df, pg_cols, csv_cols)
             common_cols = list(csv_cols & pg_cols)
 
             if not common_cols:
@@ -196,12 +205,11 @@ def sync_sqlite_table(sqlite_table, pg_table):
             )).scalar()
 
             if not table_exists:
-                type_map = {'int64': 'BIGINT', 'float64': 'DOUBLE PRECISION', 'object': 'TEXT', 'bool': 'BOOLEAN'}
                 col_defs = []
                 for col in df.columns:
                     if col == 'id':
                         continue
-                    pg_type = type_map.get(str(df[col].dtype), 'TEXT')
+                    pg_type = _pandas_dtype_to_pg(df[col].dtype)
                     col_defs.append(f'"{col}" {pg_type}')
                 col_defs_str = ", ".join(col_defs)
                 conn.execute(text(f'CREATE TABLE {pg_table} (id SERIAL PRIMARY KEY, {col_defs_str})'))
@@ -218,22 +226,7 @@ def sync_sqlite_table(sqlite_table, pg_table):
             if 'id' in sqlite_cols:
                 sqlite_cols.discard('id')
 
-            missing_cols = sqlite_cols - pg_cols
-            if missing_cols:
-                for col in sorted(missing_cols):
-                    dtype = df[col].dtype
-                    if dtype in ('float64', 'float32'):
-                        pg_type = 'DOUBLE PRECISION'
-                    elif dtype in ('int64', 'int32'):
-                        pg_type = 'INTEGER'
-                    elif dtype == 'bool':
-                        pg_type = 'BOOLEAN'
-                    else:
-                        pg_type = 'TEXT'
-                    conn.execute(text(f'ALTER TABLE {pg_table} ADD COLUMN "{col}" {pg_type}'))
-                print(f"  Added {len(missing_cols)} new columns to {pg_table}: {sorted(missing_cols)}")
-                pg_cols = pg_cols | missing_cols
-
+            pg_cols = _add_missing_columns(conn, pg_table, df, pg_cols, sqlite_cols)
             common_cols = list(sqlite_cols & pg_cols)
 
             if not common_cols:
