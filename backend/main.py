@@ -410,15 +410,60 @@ async def stripe_webhook(request: Request):
 
 
 @app.get("/billing")
-async def billing_portal(request: Request, db: Session = Depends(get_db)):
+async def billing_page(request: Request, db: Session = Depends(get_db)):
+    from backend.stripe_billing import PLANS, PLAN_DISPLAY_NAMES
+    from backend.models import UserSubscription
+    user = get_current_user(request, db)
+    if not user:
+        return html_redirect("/login")
+
+    subs_db = db.query(UserSubscription).filter(
+        UserSubscription.user_id == user.id,
+        UserSubscription.status.in_(["active", "canceled"]),
+    ).order_by(UserSubscription.created_at.desc()).all()
+
+    subscriptions = []
+    for s in subs_db:
+        plan_info = PLANS.get(s.plan, {})
+        amount = plan_info.get("amount", 0)
+        interval = plan_info.get("interval", "month")
+        price_str = f"${amount / 100:.0f}/{interval}" if amount else ""
+        subscriptions.append({
+            "display_name": PLAN_DISPLAY_NAMES.get(s.plan, s.plan),
+            "description": plan_info.get("description", ""),
+            "status": s.status,
+            "period_end": s.current_period_end.strftime("%B %-d, %Y") if s.current_period_end else None,
+            "price": price_str,
+            "plan_key": s.plan,
+        })
+
+    available_plans = []
+    for key, plan in PLANS.items():
+        available_plans.append({
+            "key": key,
+            "name": plan["name"],
+            "description": plan["description"],
+            "price": f"${plan['amount'] / 100:.0f}/{plan['interval']}",
+        })
+
+    return templates.TemplateResponse("billing.html", {
+        "request": request,
+        "user": user,
+        "subscriptions": subscriptions,
+        "available_plans": available_plans,
+    })
+
+
+@app.get("/billing/portal")
+async def billing_portal_redirect(request: Request, db: Session = Depends(get_db)):
     from backend.stripe_billing import create_billing_portal_session
     user = get_current_user(request, db)
     if not user or not user.stripe_customer_id:
-        return html_redirect("/articles")
+        return html_redirect("/billing")
     base_url = str(request.base_url).rstrip("/")
     if base_url.startswith("http://") and request.headers.get("x-forwarded-proto") == "https":
         base_url = base_url.replace("http://", "https://", 1)
-    session = create_billing_portal_session(user.stripe_customer_id, f"{base_url}/profile/{user.username}")
+    session = create_billing_portal_session(user.stripe_customer_id, f"{base_url}/billing")
     return html_redirect(session.url)
 
 
