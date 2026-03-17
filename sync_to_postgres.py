@@ -128,6 +128,23 @@ def sync_csv(csv_path, pg_table):
             pg_cols = {row[0] for row in pg_cols_result}
 
             csv_cols = set(df.columns)
+
+            missing_cols = csv_cols - pg_cols
+            if missing_cols:
+                for col in sorted(missing_cols):
+                    dtype = df[col].dtype
+                    if dtype in ('float64', 'float32'):
+                        pg_type = 'DOUBLE PRECISION'
+                    elif dtype in ('int64', 'int32'):
+                        pg_type = 'INTEGER'
+                    elif dtype == 'bool':
+                        pg_type = 'BOOLEAN'
+                    else:
+                        pg_type = 'TEXT'
+                    conn.execute(text(f'ALTER TABLE {pg_table} ADD COLUMN "{col}" {pg_type}'))
+                print(f"  Added {len(missing_cols)} new columns to {pg_table}: {sorted(missing_cols)}")
+                pg_cols = pg_cols | missing_cols
+
             common_cols = list(csv_cols & pg_cols)
 
             if not common_cols:
@@ -200,6 +217,23 @@ def sync_sqlite_table(sqlite_table, pg_table):
             sqlite_cols = set(df.columns)
             if 'id' in sqlite_cols:
                 sqlite_cols.discard('id')
+
+            missing_cols = sqlite_cols - pg_cols
+            if missing_cols:
+                for col in sorted(missing_cols):
+                    dtype = df[col].dtype
+                    if dtype in ('float64', 'float32'):
+                        pg_type = 'DOUBLE PRECISION'
+                    elif dtype in ('int64', 'int32'):
+                        pg_type = 'INTEGER'
+                    elif dtype == 'bool':
+                        pg_type = 'BOOLEAN'
+                    else:
+                        pg_type = 'TEXT'
+                    conn.execute(text(f'ALTER TABLE {pg_table} ADD COLUMN "{col}" {pg_type}'))
+                print(f"  Added {len(missing_cols)} new columns to {pg_table}: {sorted(missing_cols)}")
+                pg_cols = pg_cols | missing_cols
+
             common_cols = list(sqlite_cols & pg_cols)
 
             if not common_cols:
