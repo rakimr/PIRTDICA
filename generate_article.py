@@ -684,6 +684,12 @@ def generate_article(target_date=None):
     high = props[props['confidence'] == 'HIGH'].copy()
     if high.empty:
         print("No HIGH confidence picks found.")
+        stale_header = f'static/images/article_header_{target_date.strftime("%Y-%m-%d")}.png'
+        if os.path.exists(stale_header):
+            os.remove(stale_header)
+            print(f"Removed stale header: {stale_header}")
+        save_to_db(target_date, None, [], [], 0)
+        print("Cleared article data from database.")
         return False
 
     edge_col = 'vs_book_edge' if 'vs_book_edge' in high.columns else 'edge_pct'
