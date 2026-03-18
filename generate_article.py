@@ -540,7 +540,7 @@ Harper's been heating up — last 5 average of 13.0 already clears the line by 2
 """
 
 
-def build_analysis_claude(high_rows, dfs_df):
+def build_analysis_claude(high_rows, dfs_df, best_available=False):
     api_key = os.environ.get("AI_INTEGRATIONS_ANTHROPIC_API_KEY")
     base_url = os.environ.get("AI_INTEGRATIONS_ANTHROPIC_BASE_URL")
     if not api_key or not base_url:
@@ -583,7 +583,12 @@ Return a JSON array where each element has:
 
 Return ONLY the JSON array, no other text."""
 
-    user_prompt = f"""Write HIGH confidence prop analysis for today's slate.
+    if best_available:
+        confidence_label = "today's top picks (best available — these narrowly missed HIGH confidence but are the strongest edges on the slate)"
+    else:
+        confidence_label = "HIGH confidence prop analysis for today's slate"
+
+    user_prompt = f"""Write {confidence_label}.
 
 {slate_context}
 
@@ -682,15 +687,37 @@ def generate_article(target_date=None):
         return False
 
     high = props[props['confidence'] == 'HIGH'].copy()
+    using_best_available = False
+
     if high.empty:
-        print("No HIGH confidence picks found.")
-        stale_header = f'static/images/article_header_{target_date.strftime("%Y-%m-%d")}.png'
-        if os.path.exists(stale_header):
-            os.remove(stale_header)
-            print(f"Removed stale header: {stale_header}")
-        save_to_db(target_date, None, [], [], 0)
-        print("Cleared article data from database.")
-        return False
+        print("No HIGH confidence picks — selecting best available picks...")
+        if 'gate_fail_count' not in props.columns:
+            props['gate_fail_count'] = props['confidence_reasons'].apply(
+                lambda x: len(str(x).split(';')) if pd.notna(x) and str(x).strip() else 0
+            )
+        props['composite_score'] = pd.to_numeric(props['composite_score'], errors='coerce').fillna(0)
+        props['gate_fail_count'] = pd.to_numeric(props['gate_fail_count'], errors='coerce').fillna(99)
+        best = props[props['gate_fail_count'] <= 2].copy()
+        if best.empty:
+            best = props.copy()
+        best = best.sort_values(
+            ['gate_fail_count', 'composite_score'],
+            ascending=[True, False]
+        ).drop_duplicates(subset='player').head(6)
+        if best.empty:
+            print("No picks available at all.")
+            stale_header = f'static/images/article_header_{target_date.strftime("%Y-%m-%d")}.png'
+            if os.path.exists(stale_header):
+                os.remove(stale_header)
+                print(f"Removed stale header: {stale_header}")
+            save_to_db(target_date, None, [], [], 0)
+            print("Cleared article data from database.")
+            return False
+        high = best
+        using_best_available = True
+        for _, r in high.iterrows():
+            fails = int(r['gate_fail_count'])
+            print(f"  {r['player']:20s} {r['stat']:4s}  gates_failed={fails}  composite={r['composite_score']:.1f}  reasons: {r.get('confidence_reasons', '')}")
 
     edge_col = 'vs_book_edge' if 'vs_book_edge' in high.columns else 'edge_pct'
     high[edge_col] = pd.to_numeric(high[edge_col], errors='coerce').fillna(0)
@@ -733,7 +760,7 @@ def generate_article(target_date=None):
             'composite_score': round(_safe_float(row.get('composite_score', 0)), 1),
         })
 
-    claude_analyses = build_analysis_claude(high, dfs_df)
+    claude_analyses = build_analysis_claude(high, dfs_df, best_available=using_best_available)
     if claude_analyses:
         print(f"Using Claude AI analyses for article")
     else:
@@ -761,23 +788,50 @@ def generate_article(target_date=None):
             'analysis': analysis_text,
         })
 
+    header_player_data = []
+    seen_header = set()
+    for pick in picks_data:
+        pname = pick['player']
+        if pname in seen_header:
+            continue
+        seen_header.add(pname)
+        pteam = None
+        trow = dfs_df[dfs_df['player_name'] == pname]
+        if len(trow):
+            pteam = trow.iloc[0]['team']
+        if pteam:
+            header_player_data.append((pname, pteam))
+
+    date_str_upper = target_date.strftime('%B %-d, %Y').upper()
+    if using_best_available:
+        header_subtitle = f'{date_str_upper} \u2014 TOP PICKS OF THE DAY'
+    else:
+        header_subtitle = None
+
     header_path = None
     try:
         from generate_header import generate as gen_header
         static_header = f'static/images/article_header_{target_date.strftime("%Y-%m-%d")}.png'
-        header_path = gen_header(target_date, out_path=static_header)
+        header_path = gen_header(
+            target_date, out_path=static_header,
+            player_data=header_player_data if header_player_data else None,
+            subtitle_override=header_subtitle
+        )
         if header_path:
             print(f"Header image: {header_path}")
     except Exception as e:
         print(f"Header generation skipped: {e}")
 
-    save_to_db(target_date, header_path, picks_data, analysis_data, game_count)
+    save_to_db(target_date, header_path, picks_data, analysis_data, game_count,
+               best_available=using_best_available)
 
-    print(f"Article generated: {len(picks_data)} picks, {len(analysis_data)} analysis sections, {game_count} games")
+    label = "best available" if using_best_available else "HIGH confidence"
+    print(f"Article generated ({label}): {len(picks_data)} picks, {len(analysis_data)} analysis sections, {game_count} games")
     return True
 
 
-def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_count):
+def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_count,
+               best_available=False):
     from backend.database import engine
     from backend.models import Base
     Base.metadata.create_all(bind=engine)
@@ -800,6 +854,7 @@ def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_c
         existing.picks_json = json.dumps(picks_data)
         existing.analysis_json = json.dumps(analysis_data)
         existing.game_count = game_count
+        existing.best_available = best_available
     else:
         article = DailyArticle(
             slate_date=target_date,
@@ -807,6 +862,7 @@ def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_c
             picks_json=json.dumps(picks_data),
             analysis_json=json.dumps(analysis_data),
             game_count=game_count,
+            best_available=best_available,
         )
         session.add(article)
 

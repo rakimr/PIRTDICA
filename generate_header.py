@@ -58,7 +58,7 @@ def fetch_headshot(espn_id, d=88):
     return white.convert('RGB')
 
 
-def generate(target_date=None, out_path=None):
+def generate(target_date=None, out_path=None, player_data=None, subtitle_override=None):
     import pandas as pd
 
     if target_date is None:
@@ -70,23 +70,29 @@ def generate(target_date=None, out_path=None):
 
     ensure_font()
 
-    props = pd.read_csv('prop_recommendations.csv')
-    players_df = pd.read_csv('dfs_players.csv')
+    if player_data is not None:
+        player_list = player_data
+    else:
+        props = pd.read_csv('prop_recommendations.csv')
+        players_df = pd.read_csv('dfs_players.csv')
 
-    high = props[props['confidence'] == 'HIGH'].copy()
-    high['abs_edge'] = high['vs_book_edge'].abs()
-    high = high.sort_values('abs_edge', ascending=False).drop_duplicates(subset='player').head(6)
+        high = props[props['confidence'] == 'HIGH'].copy()
+        if high.empty:
+            print('No HIGH confidence picks found.')
+            return
+        high['abs_edge'] = high['vs_book_edge'].abs()
+        high = high.sort_values('abs_edge', ascending=False).drop_duplicates(subset='player').head(6)
 
-    player_list = []
-    for _, row in high.iterrows():
-        name = row['player']
-        team_row = players_df[players_df['player_name'] == name]
-        team = team_row.iloc[0]['team'] if len(team_row) else None
-        if team:
-            player_list.append((name, team))
+        player_list = []
+        for _, row in high.iterrows():
+            name = row['player']
+            team_row = players_df[players_df['player_name'] == name]
+            team = team_row.iloc[0]['team'] if len(team_row) else None
+            if team:
+                player_list.append((name, team))
 
     if not player_list:
-        print('No HIGH confidence picks found.')
+        print('No players for header.')
         return
 
     names = [p[0] for p in player_list]
@@ -135,7 +141,7 @@ def generate(target_date=None, out_path=None):
     draw = ImageDraw.Draw(canvas)
 
     title = 'PIRTDICA SPORTS CO.'
-    sub = f'{date_str} \u2014 HIGH CONFIDENCE PICKS'
+    sub = subtitle_override if subtitle_override else f'{date_str} \u2014 HIGH CONFIDENCE PICKS'
 
     tw = draw.textlength(title, font=font_title)
     draw.text(((W - tw) / 2, TITLE_Y), title, font=font_title, fill=(17, 17, 17))

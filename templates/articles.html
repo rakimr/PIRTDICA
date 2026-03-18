@@ -7,10 +7,10 @@
     {% if article %}
     <div class="article-header-wrap">
         {% if article.header_image_path %}
-        <img src="{{ article.header_image_path }}" alt="PIRTDICA HIGH Confidence Picks" class="article-header-img">
+        <img src="{{ article.header_image_path }}" alt="PIRTDICA Picks" class="article-header-img">
         {% endif %}
         <div class="article-meta">
-            <h1>HIGH CONFIDENCE PROPS</h1>
+            <h1>{% if article.best_available %}TOP PICKS OF THE DAY{% else %}HIGH CONFIDENCE PROPS{% endif %}</h1>
             <p class="article-date">{{ article.slate_date.strftime('%B %-d, %Y') }} &mdash; {{ article.game_count }} Game{{ 's' if article.game_count != 1 else '' }} on the Slate</p>
         </div>
     </div>
@@ -30,7 +30,7 @@
     {% else %}
     {% if picks %}
     <div class="article-section">
-        <h2>Today's HIGH Confidence Picks</h2>
+        <h2>{% if article.best_available %}Today's Top Picks{% else %}Today's HIGH Confidence Picks{% endif %}</h2>
         <div class="table-wrap">
             <table class="props-table article-table">
                 <thead>

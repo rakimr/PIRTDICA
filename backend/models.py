@@ -752,6 +752,7 @@ class DailyArticle(Base):
     picks_json = Column(Text)
     analysis_json = Column(Text)
     game_count = Column(Integer, default=0)
+    best_available = Column(Boolean, default=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
