@@ -41,11 +41,20 @@ def get_espn_ids(player_names, teams):
                 fetched_rosters[tid] = requests.get(url, timeout=10).json().get('athletes', [])
             except Exception:
                 fetched_rosters[tid] = []
+        name_lower = name.lower()
         last = name.split()[-1].lower()
+        exact = None
+        partial = None
         for a in fetched_rosters[tid]:
-            if last in a.get('displayName', '').lower():
-                ids[name] = int(a['id'])
+            dn = a.get('displayName', '').lower()
+            if dn == name_lower:
+                exact = int(a['id'])
                 break
+            if partial is None and last in dn:
+                partial = int(a['id'])
+        ids[name] = exact or partial
+        if ids[name] is None:
+            del ids[name]
     return ids
 
 
