@@ -197,7 +197,7 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
         print(f"[ARTICLES] Stripe check failed: {e}")
         has_access = False
     pre_lock = False
-    PREGAME_REFRESH_ET = 18, 45
+    PREGAME_REFRESH_ET = 18, 15
     PREGAME_FALLBACK_ET = 19, 30
     if article and has_access:
         from zoneinfo import ZoneInfo
