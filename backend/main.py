@@ -199,6 +199,7 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
     pre_lock = False
     PREGAME_REFRESH_ET = 18, 15
     PREGAME_FALLBACK_ET = 19, 30
+    prop_recs = []
     if article and has_access:
         from zoneinfo import ZoneInfo
         now_et = get_eastern_now()
@@ -226,6 +227,37 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
                     analysis = json.loads(article.analysis_json)
             except (json.JSONDecodeError, TypeError):
                 analysis = []
+            try:
+                import pandas as pd
+                prop_csv = os.path.join(os.path.dirname(__file__), '..', 'prop_recommendations.csv')
+                if os.path.exists(prop_csv):
+                    df = pd.read_csv(prop_csv)
+                    if 'composite_score' in df.columns:
+                        df = df.sort_values('composite_score', ascending=False)
+                    top = df.head(20)
+                    for _, row in top.iterrows():
+                        book_line = row.get('book_line')
+                        proj = row.get('projected_value', row.get('adjusted_avg', 0))
+                        avg = row.get('player_avg', 0)
+                        edge = row.get('vs_book_edge')
+                        edge_str = f"+{edge}%" if edge and edge > 0 else f"{edge}%" if edge else ""
+                        prop_recs.append({
+                            'player': row.get('player', ''),
+                            'team': row.get('team', ''),
+                            'opponent': row.get('opponent', ''),
+                            'stat': row.get('stat', ''),
+                            'avg': round(avg, 1) if pd.notna(avg) else '',
+                            'line': round(book_line, 1) if pd.notna(book_line) else '',
+                            'projected': round(proj, 1) if pd.notna(proj) else '',
+                            'edge': edge_str,
+                            'pick': row.get('recommendation', ''),
+                            'confidence': row.get('confidence', 'LOW'),
+                            'hit_rate': f"{row['hit_rate']:.0f}%" if pd.notna(row.get('hit_rate')) else '',
+                            'cv': f"{row['cv']:.2f}" if pd.notna(row.get('cv')) else '',
+                            'composite': round(row.get('composite_score', 0), 1) if pd.notna(row.get('composite_score')) else '',
+                        })
+            except Exception as e:
+                print(f"[ARTICLES] Prop recs load failed: {e}")
     return templates.TemplateResponse("articles.html", {
         "request": request,
         "user": user,
@@ -234,6 +266,7 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
         "analysis": analysis,
         "has_access": has_access,
         "pre_lock": pre_lock,
+        "prop_recs": prop_recs,
     })
 
 @app.get("/subscribe")

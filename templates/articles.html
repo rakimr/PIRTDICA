@@ -91,6 +91,55 @@
         {% endfor %}
     </div>
     {% endif %}
+
+    {% if prop_recs %}
+    <div class="article-section prop-recs-section">
+        <h2>Full Prop Recommendations</h2>
+        <div class="prop-recs-blurb">
+            {% if not picks %}
+            <p>Today's slate did not produce any HIGH confidence picks that passed all of our model's strict filters &mdash; hit rate, consistency, matchup alignment, and game environment gates must all clear. Rather than force weak calls, we're showing you the top analytics-driven prop recommendations ranked by composite score. These are lower-confidence plays, so use them as a research starting point alongside your own analysis.</p>
+            {% else %}
+            <p>Beyond today's top picks, here are additional analytics-driven prop recommendations ranked by composite score. These didn't clear every confidence gate but still show meaningful model edges &mdash; use them as supplementary research for your own builds.</p>
+            {% endif %}
+        </div>
+        <div class="table-wrap">
+            <table class="props-table article-table prop-recs-table">
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        <th>Matchup</th>
+                        <th>Stat</th>
+                        <th>Avg</th>
+                        <th>Line</th>
+                        <th>Proj</th>
+                        <th>Edge</th>
+                        <th>Pick</th>
+                        <th>HR</th>
+                        <th>CV</th>
+                        <th>Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in prop_recs %}
+                    <tr class="{% if p.confidence == 'HIGH' %}prop-rec-high{% endif %}">
+                        <td class="player-name-cell">{{ p.player }}</td>
+                        <td>{{ p.team }} vs {{ p.opponent }}</td>
+                        <td>{{ p.stat }}</td>
+                        <td>{{ p.avg }}</td>
+                        <td>{{ p.line }}</td>
+                        <td>{{ p.projected }}</td>
+                        <td class="{% if p.edge.startswith('+') %}edge-positive{% else %}edge-negative{% endif %}">{{ p.edge }}</td>
+                        <td><span class="pick-badge pick-{{ p.pick|lower }}">{{ p.pick }}</span></td>
+                        <td>{{ p.hit_rate }}</td>
+                        <td>{{ p.cv }}</td>
+                        <td class="composite-cell">{{ p.composite }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
     {% endif %}
 
     {% else %}
