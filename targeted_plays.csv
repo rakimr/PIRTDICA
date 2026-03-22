@@ -1,15 +1,15 @@
 player_name,team,opponent,position,salary,stat,player_avg,opp_allows,league_avg,extra_fp,edge_pct,recommendation
 Karl-Anthony Towns,NY,WAS,C,8900,Points,20.1,27.1,21.6,5.5,25.4,WAS gives up +5.5 FP in Points to Cs
-OG Anunoby,NY,WAS,PF,7200,Rebounds,5.3,12.2,10.3,2.3,18.6,WAS gives up +2.3 FP in Rebounds to PFs
 Karl-Anthony Towns,NY,WAS,C,8900,Rebounds,11.9,16.3,14.4,2.3,13.0,WAS gives up +2.3 FP in Rebounds to Cs
 Mitchell Robinson,NY,WAS,C,4800,Rebounds,8.9,16.3,14.4,2.3,13.0,WAS gives up +2.3 FP in Rebounds to Cs
+OG Anunoby,NY,WAS,PF,7200,Rebounds,5.3,12.2,10.3,2.3,18.6,WAS gives up +2.3 FP in Rebounds to PFs
 OG Anunoby,NY,WAS,PF,7200,Points,16.8,25.0,22.8,2.2,9.7,WAS gives up +2.2 FP in Points to PFs
 Mitchell Robinson,NY,WAS,C,4800,Blocks,1.1,2.7,2.0,2.2,36.8,WAS gives up +2.2 FP in Blocks to Cs
 Josh Hart,NY,WAS,SF,6700,Points,12.1,24.4,22.6,1.8,7.9,WAS gives up +1.8 FP in Points to SFs
 Mikal Bridges,NY,WAS,SF,6000,Points,14.7,24.4,22.6,1.8,7.9,WAS gives up +1.8 FP in Points to SFs
 Bruce Brown,DEN,POR,SG,3900,Steals,1.0,2.3,1.7,1.7,33.7,POR gives up +1.7 FP in Steals to SGs
-Josh Hart,NY,WAS,SF,6700,Rebounds,7.6,9.0,7.9,1.4,14.6,WAS gives up +1.4 FP in Rebounds to SFs
 Mikal Bridges,NY,WAS,SF,6000,Rebounds,4.1,9.0,7.9,1.4,14.6,WAS gives up +1.4 FP in Rebounds to SFs
+Josh Hart,NY,WAS,SF,6700,Rebounds,7.6,9.0,7.9,1.4,14.6,WAS gives up +1.4 FP in Rebounds to SFs
 Payton Pritchard,BOS,MIN,PG,6500,Points,16.7,25.1,24.0,1.1,4.7,MIN gives up +1.1 FP in Points to PGs
 OG Anunoby,NY,WAS,PF,7200,Steals,1.7,1.9,1.5,1.1,25.0,WAS gives up +1.1 FP in Steals to PFs
 Deni Avdija,POR,DEN,SF,9500,Points,24.2,23.6,22.6,1.0,4.3,DEN gives up +1.0 FP in Points to SFs
@@ -18,7 +18,7 @@ Josh Hart,NY,WAS,SF,6700,Steals,1.1,2.0,1.7,0.9,18.3,WAS gives up +0.9 FP in Ste
 Jalen Brunson,NY,WAS,PG,9200,Assists,6.6,9.0,8.4,0.9,7.1,WAS gives up +0.9 FP in Assists to PGs
 Mikal Bridges,NY,WAS,SF,6000,Steals,1.4,2.0,1.7,0.9,18.3,WAS gives up +0.9 FP in Steals to SFs
 Josh Hart,NY,WAS,SF,6700,Assists,5.1,4.9,4.4,0.8,11.4,WAS gives up +0.8 FP in Assists to SFs
-Mikal Bridges,NY,WAS,SF,6000,Assists,3.8,4.9,4.4,0.8,11.4,WAS gives up +0.8 FP in Assists to SFs
 Maxime Raynaud,SAC,BKN,C,6400,Points,11.7,22.4,21.6,0.8,3.7,BKN gives up +0.8 FP in Points to Cs
+Mikal Bridges,NY,WAS,SF,6000,Assists,3.8,4.9,4.4,0.8,11.4,WAS gives up +0.8 FP in Assists to SFs
 Payton Pritchard,BOS,MIN,PG,6500,Rebounds,4.1,6.7,6.1,0.7,9.5,MIN gives up +0.7 FP in Rebounds to PGs
 Dylan Cardwell,SAC,BKN,C,4500,Blocks,1.4,2.2,2.0,0.7,11.5,BKN gives up +0.7 FP in Blocks to Cs
