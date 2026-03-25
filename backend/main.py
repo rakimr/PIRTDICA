@@ -213,7 +213,9 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
             article_updated_et = article_updated.astimezone(EASTERN)
             if article_updated_et >= refresh_time:
                 article_refreshed = True
-        if not article_refreshed and now_et < fallback_time:
+        has_content = bool(article.picks_json and article.analysis_json)
+        in_pre_lock_window = now_et >= refresh_time and now_et < fallback_time
+        if not article_refreshed and in_pre_lock_window and has_content:
             pre_lock = True
 
         if not pre_lock:
