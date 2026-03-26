@@ -185,6 +185,10 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
         article = db.query(models.DailyArticle).filter(
             models.DailyArticle.slate_date == today
         ).first()
+        if not article:
+            article = db.query(models.DailyArticle).order_by(
+                models.DailyArticle.slate_date.desc()
+            ).first()
     except Exception as e:
         print(f"[ARTICLES] DB query failed: {e}")
         article = None
