@@ -665,7 +665,9 @@ Remember: return ONLY a JSON array with "player" and "analysis" keys. Each analy
 
 def generate_article(target_date=None):
     if target_date is None:
-        target_date = date.today()
+        from datetime import datetime as _dt
+        from zoneinfo import ZoneInfo as _ZI
+        target_date = _dt.now(_ZI("US/Eastern")).date()
 
     print(f"Generating article for {target_date}...")
 
