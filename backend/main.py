@@ -207,19 +207,21 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
     if article and has_access:
         from zoneinfo import ZoneInfo
         now_et = get_eastern_now()
-        refresh_time = now_et.replace(hour=PREGAME_REFRESH_ET[0], minute=PREGAME_REFRESH_ET[1], second=0, microsecond=0)
-        fallback_time = now_et.replace(hour=PREGAME_FALLBACK_ET[0], minute=PREGAME_FALLBACK_ET[1], second=0, microsecond=0)
-        article_refreshed = False
-        if article.updated_at:
-            article_updated = article.updated_at
-            if article_updated.tzinfo is None:
-                article_updated = article_updated.replace(tzinfo=ZoneInfo("UTC"))
-            article_updated_et = article_updated.astimezone(EASTERN)
-            if article_updated_et >= refresh_time:
-                article_refreshed = True
-        in_pre_lock_window = now_et >= refresh_time and now_et < fallback_time
-        if not article_refreshed and in_pre_lock_window:
-            pre_lock = True
+        is_todays_article = article.slate_date == now_et.date()
+        if is_todays_article:
+            refresh_time = now_et.replace(hour=PREGAME_REFRESH_ET[0], minute=PREGAME_REFRESH_ET[1], second=0, microsecond=0)
+            fallback_time = now_et.replace(hour=PREGAME_FALLBACK_ET[0], minute=PREGAME_FALLBACK_ET[1], second=0, microsecond=0)
+            article_refreshed = False
+            if article.updated_at:
+                article_updated = article.updated_at
+                if article_updated.tzinfo is None:
+                    article_updated = article_updated.replace(tzinfo=ZoneInfo("UTC"))
+                article_updated_et = article_updated.astimezone(EASTERN)
+                if article_updated_et >= refresh_time:
+                    article_refreshed = True
+            in_pre_lock_window = now_et >= refresh_time and now_et < fallback_time
+            if not article_refreshed and in_pre_lock_window:
+                pre_lock = True
 
         if not pre_lock:
             try:
