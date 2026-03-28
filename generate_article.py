@@ -813,56 +813,85 @@ Remember:
                 if player and analysis and len(analysis) > 50:
                     analysis_map[player] = item
 
-        matched = sum(1 for p in picks if isinstance(p, dict) and p.get('player', '') in analysis_map)
-        print(f"Claude Analyst: {len(picks)} picks selected, {matched} with full analysis")
-
-        if matched < 2:
-            print("Claude Analyst too few matched analyses — falling back")
-            return None
+        slate_lookup = {}
+        for _, row in props_df.iterrows():
+            key = (str(row['player']).strip(), str(row['stat']).strip())
+            if key not in slate_lookup:
+                slate_lookup[key] = row
 
         valid_picks = []
+        seen_keys = set()
         for p in picks:
             if not isinstance(p, dict):
                 continue
-            player = p.get('player', '')
-            if player not in analysis_map:
+            player = str(p.get('player', '')).strip()
+            stat = str(p.get('stat', '')).strip()
+            if not player or not stat:
                 continue
-            valid_picks.append(p)
+            key = (player, stat)
+            if key in seen_keys:
+                print(f"  Skipping duplicate: {player} {stat}")
+                continue
+            if player not in analysis_map:
+                print(f"  Skipping {player} {stat}: no analysis")
+                continue
+            if key not in slate_lookup:
+                print(f"  Skipping {player} {stat}: not found in slate data (hallucinated?)")
+                continue
+            seen_keys.add(key)
+            valid_picks.append((p, slate_lookup[key]))
+
+        print(f"Claude Analyst: {len(picks)} raw picks, {len(valid_picks)} validated against slate")
+
+        if len(valid_picks) < 3:
+            print("Claude Analyst too few validated picks — falling back")
+            return None
+
+        if len(valid_picks) > 8:
+            valid_picks = valid_picks[:8]
+            print(f"  Trimmed to 8 picks")
 
         picks_data = []
-        for idx, p in enumerate(valid_picks):
-            player = p.get('player', '')
-            edge_val = p.get('edge', '+0.0%')
-            if isinstance(edge_val, (int, float)):
-                edge_sign = "+" if edge_val > 0 else ""
-                edge_str = f"{edge_sign}{edge_val:.1f}%"
-            else:
-                edge_str = str(edge_val)
+        for idx, (claude_pick, source_row) in enumerate(valid_picks):
+            player = str(claude_pick.get('player', '')).strip()
+            call = str(claude_pick.get('pick', 'OVER')).upper()
+
+            book_line = _safe_float(source_row.get('book_line', 0))
+            projected = _safe_float(source_row.get('projected_value', source_row.get('adjusted_avg', 0)))
+            player_avg = _safe_float(source_row.get('player_avg', 0))
+            vs_book_edge = _safe_float(source_row.get('vs_book_edge', 0))
+            composite = _safe_float(source_row.get('composite_score', 0))
+            edge_sign = "+" if vs_book_edge > 0 else ""
+
+            game_label = build_game_label(
+                player, str(source_row.get('team', '')),
+                str(source_row.get('opponent', '')), dfs_df
+            )
 
             picks_data.append({
                 'rank': idx + 1,
                 'player': player,
-                'game': p.get('game', ''),
-                'stat': p.get('stat', ''),
-                'avg': round(_safe_float(p.get('avg', 0)), 1),
-                'line': round(_safe_float(p.get('book_line', 0)), 1),
-                'projected': round(_safe_float(p.get('projected', 0)), 1),
-                'edge': edge_str,
-                'pick': p.get('pick', 'OVER'),
-                'composite_score': round(_safe_float(p.get('composite_score', 0)), 1),
+                'game': game_label,
+                'stat': str(source_row.get('stat', '')),
+                'avg': round(player_avg, 1),
+                'line': round(book_line, 1),
+                'projected': round(projected, 1),
+                'edge': f"{edge_sign}{vs_book_edge:.1f}%",
+                'pick': call,
+                'composite_score': round(composite, 1),
             })
 
         analysis_data = []
-        for p in valid_picks:
-            player = p.get('player', '')
+        for claude_pick, source_row in valid_picks:
+            player = str(claude_pick.get('player', '')).strip()
             a = analysis_map[player]
             analysis_data.append({
                 'player': player,
-                'stat': a.get('stat', p.get('stat', '')),
-                'call': a.get('call', p.get('pick', 'OVER')),
-                'archetype': a.get('archetype', ''),
-                'team': a.get('team', p.get('team', '')),
-                'opponent': a.get('opponent', p.get('opponent', '')),
+                'stat': str(source_row.get('stat', '')),
+                'call': str(claude_pick.get('pick', 'OVER')).upper(),
+                'archetype': str(source_row.get('archetype', '')),
+                'team': str(source_row.get('team', '')),
+                'opponent': str(source_row.get('opponent', '')),
                 'analysis': a.get('analysis', ''),
             })
 
