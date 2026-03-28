@@ -540,6 +540,349 @@ Harper's been heating up — last 5 average of 13.0 already clears the line by 2
 """
 
 
+def _build_full_slate_briefing(props_df, dfs_df):
+    import sqlite3
+
+    games = {}
+    for _, row in dfs_df.iterrows():
+        t = str(row.get('team', ''))
+        o = str(row.get('opponent', ''))
+        loc = str(row.get('location', '')).lower()
+        imp = _safe_float(row.get('implied_total', 0))
+        if t and o:
+            key = f"{t} @ {o}" if loc == 'away' else f"{o} @ {t}"
+            if key not in games:
+                games[key] = {'game': key, 'implied_totals': [], 'teams': set()}
+            if imp > 0:
+                games[key]['implied_totals'].append(imp)
+            games[key]['teams'].update([t, o])
+
+    game_env = {}
+    for key, g in games.items():
+        totals = g['implied_totals']
+        avg = sum(totals) / len(totals) if totals else 0
+        game_env[key] = round(avg, 1)
+
+    key_absences = []
+    try:
+        conn = sqlite3.connect("dfs_nba.db")
+        injuries = conn.execute(
+            "SELECT player_name, status, reason FROM injuries WHERE status IN ('OUT', 'Doubtful') "
+            "ORDER BY player_name"
+        ).fetchall()
+        conn.close()
+        for name, status, reason in injuries:
+            match = dfs_df[dfs_df['player_name'] == name]
+            if not match.empty:
+                team = match.iloc[0].get('team', '')
+                usg = _safe_float(match.iloc[0].get('usg_pct', 0))
+                if usg > 12:
+                    reason_str = f" ({reason})" if reason and str(reason) != 'nan' else ""
+                    key_absences.append(f"{name} ({team}, {usg:.1f}% USG) — {status}{reason_str}")
+    except Exception:
+        pass
+
+    prop_lines = []
+    for _, row in props_df.iterrows():
+        player = row['player']
+        stat = row['stat']
+        team = row['team']
+        opponent = row['opponent']
+
+        game_label = build_game_label(player, team, opponent, dfs_df)
+
+        dfs_row = dfs_df[dfs_df['player_name'] == player]
+        implied_total = float(dfs_row.iloc[0].get('implied_total', 0)) if len(dfs_row) else 0
+
+        out_summary = []
+        raw_out = row.get('out_player_details', '')
+        if raw_out and str(raw_out) not in ('', 'nan'):
+            try:
+                import ast
+                details = ast.literal_eval(str(raw_out))
+                out_summary = [f"{p['name']} ({p['usg']:.0f}% USG, {p['mpg']:.0f} MPG)" for p in details]
+            except Exception:
+                pass
+
+        entry = {
+            'player': player,
+            'team': team,
+            'opponent': opponent,
+            'game': game_label,
+            'stat': stat,
+            'archetype': row.get('archetype', ''),
+            'book_line': _safe_float(row.get('book_line', 0)),
+            'projected_value': round(_safe_float(row.get('projected_value', 0)), 1),
+            'player_avg': round(_safe_float(row.get('player_avg', 0)), 1),
+            'last5_avg': round(_safe_float(row.get('last5_avg', 0)), 1),
+            'vs_book_edge': round(_safe_float(row.get('vs_book_edge', 0)), 1),
+            'dva_edge': round(_safe_float(row.get('dva_edge', 0)), 2),
+            'dvp_edge': round(_safe_float(row.get('dvp_edge', 0)), 2),
+            'hit_rate': round(_safe_float(row.get('hit_rate', 0)), 1),
+            'cv': round(_safe_float(row.get('cv', 0)), 3),
+            'composite_score': round(_safe_float(row.get('composite_score', 0)), 1),
+            'usage_boost': round(_safe_float(row.get('usage_boost', 0)), 1),
+            'opportunity_index': round(_safe_float(row.get('opportunity_index', 0)), 2),
+            'opportunity_spike': str(row.get('opportunity_spike', '')).lower() == 'true',
+            'projected_min': round(_safe_float(row.get('projected_min', 0)), 1),
+            'implied_team_total': round(implied_total, 1),
+            'pace_factor': round(_safe_float(row.get('pace_factor', 0)), 3),
+            'total_vacated_usage': round(_safe_float(row.get('total_vacated_usage', 0)), 1),
+            'total_vacated_minutes': round(_safe_float(row.get('total_vacated_minutes', 0)), 1),
+            'confidence': row.get('confidence', ''),
+            'gate_fail_count': int(_safe_float(row.get('gate_fail_count', 99))),
+            'confidence_reasons': str(row.get('confidence_reasons', '')),
+            'projection_factors': str(row.get('projection_factors', '')),
+            'recommendation': row.get('recommendation', ''),
+        }
+        if out_summary:
+            entry['out_players'] = out_summary
+
+        recent = _get_recent_games(player, stat)
+        if recent:
+            entry['recent_games'] = [
+                {'date': g['date'], 'vs': g['matchup'], 'val': g['val'], 'min': g['min']}
+                for g in recent[:5]
+            ]
+
+        matchup = _get_matchup_history(player, opponent)
+        if matchup and matchup.get('games', 0) >= 1:
+            entry['h2h'] = {
+                'fp_diff': round(matchup.get('fp_diff', 0), 1),
+                'games': matchup.get('games', 0),
+            }
+
+        prop_lines.append(entry)
+
+    briefing = {
+        'game_count': len(games),
+        'games': [{'game': k, 'implied_total': v} for k, v in sorted(game_env.items())],
+        'key_absences': key_absences[:20],
+        'prop_lines': prop_lines,
+    }
+    return briefing
+
+
+CLAUDE_ANALYST_PATTERNS = """
+ANALYTICAL FRAMEWORK — What separates a great pick from a good one (from our 80% hit rate reference slate):
+
+1. USAGE REDISTRIBUTION FROM STAR ABSENCES — When high-usage stars are OUT, their usage/minutes redistribute to teammates. Look for players with high total_vacated_usage (>30%) and opportunity_spike=true. These are the highest-edge plays.
+
+2. DVP/DVA DOUBLE ALIGNMENT — The strongest picks have BOTH Defense vs Position (dvp_edge) AND Defense vs Archetype (dva_edge) supporting the direction. Both >+0.5 for OVER = strong signal. If both are negative, avoid.
+
+3. GAME TOTAL / PACE ENVIRONMENTS — High implied team totals (>115) and game totals (check game implied_total) of 235+ create more possessions and scoring. These environments amplify OVER picks, especially for PTS and AST.
+
+4. LAST-5 AVERAGE CLEARING THE BOOK LINE — For OVER picks, the player's last5_avg should already clear the book_line. This confirms recent form supports the direction. For UNDER picks, last5_avg should be below the line.
+
+5. HIGH COMPOSITE SCORES — Composite score ranks multi-factor quality. Picks above 60 are strong; above 70 are elite.
+
+6. CONTRARIAN DISCIPLINE — Limit UNDER picks to 1-2 max per slate. Only take UNDERs where the projection is clearly below the line AND matchup/game environment supports lower production. NEVER take UNDER when usage_boost > 3.0.
+
+7. CONSISTENCY CHECK — CV (coefficient of variation) below 0.30 = very consistent player. Above 0.50 = volatile (higher risk).
+
+QUALITY GATES (reference, not hard constraints):
+- Hit rate >= 58%
+- CV <= 0.30 (tight consistency)
+- Last-5 clears book line in pick direction
+- At least one of DVA/DVP > 0.5 magnitude supporting direction
+- Implied team total > 105 for PTS/AST OVER picks
+- Block UNDER if usage_boost > 3.0
+"""
+
+
+def build_claude_analyst(props_df, dfs_df):
+    api_key = os.environ.get("AI_INTEGRATIONS_ANTHROPIC_API_KEY")
+    base_url = os.environ.get("AI_INTEGRATIONS_ANTHROPIC_BASE_URL")
+    if not api_key or not base_url:
+        print("Claude API not configured — cannot run Claude Analyst mode")
+        return None
+
+    briefing = _build_full_slate_briefing(props_df, dfs_df)
+    briefing_json = json.dumps(briefing, indent=2, default=str)
+    print(f"Claude Analyst briefing: {len(briefing['prop_lines'])} prop lines across {briefing['game_count']} games ({len(briefing_json)} chars)")
+
+    system_prompt = """You are an elite NBA DFS analyst for PIRTDICA SPORTS CO. You are given the FULL slate data — every player prop line with projections, matchup edges, usage context, injury impacts, game environments, and recent form.
+
+YOUR JOB: Independently analyze the entire slate and select 4-8 HIGH confidence prop picks. You are NOT limited to what the statistical model labeled as HIGH — you should evaluate ALL prop lines and find the sharpest edges yourself.
+
+PICK SELECTION CRITERIA:
+- Look for convergence of multiple positive signals (usage redistribution + matchup alignment + recent form + game environment)
+- Prioritize picks where the book line significantly undervalues the player's projected output
+- Weight recent form (last5_avg) heavily — it captures momentum the season average misses
+- Opportunity Spikes (star absences creating usage vacuums) are the highest-edge situations
+- Consider the game environment: high implied totals create more scoring opportunities
+- Use the analytical framework provided to evaluate each potential pick
+
+WRITING STYLE:
+- Conversational but data-driven — like a sharp bettor talking to another sharp
+- Lead with the strongest angle for each pick (usage redistribution, matchup edge, recent form, game environment)
+- Cite specific numbers: DVA/DVP edges, hit rates, last-5 averages, projected minutes, usage boosts, composite scores
+- Explain WHY the pick is strong, referencing the specific data points
+- Each analysis: 3-4 paragraphs, 150-250 words
+- End each analysis with: **The Call: OVER/UNDER X.X STAT** — We project [Player] at [Value] [stat] tonight ([edge]% edge vs. the book). Composite score: [X].
+
+OUTPUT FORMAT:
+Return a JSON object with two keys:
+1. "picks": an array of objects, each with:
+   - "player": exact player name
+   - "team": team abbreviation
+   - "opponent": opponent abbreviation
+   - "game": game label (e.g., "CLE @ MIA")
+   - "stat": stat type (PTS, REB, AST, STL, BLK)
+   - "book_line": the book line number
+   - "projected": the model's projected value
+   - "avg": season average
+   - "edge": edge string (e.g., "+17.8%")
+   - "pick": "OVER" or "UNDER"
+   - "composite_score": the composite score
+2. "analyses": an array of objects, each with:
+   - "player": exact player name (must match picks)
+   - "stat": stat type
+   - "call": "OVER" or "UNDER"
+   - "archetype": player archetype
+   - "team": team
+   - "opponent": opponent
+   - "analysis": the full analysis text (3-4 paragraphs, 150-250 words, ending with **The Call:** line)
+
+Return ONLY the JSON object, no other text. Order picks by edge strength (strongest first)."""
+
+    user_prompt = f"""Analyze the full slate and select your HIGH confidence picks.
+
+{CLAUDE_ANALYST_PATTERNS}
+
+{FEW_SHOT_EXAMPLES}
+
+HERE IS THE COMPLETE SLATE DATA — every player prop line with full model context:
+
+{briefing_json}
+
+Remember:
+- Select 4-8 picks where you see the strongest convergence of signals
+- You can pick ANY prop line from the full slate, not just ones the model labeled HIGH
+- Each analysis must be data-driven, cite specific numbers, and end with **The Call:** line
+- Return ONLY a JSON object with "picks" and "analyses" keys"""
+
+    try:
+        from anthropic import Anthropic
+
+        client = Anthropic(api_key=api_key, base_url=base_url)
+
+        print("Calling Claude Analyst for full-slate pick selection...")
+        start_time = time.time()
+
+        message = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=8192,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+
+        elapsed = time.time() - start_time
+        response_text = message.content[0].text
+        print(f"Claude Analyst response received in {elapsed:.1f}s ({len(response_text)} chars)")
+
+        cleaned = response_text.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+            if cleaned.endswith("```"):
+                cleaned = cleaned[:-3]
+            cleaned = cleaned.strip()
+
+        result = json.loads(cleaned)
+
+        if not isinstance(result, dict) or 'picks' not in result or 'analyses' not in result:
+            print("Claude Analyst returned unexpected format — falling back")
+            return None
+
+        picks = result['picks']
+        analyses = result['analyses']
+
+        if not isinstance(picks, list) or not isinstance(analyses, list):
+            print("Claude Analyst picks/analyses are not arrays — falling back")
+            return None
+
+        if len(picks) < 2:
+            print(f"Claude Analyst returned only {len(picks)} picks — falling back")
+            return None
+
+        analysis_map = {}
+        for item in analyses:
+            if isinstance(item, dict):
+                player = str(item.get('player', '')).strip()
+                analysis = str(item.get('analysis', '')).strip()
+                if player and analysis and len(analysis) > 50:
+                    analysis_map[player] = item
+
+        matched = sum(1 for p in picks if isinstance(p, dict) and p.get('player', '') in analysis_map)
+        print(f"Claude Analyst: {len(picks)} picks selected, {matched} with full analysis")
+
+        if matched < 2:
+            print("Claude Analyst too few matched analyses — falling back")
+            return None
+
+        valid_picks = []
+        for p in picks:
+            if not isinstance(p, dict):
+                continue
+            player = p.get('player', '')
+            if player not in analysis_map:
+                continue
+            valid_picks.append(p)
+
+        picks_data = []
+        for idx, p in enumerate(valid_picks):
+            player = p.get('player', '')
+            edge_val = p.get('edge', '+0.0%')
+            if isinstance(edge_val, (int, float)):
+                edge_sign = "+" if edge_val > 0 else ""
+                edge_str = f"{edge_sign}{edge_val:.1f}%"
+            else:
+                edge_str = str(edge_val)
+
+            picks_data.append({
+                'rank': idx + 1,
+                'player': player,
+                'game': p.get('game', ''),
+                'stat': p.get('stat', ''),
+                'avg': round(_safe_float(p.get('avg', 0)), 1),
+                'line': round(_safe_float(p.get('book_line', 0)), 1),
+                'projected': round(_safe_float(p.get('projected', 0)), 1),
+                'edge': edge_str,
+                'pick': p.get('pick', 'OVER'),
+                'composite_score': round(_safe_float(p.get('composite_score', 0)), 1),
+            })
+
+        analysis_data = []
+        for p in valid_picks:
+            player = p.get('player', '')
+            a = analysis_map[player]
+            analysis_data.append({
+                'player': player,
+                'stat': a.get('stat', p.get('stat', '')),
+                'call': a.get('call', p.get('pick', 'OVER')),
+                'archetype': a.get('archetype', ''),
+                'team': a.get('team', p.get('team', '')),
+                'opponent': a.get('opponent', p.get('opponent', '')),
+                'analysis': a.get('analysis', ''),
+            })
+
+        print(f"Claude Analyst final: {len(picks_data)} picks, {len(analysis_data)} analyses")
+        return {'picks_data': picks_data, 'analysis_data': analysis_data}
+
+    except json.JSONDecodeError as e:
+        print(f"Claude Analyst JSON parse error: {e}")
+        if 'response_text' in dir():
+            print(f"Response preview: {response_text[:500]}")
+        return None
+    except Exception as e:
+        error_msg = str(e)
+        if "FREE_CLOUD_BUDGET_EXCEEDED" in error_msg:
+            print(f"Claude budget exceeded — falling back")
+        else:
+            print(f"Claude Analyst error: {error_msg}")
+        return None
+
+
 def build_analysis_claude(high_rows, dfs_df, best_available=False):
     api_key = os.environ.get("AI_INTEGRATIONS_ANTHROPIC_API_KEY")
     base_url = os.environ.get("AI_INTEGRATIONS_ANTHROPIC_BASE_URL")
@@ -688,44 +1031,6 @@ def generate_article(target_date=None):
         print("ERROR: No 'confidence' column in prop_recommendations.csv")
         return False
 
-    high = props[props['confidence'] == 'HIGH'].copy()
-    using_best_available = False
-
-    if high.empty:
-        print("No HIGH confidence picks — selecting best available picks...")
-        if 'gate_fail_count' not in props.columns:
-            props['gate_fail_count'] = props['confidence_reasons'].apply(
-                lambda x: len(str(x).split(';')) if pd.notna(x) and str(x).strip() else 0
-            )
-        props['composite_score'] = pd.to_numeric(props['composite_score'], errors='coerce').fillna(0)
-        props['gate_fail_count'] = pd.to_numeric(props['gate_fail_count'], errors='coerce').fillna(99)
-        best = props[props['gate_fail_count'] <= 2].copy()
-        if best.empty:
-            best = props.copy()
-        best = best.sort_values(
-            ['gate_fail_count', 'composite_score'],
-            ascending=[True, False]
-        ).drop_duplicates(subset='player').head(6)
-        if best.empty:
-            print("No picks available at all.")
-            stale_header = f'static/images/article_header_{target_date.strftime("%Y-%m-%d")}.png'
-            if os.path.exists(stale_header):
-                os.remove(stale_header)
-                print(f"Removed stale header: {stale_header}")
-            save_to_db(target_date, None, [], [], 0)
-            print("Cleared article data from database.")
-            return False
-        high = best
-        using_best_available = True
-        for _, r in high.iterrows():
-            fails = int(r['gate_fail_count'])
-            print(f"  {r['player']:20s} {r['stat']:4s}  gates_failed={fails}  composite={r['composite_score']:.1f}  reasons: {r.get('confidence_reasons', '')}")
-
-    edge_col = 'vs_book_edge' if 'vs_book_edge' in high.columns else 'edge_pct'
-    high[edge_col] = pd.to_numeric(high[edge_col], errors='coerce').fillna(0)
-    high['abs_edge'] = high[edge_col].abs()
-    high = high.sort_values('abs_edge', ascending=False)
-
     games = set()
     for _, row in dfs_df.iterrows():
         t = row.get('team', '')
@@ -738,57 +1043,107 @@ def generate_article(target_date=None):
                 games.add(f"{o} @ {t}")
     game_count = len(games)
 
-    picks_data = []
-    seen_players = set()
-    for idx, (_, row) in enumerate(high.iterrows()):
-        player = row['player']
-        if player in seen_players:
-            continue
-        seen_players.add(player)
-        game_label = build_game_label(player, row.get('team', ''), row.get('opponent', ''), dfs_df)
-        call = "OVER" if "OVER" in str(row.get('recommendation', '')).upper() else "UNDER"
-        edge_val = _safe_float(row.get('vs_book_edge', row.get('edge_pct', 0)))
-        edge_sign = "+" if edge_val > 0 else ""
-        picks_data.append({
-            'rank': len(picks_data) + 1,
-            'player': player,
-            'game': game_label,
-            'stat': row.get('stat', ''),
-            'avg': round(_safe_float(row.get('player_avg', 0)), 1),
-            'line': round(_safe_float(row.get('book_line', 0)), 1),
-            'projected': round(_safe_float(row.get('projected_value', row.get('adjusted_avg', 0))), 1),
-            'edge': f"{edge_sign}{edge_val:.1f}%",
-            'pick': call,
-            'composite_score': round(_safe_float(row.get('composite_score', 0)), 1),
-        })
+    claude_result = build_claude_analyst(props, dfs_df)
 
-    claude_analyses = build_analysis_claude(high, dfs_df, best_available=using_best_available)
-    if claude_analyses:
-        print(f"Using Claude AI analyses for article")
+    if claude_result:
+        print("Claude Analyst mode: picks selected by Claude from full slate analysis")
+        picks_data = claude_result['picks_data']
+        analysis_data = claude_result['analysis_data']
+        using_best_available = False
+        claude_selected = True
     else:
-        print(f"Using template engine for article")
+        print("Claude Analyst unavailable — falling back to statistical model picks")
+        claude_selected = False
 
-    analysis_data = []
-    seen_analysis = set()
-    for _, row in high.iterrows():
-        player = row['player']
-        if player in seen_analysis:
-            continue
-        seen_analysis.add(player)
-        if claude_analyses and player in claude_analyses:
-            analysis_text = claude_analyses[player]
+        high = props[props['confidence'] == 'HIGH'].copy()
+        using_best_available = False
+
+        if high.empty:
+            print("No HIGH confidence picks — selecting best available picks...")
+            if 'gate_fail_count' not in props.columns:
+                props['gate_fail_count'] = props['confidence_reasons'].apply(
+                    lambda x: len(str(x).split(';')) if pd.notna(x) and str(x).strip() else 0
+                )
+            props['composite_score'] = pd.to_numeric(props['composite_score'], errors='coerce').fillna(0)
+            props['gate_fail_count'] = pd.to_numeric(props['gate_fail_count'], errors='coerce').fillna(99)
+            best = props[props['gate_fail_count'] <= 2].copy()
+            if best.empty:
+                best = props.copy()
+            best = best.sort_values(
+                ['gate_fail_count', 'composite_score'],
+                ascending=[True, False]
+            ).drop_duplicates(subset='player').head(6)
+            if best.empty:
+                print("No picks available at all.")
+                stale_header = f'static/images/article_header_{target_date.strftime("%Y-%m-%d")}.png'
+                if os.path.exists(stale_header):
+                    os.remove(stale_header)
+                    print(f"Removed stale header: {stale_header}")
+                save_to_db(target_date, None, [], [], 0)
+                print("Cleared article data from database.")
+                return False
+            high = best
+            using_best_available = True
+            for _, r in high.iterrows():
+                fails = int(r['gate_fail_count'])
+                print(f"  {r['player']:20s} {r['stat']:4s}  gates_failed={fails}  composite={r['composite_score']:.1f}  reasons: {r.get('confidence_reasons', '')}")
+
+        edge_col = 'vs_book_edge' if 'vs_book_edge' in high.columns else 'edge_pct'
+        high[edge_col] = pd.to_numeric(high[edge_col], errors='coerce').fillna(0)
+        high['abs_edge'] = high[edge_col].abs()
+        high = high.sort_values('abs_edge', ascending=False)
+
+        picks_data = []
+        seen_players = set()
+        for idx, (_, row) in enumerate(high.iterrows()):
+            player = row['player']
+            if player in seen_players:
+                continue
+            seen_players.add(player)
+            game_label = build_game_label(player, row.get('team', ''), row.get('opponent', ''), dfs_df)
+            call = "OVER" if "OVER" in str(row.get('recommendation', '')).upper() else "UNDER"
+            edge_val = _safe_float(row.get('vs_book_edge', row.get('edge_pct', 0)))
+            edge_sign = "+" if edge_val > 0 else ""
+            picks_data.append({
+                'rank': len(picks_data) + 1,
+                'player': player,
+                'game': game_label,
+                'stat': row.get('stat', ''),
+                'avg': round(_safe_float(row.get('player_avg', 0)), 1),
+                'line': round(_safe_float(row.get('book_line', 0)), 1),
+                'projected': round(_safe_float(row.get('projected_value', row.get('adjusted_avg', 0))), 1),
+                'edge': f"{edge_sign}{edge_val:.1f}%",
+                'pick': call,
+                'composite_score': round(_safe_float(row.get('composite_score', 0)), 1),
+            })
+
+        claude_analyses = build_analysis_claude(high, dfs_df, best_available=using_best_available)
+        if claude_analyses:
+            print(f"Using Claude AI analyses for article")
         else:
-            analysis_text = build_analysis_text_template(row, dfs_df)
-        call = "OVER" if "OVER" in str(row.get('recommendation', '')).upper() else "UNDER"
-        analysis_data.append({
-            'player': player,
-            'stat': row.get('stat', ''),
-            'call': call,
-            'archetype': row.get('archetype', ''),
-            'team': row.get('team', ''),
-            'opponent': row.get('opponent', ''),
-            'analysis': analysis_text,
-        })
+            print(f"Using template engine for article")
+
+        analysis_data = []
+        seen_analysis = set()
+        for _, row in high.iterrows():
+            player = row['player']
+            if player in seen_analysis:
+                continue
+            seen_analysis.add(player)
+            if claude_analyses and player in claude_analyses:
+                analysis_text = claude_analyses[player]
+            else:
+                analysis_text = build_analysis_text_template(row, dfs_df)
+            call = "OVER" if "OVER" in str(row.get('recommendation', '')).upper() else "UNDER"
+            analysis_data.append({
+                'player': player,
+                'stat': row.get('stat', ''),
+                'call': call,
+                'archetype': row.get('archetype', ''),
+                'team': row.get('team', ''),
+                'opponent': row.get('opponent', ''),
+                'analysis': analysis_text,
+            })
 
     header_player_data = []
     seen_header = set()
@@ -825,15 +1180,20 @@ def generate_article(target_date=None):
         print(f"Header generation skipped: {e}")
 
     save_to_db(target_date, header_path, picks_data, analysis_data, game_count,
-               best_available=using_best_available)
+               best_available=using_best_available, claude_selected=claude_selected)
 
-    label = "best available" if using_best_available else "HIGH confidence"
+    if claude_selected:
+        label = "Claude Analyst"
+    elif using_best_available:
+        label = "best available"
+    else:
+        label = "HIGH confidence"
     print(f"Article generated ({label}): {len(picks_data)} picks, {len(analysis_data)} analysis sections, {game_count} games")
     return True
 
 
 def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_count,
-               best_available=False):
+               best_available=False, claude_selected=False):
     from backend.database import engine
     from backend.models import Base
     Base.metadata.create_all(bind=engine)
@@ -857,6 +1217,7 @@ def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_c
         existing.analysis_json = json.dumps(analysis_data)
         existing.game_count = game_count
         existing.best_available = best_available
+        existing.claude_selected = claude_selected
     else:
         article = DailyArticle(
             slate_date=target_date,
@@ -865,6 +1226,7 @@ def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_c
             analysis_json=json.dumps(analysis_data),
             game_count=game_count,
             best_available=best_available,
+            claude_selected=claude_selected,
         )
         session.add(article)
 
