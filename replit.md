@@ -42,6 +42,8 @@ HIGH Confidence Prop Classification requires ALL gates to pass: hit rate >= 58%,
 
 Avatar & Identity Design Direction follows a "Strategic Minimalism meets Editorial Sports Design" style with specific design rules and an accent palette. Cosmetics communicate Skill, Status, or Story.
 
+Cookie consent and analytics tracking is implemented via `PageView` and `CookieConsent` models in PostgreSQL. A fixed cookie banner appears for first-time visitors (before any `analytics_consent` cookie is set). Users can accept or decline analytics cookies. Only when accepted does the frontend send page view data to `/api/track`. IP addresses are hashed (SHA-256, truncated to 16 chars) for privacy. A `/cookie-settings` page lets users toggle analytics on/off at any time. The footer links to Cookie Settings on every page.
+
 ## Session Memory
 Source of truth for historical narrative detail and session logs: `session_memory.md`. Always read both `replit.md` and `session_memory.md` for full context.
 - March 12, 2026: Gold-standard 80% hit rate slate (6 book-line plays). Full narrative analysis and winning patterns in `session_memory.md`.
