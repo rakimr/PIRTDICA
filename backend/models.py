@@ -786,3 +786,29 @@ class EmailQueue(Base):
     error = Column(Text, nullable=True)
 
     user = relationship("User", backref="email_queue")
+
+
+class PageView(Base):
+    __tablename__ = "page_views"
+
+    id = Column(Integer, primary_key=True, index=True)
+    path = Column(String(500), nullable=False, index=True)
+    referrer = Column(String(1000), nullable=True)
+    user_agent = Column(String(1000), nullable=True)
+    ip_hash = Column(String(64), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    session_id = Column(String(64), nullable=True, index=True)
+    country = Column(String(10), nullable=True)
+    device_type = Column(String(20), nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), index=True)
+
+
+class CookieConsent(Base):
+    __tablename__ = "cookie_consents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    consent_id = Column(String(64), nullable=False, unique=True, index=True)
+    analytics_consent = Column(Boolean, default=False)
+    consent_given_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

@@ -3308,6 +3308,116 @@ def settle_h2h_challenges(db: Session):
 
     db.commit()
 
+@app.post("/api/cookie-consent")
+async def set_cookie_consent(request: Request, db: Session = Depends(get_db)):
+    import hashlib, secrets
+    user = get_current_user(request, db)
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid request")
+    analytics = body.get("analytics", False)
+    consent_id = request.cookies.get("consent_id")
+    if not consent_id:
+        consent_id = secrets.token_urlsafe(32)
+    existing = db.query(models.CookieConsent).filter(
+        models.CookieConsent.consent_id == consent_id
+    ).first()
+    if existing:
+        existing.analytics_consent = analytics
+        if user:
+            existing.user_id = user.id
+    else:
+        record = models.CookieConsent(
+            consent_id=consent_id,
+            analytics_consent=analytics,
+            user_id=user.id if user else None,
+        )
+        db.add(record)
+    db.commit()
+    resp = JSONResponse({"status": "ok", "consent_id": consent_id, "analytics": analytics})
+    resp.set_cookie(
+        "consent_id", consent_id,
+        max_age=365 * 24 * 3600, httponly=True, samesite="lax", path="/",
+    )
+    resp.set_cookie(
+        "analytics_consent", "1" if analytics else "0",
+        max_age=365 * 24 * 3600, httponly=False, samesite="lax", path="/",
+    )
+    return resp
+
+
+@app.get("/api/cookie-consent")
+async def get_cookie_consent(request: Request, db: Session = Depends(get_db)):
+    consent_id = request.cookies.get("consent_id")
+    if not consent_id:
+        return JSONResponse({"has_consent": False, "analytics": False})
+    record = db.query(models.CookieConsent).filter(
+        models.CookieConsent.consent_id == consent_id
+    ).first()
+    if not record:
+        return JSONResponse({"has_consent": False, "analytics": False})
+    return JSONResponse({
+        "has_consent": True,
+        "analytics": record.analytics_consent,
+    })
+
+
+@app.post("/api/track")
+async def track_page_view(request: Request, db: Session = Depends(get_db)):
+    import hashlib
+    consent_cookie = request.cookies.get("analytics_consent")
+    if consent_cookie != "1":
+        return JSONResponse({"status": "skipped", "reason": "no_consent"})
+    user = get_current_user(request, db)
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid request")
+    path = body.get("path", "")[:500]
+    referrer = body.get("referrer", "")[:1000] or None
+    ua = request.headers.get("user-agent", "")[:1000]
+    forwarded = request.headers.get("x-forwarded-for", request.client.host if request.client else "")
+    ip_hash = hashlib.sha256(forwarded.encode()).hexdigest()[:16] if forwarded else None
+    ua_lower = ua.lower()
+    if "mobile" in ua_lower or "android" in ua_lower or "iphone" in ua_lower:
+        device_type = "mobile"
+    elif "tablet" in ua_lower or "ipad" in ua_lower:
+        device_type = "tablet"
+    else:
+        device_type = "desktop"
+    pv = models.PageView(
+        path=path,
+        referrer=referrer,
+        user_agent=ua,
+        ip_hash=ip_hash,
+        user_id=user.id if user else None,
+        session_id=request.cookies.get("consent_id"),
+        device_type=device_type,
+    )
+    db.add(pv)
+    db.commit()
+    return JSONResponse({"status": "ok"})
+
+
+@app.get("/cookie-settings")
+async def cookie_settings_page(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    consent_id = request.cookies.get("consent_id")
+    analytics_on = False
+    if consent_id:
+        record = db.query(models.CookieConsent).filter(
+            models.CookieConsent.consent_id == consent_id
+        ).first()
+        if record:
+            analytics_on = record.analytics_consent
+    return templates.TemplateResponse("cookie_settings.html", {
+        "request": request,
+        "user": user,
+        "analytics_on": analytics_on,
+    })
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=5000)

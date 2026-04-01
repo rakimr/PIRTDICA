@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initTableSorting();
     initTableSearch();
     initNotifications();
+    initCookieConsent();
 });
 
 function initTableSorting() {
@@ -187,4 +188,45 @@ function markAllRead() {
             fetchUnreadCount();
             loadNotifications(notifCurrentCategory);
         });
+}
+
+function getCookieValue(name) {
+    var v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return v ? v.pop() : '';
+}
+
+function initCookieConsent() {
+    var consent = getCookieValue('analytics_consent');
+    if (consent === '') {
+        var banner = document.getElementById('cookieBanner');
+        if (banner) banner.style.display = 'flex';
+    } else if (consent === '1') {
+        trackPageView();
+    }
+}
+
+function handleCookieConsent(accepted) {
+    fetch('/api/cookie-consent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ analytics: accepted })
+    }).then(function() {
+        var banner = document.getElementById('cookieBanner');
+        if (banner) banner.style.display = 'none';
+        if (accepted) trackPageView();
+    }).catch(function() {
+        var banner = document.getElementById('cookieBanner');
+        if (banner) banner.style.display = 'none';
+    });
+}
+
+function trackPageView() {
+    fetch('/api/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            path: window.location.pathname,
+            referrer: document.referrer || ''
+        })
+    }).catch(function() {});
 }
