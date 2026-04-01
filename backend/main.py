@@ -3366,8 +3366,14 @@ async def get_cookie_consent(request: Request, db: Session = Depends(get_db)):
 @app.post("/api/track")
 async def track_page_view(request: Request, db: Session = Depends(get_db)):
     import hashlib
-    consent_cookie = request.cookies.get("analytics_consent")
-    if consent_cookie != "1":
+    consent_id = request.cookies.get("consent_id")
+    if not consent_id:
+        return JSONResponse({"status": "skipped", "reason": "no_consent"})
+    consent_record = db.query(models.CookieConsent).filter(
+        models.CookieConsent.consent_id == consent_id,
+        models.CookieConsent.analytics_consent == True,
+    ).first()
+    if not consent_record:
         return JSONResponse({"status": "skipped", "reason": "no_consent"})
     user = get_current_user(request, db)
     try:
