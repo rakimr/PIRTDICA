@@ -641,10 +641,16 @@ async def home(request: Request, db: Session = Depends(get_db)):
     west_teams = {"DAL", "DEN", "GS", "GSW", "HOU", "LAC", "LAL", "MEM", "MIN",
                   "NO", "NOP", "OKC", "PHX", "PHO", "POR", "SA", "SAS", "SAC", "UTA"}
 
+    abbr_normalize = {
+        "SA": "SAS", "NO": "NOP", "NY": "NYK", "GSW": "GS", "PHX": "PHO",
+        "SAS": "SAS", "NOP": "NOP", "NYK": "NYK", "GS": "GS", "PHO": "PHO",
+    }
+
     playing_today = set()
     for g in slate_games:
-        playing_today.add(g["away"])
-        playing_today.add(g["home"])
+        for side in ("away", "home"):
+            raw = g[side]
+            playing_today.add(abbr_normalize.get(raw, raw))
 
     standings_east = []
     standings_west = []
@@ -672,8 +678,8 @@ async def home(request: Request, db: Session = Depends(get_db)):
             else:
                 standings_west.append(entry)
         conn_st.close()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[Home] Standings query failed: {e}")
 
     edge_insights = []
     player_count = 0
