@@ -655,11 +655,27 @@ async def home(request: Request, db: Session = Depends(get_db)):
     standings_east = []
     standings_west = []
     try:
-        import sqlite3 as sl3
-        conn_st = sl3.connect("dfs_nba.db")
-        cur_st = conn_st.cursor()
-        cur_st.execute("SELECT team, team_name, wins, losses, games_behind, win_pct, incentive_score FROM team_standings ORDER BY win_pct DESC")
-        for row in cur_st.fetchall():
+        standings_rows = []
+        try:
+            if data_access.use_postgres():
+                from backend.database import engine as pg_engine_st
+                from sqlalchemy import text as sa_text_st
+                with pg_engine_st.connect() as pg_conn_st:
+                    standings_rows = pg_conn_st.execute(sa_text_st(
+                        "SELECT team, team_name, wins, losses, games_behind, win_pct FROM team_standings_live ORDER BY win_pct DESC"
+                    )).fetchall()
+        except Exception:
+            pass
+
+        if not standings_rows:
+            import sqlite3 as sl3
+            conn_st = sl3.connect("dfs_nba.db")
+            cur_st = conn_st.cursor()
+            cur_st.execute("SELECT team, team_name, wins, losses, games_behind, win_pct FROM team_standings ORDER BY win_pct DESC")
+            standings_rows = cur_st.fetchall()
+            conn_st.close()
+
+        for row in standings_rows:
             abbr = row[0]
             canon = abbr_normalize.get(abbr, abbr)
             espn_slug = espn_abbr_map.get(abbr, abbr.lower())
@@ -677,7 +693,6 @@ async def home(request: Request, db: Session = Depends(get_db)):
                 standings_east.append(entry)
             else:
                 standings_west.append(entry)
-        conn_st.close()
     except Exception as e:
         print(f"[Home] Standings query failed: {e}")
 

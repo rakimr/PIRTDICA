@@ -54,6 +54,7 @@ SQLITE_TABLE_MAP = {
     "player_measurements": "player_measurements_live",
     "matchup_history": "matchup_history_live",
     "archetype_matchup_profiles": "archetype_matchup_profiles_live",
+    "team_standings": "team_standings_live",
 }
 
 
