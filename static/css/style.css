@@ -462,12 +462,20 @@ a:hover {
     background: rgba(0, 0, 0, 0.02);
 }
 
-.standings-table tbody tr.st-playin-line td {
+.standings-table tbody tr.st-playin-line {
     border-bottom: 2px dashed #6366f1;
 }
 
-.standings-table tbody tr.st-lottery-line td {
+.standings-table tbody tr.st-playin-line td {
+    border-bottom: none;
+}
+
+.standings-table tbody tr.st-lottery-line {
     border-bottom: 2px dashed #ef4444;
+}
+
+.standings-table tbody tr.st-lottery-line td {
+    border-bottom: none;
 }
 
 .standings-table td {
