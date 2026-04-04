@@ -661,6 +661,7 @@ async def home(request: Request, db: Session = Depends(get_db)):
         cur_st.execute("SELECT team, team_name, wins, losses, games_behind, win_pct, incentive_score FROM team_standings ORDER BY win_pct DESC")
         for row in cur_st.fetchall():
             abbr = row[0]
+            canon = abbr_normalize.get(abbr, abbr)
             espn_slug = espn_abbr_map.get(abbr, abbr.lower())
             entry = {
                 "team": abbr,
@@ -669,8 +670,7 @@ async def home(request: Request, db: Session = Depends(get_db)):
                 "losses": row[3],
                 "gb": row[4],
                 "win_pct": f"{row[5]:.3f}",
-                "incentive": row[6],
-                "playing": abbr in playing_today,
+                "playing": canon in playing_today,
                 "logo": f"https://a.espncdn.com/i/teamlogos/nba/500/{espn_slug}.png",
             }
             if abbr in east_teams:
