@@ -61,30 +61,55 @@
 {% endif %}
 
 {% if user %}
-{% if slate_games %}
-<section class="slate-section">
-    <h2>Today's Slate</h2>
-    <p class="subtitle" id="slate-date"></p>
+{% if standings_east or standings_west %}
+<section class="standings-section">
+    <h2>League Standings</h2>
+    <p class="subtitle" id="standings-date"></p>
     <script>
     (function(){
         const d = new Date();
         const opts = { year: 'numeric', month: 'long', day: '2-digit', timeZone: 'America/New_York' };
-        document.getElementById('slate-date').textContent = d.toLocaleDateString('en-US', opts);
+        document.getElementById('standings-date').textContent = d.toLocaleDateString('en-US', opts);
     })();
     </script>
-    <div class="slate-games">
-        {% for game in slate_games %}
-        <div class="slate-game">
-            <div class="slate-team away">
-                <img src="{{ game.away_logo }}" alt="{{ game.away }}" class="team-logo">
-                <span class="team-abbr">{{ game.away }}</span>
+    <div class="standings-grid">
+        {% for conf_name, conf_teams in [("Eastern Conference", standings_east), ("Western Conference", standings_west)] %}
+        <div class="standings-conf">
+            <h3 class="conf-title">{{ conf_name }}</h3>
+            <div class="standings-table-wrap">
+                <table class="standings-table">
+                    <thead>
+                        <tr>
+                            <th class="st-rank">#</th>
+                            <th class="st-team">Team</th>
+                            <th class="st-record">W</th>
+                            <th class="st-record">L</th>
+                            <th class="st-pct">PCT</th>
+                            <th class="st-gb">GB</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for team in conf_teams %}
+                        <tr class="{% if team.playing %}st-playing{% else %}st-idle{% endif %}{% if loop.index == 7 %} st-playin-line{% endif %}{% if loop.index == 11 %} st-lottery-line{% endif %}">
+                            <td class="st-rank">{{ loop.index }}</td>
+                            <td class="st-team">
+                                <img src="{{ team.logo }}" alt="{{ team.team }}" class="st-logo">
+                                <span class="st-name-full">{{ team.team_name }}</span>
+                                <span class="st-name-abbr">{{ team.team }}</span>
+                            </td>
+                            <td class="st-record">{{ team.wins }}</td>
+                            <td class="st-record">{{ team.losses }}</td>
+                            <td class="st-pct">{{ team.win_pct }}</td>
+                            <td class="st-gb">{% if team.gb == 0 %}—{% else %}{{ team.gb }}{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-            <div class="slate-vs">
-                <span class="at-symbol">@</span>
-            </div>
-            <div class="slate-team home">
-                <img src="{{ game.home_logo }}" alt="{{ game.home }}" class="team-logo">
-                <span class="team-abbr">{{ game.home }}</span>
+            <div class="standings-legend">
+                <span class="legend-item"><span class="legend-dot legend-playoff"></span>Playoff</span>
+                <span class="legend-item"><span class="legend-dot legend-playin"></span>Play-In</span>
+                <span class="legend-item"><span class="legend-dot legend-lottery"></span>Lottery</span>
             </div>
         </div>
         {% endfor %}

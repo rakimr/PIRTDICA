@@ -636,6 +636,45 @@ async def home(request: Request, db: Session = Depends(get_db)):
             g[f"{side}_logo"] = f"https://a.espncdn.com/i/teamlogos/nba/500/{espn_slug}.png"
             g[f"{side}_name"] = team_names.get(abbr, abbr)
 
+    east_teams = {"ATL", "BOS", "BKN", "CHA", "CHI", "CLE", "DET", "IND",
+                  "MIA", "MIL", "NY", "NYK", "ORL", "PHI", "TOR", "WAS"}
+    west_teams = {"DAL", "DEN", "GS", "GSW", "HOU", "LAC", "LAL", "MEM", "MIN",
+                  "NO", "NOP", "OKC", "PHX", "PHO", "POR", "SA", "SAS", "SAC", "UTA"}
+
+    playing_today = set()
+    for g in slate_games:
+        playing_today.add(g["away"])
+        playing_today.add(g["home"])
+
+    standings_east = []
+    standings_west = []
+    try:
+        import sqlite3 as sl3
+        conn_st = sl3.connect("dfs_nba.db")
+        cur_st = conn_st.cursor()
+        cur_st.execute("SELECT team, team_name, wins, losses, games_behind, win_pct, incentive_score FROM team_standings ORDER BY win_pct DESC")
+        for row in cur_st.fetchall():
+            abbr = row[0]
+            espn_slug = espn_abbr_map.get(abbr, abbr.lower())
+            entry = {
+                "team": abbr,
+                "team_name": row[1],
+                "wins": row[2],
+                "losses": row[3],
+                "gb": row[4],
+                "win_pct": f"{row[5]:.3f}",
+                "incentive": row[6],
+                "playing": abbr in playing_today,
+                "logo": f"https://a.espncdn.com/i/teamlogos/nba/500/{espn_slug}.png",
+            }
+            if abbr in east_teams:
+                standings_east.append(entry)
+            else:
+                standings_west.append(entry)
+        conn_st.close()
+    except Exception:
+        pass
+
     edge_insights = []
     player_count = 0
     game_count = len(slate_games)
@@ -692,6 +731,8 @@ async def home(request: Request, db: Session = Depends(get_db)):
         "next_game_iso": next_game_iso,
         "games_started": games_started,
         "slate_games": slate_games,
+        "standings_east": standings_east,
+        "standings_west": standings_west,
         "edge_insights": edge_insights,
         "player_count": player_count,
         "game_count": game_count,

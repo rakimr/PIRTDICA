@@ -371,6 +371,241 @@ a:hover {
     }
 }
 
+.standings-section {
+    margin-bottom: 3rem;
+    text-align: center;
+}
+
+.standings-section h2 {
+    font-family: 'Marvel', sans-serif;
+    font-size: 1.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.25rem;
+}
+
+.standings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-top: 1.5rem;
+    max-width: 1100px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.standings-conf {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.conf-title {
+    font-family: 'Marvel', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.75rem 1rem;
+    background: var(--primary);
+    color: white;
+    text-align: center;
+}
+
+.standings-table-wrap {
+    overflow-x: auto;
+}
+
+.standings-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Marvel', sans-serif;
+    font-size: 0.95rem;
+}
+
+.standings-table thead th {
+    padding: 0.5rem 0.6rem;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    border-bottom: 2px solid var(--border);
+}
+
+.standings-table thead th.st-team {
+    text-align: left;
+    padding-left: 1rem;
+}
+
+.standings-table tbody tr {
+    transition: background 0.15s;
+}
+
+.standings-table tbody tr.st-playing {
+    background: rgba(99, 102, 241, 0.06);
+}
+
+.standings-table tbody tr.st-idle {
+    opacity: 0.4;
+}
+
+.standings-table tbody tr.st-playing:hover {
+    background: rgba(99, 102, 241, 0.12);
+}
+
+.standings-table tbody tr.st-idle:hover {
+    opacity: 0.7;
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.standings-table tbody tr.st-playin-line td {
+    border-bottom: 2px dashed #6366f1;
+}
+
+.standings-table tbody tr.st-lottery-line td {
+    border-bottom: 2px dashed #ef4444;
+}
+
+.standings-table td {
+    padding: 0.45rem 0.6rem;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.standings-table td.st-rank {
+    font-weight: 700;
+    color: var(--text-muted);
+    width: 30px;
+    font-size: 0.85rem;
+}
+
+.standings-table td.st-team {
+    text-align: left;
+    padding-left: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.st-logo {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+tr.st-idle .st-logo {
+    filter: grayscale(100%);
+}
+
+.st-name-abbr {
+    display: none;
+}
+
+.standings-table td.st-record {
+    font-weight: 600;
+    width: 36px;
+}
+
+.standings-table td.st-pct {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    width: 50px;
+}
+
+.standings-table td.st-gb {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    width: 40px;
+}
+
+.standings-legend {
+    display: flex;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 0.6rem 0.5rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    letter-spacing: 0.03em;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.legend-playoff {
+    background: var(--primary);
+}
+
+.legend-playin {
+    background: #6366f1;
+}
+
+.legend-lottery {
+    background: #ef4444;
+}
+
+@media (max-width: 768px) {
+    .standings-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .standings-table {
+        font-size: 0.9rem;
+    }
+
+    .st-name-full {
+        display: none;
+    }
+
+    .st-name-abbr {
+        display: inline;
+        font-weight: 600;
+    }
+
+    .standings-table td.st-pct {
+        display: none;
+    }
+
+    .standings-table thead th.st-pct {
+        display: none;
+    }
+
+    .st-logo {
+        width: 20px;
+        height: 20px;
+    }
+
+    .standings-table td {
+        padding: 0.35rem 0.4rem;
+    }
+
+    .standings-table td.st-team {
+        gap: 0.35rem;
+    }
+
+    .conf-title {
+        font-size: 0.9rem;
+        padding: 0.6rem 0.75rem;
+    }
+}
+
 .house-lineup-section {
     margin-bottom: 3rem;
 }
