@@ -477,6 +477,8 @@ async def stripe_webhook(request: Request):
         import traceback
         print(f"[Stripe Webhook] Error processing {event.type}: {e}")
         traceback.print_exc()
+        db.close()
+        return JSONResponse({"error": "Processing failed"}, status_code=500)
     finally:
         db.close()
 
@@ -501,10 +503,9 @@ async def billing_recover(request: Request, db: Session = Depends(get_db)):
             period_end = datetime.fromtimestamp(sub.current_period_end) if sub.current_period_end else None
             _, is_new = upsert_user_subscription(db, user.id, stripe_sub.id, plan_key, sub.status, period_end)
             sync_user_subscription_fields(db, user, plan_key, stripe_sub.id, sub.status, sub.current_period_end)
-            if is_new:
-                recovered.append(plan_key)
+            recovered.append(plan_key)
+        db.commit()
         if recovered:
-            db.commit()
             print(f"[Stripe Recovery] Recovered {recovered} for user {user.id} ({user.username})")
         return JSONResponse({"recovered": bool(recovered), "plans": recovered})
     except Exception as e:
