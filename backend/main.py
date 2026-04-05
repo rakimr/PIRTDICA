@@ -383,8 +383,22 @@ async def stripe_webhook(request: Request):
             session = event.data.object
             customer_id = session.get("customer")
             subscription_id = session.get("subscription")
+            metadata = session.get("metadata") or {}
+            metadata_user_id = metadata.get("user_id")
+            metadata_plan = metadata.get("plan")
+            print(f"[Stripe Webhook] checkout.session.completed: customer={customer_id}, sub={subscription_id}, metadata_user_id={metadata_user_id}, metadata_plan={metadata_plan}")
             if customer_id and subscription_id:
                 user = db.query(models.User).filter(models.User.stripe_customer_id == customer_id).first()
+                if not user and metadata_user_id:
+                    try:
+                        user = db.query(models.User).filter(models.User.id == int(metadata_user_id)).first()
+                        if user:
+                            print(f"[Stripe Webhook] User found via metadata user_id={metadata_user_id} (username={user.username})")
+                            user.stripe_customer_id = customer_id
+                    except (ValueError, TypeError):
+                        pass
+                if not user:
+                    print(f"[Stripe Webhook] ERROR: Could not find user for customer={customer_id}, metadata_user_id={metadata_user_id}. Subscription {subscription_id} is ORPHANED.")
                 if user:
                     client = get_stripe_client()
                     sub, plan_key = resolve_plan_from_subscription(client, subscription_id)
@@ -397,13 +411,19 @@ async def stripe_webhook(request: Request):
                         from backend.events import emit_subscription_activated
                         emit_subscription_activated(db, user.id, user.username, plan_key)
                     db.commit()
+                    print(f"[Stripe Webhook] SUCCESS: Activated {plan_key} for user {user.id} ({user.username})")
+            else:
+                print(f"[Stripe Webhook] checkout.session.completed missing customer_id or subscription_id")
 
         elif event.type in ("invoice.payment_succeeded", "customer.subscription.updated"):
             sub_data = event.data.object
             if event.type == "invoice.payment_succeeded":
                 subscription_id = sub_data.get("subscription")
+                customer_id = sub_data.get("customer")
             else:
                 subscription_id = sub_data.get("id")
+                customer_id = sub_data.get("customer")
+            print(f"[Stripe Webhook] {event.type}: sub={subscription_id}, customer={customer_id}")
             if subscription_id:
                 from backend.models import UserSubscription
                 user_sub = db.query(UserSubscription).filter(
@@ -414,6 +434,10 @@ async def stripe_webhook(request: Request):
                     user = db.query(models.User).filter(models.User.id == user_sub.user_id).first()
                 if not user:
                     user = db.query(models.User).filter(models.User.stripe_subscription_id == subscription_id).first()
+                if not user and customer_id:
+                    user = db.query(models.User).filter(models.User.stripe_customer_id == customer_id).first()
+                if not user:
+                    print(f"[Stripe Webhook] WARNING: No user found for {event.type} sub={subscription_id}, customer={customer_id}")
                 if user:
                     client = get_stripe_client()
                     sub, plan_key = resolve_plan_from_subscription(client, subscription_id)
@@ -421,10 +445,12 @@ async def stripe_webhook(request: Request):
                     upsert_user_subscription(db, user.id, subscription_id, plan_key, sub.status, period_end)
                     sync_user_subscription_fields(db, user, plan_key, subscription_id, sub.status, sub.current_period_end)
                     db.commit()
+                    print(f"[Stripe Webhook] SUCCESS: Updated {plan_key} for user {user.id} ({user.username})")
 
         elif event.type == "customer.subscription.deleted":
             sub_data = event.data.object
             subscription_id = sub_data.get("id")
+            print(f"[Stripe Webhook] customer.subscription.deleted: sub={subscription_id}")
             if subscription_id:
                 from backend.models import UserSubscription
                 user_sub = db.query(UserSubscription).filter(
@@ -436,17 +462,54 @@ async def stripe_webhook(request: Request):
                     if user and user.stripe_subscription_id == subscription_id:
                         user.subscription_status = "canceled"
                     db.commit()
+                    print(f"[Stripe Webhook] SUCCESS: Canceled subscription for user {user_sub.user_id}")
                 else:
                     user = db.query(models.User).filter(models.User.stripe_subscription_id == subscription_id).first()
                     if user:
                         user.subscription_status = "canceled"
                         db.commit()
+                        print(f"[Stripe Webhook] SUCCESS: Canceled legacy subscription for user {user.id}")
+                    else:
+                        print(f"[Stripe Webhook] WARNING: No user found for deleted subscription {subscription_id}")
+        else:
+            print(f"[Stripe Webhook] Unhandled event type: {event.type}")
     except Exception as e:
+        import traceback
         print(f"[Stripe Webhook] Error processing {event.type}: {e}")
+        traceback.print_exc()
     finally:
         db.close()
 
     return JSONResponse({"received": True})
+
+
+@app.post("/billing/recover")
+async def billing_recover(request: Request, db: Session = Depends(get_db)):
+    from backend.stripe_billing import (get_stripe_client, resolve_plan_from_subscription,
+                                         upsert_user_subscription, sync_user_subscription_fields)
+    user = get_current_user(request, db)
+    if not user:
+        return JSONResponse({"error": "Not logged in"}, status_code=401)
+    if not user.stripe_customer_id:
+        return JSONResponse({"error": "No Stripe customer on file", "recovered": False})
+    try:
+        client = get_stripe_client()
+        subs = client.Subscription.list(customer=user.stripe_customer_id, status="active", limit=10)
+        recovered = []
+        for stripe_sub in subs.data:
+            sub, plan_key = resolve_plan_from_subscription(client, stripe_sub.id)
+            period_end = datetime.fromtimestamp(sub.current_period_end) if sub.current_period_end else None
+            _, is_new = upsert_user_subscription(db, user.id, stripe_sub.id, plan_key, sub.status, period_end)
+            sync_user_subscription_fields(db, user, plan_key, stripe_sub.id, sub.status, sub.current_period_end)
+            if is_new:
+                recovered.append(plan_key)
+        if recovered:
+            db.commit()
+            print(f"[Stripe Recovery] Recovered {recovered} for user {user.id} ({user.username})")
+        return JSONResponse({"recovered": bool(recovered), "plans": recovered})
+    except Exception as e:
+        print(f"[Stripe Recovery] Error for user {user.id}: {e}")
+        return JSONResponse({"error": "Recovery check failed", "recovered": False})
 
 
 @app.get("/billing")
@@ -461,6 +524,27 @@ async def billing_page(request: Request, db: Session = Depends(get_db)):
         UserSubscription.user_id == user.id,
         UserSubscription.status.in_(["active", "canceled"]),
     ).order_by(UserSubscription.created_at.desc()).all()
+
+    active_subs = [s for s in subs_db if s.status == "active"]
+    if not active_subs and user.stripe_customer_id:
+        try:
+            from backend.stripe_billing import (get_stripe_client, resolve_plan_from_subscription,
+                                                 upsert_user_subscription, sync_user_subscription_fields)
+            client = get_stripe_client()
+            stripe_subs = client.Subscription.list(customer=user.stripe_customer_id, status="active", limit=10)
+            for stripe_sub in stripe_subs.data:
+                sub, plan_key = resolve_plan_from_subscription(client, stripe_sub.id)
+                period_end = datetime.fromtimestamp(sub.current_period_end) if sub.current_period_end else None
+                upsert_user_subscription(db, user.id, stripe_sub.id, plan_key, sub.status, period_end)
+                sync_user_subscription_fields(db, user, plan_key, stripe_sub.id, sub.status, sub.current_period_end)
+            db.commit()
+            subs_db = db.query(UserSubscription).filter(
+                UserSubscription.user_id == user.id,
+                UserSubscription.status.in_(["active", "canceled"]),
+            ).order_by(UserSubscription.created_at.desc()).all()
+            print(f"[Stripe Recovery] Auto-recovered subscriptions for user {user.id} on billing page")
+        except Exception as e:
+            print(f"[Stripe Recovery] Auto-recovery failed for user {user.id}: {e}")
 
     subscriptions = []
     for s in subs_db:
