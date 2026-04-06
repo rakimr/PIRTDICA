@@ -95,12 +95,6 @@
     {% if grading_report %}
     <div class="article-section grading-section">
         <h2>PIRTDICA'S GRADING REPORT</h2>
-        {% if season_record.total > 0 %}
-        <div class="grading-record">
-            <span class="record-label">Season Record:</span>
-            <span class="record-value">{{ season_record.hits }}-{{ season_record.total - season_record.hits }} ({{ season_record.pct }}%)</span>
-        </div>
-        {% endif %}
         <div class="table-wrap">
             <table class="props-table article-table grading-table">
                 <thead>

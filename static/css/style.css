@@ -4812,33 +4812,6 @@ th[data-sortable].sort-desc::after {
     margin-bottom: 1rem;
 }
 
-.grading-record {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.5rem 1rem;
-    margin-bottom: 1.25rem;
-    font-family: 'Marvel', sans-serif;
-    font-size: 1rem;
-}
-
-.record-label {
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-muted);
-    font-size: 0.85rem;
-}
-
-.record-value {
-    font-weight: 700;
-    font-size: 1.1rem;
-    color: var(--text);
-}
-
 .grading-table tr.grade-hit {
     background: rgba(15, 157, 88, 0.05);
 }

@@ -266,7 +266,6 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
             except Exception as e:
                 print(f"[ARTICLES] Prop recs load failed: {e}")
     grading_report = []
-    season_record = {'hits': 0, 'total': 0, 'pct': 0.0}
     if article and has_access and not pre_lock:
         try:
             from datetime import timedelta as _td
@@ -285,16 +284,6 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
                     'hit': g.hit,
                     'analysis': g.claude_analysis or '',
                 })
-            from sqlalchemy import func as sqlfunc, case
-            total_row = db.query(
-                sqlfunc.sum(case((models.DailyPickGrade.hit == True, 1), else_=0)),
-                sqlfunc.sum(case((models.DailyPickGrade.hit == False, 1), else_=0)),
-            ).filter(models.DailyPickGrade.hit.isnot(None)).first()
-            if total_row:
-                season_record['hits'] = int(total_row[0] or 0)
-                season_misses = int(total_row[1] or 0)
-                season_record['total'] = season_record['hits'] + season_misses
-                season_record['pct'] = round(season_record['hits'] / season_record['total'] * 100, 1) if season_record['total'] > 0 else 0.0
         except Exception as e:
             print(f"[ARTICLES] Grading report load failed: {e}")
 
@@ -308,7 +297,6 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
         "pre_lock": pre_lock,
         "prop_recs": prop_recs,
         "grading_report": grading_report,
-        "season_record": season_record,
     })
 
 @app.get("/subscribe")
