@@ -4798,6 +4798,95 @@ th[data-sortable].sort-desc::after {
     margin-top: 0.5rem;
 }
 
+.grading-section {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 2px solid #e5e7eb;
+}
+
+.grading-section h2 {
+    font-family: 'Righteous', sans-serif;
+    font-size: 1.3rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+}
+
+.grading-record {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    margin-bottom: 1.25rem;
+    font-family: 'Marvel', sans-serif;
+    font-size: 1rem;
+}
+
+.record-label {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.record-value {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--text);
+}
+
+.grading-table tr.grade-hit {
+    background: rgba(15, 157, 88, 0.05);
+}
+
+.grading-table tr.grade-miss {
+    background: rgba(220, 38, 38, 0.04);
+}
+
+.grade-actual {
+    font-weight: 700;
+}
+
+.grade-badge {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 4px;
+    font-family: 'Marvel', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.grade-badge-hit {
+    background: #0f9d58;
+    color: white;
+}
+
+.grade-badge-miss {
+    background: #dc2626;
+    color: white;
+}
+
+.grade-analysis-row td {
+    padding: 0.25rem 1rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.grade-analysis-text {
+    font-size: 0.85rem;
+    line-height: 1.55;
+    color: var(--text-muted);
+    font-style: italic;
+    margin: 0;
+    padding-left: 0.5rem;
+    border-left: 2px solid var(--border);
+}
+
 .prop-recs-section {
     margin-top: 3rem;
     padding-top: 2rem;

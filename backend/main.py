@@ -265,6 +265,38 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
                         })
             except Exception as e:
                 print(f"[ARTICLES] Prop recs load failed: {e}")
+    grading_report = []
+    season_record = {'hits': 0, 'total': 0, 'pct': 0.0}
+    if article and has_access and not pre_lock:
+        try:
+            from datetime import timedelta as _td
+            yesterday = today - _td(days=1)
+            grades = db.query(models.DailyPickGrade).filter(
+                models.DailyPickGrade.slate_date == yesterday
+            ).all()
+            for g in grades:
+                grading_report.append({
+                    'player': g.player,
+                    'stat': g.stat,
+                    'book_line': g.book_line,
+                    'direction': g.direction,
+                    'projected': g.projected,
+                    'actual': g.actual,
+                    'hit': g.hit,
+                    'analysis': g.claude_analysis or '',
+                })
+            from sqlalchemy import func as sqlfunc, case, literal
+            total_row = db.query(
+                sqlfunc.count(models.DailyPickGrade.id),
+                sqlfunc.sum(case((models.DailyPickGrade.hit == True, 1), else_=0))
+            ).first()
+            if total_row and total_row[0]:
+                season_record['total'] = total_row[0]
+                season_record['hits'] = int(total_row[1] or 0)
+                season_record['pct'] = round(season_record['hits'] / season_record['total'] * 100, 1) if season_record['total'] > 0 else 0.0
+        except Exception as e:
+            print(f"[ARTICLES] Grading report load failed: {e}")
+
     return templates.TemplateResponse("articles.html", {
         "request": request,
         "user": user,
@@ -274,6 +306,8 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
         "has_access": has_access,
         "pre_lock": pre_lock,
         "prop_recs": prop_recs,
+        "grading_report": grading_report,
+        "season_record": season_record,
     })
 
 @app.get("/subscribe")

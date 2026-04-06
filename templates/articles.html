@@ -92,6 +92,53 @@
     </div>
     {% endif %}
 
+    {% if grading_report %}
+    <div class="article-section grading-section">
+        <h2>PIRTDICA'S GRADING REPORT</h2>
+        {% if season_record.total > 0 %}
+        <div class="grading-record">
+            <span class="record-label">Season Record:</span>
+            <span class="record-value">{{ season_record.hits }}-{{ season_record.total - season_record.hits }} ({{ season_record.pct }}%)</span>
+        </div>
+        {% endif %}
+        <div class="table-wrap">
+            <table class="props-table article-table grading-table">
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        <th>Stat</th>
+                        <th>Line</th>
+                        <th>Pick</th>
+                        <th>Proj</th>
+                        <th>Actual</th>
+                        <th>Result</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for g in grading_report %}
+                    <tr class="{% if g.hit %}grade-hit{% else %}grade-miss{% endif %}">
+                        <td class="player-name-cell">{{ g.player }}</td>
+                        <td>{{ g.stat }}</td>
+                        <td>{{ g.book_line }}</td>
+                        <td><span class="pick-badge pick-{{ g.direction|lower }}">{{ g.direction }}</span></td>
+                        <td>{{ g.projected }}</td>
+                        <td class="grade-actual">{{ g.actual }}</td>
+                        <td><span class="grade-badge {% if g.hit %}grade-badge-hit{% else %}grade-badge-miss{% endif %}">{% if g.hit %}HIT{% else %}MISS{% endif %}</span></td>
+                    </tr>
+                    {% if g.analysis %}
+                    <tr class="grade-analysis-row">
+                        <td colspan="7">
+                            <p class="grade-analysis-text">{{ g.analysis }}</p>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
     {% if prop_recs %}
     <div class="article-section prop-recs-section">
         <h2>Full Prop Recommendations</h2>
