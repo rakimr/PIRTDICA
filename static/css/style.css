@@ -4872,6 +4872,15 @@ th[data-sortable].sort-desc::after {
     color: white;
 }
 
+.grade-badge-push {
+    background: #6b7280;
+    color: white;
+}
+
+.grading-table tr.grade-push {
+    background: rgba(107, 114, 128, 0.05);
+}
+
 .grade-analysis-row td {
     padding: 0.25rem 1rem 0.75rem;
     border-bottom: 1px solid var(--border);

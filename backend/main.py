@@ -285,14 +285,15 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
                     'hit': g.hit,
                     'analysis': g.claude_analysis or '',
                 })
-            from sqlalchemy import func as sqlfunc, case, literal
+            from sqlalchemy import func as sqlfunc, case
             total_row = db.query(
-                sqlfunc.count(models.DailyPickGrade.id),
-                sqlfunc.sum(case((models.DailyPickGrade.hit == True, 1), else_=0))
-            ).first()
-            if total_row and total_row[0]:
-                season_record['total'] = total_row[0]
-                season_record['hits'] = int(total_row[1] or 0)
+                sqlfunc.sum(case((models.DailyPickGrade.hit == True, 1), else_=0)),
+                sqlfunc.sum(case((models.DailyPickGrade.hit == False, 1), else_=0)),
+            ).filter(models.DailyPickGrade.hit.isnot(None)).first()
+            if total_row:
+                season_record['hits'] = int(total_row[0] or 0)
+                season_misses = int(total_row[1] or 0)
+                season_record['total'] = season_record['hits'] + season_misses
                 season_record['pct'] = round(season_record['hits'] / season_record['total'] * 100, 1) if season_record['total'] > 0 else 0.0
         except Exception as e:
             print(f"[ARTICLES] Grading report load failed: {e}")

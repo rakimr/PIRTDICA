@@ -116,14 +116,14 @@
                 </thead>
                 <tbody>
                     {% for g in grading_report %}
-                    <tr class="{% if g.hit %}grade-hit{% else %}grade-miss{% endif %}">
+                    <tr class="{% if g.hit is true %}grade-hit{% elif g.hit is false %}grade-miss{% else %}grade-push{% endif %}">
                         <td class="player-name-cell">{{ g.player }}</td>
                         <td>{{ g.stat }}</td>
                         <td>{{ g.book_line }}</td>
                         <td><span class="pick-badge pick-{{ g.direction|lower }}">{{ g.direction }}</span></td>
                         <td>{{ g.projected }}</td>
                         <td class="grade-actual">{{ g.actual }}</td>
-                        <td><span class="grade-badge {% if g.hit %}grade-badge-hit{% else %}grade-badge-miss{% endif %}">{% if g.hit %}HIT{% else %}MISS{% endif %}</span></td>
+                        <td><span class="grade-badge {% if g.hit is true %}grade-badge-hit{% elif g.hit is false %}grade-badge-miss{% else %}grade-badge-push{% endif %}">{% if g.hit is true %}HIT{% elif g.hit is false %}MISS{% else %}PUSH{% endif %}</span></td>
                     </tr>
                     {% if g.analysis %}
                     <tr class="grade-analysis-row">
