@@ -1,26 +1,4 @@
 player_name,team,opponent,position,salary,stat,player_avg,opp_allows,league_avg,extra_fp,edge_pct,recommendation
 Bruce Brown,DEN,POR,SG,4000,Steals,1.0,2.3,1.7,1.8,34.5,POR gives up +1.8 FP in Steals to SGs
-Joel Embiid,PHI,SA,C,9400,Assists,4.0,4.8,4.0,1.2,19.5,SA gives up +1.2 FP in Assists to Cs
-Mitchell Robinson,NY,ATL,C,4800,Rebounds,8.7,15.4,14.4,1.2,6.7,ATL gives up +1.2 FP in Rebounds to Cs
-Jarrett Allen,CLE,MEM,C,6500,Rebounds,8.5,15.4,14.4,1.2,6.7,MEM gives up +1.2 FP in Rebounds to Cs
-Evan Mobley,CLE,MEM,C,8500,Rebounds,9.0,15.4,14.4,1.2,6.7,MEM gives up +1.2 FP in Rebounds to Cs
-Karl-Anthony Towns,NY,ATL,C,8800,Rebounds,11.9,15.4,14.4,1.2,6.7,ATL gives up +1.2 FP in Rebounds to Cs
 Deni Avdija,POR,DEN,SF,9800,Points,23.9,23.8,22.7,1.1,5.0,DEN gives up +1.1 FP in Points to SFs
-Sam Merrill,CLE,MEM,SG,4700,Points,12.7,24.2,23.4,0.8,3.5,MEM gives up +0.8 FP in Points to SGs
-Josh Hart,NY,ATL,SF,6700,Rebounds,7.6,8.5,7.8,0.8,8.5,ATL gives up +0.8 FP in Rebounds to SFs
-Luke Kornet,SA,PHI,C,4200,Rebounds,6.1,15.0,14.4,0.7,4.0,PHI gives up +0.7 FP in Rebounds to Cs
-Dylan Harper,SA,PHI,SG,5500,Assists,3.9,5.9,5.4,0.7,8.5,PHI gives up +0.7 FP in Assists to SGs
-Evan Mobley,CLE,MEM,C,8500,Points,18.1,22.4,21.7,0.7,3.1,MEM gives up +0.7 FP in Points to Cs
 Deni Avdija,POR,DEN,SF,9800,Assists,6.7,4.9,4.4,0.7,10.1,DEN gives up +0.7 FP in Assists to SFs
-Victor Wembanyama,SA,PHI,C,13100,Rebounds,11.6,15.0,14.4,0.7,4.0,PHI gives up +0.7 FP in Rebounds to Cs
-Paul Reed,DET,ORL,C,5800,Blocks,0.9,2.2,2.0,0.7,11.3,ORL gives up +0.7 FP in Blocks to Cs
-Dylan Harper,SA,PHI,SG,5500,Points,11.7,24.1,23.4,0.7,3.1,PHI gives up +0.7 FP in Points to SGs
-Jarrett Allen,CLE,MEM,C,6500,Points,15.4,22.4,21.7,0.7,3.1,MEM gives up +0.7 FP in Points to Cs
-Devin Vassell,SA,PHI,SG,5800,Points,14.0,24.1,23.4,0.7,3.1,PHI gives up +0.7 FP in Points to SGs
-Evan Mobley,CLE,MEM,C,8500,Assists,3.6,4.4,4.0,0.6,9.5,MEM gives up +0.6 FP in Assists to Cs
-Jalen Suggs,ORL,DET,PG,7300,Steals,1.9,2.2,2.0,0.6,10.7,DET gives up +0.6 FP in Steals to PGs
-Josh Hart,NY,ATL,SF,6700,Points,12.1,23.3,22.7,0.6,2.7,ATL gives up +0.6 FP in Points to SFs
-Mikal Bridges,NY,ATL,SF,5700,Points,14.7,23.3,22.7,0.6,2.7,ATL gives up +0.6 FP in Points to SFs
-Harrison Barnes,SA,PHI,PF,3900,Points,10.0,23.5,22.9,0.6,2.6,PHI gives up +0.6 FP in Points to PFs
-Julian Champagnie,SA,PHI,SF,5400,Points,11.3,23.2,22.7,0.5,2.3,PHI gives up +0.5 FP in Points to SFs
-Keldon Johnson,SA,PHI,SF,4700,Points,13.0,23.2,22.7,0.5,2.3,PHI gives up +0.5 FP in Points to SFs
