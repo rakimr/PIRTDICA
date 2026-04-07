@@ -4695,6 +4695,15 @@ th[data-sortable].sort-desc::after {
     margin-bottom: 1rem;
 }
 
+.picks-disclaimer {
+    color: #999;
+    font-size: 0.82rem;
+    font-style: italic;
+    margin: -0.5rem 0 1rem;
+    padding: 0;
+    line-height: 1.4;
+}
+
 .article-table {
     width: 100%;
     border-collapse: collapse;
