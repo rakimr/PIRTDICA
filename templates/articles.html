@@ -96,7 +96,7 @@
     {% if grading_report %}
     <div class="article-section grading-section">
         <h2>PIRTDICA'S GRADING REPORT</h2>
-        <div class="table-wrap">
+        <div class="table-wrap grading-table-wrap">
             <table class="props-table article-table grading-table">
                 <thead>
                     <tr>
@@ -130,6 +130,41 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+        <div class="grading-cards">
+            {% for g in grading_report %}
+            <div class="grade-card {% if g.hit is true %}grade-card-hit{% elif g.hit is false %}grade-card-miss{% else %}grade-card-push{% endif %}">
+                <div class="grade-card-header">
+                    <span class="grade-card-player">{{ g.player }}</span>
+                    <span class="grade-badge {% if g.hit is true %}grade-badge-hit{% elif g.hit is false %}grade-badge-miss{% else %}grade-badge-push{% endif %}">{% if g.hit is true %}HIT{% elif g.hit is false %}MISS{% else %}PUSH{% endif %}</span>
+                </div>
+                <div class="grade-card-stats">
+                    <div class="grade-card-stat">
+                        <span class="grade-card-label">Stat</span>
+                        <span class="grade-card-value">{{ g.stat }}</span>
+                    </div>
+                    <div class="grade-card-stat">
+                        <span class="grade-card-label">Line</span>
+                        <span class="grade-card-value">{{ g.book_line }}</span>
+                    </div>
+                    <div class="grade-card-stat">
+                        <span class="grade-card-label">Pick</span>
+                        <span class="grade-card-value"><span class="pick-badge pick-{{ g.direction|lower }}">{{ g.direction }}</span></span>
+                    </div>
+                    <div class="grade-card-stat">
+                        <span class="grade-card-label">Proj</span>
+                        <span class="grade-card-value">{{ g.projected }}</span>
+                    </div>
+                    <div class="grade-card-stat">
+                        <span class="grade-card-label">Actual</span>
+                        <span class="grade-card-value grade-actual">{{ g.actual }}</span>
+                    </div>
+                </div>
+                {% if g.analysis %}
+                <p class="grade-card-analysis">{{ g.analysis }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
         </div>
     </div>
     {% endif %}
