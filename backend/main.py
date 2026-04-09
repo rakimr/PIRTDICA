@@ -349,38 +349,48 @@ async def subscribe_success(request: Request, db: Session = Depends(get_db)):
                                          sync_user_subscription_fields)
     user = get_current_user(request, db)
     if not user:
+        print(f"[Stripe] SUCCESS redirect: user not logged in (session lost during Stripe redirect)")
         return html_redirect("/login")
     plan_param = request.query_params.get("plan", "picks")
     redirect_map = {"picks": "/articles", "statpack": "/trends", "bundle": "/"}
     session_id = request.query_params.get("session_id")
-    if session_id:
-        client = get_stripe_client()
-        try:
-            session = client.checkout.Session.retrieve(session_id)
-            session_user_id = (session.metadata or {}).get("user_id", "")
-            if str(user.id) != str(session_user_id):
-                print(f"[Stripe] Session user_id mismatch: session={session_user_id}, logged_in={user.id}")
-                return html_redirect("/articles")
-            if session.subscription:
-                sub, plan_key = resolve_plan_from_subscription(client, session.subscription)
-                user.stripe_customer_id = session.customer
-                period_end = datetime.fromtimestamp(sub.current_period_end) if sub.current_period_end else None
-                _, is_new = upsert_user_subscription(db, user.id, sub.id, plan_key, sub.status, period_end)
-                sync_user_subscription_fields(db, user, plan_key, sub.id, sub.status, sub.current_period_end)
-                if plan_key == "bundle":
-                    cancel_individual_subs_for_bundle(db, user.id, sub.id)
-                if is_new:
-                    from backend.events import emit_subscription_activated
-                    emit_subscription_activated(db, user.id, user.username, plan_key)
-                db.commit()
-                if is_new:
-                    from backend.email_service import process_email_queue
-                    try:
-                        process_email_queue(db)
-                    except Exception:
-                        pass
-        except Exception as e:
-            print(f"[Stripe] Error retrieving session: {e}")
+    if not session_id:
+        print(f"[Stripe] SUCCESS redirect: no session_id in URL for user {user.id} ({user.username})")
+        return html_redirect(redirect_map.get(plan_param, "/"))
+    client = get_stripe_client()
+    try:
+        session = client.checkout.Session.retrieve(session_id)
+        print(f"[Stripe] SUCCESS redirect: user={user.id} ({user.username}), session={session_id}, payment_status={session.payment_status}, subscription={session.subscription}, customer={session.customer}")
+        session_user_id = (session.metadata or {}).get("user_id", "")
+        if str(user.id) != str(session_user_id):
+            print(f"[Stripe] Session user_id mismatch: session={session_user_id}, logged_in={user.id}")
+            return html_redirect("/articles")
+        if not session.subscription:
+            print(f"[Stripe] SUCCESS redirect: no subscription on session (payment_status={session.payment_status})")
+            return html_redirect(redirect_map.get(plan_param, "/"))
+        sub, plan_key = resolve_plan_from_subscription(client, session.subscription)
+        print(f"[Stripe] Resolved plan={plan_key}, sub_status={sub.status}, sub_id={sub.id}")
+        user.stripe_customer_id = session.customer
+        period_end = datetime.fromtimestamp(sub.current_period_end) if sub.current_period_end else None
+        _, is_new = upsert_user_subscription(db, user.id, sub.id, plan_key, sub.status, period_end)
+        sync_user_subscription_fields(db, user, plan_key, sub.id, sub.status, sub.current_period_end)
+        if plan_key == "bundle":
+            cancel_individual_subs_for_bundle(db, user.id, sub.id)
+        if is_new:
+            from backend.events import emit_subscription_activated
+            emit_subscription_activated(db, user.id, user.username, plan_key)
+        db.commit()
+        print(f"[Stripe] SUCCESS: Activated {plan_key} for user {user.id} ({user.username}), is_new={is_new}")
+        if is_new:
+            from backend.email_service import process_email_queue
+            try:
+                process_email_queue(db)
+            except Exception:
+                pass
+    except Exception as e:
+        import traceback
+        print(f"[Stripe] ERROR in success redirect for user {user.id} ({user.username}): {type(e).__name__}: {e}")
+        traceback.print_exc()
     return html_redirect(redirect_map.get(plan_param, "/"))
 
 
