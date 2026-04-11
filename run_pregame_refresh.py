@@ -16,7 +16,7 @@ REFRESH_SCRIPTS = [
     ("manual_injuries.py sync", "Manual Injury Overrides"),
     ("detect_rotation_changes.py", "Rotation Detection"),
     ("scrape_game_odds.py", "Game Odds (Line Movements)"),
-    ("scrape_player_props.py", "Player Prop Odds (The Odds API)"),
+    ("scrape_player_props.py --force", "Player Prop Odds (The Odds API)"),
     ("build_player_archetypes.py", "Player Archetype Classification"),
     ("build_dva.py", "Defense vs Archetype (DVA)"),
     ("matchup_engine.py", "Matchup Interaction Layer"),

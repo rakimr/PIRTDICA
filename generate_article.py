@@ -1064,6 +1064,11 @@ def generate_article(target_date=None):
         print("ERROR: No 'confidence' column in prop_recommendations.csv")
         return False
 
+    pre_filter = len(props)
+    props = props[props['book_line'].notna() & (props['book_line'] > 0)].reset_index(drop=True)
+    if pre_filter != len(props):
+        print(f"  Filtered {pre_filter - len(props)} props without book lines ({len(props)} remaining)")
+
     games = set()
     for _, row in dfs_df.iterrows():
         t = row.get('team', '')
