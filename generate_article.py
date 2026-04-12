@@ -208,8 +208,8 @@ def build_analysis_text_template(row, dfs_df):
         if call == "OVER":
             if dva_edge > 0.5:
                 matchup_parts.append(
-                    f"As a {archetype}, {last_name} draws a favorable archetype matchup against {opponent}'s defense — "
-                    f"the DVA model flags a {dva_edge:+.1f} edge, meaning {opponent} has historically struggled to contain this player profile"
+                    f"As a {archetype}, {last_name} draws a favorable archetype matchup against {opponent}'s defense. "
+                    f"The DVA model flags a {dva_edge:+.1f} edge, meaning {opponent} has historically struggled to contain this player profile"
                 )
             elif dva_edge < -0.5:
                 matchup_parts.append(
@@ -253,7 +253,7 @@ def build_analysis_text_template(row, dfs_df):
             if rc_match:
                 old_min, new_min = rc_match.group(1), rc_match.group(2)
                 context_parts.append(
-                    f"this is a role change situation — {last_name} has jumped from {old_min} to {new_min} minutes per game recently, "
+                    f"This is a role change situation. {last_name} has jumped from {old_min} to {new_min} minutes per game recently, "
                     f"and our model weights his recent production more heavily as a result"
                 )
         elif '↓' in rc_text:
@@ -270,7 +270,7 @@ def build_analysis_text_template(row, dfs_df):
         inj_text = factors['injury']
         if '+' in inj_text:
             context_parts.append(
-                f"There's a teammate absence factor here — {inj_text.replace('Teammate ', '').lower()}, "
+                f"There's a teammate absence factor here. {inj_text.replace('Teammate ', '').capitalize()}, "
                 f"which should open up additional opportunities for {last_name}"
             )
 
@@ -306,7 +306,7 @@ def build_analysis_text_template(row, dfs_df):
         context_parts.append(f"the blowout risk caps his upside slightly ({factors['blowout']})")
 
     if context_parts:
-        intro = "Beyond the matchup data, " if matchup_parts else "The game context matters here — "
+        intro = "Beyond the matchup data, " if matchup_parts else "The game context matters here. "
         paragraphs.append(intro + ", ".join(context_parts) + ".")
 
     if matchup_hist and matchup_hist.get('games', 0) >= 2:
@@ -325,7 +325,7 @@ def build_analysis_text_template(row, dfs_df):
 
     reliability = ""
     if hit_rate > 65:
-        reliability = f"This is one of the more reliable plays on the board — the {call} has cleared at a {hit_rate:.0f}% rate this season"
+        reliability = f"**This is one of the more reliable plays on the board.** The {call} has cleared at a {hit_rate:.0f}% rate this season"
     elif hit_rate > 55:
         reliability = f"The {call} has cleared at a solid {hit_rate:.0f}% rate this season"
     elif hit_rate > 0 and hit_rate < 40:
@@ -346,7 +346,7 @@ def build_analysis_text_template(row, dfs_df):
         paragraphs.append(reliability + ".")
 
     paragraphs.append(
-        f"**The Call: {call} {book_line} {stat}** — We project {last_name} at {projected:.1f} {stat_label} tonight "
+        f"**The Call: {call} {book_line} {stat}** // We project {last_name} at {projected:.1f} {stat_label} tonight "
         f"({edge_str} edge vs. the book). Composite score: {composite_score:.1f}."
     )
 
@@ -491,7 +491,7 @@ def _build_slate_context(dfs_df, high_rows):
                 usg = _safe_float(match.iloc[0].get('usg_pct', 0))
                 if usg > 18:
                     reason_str = f" ({reason})" if reason and str(reason) != 'nan' else ""
-                    key_absences.append(f"{name} ({team}, {usg:.1f}% USG) — {status}{reason_str}")
+                    key_absences.append(f"{name} ({team}, {usg:.1f}% USG) // {status}{reason_str}")
     except Exception:
         pass
 
@@ -509,34 +509,46 @@ def _build_slate_context(dfs_df, high_rows):
                         if p['name'] not in seen_out:
                             seen_out.add(p['name'])
                             key_absences.append(
-                                f"{p['name']} ({p.get('archetype', '?')}, {p['usg']:.1f}% USG, {p['mpg']:.1f} MPG) — OUT"
+                                f"{p['name']} ({p.get('archetype', '?')}, {p['usg']:.1f}% USG, {p['mpg']:.1f} MPG) // OUT"
                             )
                 except Exception:
                     continue
 
-    ctx = f"SLATE: {len(games)} games — {', '.join(game_summaries)}"
+    ctx = f"SLATE: {len(games)} games // {', '.join(game_summaries)}"
     if key_absences:
         ctx += f"\n\nKEY ABSENCES:\n" + "\n".join(f"- {a}" for a in key_absences[:15])
     return ctx
 
 
 FEW_SHOT_EXAMPLES = """
-EXAMPLE ANALYSES (from a gold-standard 80% hit rate slate — match this quality):
+EXAMPLE ANALYSES (from a gold-standard 80% hit rate slate. Match this quality and tone):
 
-**RUI HACHIMURA — PTS OVER 9.5 (CHI @ LAL)**
-The line is almost insultingly low. Hachimura averages 11.6 on the season and the model has him at 16.3 in 35 projected minutes. Chicago is the best power forward matchup in the league right now — +3.8 DVP edge — and LAL is missing Hayes, Smart, and Kleber, pushing Rui into a heavier offensive role (+4.2 usage boost). He's hit this line in back-to-back meetings with CHI and the 240 game total creates an ideal scoring environment. Top composite score on the slate at 72.9.
+**RUI HACHIMURA // PTS OVER 9.5 (CHI @ LAL)**
+The line is almost insultingly low. Hachimura averages 11.6 on the season and the model has him at 16.3 in 35 projected minutes.
 
-**The Call: OVER 9.5 PTS** — We project Hachimura at 16.3 points tonight (+8.7% edge vs. the book). Composite score: 72.9.
+Chicago is the best power forward matchup in the league right now with a +3.8 DVP edge, and LAL is missing Hayes, Smart, and Kleber. That pushes Rui into a heavier offensive role with a +4.2 usage boost. He's hit this line in back-to-back meetings with CHI and the 240 game total creates an ideal scoring environment.
 
-**TRE JONES — AST OVER 4.5 (CHI @ LAL)**
-Jones runs this Bulls offense and averages 5.5 assists — a full assist above the book line. The model projects 6.8 in 31 minutes, with Ayo Dosunmu OUT redistributing 0.5 extra assists his way. His playmaking composite index of 3.1 is strong, both DVA (+0.73) and DVP (+0.79) are positive, and the 240 game total means plenty of possessions. Hit rate of 64.6% is the second-highest among all HIGH picks today. The one caution: last 5 average is 4.6, slightly below his season mark — but the matchup and usage context override that dip.
+**Top composite score on the slate at 72.9.**
 
-**The Call: OVER 4.5 AST** — We project Jones at 6.8 assists tonight (+51.1% edge vs. the book). Composite score: 65.2.
+**The Call: OVER 9.5 PTS** // We project Hachimura at 16.3 points tonight (+8.7% edge vs. the book). Composite score: 72.9.
 
-**DYLAN HARPER — PTS OVER 10.5 (DEN @ SA)**
-Harper's been heating up — last 5 average of 13.0 already clears the line by 2.5 points. He's scored in a DEN matchup before (+2.4 H2H edge) and the game environment is elite: second-highest total on the slate at 240, fast pace on both sides. DVA +0.6 confirms his archetype produces well against Denver's coverage scheme. The line at 10.5 hasn't caught up to his recent form, which is exactly the inefficiency we're targeting.
+**TRE JONES // AST OVER 4.5 (CHI @ LAL)**
+Jones runs this Bulls offense and averages 5.5 assists, a full assist above the book line. The model projects 6.8 in 31 minutes, with Ayo Dosunmu OUT redistributing 0.5 extra assists his way.
 
-**The Call: OVER 10.5 PTS** — We project Harper at 14.5 points tonight (+38.1% edge vs. the book). Composite score: 61.8.
+His playmaking composite index of 3.1 is strong. Both DVA (+0.73) and DVP (+0.79) are positive, and the 240 game total means plenty of possessions. **Hit rate of 64.6% is the second-highest among all HIGH picks today.**
+
+The one caution: last 5 average is 4.6, slightly below his season mark. But the matchup and usage context override that dip.
+
+**The Call: OVER 4.5 AST** // We project Jones at 6.8 assists tonight (+51.1% edge vs. the book). Composite score: 65.2.
+
+**DYLAN HARPER // PTS OVER 10.5 (DEN @ SA)**
+Harper's been heating up. Last 5 average of 13.0 already clears the line by 2.5 points.
+
+He's scored in a DEN matchup before (+2.4 H2H edge) and the game environment is elite: second-highest total on the slate at 240, fast pace on both sides. DVA +0.6 confirms his archetype produces well against Denver's coverage scheme.
+
+**The line at 10.5 hasn't caught up to his recent form, which is exactly the inefficiency we're targeting.**
+
+**The Call: OVER 10.5 PTS** // We project Harper at 14.5 points tonight (+38.1% edge vs. the book). Composite score: 61.8.
 """
 
 
@@ -578,7 +590,7 @@ def _build_full_slate_briefing(props_df, dfs_df):
                 usg = _safe_float(match.iloc[0].get('usg_pct', 0))
                 if usg > 12:
                     reason_str = f" ({reason})" if reason and str(reason) != 'nan' else ""
-                    key_absences.append(f"{name} ({team}, {usg:.1f}% USG) — {status}{reason_str}")
+                    key_absences.append(f"{name} ({team}, {usg:.1f}% USG) // {status}{reason_str}")
     except Exception:
         pass
 
@@ -664,21 +676,21 @@ def _build_full_slate_briefing(props_df, dfs_df):
 
 
 CLAUDE_ANALYST_PATTERNS = """
-ANALYTICAL FRAMEWORK — What separates a great pick from a good one (from our 80% hit rate reference slate):
+ANALYTICAL FRAMEWORK (What separates a great pick from a good one, from our 80% hit rate reference slate):
 
-1. USAGE REDISTRIBUTION FROM STAR ABSENCES — When high-usage stars are OUT, their usage/minutes redistribute to teammates. Look for players with high total_vacated_usage (>30%) and opportunity_spike=true. These are the highest-edge plays.
+1. USAGE REDISTRIBUTION FROM STAR ABSENCES: When high-usage stars are OUT, their usage/minutes redistribute to teammates. Look for players with high total_vacated_usage (>30%) and opportunity_spike=true. These are the highest-edge plays.
 
-2. DVP/DVA DOUBLE ALIGNMENT — The strongest picks have BOTH Defense vs Position (dvp_edge) AND Defense vs Archetype (dva_edge) supporting the direction. Both >+0.5 for OVER = strong signal. If both are negative, avoid.
+2. DVP/DVA DOUBLE ALIGNMENT: The strongest picks have BOTH Defense vs Position (dvp_edge) AND Defense vs Archetype (dva_edge) supporting the direction. Both >+0.5 for OVER = strong signal. If both are negative, avoid.
 
-3. GAME TOTAL / PACE ENVIRONMENTS — High implied team totals (>115) and game totals (check game implied_total) of 235+ create more possessions and scoring. These environments amplify OVER picks, especially for PTS and AST.
+3. GAME TOTAL / PACE ENVIRONMENTS: High implied team totals (>115) and game totals (check game implied_total) of 235+ create more possessions and scoring. These environments amplify OVER picks, especially for PTS and AST.
 
-4. LAST-5 AVERAGE CLEARING THE BOOK LINE — For OVER picks, the player's last5_avg should already clear the book_line. This confirms recent form supports the direction. For UNDER picks, last5_avg should be below the line.
+4. LAST-5 AVERAGE CLEARING THE BOOK LINE: For OVER picks, the player's last5_avg should already clear the book_line. This confirms recent form supports the direction. For UNDER picks, last5_avg should be below the line.
 
-5. HIGH COMPOSITE SCORES — Composite score ranks multi-factor quality. Picks above 60 are strong; above 70 are elite.
+5. HIGH COMPOSITE SCORES: Composite score ranks multi-factor quality. Picks above 60 are strong; above 70 are elite.
 
-6. CONTRARIAN DISCIPLINE — Limit UNDER picks to 1-2 max per slate. Only take UNDERs where the projection is clearly below the line AND matchup/game environment supports lower production. NEVER take UNDER when usage_boost > 3.0.
+6. CONTRARIAN DISCIPLINE: Limit UNDER picks to 1-2 max per slate. Only take UNDERs where the projection is clearly below the line AND matchup/game environment supports lower production. NEVER take UNDER when usage_boost > 3.0.
 
-7. CONSISTENCY CHECK — CV (coefficient of variation) below 0.30 = very consistent player. Above 0.50 = volatile (higher risk).
+7. CONSISTENCY CHECK: CV (coefficient of variation) below 0.30 = very consistent player. Above 0.50 = volatile (higher risk).
 
 QUALITY GATES (reference, not hard constraints):
 - Hit rate >= 58%
@@ -701,27 +713,32 @@ def build_claude_analyst(props_df, dfs_df):
     briefing_json = json.dumps(briefing, indent=2, default=str)
     print(f"Claude Analyst briefing: {len(briefing['prop_lines'])} prop lines across {briefing['game_count']} games ({len(briefing_json)} chars)")
 
-    system_prompt = """You are an elite NBA DFS analyst for PIRTDICA SPORTS CO. You are given the FULL slate data — every player prop line with projections, matchup edges, usage context, injury impacts, game environments, and recent form.
+    system_prompt = """You are an elite NBA DFS analyst for PIRTDICA SPORTS CO. You are given the FULL slate data with projections, matchup edges, usage context, injury impacts, game environments, and recent form.
 
-You are competing directly against the sharpest analysts at FanDuel who set these player prop lines. These are highly prepared, well-resourced professionals backed by Vegas-caliber modeling and oddsmaking infrastructure. Your edge comes from identifying situations their models undervalue — usage redistribution cascades from injuries, emerging role changes, archetype-matchup exploits, and game environment convergences that mass-market lines are slow to price in. Respect the lines. Only attack when you have genuine conviction backed by multiple converging signals.
+You are competing directly against the sharpest analysts at FanDuel who set these player prop lines. These are highly prepared, well-resourced professionals backed by Vegas-caliber modeling. Your edge comes from identifying situations their models undervalue: usage redistribution cascades from injuries, emerging role changes, archetype-matchup exploits, and game environment convergences that mass-market lines are slow to price in. Respect the lines. Only attack when you have genuine conviction backed by multiple converging signals.
 
-YOUR JOB: Independently analyze the entire slate and select 4-8 HIGH confidence prop picks. You are NOT limited to what the statistical model labeled as HIGH — you should evaluate ALL prop lines and find the sharpest edges yourself.
+YOUR JOB: Independently analyze the entire slate and select 4-8 HIGH confidence prop picks. You are NOT limited to what the statistical model labeled as HIGH. Evaluate ALL prop lines and find the sharpest edges yourself.
 
 PICK SELECTION CRITERIA:
 - Look for convergence of multiple positive signals (usage redistribution + matchup alignment + recent form + game environment)
 - Prioritize picks where the book line significantly undervalues the player's projected output
-- Weight recent form (last5_avg) heavily — it captures momentum the season average misses
+- Weight recent form (last5_avg) heavily, it captures momentum the season average misses
 - Opportunity Spikes (star absences creating usage vacuums) are the highest-edge situations
 - Consider the game environment: high implied totals create more scoring opportunities
 - Use the analytical framework provided to evaluate each potential pick
 
 WRITING STYLE:
-- Conversational but data-driven — like a sharp bettor talking to another sharp
-- Lead with the strongest angle for each pick (usage redistribution, matchup edge, recent form, game environment)
-- Cite specific numbers: DVA/DVP edges, hit rates, last-5 averages, projected minutes, usage boosts, composite scores
-- Explain WHY the pick is strong, referencing the specific data points
-- Each analysis: 3-4 paragraphs, 150-250 words
-- End each analysis with: **The Call: OVER/UNDER X.X STAT** — We project [Player] at [Value] [stat] tonight ([edge]% edge vs. the book). Composite score: [X].
+- Write like you're talking to a sharp friend, not a lecture hall. Conversational, direct, confident.
+- NEVER use em-dashes or double hyphens (--). Use periods, commas, colons, or start a new sentence instead.
+- Use "you" and "your" to speak directly to the reader.
+- Short paragraphs only (2-4 lines max). One idea per paragraph.
+- **Bold the key insight** in most sections so skimmers catch the value immediately.
+- Lead each pick with a hook that grabs attention: why should the reader care about THIS play right now?
+- Show, don't just tell: every claim gets backed with specific numbers (DVA/DVP edges, hit rates, last-5 averages, projected minutes, usage boosts, composite scores).
+- Cut filler words like "very," "really," "in order to," "it should be noted that."
+- Each analysis: 3-4 paragraphs, 150-250 words.
+- End each analysis with: **The Call: OVER/UNDER X.X STAT** // We project [Player] at [Value] [stat] tonight ([edge]% edge vs. the book). Composite score: [X].
+- Use "//" as a separator instead of dashes.
 
 OUTPUT FORMAT:
 Return a JSON object with two keys:
@@ -754,7 +771,7 @@ Return ONLY the JSON object, no other text. Order picks by edge strength (strong
 
 {FEW_SHOT_EXAMPLES}
 
-HERE IS THE COMPLETE SLATE DATA — every player prop line with full model context:
+HERE IS THE COMPLETE SLATE DATA (every player prop line with full model context):
 
 {briefing_json}
 
@@ -762,6 +779,7 @@ Remember:
 - Select 4-8 picks where you see the strongest convergence of signals
 - You can pick ANY prop line from the full slate, not just ones the model labeled HIGH
 - Each analysis must be data-driven, cite specific numbers, and end with **The Call:** line
+- NEVER use em-dashes or double hyphens. Use periods, commas, colons, or "//" instead.
 - Return ONLY a JSON object with "picks" and "analyses" keys"""
 
     try:
@@ -938,19 +956,23 @@ def build_analysis_claude(high_rows, dfs_df, best_available=False):
 
     system_prompt = """You are a sharp NBA DFS analyst writing for PIRTDICA SPORTS CO., a competitive fantasy sports platform. Your audience is sportsbook bettors looking for HIGH confidence prop picks.
 
-You are competing directly against the sharpest analysts at FanDuel who set these player prop lines. These are highly prepared, well-resourced professionals backed by Vegas-caliber modeling and oddsmaking infrastructure. Your edge comes from identifying situations their models undervalue — usage redistribution cascades from injuries, emerging role changes, archetype-matchup exploits, and game environment convergences that mass-market lines are slow to price in. Respect the lines. Only attack when you have genuine conviction backed by multiple converging signals.
+You are competing directly against the sharpest analysts at FanDuel who set these player prop lines. These are highly prepared, well-resourced professionals backed by Vegas-caliber modeling. Your edge comes from identifying situations their models undervalue: usage redistribution cascades from injuries, emerging role changes, archetype-matchup exploits, and game environment convergences that mass-market lines are slow to price in. Respect the lines. Only attack when you have genuine conviction backed by multiple converging signals.
 
 WRITING STYLE:
-- Conversational but data-driven — like a sharp bettor talking to another sharp
-- Lead with the strongest angle for each pick (usage redistribution, matchup edge, recent form, game environment)
-- Cite specific numbers: DVA/DVP edges, hit rates, last-5 averages, projected minutes, usage boosts, composite scores
-- Explain WHY the model likes the pick, not just that it does
-- Keep each analysis 3-4 paragraphs (150-250 words)
-- End each analysis with a bold call line: **The Call: OVER/UNDER X.X STAT** with the projected value and edge
-- Never use generic filler — every sentence should contain data or insight
-- When players have an Opportunity Spike (out players creating usage vacuum), lead with that angle
-- Reference the book line and explain why the market is wrong
-- Connect picks to slate-wide context (game totals, key absences, pace environments) when relevant
+- Write like you're talking to a sharp friend, not a lecture hall. Conversational, direct, confident.
+- NEVER use em-dashes or double hyphens (--). Use periods, commas, colons, or start a new sentence instead.
+- Use "you" and "your" to speak directly to the reader.
+- Short paragraphs only (2-4 lines max). One idea per paragraph.
+- **Bold the key insight** in most sections so skimmers catch the value immediately.
+- Lead each pick with a hook that grabs attention: why should the reader care about THIS play right now?
+- Show, don't just tell: every claim gets backed with specific numbers (DVA/DVP edges, hit rates, last-5 averages, projected minutes, usage boosts, composite scores).
+- Cut filler words like "very," "really," "in order to," "it should be noted that."
+- Keep each analysis 3-4 paragraphs (150-250 words).
+- End each analysis with: **The Call: OVER/UNDER X.X STAT** // We project [Player] at [Value] [stat] tonight ([edge]% edge vs. the book). Composite score: [X].
+- Use "//" as a separator instead of dashes.
+- When players have an Opportunity Spike (out players creating usage vacuum), lead with that angle.
+- Reference the book line and explain why the market is wrong.
+- Connect picks to slate-wide context (game totals, key absences, pace environments) when relevant.
 
 OUTPUT FORMAT:
 Return a JSON array where each element has:
@@ -960,7 +982,7 @@ Return a JSON array where each element has:
 Return ONLY the JSON array, no other text."""
 
     if best_available:
-        confidence_label = "today's top picks (best available — these narrowly missed HIGH confidence but are the strongest edges on the slate)"
+        confidence_label = "today's top picks (best available: these narrowly missed HIGH confidence but are the strongest edges on the slate)"
     else:
         confidence_label = "HIGH confidence prop analysis for today's slate"
 
@@ -974,7 +996,7 @@ Now write analyses for today's picks. Here is the full model data for each pick:
 
 {picks_json}
 
-Remember: return ONLY a JSON array with "player" and "analysis" keys. Each analysis should be 3-4 paragraphs (150-250 words), data-driven, and end with a bold **The Call:** line. Match the quality and specificity of the examples above."""
+Remember: return ONLY a JSON array with "player" and "analysis" keys. Each analysis should be 3-4 paragraphs (150-250 words), data-driven, and end with a bold **The Call:** line. NEVER use em-dashes or double hyphens. Match the quality and specificity of the examples above."""
 
     try:
         from anthropic import Anthropic
