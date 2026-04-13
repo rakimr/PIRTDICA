@@ -406,6 +406,7 @@ async def stripe_webhook(request: Request):
         print(f"[Stripe Webhook] Verification failed: {e}")
         return JSONResponse({"error": "Invalid signature"}, status_code=400)
 
+    print(f"[Stripe Webhook] Received event: {event.type} (id={event.id})")
     db = SessionLocal()
     try:
         from backend.stripe_billing import (get_stripe_client, resolve_plan_from_subscription,
@@ -510,8 +511,9 @@ async def stripe_webhook(request: Request):
         import traceback
         print(f"[Stripe Webhook] Error processing {event.type}: {e}")
         traceback.print_exc()
+        db.rollback()
         db.close()
-        return JSONResponse({"error": "Processing failed"}, status_code=500)
+        return JSONResponse({"received": True, "error": str(e)})
     finally:
         db.close()
 
