@@ -181,5 +181,8 @@ cython_debug/
 articles/
 attached_assets/
 
+# Runtime logs directory
+logs/
+
 # Stripe keys (loaded from Replit connection)
 .stripe_keys.json
