@@ -1,11 +1,12 @@
 player_name,team,opponent,position,salary,stat,player_avg,opp_allows,league_avg,extra_fp,edge_pct,recommendation
 Tyrese Maxey,PHI,ORL,PG,10200,Points,28.3,25.1,24.0,1.1,4.8,ORL gives up +1.1 FP in Points to PGs
 Paolo Banchero,ORL,PHI,PF,9500,Rebounds,8.4,11.0,10.3,0.8,6.3,PHI gives up +0.8 FP in Rebounds to PFs
-VJ Edgecombe,PHI,ORL,SG,7500,Points,16.0,24.2,23.4,0.8,3.5,ORL gives up +0.8 FP in Points to SGs
 Franz Wagner,ORL,PHI,PF,6300,Rebounds,5.2,11.0,10.3,0.8,6.3,PHI gives up +0.8 FP in Rebounds to PFs
-Paolo Banchero,ORL,PHI,PF,9500,Points,22.2,23.6,22.9,0.7,3.0,PHI gives up +0.7 FP in Points to PFs
+VJ Edgecombe,PHI,ORL,SG,7500,Points,16.0,24.2,23.4,0.8,3.5,ORL gives up +0.8 FP in Points to SGs
 Franz Wagner,ORL,PHI,PF,6300,Points,20.6,23.6,22.9,0.7,3.0,PHI gives up +0.7 FP in Points to PFs
+Paolo Banchero,ORL,PHI,PF,9500,Points,22.2,23.6,22.9,0.7,3.0,PHI gives up +0.7 FP in Points to PFs
 Desmond Bane,ORL,PHI,SG,7300,Assists,4.1,5.9,5.4,0.7,8.7,PHI gives up +0.7 FP in Assists to SGs
+Joel Embiid,PHI,ORL,C,7200,Blocks,1.2,2.2,2.0,0.6,9.6,ORL gives up +0.6 FP in Blocks to Cs
 Desmond Bane,ORL,PHI,SG,7300,Points,20.1,24.0,23.4,0.6,2.7,PHI gives up +0.6 FP in Points to SGs
 Adem Bona,PHI,ORL,C,3700,Blocks,1.2,2.2,2.0,0.6,9.6,ORL gives up +0.6 FP in Blocks to Cs
 Andre Drummond,PHI,ORL,C,5700,Blocks,0.8,2.2,2.0,0.6,9.6,ORL gives up +0.6 FP in Blocks to Cs
