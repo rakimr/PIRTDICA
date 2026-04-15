@@ -48,6 +48,7 @@ SOURCE_CODE_FILES = [
     "sync_to_postgres.py",
     "utils/nba_api_helpers.py",
     "scrape_bref_gamelogs.py",
+    "refresh_nba_data.py",
     "scrape_nba_gamelogs.py",
     "build_player_archetypes.py",
     "calculate_dva.py",
