@@ -374,7 +374,7 @@ def upsert_table(conn, table_name, new_df, key_col='player_name'):
     combined = pd.concat([new_df, preserved_df], ignore_index=True)
     combined.to_sql(table_name, conn, if_exists='replace', index=False)
 
-    print(f"  {table_name}: {updated} updated, {new_additions} new, {preserved} preserved → {len(combined)} total")
+    print(f"  {table_name}: {updated} updated, {new_additions} new, {preserved} preserved -> {len(combined)} total")
 
 
 def save_to_db(zones_df, creation_df, hustle_df=None, tracking_df=None):
