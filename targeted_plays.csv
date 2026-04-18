@@ -1,2 +1,18 @@
 player_name,team,opponent,position,salary,stat,player_avg,opp_allows,league_avg,extra_fp,edge_pct,recommendation
-Desmond Bane,ORL,CHA,SG,7400,Assists,4.1,5.8,5.4,0.6,6.8,CHA gives up +0.6 FP in Assists to SGs
+Tari Eason,HOU,LAL,SF,5600,Points,10.5,24.7,22.7,2.0,8.9,LAL gives up +2.0 FP in Points to SFs
+Kevin Durant,HOU,LAL,SF,9300,Points,26.0,24.7,22.7,2.0,8.9,LAL gives up +2.0 FP in Points to SFs
+Jamal Murray,DEN,MIN,PG,9300,Points,25.4,25.3,24.0,1.3,5.6,MIN gives up +1.3 FP in Points to PGs
+Karl-Anthony Towns,NY,ATL,C,9000,Rebounds,11.9,15.5,14.4,1.3,7.3,ATL gives up +1.3 FP in Rebounds to Cs
+Mitchell Robinson,NY,ATL,C,4700,Rebounds,8.8,15.5,14.4,1.3,7.3,ATL gives up +1.3 FP in Rebounds to Cs
+Jaden McDaniels,MIN,DEN,SF,6000,Points,14.8,23.8,22.7,1.1,4.9,DEN gives up +1.1 FP in Points to SFs
+Amen Thompson,HOU,LAL,PG,9000,Assists,5.3,9.1,8.3,1.1,9.2,LAL gives up +1.1 FP in Assists to PGs
+Jamal Murray,DEN,MIN,PG,9300,Rebounds,4.4,6.8,6.1,0.9,11.7,MIN gives up +0.9 FP in Rebounds to PGs
+Amen Thompson,HOU,LAL,PG,9000,Steals,1.5,2.3,2.0,0.9,15.8,LAL gives up +0.9 FP in Steals to PGs
+Jake LaRavia,LAL,HOU,SF,5100,Steals,1.3,2.0,1.7,0.9,18.6,HOU gives up +0.9 FP in Steals to SFs
+LeBron James,LAL,HOU,SF,10600,Steals,1.2,2.0,1.7,0.9,18.6,HOU gives up +0.9 FP in Steals to SFs
+Josh Hart,NY,ATL,SF,6300,Rebounds,7.4,8.4,7.8,0.7,7.4,ATL gives up +0.7 FP in Rebounds to SFs
+OG Anunoby,NY,ATL,PF,6500,Rebounds,5.2,10.9,10.3,0.7,5.4,ATL gives up +0.7 FP in Rebounds to PFs
+Reed Sheppard,HOU,LAL,SG,5800,Assists,3.4,5.9,5.4,0.7,8.7,LAL gives up +0.7 FP in Assists to SGs
+Josh Hart,NY,ATL,SF,6300,Points,12.0,23.3,22.7,0.6,2.7,ATL gives up +0.6 FP in Points to SFs
+Mikal Bridges,NY,ATL,SF,5900,Points,14.4,23.3,22.7,0.6,2.7,ATL gives up +0.6 FP in Points to SFs
+Jamal Murray,DEN,MIN,PG,9300,Assists,7.1,8.7,8.3,0.5,4.4,MIN gives up +0.5 FP in Assists to PGs

@@ -18,7 +18,7 @@ except ImportError:
     ET = zoneinfo.ZoneInfo('US/Eastern')
 
 TARGET_HOUR = 18
-TARGET_MINUTE = 20
+TARGET_MINUTE = 0
 GRACE_WINDOW_MINUTES = 120
 
 def get_et_now():
