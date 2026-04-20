@@ -17,6 +17,8 @@ REFRESH_SCRIPTS = [
     ("detect_rotation_changes.py", "Rotation Detection"),
     ("scrape_game_odds.py", "Game Odds (Line Movements)"),
     ("scrape_player_props.py --force", "Player Prop Odds (The Odds API)"),
+    ("scrape_referee_assignments.py", "Referee Assignments"),
+    ("etl_game_foul_environment.py", "Game Foul Environment"),
     ("build_player_archetypes.py", "Player Archetype Classification"),
     ("build_dva.py", "Defense vs Archetype (DVA)"),
     ("matchup_engine.py", "Matchup Interaction Layer"),
