@@ -80,33 +80,48 @@ def run_script(script_name, description):
     
     return True
 
+PIPELINE_LOCK_FILE = "/home/runner/workspace/.pipeline.lock"
+
+
 def main():
     print("="*50)
     print("NBA DFS Daily Update")
     print("="*50)
-    
+
+    try:
+        with open(PIPELINE_LOCK_FILE, "w") as lf:
+            lf.write(f"daily {os.getpid()} {datetime.now().isoformat()}\n")
+    except Exception as e:
+        print(f"Warning: could not write pipeline lock: {e}")
+
     from utils.nba_api_helpers import reset_circuit, get_circuit_info
     reset_circuit()
-    
+
     success_count = 0
     fail_count = 0
-    
-    for script, description in SCRIPTS:
-        if run_script(script, description):
-            success_count += 1
-        else:
-            fail_count += 1
-    
-    circuit_info = get_circuit_info()
-    if circuit_info and circuit_info.get('tripped'):
-        print(f"\nCIRCUIT BREAKER: NBA.com was unreachable (tripped by: {circuit_info.get('tripped_by', 'unknown')})")
-        print("All subsequent NBA.com calls used cached data.")
-    
-    print("\n" + "="*50)
-    print(f"Daily Update Complete: {success_count} succeeded, {fail_count} failed")
-    print("="*50)
-    
-    push_to_github()
+
+    try:
+        for script, description in SCRIPTS:
+            if run_script(script, description):
+                success_count += 1
+            else:
+                fail_count += 1
+
+        circuit_info = get_circuit_info()
+        if circuit_info and circuit_info.get('tripped'):
+            print(f"\nCIRCUIT BREAKER: NBA.com was unreachable (tripped by: {circuit_info.get('tripped_by', 'unknown')})")
+            print("All subsequent NBA.com calls used cached data.")
+
+        print("\n" + "="*50)
+        print(f"Daily Update Complete: {success_count} succeeded, {fail_count} failed")
+        print("="*50)
+
+        push_to_github()
+    finally:
+        try:
+            os.remove(PIPELINE_LOCK_FILE)
+        except OSError:
+            pass
 
 def push_to_github():
     print(f"\n{'='*50}")

@@ -82,26 +82,41 @@ def push_to_github():
     except Exception as e:
         print(f"  Push error: {e}")
 
+PIPELINE_LOCK_FILE = "/home/runner/workspace/.pipeline.lock"
+
+
 def main():
     print("=" * 50)
     print("PRE-GAME ARTICLE REFRESH (6:20 PM ET)")
     print(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 50)
 
+    try:
+        with open(PIPELINE_LOCK_FILE, "w") as lf:
+            lf.write(f"pregame {os.getpid()} {datetime.now().isoformat()}\n")
+    except Exception as e:
+        print(f"Warning: could not write pipeline lock: {e}")
+
     success_count = 0
     fail_count = 0
 
-    for script, description in REFRESH_SCRIPTS:
-        if run_script(script, description):
-            success_count += 1
-        else:
-            fail_count += 1
+    try:
+        for script, description in REFRESH_SCRIPTS:
+            if run_script(script, description):
+                success_count += 1
+            else:
+                fail_count += 1
 
-    print("\n" + "=" * 50)
-    print(f"Pre-Game Refresh Complete: {success_count} succeeded, {fail_count} failed")
-    print("=" * 50)
+        print("\n" + "=" * 50)
+        print(f"Pre-Game Refresh Complete: {success_count} succeeded, {fail_count} failed")
+        print("=" * 50)
 
-    push_to_github()
+        push_to_github()
+    finally:
+        try:
+            os.remove(PIPELINE_LOCK_FILE)
+        except OSError:
+            pass
 
 if __name__ == "__main__":
     main()

@@ -102,6 +102,8 @@ SOURCE_CODE_FILES = [
     ".stripe_keys.json",
     "run_pregame_refresh.py",
     "scheduler_pregame.py",
+    "refresh_charts.py",
+    "scheduler_charts.py",
     "replit.md",
     ".gitignore",
 ]
