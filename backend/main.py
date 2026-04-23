@@ -588,6 +588,7 @@ async def billing_page(request: Request, db: Session = Depends(get_db)):
         amount = plan_info.get("amount", 0)
         interval = plan_info.get("interval", "month")
         price_str = f"${amount / 100:.0f}/{interval}" if amount else ""
+        is_stripe_managed = bool(s.stripe_subscription_id and s.stripe_subscription_id.startswith("sub_"))
         subscriptions.append({
             "display_name": PLAN_DISPLAY_NAMES.get(s.plan, s.plan),
             "description": plan_info.get("description", ""),
@@ -595,7 +596,10 @@ async def billing_page(request: Request, db: Session = Depends(get_db)):
             "period_end": s.current_period_end.strftime("%B %-d, %Y") if s.current_period_end else None,
             "price": price_str,
             "plan_key": s.plan,
+            "is_stripe_managed": is_stripe_managed,
         })
+
+    any_stripe_managed = any(sub["is_stripe_managed"] for sub in subscriptions)
 
     available_plans = []
     for key, plan in PLANS.items():
@@ -629,7 +633,23 @@ async def billing_portal_redirect(request: Request, db: Session = Depends(get_db
         session = create_billing_portal_session(user.stripe_customer_id, f"{base_url}/billing")
         return html_redirect(session.url)
     except Exception as e:
-        print(f"[Stripe] Portal session error: {e}")
+        err_str = str(e)
+        print(f"[Stripe] Portal session error for user {user.id}: {e}")
+        if "No such customer" in err_str or "resource_missing" in err_str:
+            user.stripe_customer_id = None
+            db.commit()
+            print(f"[Stripe] Cleared stale stripe_customer_id for user {user.id}")
+            return templates.TemplateResponse("error.html", {
+                "request": request, "user": user,
+                "error_title": "No Stripe Subscription Found",
+                "error_message": "This account doesn't have an active Stripe-managed subscription to edit. If you have a complimentary or manually-granted plan, contact support to make changes. Otherwise, head back to Billing to start a new subscription.",
+            }, status_code=400)
+        if "configuration" in err_str.lower():
+            return templates.TemplateResponse("error.html", {
+                "request": request, "user": user,
+                "error_title": "Customer Portal Not Configured",
+                "error_message": "The Stripe Customer Portal needs to be activated by an admin (Stripe Dashboard \u2192 Settings \u2192 Billing \u2192 Customer Portal). Please try again shortly.",
+            }, status_code=503)
         return templates.TemplateResponse("error.html", {
             "request": request, "user": user,
             "error_title": "Billing Portal Unavailable",
