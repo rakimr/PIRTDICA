@@ -52,7 +52,7 @@ def chart_hashes():
     return {f: file_hash(os.path.join(WORKSPACE, f)) for f in CHART_FILES}
 
 
-def wait_for_pipeline_lock(max_wait_secs=600):
+def wait_for_pipeline_lock(max_wait_secs=1800):
     """If a full pipeline is running, wait up to max_wait_secs for it to finish."""
     if not os.path.exists(PIPELINE_LOCK_FILE):
         return True
