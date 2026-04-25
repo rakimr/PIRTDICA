@@ -106,6 +106,7 @@ SOURCE_CODE_FILES = [
     "scheduler_charts.py",
     "start_production.sh",
     "replit.md",
+    "session_memory.md",
     ".gitignore",
 ]
 
