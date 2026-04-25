@@ -536,16 +536,67 @@ def _load_book_props():
         print(f"Could not load book props: {e}")
         return {}
 
+def _classify_move_pattern(per_snap_diffs, total_drift):
+    """Classify the *shape* of intra-day line movement from per-snapshot diffs.
+
+    Precedence (most specific signal wins):
+      1. 'flat' — no per-snapshot diffs or every tick is zero
+      2. 'sudden_swing' — single tick is >=0.5 absolute, accounts for >=70%
+         of the day's cumulative absolute movement, and is aligned with net
+         direction. Captures "flat-then-jump" *and* "big jump with a small
+         pullback" (e.g. +1.5 then -0.2 still reads as sudden_swing because
+         the +1.5 tick dominates the path). Strongest sharp-action tell.
+      3. 'reversal' — the line moved meaningfully in both directions during
+         the day (a positive tick >=0.25 *and* a negative tick >=0.25 are
+         present) without any single tick dominating per rule 2. This
+         catches genuine two-way chop including zero-net days like +1.0/-1.0.
+      4. 'flat' (net-flat fallback) — total drift < 0.5 with no dominant
+         single tick and no meaningful two-way action (just noise).
+      5. 'gradual_drift' — non-flat movement that doesn't fit anything above
+         (steady creep across multiple snapshots in roughly one direction).
+
+    sudden_swing is checked before reversal so that one big aligned move
+    plus a small counter-pullback still surfaces as the dominant signal it
+    is, rather than being downgraded to a generic "choppy" reversal.
+    """
+    if not per_snap_diffs:
+        return 'flat'
+
+    abs_diffs = [abs(d) for d in per_snap_diffs]
+    sum_abs = sum(abs_diffs)
+    if sum_abs == 0:
+        return 'flat'
+
+    max_abs = max(abs_diffs)
+    max_idx = abs_diffs.index(max_abs)
+    max_diff = per_snap_diffs[max_idx]
+    if total_drift != 0:
+        aligned_with_net = (max_diff > 0) == (total_drift > 0)
+        if max_abs >= 0.5 and (max_abs / sum_abs) >= 0.70 and aligned_with_net:
+            return 'sudden_swing'
+
+    pos_max = max((d for d in per_snap_diffs if d > 0), default=0.0)
+    neg_min = min((d for d in per_snap_diffs if d < 0), default=0.0)
+    if pos_max >= 0.25 and abs(neg_min) >= 0.25:
+        return 'reversal'
+
+    if abs(total_drift) < 0.5:
+        return 'flat'
+
+    return 'gradual_drift'
+
+
 def _load_line_movement():
     """Load opening vs current book-line snapshots from player_props_history.
 
     Returns a dict keyed by (normalized_player, stat_label) with opening_line,
     current_line, line_drift (current - opening), line_drift_pct, snapshot_count,
-    hours_tracked, and recent-window drift fields (last_hour_drift, last_hour_from,
+    hours_tracked, recent-window drift fields (last_hour_drift, last_hour_from,
     last_hour_minutes — anchor must be 60 min to 4 h before the latest snapshot)
-    used to flag late sharp money moves separately from total overnight drift.
-    Used to surface sharp money movement as a directional bonus in the composite
-    score and as narrative context in the article.
+    used to flag late sharp money moves separately from total overnight drift,
+    and a `move_pattern` field describing the *shape* of the intra-day path
+    ('flat' / 'gradual_drift' / 'sudden_swing' / 'reversal') so the article
+    generator can call out sudden swings as a distinct sharp-action signal.
 
     Gracefully returns an empty dict when the history table doesn't exist yet
     (first deploy after schema change) or when no snapshots exist for today.
@@ -575,11 +626,14 @@ def _load_line_movement():
         lookup = {}
         for (player_name, stat), grp in df.groupby(['player_name', 'stat']):
             grp_sorted = grp.sort_values('scraped_at_dt')
-            opening = grp_sorted.iloc[0]
-            current = grp_sorted.iloc[-1]
+            # Collapse duplicate-timestamp rows so per-snapshot diffs reflect
+            # genuine intra-day ticks rather than scraper retries within a run.
+            grp_unique = grp_sorted.drop_duplicates('scraped_at_dt', keep='last')
+            opening = grp_unique.iloc[0]
+            current = grp_unique.iloc[-1]
             opening_line = float(opening['line'])
             current_line = float(current['line'])
-            snapshots = int(len(grp_sorted))
+            snapshots = int(len(grp_unique))
 
             if snapshots < 2 or opening['scraped_at_dt'] == current['scraped_at_dt']:
                 drift = 0.0
@@ -591,6 +645,28 @@ def _load_line_movement():
                 )
 
             drift_pct = round((drift / opening_line) * 100.0, 2) if opening_line > 0 else 0.0
+
+            # Per-snapshot diffs power move-pattern classification: we want
+            # "flat then 1.5-pt jump in one tick" to look different from
+            # "0.3 + 0.4 + 0.3 + 0.5 steady creep" even though both end at the
+            # same total drift. Ratio is computed against summed absolute
+            # movement (path length), not net drift, so reversals don't get
+            # misread as sudden swings.
+            line_series = grp_unique['line'].astype(float).tolist()
+            per_snap_diffs = [
+                round(line_series[i] - line_series[i - 1], 2)
+                for i in range(1, len(line_series))
+            ]
+            move_pattern = _classify_move_pattern(per_snap_diffs, drift)
+            largest_swing = 0.0
+            largest_swing_share = 0.0
+            if per_snap_diffs:
+                abs_diffs = [abs(d) for d in per_snap_diffs]
+                sum_abs = sum(abs_diffs)
+                max_abs = max(abs_diffs)
+                signed_max = per_snap_diffs[abs_diffs.index(max_abs)]
+                largest_swing = round(signed_max, 2)
+                largest_swing_share = round((max_abs / sum_abs) if sum_abs > 0 else 0.0, 2)
 
             # Recent-window drift: pick the latest snapshot taken at least 60
             # minutes before "current" and measure drift since then. With 4-5
@@ -606,9 +682,9 @@ def _load_line_movement():
             if snapshots >= 2:
                 upper_cutoff = current['scraped_at_dt'] - pd.Timedelta(minutes=60)
                 lower_cutoff = current['scraped_at_dt'] - pd.Timedelta(hours=4)
-                window = grp_sorted[
-                    (grp_sorted['scraped_at_dt'] <= upper_cutoff)
-                    & (grp_sorted['scraped_at_dt'] >= lower_cutoff)
+                window = grp_unique[
+                    (grp_unique['scraped_at_dt'] <= upper_cutoff)
+                    & (grp_unique['scraped_at_dt'] >= lower_cutoff)
                 ]
                 if len(window) > 0:
                     anchor = window.iloc[-1]
@@ -630,6 +706,9 @@ def _load_line_movement():
                 'last_hour_drift': last_hour_drift,
                 'last_hour_from': last_hour_from,
                 'last_hour_minutes': last_hour_minutes,
+                'move_pattern': move_pattern,
+                'largest_swing': largest_swing,
+                'largest_swing_share': largest_swing_share,
             }
         return lookup
     except Exception as e:
@@ -2164,7 +2243,11 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
         late_movers = sum(1 for v in line_movement.values()
                           if v.get('last_hour_drift') is not None
                           and abs(v['last_hour_drift']) >= 0.5)
-        print(f"  Line movement: tracking {len(line_movement)} props ({snapshots_seen} with multi-snapshot drift data, {late_movers} with last-hour drift >=0.5)")
+        sudden_swings = sum(1 for v in line_movement.values()
+                            if v.get('move_pattern') == 'sudden_swing')
+        reversals = sum(1 for v in line_movement.values()
+                        if v.get('move_pattern') == 'reversal')
+        print(f"  Line movement: tracking {len(line_movement)} props ({snapshots_seen} with multi-snapshot drift data, {late_movers} with last-hour drift >=0.5, {sudden_swings} sudden swings, {reversals} reversals)")
 
     props = []
     gate_failure_log = []
@@ -2323,6 +2406,9 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
                 last_hour_drift_val = line_drift_data['last_hour_drift'] if line_drift_data else None
                 last_hour_from_val = line_drift_data['last_hour_from'] if line_drift_data else None
                 last_hour_minutes_val = line_drift_data['last_hour_minutes'] if line_drift_data else None
+                move_pattern_val = line_drift_data.get('move_pattern') if line_drift_data else None
+                largest_swing_val = line_drift_data.get('largest_swing') if line_drift_data else None
+                largest_swing_share_val = line_drift_data.get('largest_swing_share') if line_drift_data else None
 
                 composite = _calculate_composite_score(
                     projected_value, player_avg, book_line,
@@ -2387,6 +2473,9 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
                     'last_hour_drift': last_hour_drift_val,
                     'last_hour_from': last_hour_from_val,
                     'last_hour_minutes': last_hour_minutes_val,
+                    'move_pattern': move_pattern_val,
+                    'largest_swing': largest_swing_val,
+                    'largest_swing_share': largest_swing_share_val,
                 }
                 props.append(prop_entry)
                 if conf.get('gate_failures'):

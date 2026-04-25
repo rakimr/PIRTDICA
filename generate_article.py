@@ -345,6 +345,19 @@ def build_analysis_text_template(row, dfs_df):
     if reliability:
         paragraphs.append(reliability + ".")
 
+    opening_line_t = _safe_float(row.get('opening_line', 0))
+    current_line_t = _safe_float(row.get('current_line', 0))
+    line_drift_t = _safe_float(row.get('line_drift', 0))
+    line_snapshots_t = int(_safe_float(row.get('line_snapshots', 0)))
+    if opening_line_t and line_snapshots_t > 1 and abs(line_drift_t) >= 0.5:
+        direction_t = "up" if line_drift_t > 0 else "down"
+        aligns_t = (line_drift_t > 0 and call == 'OVER') or (line_drift_t < 0 and call == 'UNDER')
+        tell_t = "sharp money agrees with our pick" if aligns_t else "the market is moving against this pick (yellow flag)"
+        paragraphs.append(
+            f"Line movement: Vegas opened at {opening_line_t:.1f} and moved {direction_t} to "
+            f"{current_line_t:.1f} ({line_drift_t:+.1f}) across {line_snapshots_t} snapshots // {tell_t}."
+        )
+
     paragraphs.append(
         f"**The Call: {call} {book_line} {stat}** // We project {last_name} at {projected:.1f} {stat_label} tonight "
         f"({edge_str} edge vs. the book). Composite score: {composite_score:.1f}."
@@ -389,6 +402,13 @@ def _build_pick_context(row, dfs_df):
     last_hour_drift = _safe_float(row.get('last_hour_drift', 0))
     last_hour_from = _safe_float(row.get('last_hour_from', 0))
     last_hour_minutes = _safe_float(row.get('last_hour_minutes', 0))
+    raw_move_pattern = row.get('move_pattern')
+    if raw_move_pattern is None or (isinstance(raw_move_pattern, float) and pd.isna(raw_move_pattern)):
+        move_pattern = None
+    else:
+        move_pattern = str(raw_move_pattern)
+    largest_swing = _safe_float(row.get('largest_swing', 0))
+    largest_swing_share = _safe_float(row.get('largest_swing_share', 0))
 
     call = "OVER" if "OVER" in str(recommendation).upper() else "UNDER"
 
@@ -474,6 +494,26 @@ def _build_pick_context(row, dfs_df):
             ctx['late_move_signal'] = (
                 f"Recent same-day move (last {last_hour_minutes:.0f} min): {last_hour_from:.1f} -> "
                 f"{current_line:.1f} ({last_hour_drift:+.1f}) // {late_tell}"
+            )
+        if move_pattern:
+            ctx['move_pattern'] = move_pattern
+        if move_pattern == 'sudden_swing' and abs(largest_swing) >= 0.5:
+            swing_dir = "UP" if largest_swing > 0 else "DOWN"
+            swing_aligns = (largest_swing > 0 and call == 'OVER') or (largest_swing < 0 and call == 'UNDER')
+            swing_tell = (
+                "sharp action fired in a single tick — strongest market signal of the day"
+                if swing_aligns
+                else "sharp market just moved hard against our pick (major yellow flag)"
+            )
+            share_pct = int(round(largest_swing_share * 100))
+            ctx['sharp_swing_signal'] = (
+                f"Sudden swing detected: line jumped {largest_swing:+.1f} {swing_dir} in a single snapshot "
+                f"(that tick = {share_pct}% of the day's total movement, vs steady drift) // {swing_tell}"
+            )
+        elif move_pattern == 'reversal':
+            ctx['reversal_note'] = (
+                "Line reversed direction during the day (moved both ways) — "
+                "treat total drift as noisier than usual; weight late_move_signal more heavily."
             )
 
     if recent_games:
@@ -1010,6 +1050,7 @@ WRITING STYLE:
 - Connect picks to slate-wide context (game totals, key absences, pace environments) when relevant.
 - When `line_movement_signal` is provided, treat it as a sharp money tell: the line drifting toward our pick (UP for OVER, DOWN for UNDER) is market confirmation worth calling out by name ("Vegas opened at X, moved to Y // sharp money agrees"). Line drifting against our pick is a yellow flag that should be acknowledged honestly, not buried. Only mention line movement when it is meaningful (drift >= 0.5).
 - When `late_move_signal` is also provided, this is even stronger than total drift — it captures recent same-day movement (the latest snapshot vs an anchor 1-4 hours earlier, which often surfaces injury news or sharp action firing late). Call it out distinctly from the overall open-to-current drift ("market just moved in the last few hours" / "late steam came in on this number"). If both `line_movement_signal` and `late_move_signal` align with our pick, that's a double confirmation. If they disagree (e.g., total drift agrees but recent drift opposes), explicitly flag the divergence.
+- When `sharp_swing_signal` is provided, the line was flat for most of the day and then jumped in a single snapshot — this is the strongest sharp-action tell we track and is meaningfully different from a steady drift of the same total magnitude. Treat it as a distinct, named signal: lead with it when it aligns with the pick ("sharp money fired in one tick" / "sudden swing on this number"), and be candid when it goes against us ("market just moved hard against this pick"). Do not conflate it with `line_movement_signal`; mention both only if the framing is genuinely different. When `reversal_note` is provided instead, the line moved both directions during the day — call that out as choppy market action and lean on `late_move_signal` rather than total drift.
 
 OUTPUT FORMAT:
 Return a JSON array where each element has:
