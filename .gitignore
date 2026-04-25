@@ -186,3 +186,6 @@ logs/
 
 # Stripe keys (loaded from Replit connection)
 .stripe_keys.json
+
+# Transient pipeline lock (created/cleaned during run_daily_update.py)
+.pipeline.lock
