@@ -2080,7 +2080,7 @@ def _project_blocks(player_name, player_avg, opponent, position, game_env, data_
     return round(max(proj, 0), 1), factors
 
 
-def _calculate_composite_score(projected, player_avg, book_line, dva_diff, dvp_diff, game_env, confidence, hit_rate, cv, factors_list, recommendation='OVER', line_drift=None):
+def _calculate_composite_score(projected, player_avg, book_line, dva_diff, dvp_diff, game_env, confidence, hit_rate, cv, factors_list, recommendation='OVER', line_drift=None, is_b2b=False):
     """Calculate a composite score (0-100) that ranks prop quality across all dimensions.
 
     Weights: Edge size (30%), Matchup alignment DVA+DVP (20%), game environment (20%),
@@ -2091,6 +2091,10 @@ def _calculate_composite_score(projected, player_avg, book_line, dva_diff, dvp_d
     support the pick direction, not by raw absolute value. Line drift scoring is also
     directional: line moving toward our pick = small bonus (sharp money confirmation),
     line moving against our pick = small malus (yellow flag).
+
+    B2B fatigue: when `is_b2b` is True and the pick is OVER, deduct a small penalty
+    (-3) UNLESS the matchup is already very poor (dva_diff <= -1.0), in which case the
+    composite is already suppressed and an additional B2B penalty would double-count.
     """
     edge_score = 0
     if book_line and not pd.isna(book_line) and book_line > 0:
@@ -2168,7 +2172,15 @@ def _calculate_composite_score(projected, player_avg, book_line, dva_diff, dvp_d
         else:
             line_score = max(directed_drift * 1.5, -3)
 
-    total = edge_score + matchup_score + env_score + consistency_score + trend_score + line_score
+    b2b_score = 0
+    if is_b2b and recommendation == 'OVER':
+        dva_for_check = dva_diff if dva_diff and not pd.isna(dva_diff) else 0
+        if dva_for_check > -1.0:
+            b2b_score = -3
+            if isinstance(factors_list, list):
+                factors_list.append("B2B fatigue penalty -3")
+
+    total = edge_score + matchup_score + env_score + consistency_score + trend_score + line_score + b2b_score
     return round(max(min(total, 100), 0), 1)
 
 
@@ -2410,12 +2422,14 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
                 largest_swing_val = line_drift_data.get('largest_swing') if line_drift_data else None
                 largest_swing_share_val = line_drift_data.get('largest_swing_share') if line_drift_data else None
 
+                team_is_b2b_val = bool(player.get('team_is_b2b', False)) if hasattr(player, 'get') else False
                 composite = _calculate_composite_score(
                     projected_value, player_avg, book_line,
                     dva_diff, dvp_diff, game_env, conf['confidence'],
                     conf['hit_rate'], conf['cv'], proj_factors,
                     recommendation=recommendation,
                     line_drift=line_drift_val,
+                    is_b2b=team_is_b2b_val,
                 )
 
                 physical_edge = None

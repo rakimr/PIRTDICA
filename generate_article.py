@@ -163,6 +163,19 @@ def build_analysis_text_template(row, dfs_df):
     salary = int(dfs_row.iloc[0]['salary']) if len(dfs_row) else int(_safe_float(row.get('salary', 0)))
     implied_total = float(dfs_row.iloc[0].get('implied_total', 0)) if len(dfs_row) else 0
 
+    template_team_is_b2b = False
+    template_load_mgmt = False
+    if len(dfs_row):
+        _tr = dfs_row.iloc[0]
+        try:
+            template_team_is_b2b = bool(_tr.get('team_is_b2b', False)) and not pd.isna(_tr.get('team_is_b2b', False))
+        except Exception:
+            template_team_is_b2b = False
+        try:
+            template_load_mgmt = bool(_tr.get('load_mgmt_risk', False)) and not pd.isna(_tr.get('load_mgmt_risk', False))
+        except Exception:
+            template_load_mgmt = False
+
     recent_games = _get_recent_games(player, stat)
     matchup_hist = _get_matchup_history(player, opponent)
     factors = _parse_factors(projection_factors)
@@ -242,6 +255,24 @@ def build_analysis_text_template(row, dfs_df):
         if combined[-1] != '.':
             combined += "."
         paragraphs.append(combined)
+
+    if template_team_is_b2b:
+        if call == "OVER" and template_load_mgmt:
+            paragraphs.append(
+                f"**Fatigue caveat:** {team} is on the second night of a back-to-back. "
+                f"{last_name} is a high-minutes star, so load management is in play and our model has already trimmed his projected minutes. "
+                f"This is the main risk on the OVER."
+            )
+        elif call == "OVER":
+            paragraphs.append(
+                f"One yellow flag: {team} is on the second night of a back-to-back. "
+                f"Expect a small efficiency drag (~2-3% on shooting) league-wide on B2Bs."
+            )
+        elif call == "UNDER":
+            paragraphs.append(
+                f"Bonus context for the UNDER: {team} is on the second night of a back-to-back. "
+                f"Tired legs typically mean fewer minutes for stars and lower shooting efficiency."
+            )
 
     context_parts = []
 
@@ -418,6 +449,18 @@ def _build_pick_context(row, dfs_df):
     salary = int(dfs_row.iloc[0]['salary']) if len(dfs_row) else int(_safe_float(row.get('salary', 0)))
     implied_total = float(dfs_row.iloc[0].get('implied_total', 0)) if len(dfs_row) else 0
 
+    team_is_b2b = False
+    team_is_3in4 = False
+    team_days_rest = None
+    load_mgmt_risk = False
+    if len(dfs_row):
+        _r = dfs_row.iloc[0]
+        team_is_b2b = bool(_r.get('team_is_b2b', False)) if not pd.isna(_r.get('team_is_b2b', False)) else False
+        team_is_3in4 = bool(_r.get('team_is_3in4', False)) if not pd.isna(_r.get('team_is_3in4', False)) else False
+        load_mgmt_risk = bool(_r.get('load_mgmt_risk', False)) if not pd.isna(_r.get('load_mgmt_risk', False)) else False
+        rdr = _r.get('team_days_rest')
+        team_days_rest = int(rdr) if rdr is not None and not pd.isna(rdr) else None
+
     recent_games = _get_recent_games(player, stat)
     matchup_hist = _get_matchup_history(player, opponent)
 
@@ -470,6 +513,22 @@ def _build_pick_context(row, dfs_df):
         ctx['pace_factor'] = round(pace_factor, 3)
     if total_factor and total_factor > 0:
         ctx['total_factor'] = round(total_factor, 3)
+
+    if team_is_b2b:
+        if load_mgmt_risk:
+            ctx['b2b_signal'] = (
+                f"{team} on second night of back-to-back // "
+                f"{player} is a high-minutes star, watch for load management or trimmed minutes"
+            )
+        else:
+            ctx['b2b_signal'] = (
+                f"{team} on second night of back-to-back // "
+                f"expect a small efficiency hit from fatigue (~2-3% on shooting)"
+            )
+    elif team_is_3in4:
+        ctx['b2b_signal'] = f"{team} playing 3 games in 4 nights // mild fatigue context"
+    if team_days_rest is not None and team_days_rest >= 3:
+        ctx['rest_advantage'] = f"{team} coming off {team_days_rest} days rest"
 
     if opening_line and line_snapshots and line_snapshots > 1:
         if not current_line:
@@ -596,6 +655,38 @@ def _build_slate_context(dfs_df, high_rows):
     ctx = f"SLATE: {len(games)} games // {', '.join(game_summaries)}"
     if key_absences:
         ctx += f"\n\nKEY ABSENCES:\n" + "\n".join(f"- {a}" for a in key_absences[:15])
+
+    rest_lines = []
+    try:
+        if 'team_is_b2b' in dfs_df.columns:
+            b2b_teams = sorted({
+                str(t) for t, b in zip(dfs_df['team'], dfs_df['team_is_b2b'])
+                if t and bool(b) is True
+            })
+            if b2b_teams:
+                rest_lines.append(
+                    "B2B (second night): " + ", ".join(b2b_teams)
+                    + " // expect star load management and ~2-3% efficiency drag"
+                )
+        if 'team_is_3in4' in dfs_df.columns:
+            threein4 = sorted({
+                str(t) for t, b in zip(dfs_df['team'], dfs_df['team_is_3in4'])
+                if t and bool(b) is True
+            })
+            if threein4:
+                rest_lines.append("3-in-4 stretch: " + ", ".join(threein4))
+        if 'load_mgmt_risk' in dfs_df.columns:
+            star_risks = dfs_df[dfs_df['load_mgmt_risk'] == True]
+            if not star_risks.empty:
+                names = star_risks['player_name'].astype(str).head(8).tolist()
+                rest_lines.append(
+                    f"Load mgmt watch ({len(star_risks)} stars on B2B): " + ", ".join(names)
+                )
+    except Exception:
+        pass
+
+    if rest_lines:
+        ctx += "\n\nREST WATCH:\n" + "\n".join(f"- {r}" for r in rest_lines)
     return ctx
 
 
@@ -804,6 +895,7 @@ PICK SELECTION CRITERIA:
 - Weight recent form (last5_avg) heavily, it captures momentum the season average misses
 - Opportunity Spikes (star absences creating usage vacuums) are the highest-edge situations
 - Consider the game environment: high implied totals create more scoring opportunities
+- When `b2b_signal` is present, the player's team is on the second night of a back-to-back. Stars on B2B carry load-management risk (trimmed minutes), and shooting efficiency dips ~2-3% league-wide. Be more skeptical of OVER picks for B2B teams; the model already trims minutes for flagged stars but Vegas usually prices this in too.
 - Use the analytical framework provided to evaluate each potential pick
 
 WRITING STYLE:
@@ -1058,6 +1150,7 @@ WRITING STYLE:
 - When `line_movement_signal` is provided, treat it as a sharp money tell: the line drifting toward our pick (UP for OVER, DOWN for UNDER) is market confirmation worth calling out by name ("Vegas opened at X, moved to Y // sharp money agrees"). Line drifting against our pick is a yellow flag that should be acknowledged honestly, not buried. Only mention line movement when it is meaningful (drift >= 0.5).
 - When `late_move_signal` is also provided, this is even stronger than total drift — it captures recent same-day movement (the latest snapshot vs an anchor 1-4 hours earlier, which often surfaces injury news or sharp action firing late). Call it out distinctly from the overall open-to-current drift ("market just moved in the last few hours" / "late steam came in on this number"). If both `line_movement_signal` and `late_move_signal` align with our pick, that's a double confirmation. If they disagree (e.g., total drift agrees but recent drift opposes), explicitly flag the divergence.
 - When `sharp_swing_signal` is provided, the line was flat for most of the day and then jumped in a single snapshot — this is the strongest sharp-action tell we track and is meaningfully different from a steady drift of the same total magnitude. Treat it as a distinct, named signal: lead with it when it aligns with the pick ("sharp money fired in one tick" / "sudden swing on this number"), and be candid when it goes against us ("market just moved hard against this pick"). Do not conflate it with `line_movement_signal`; mention both only if the framing is genuinely different. When `reversal_note` is provided instead, the line moved both directions during the day — call that out as choppy market action and lean on `late_move_signal` rather than total drift.
+- When `b2b_signal` is provided, the player's team is on the second night of a back-to-back. Acknowledge it honestly when it cuts against the pick (especially OVERs on stars) — say something like "second night of a back-to-back, so load management is in play" or "fatigue is a real risk". When it's an UNDER pick on a B2B team, treat it as supporting context. Do not invent fatigue narrative when no `b2b_signal` is present. When `rest_advantage` is provided, the team is unusually well-rested (3+ days off), which is a small positive context for OVERs on volume-driven players.
 
 OUTPUT FORMAT:
 Return a JSON array where each element has:
