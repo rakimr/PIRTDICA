@@ -104,6 +104,7 @@ SOURCE_CODE_FILES = [
     "scheduler_pregame.py",
     "refresh_charts.py",
     "scheduler_charts.py",
+    "start_production.sh",
     "replit.md",
     ".gitignore",
 ]
