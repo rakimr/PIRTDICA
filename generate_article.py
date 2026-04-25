@@ -386,8 +386,9 @@ def _build_pick_context(row, dfs_df):
     line_drift = _safe_float(row.get('line_drift', 0))
     line_drift_pct = _safe_float(row.get('line_drift_pct', 0))
     line_snapshots = int(_safe_float(row.get('line_snapshots', 0)))
-    recent_drift = _safe_float(row.get('recent_drift', 0))
-    recent_drift_hours = _safe_float(row.get('recent_drift_hours', 0))
+    last_hour_drift = _safe_float(row.get('last_hour_drift', 0))
+    last_hour_from = _safe_float(row.get('last_hour_from', 0))
+    last_hour_minutes = _safe_float(row.get('last_hour_minutes', 0))
 
     call = "OVER" if "OVER" in str(recommendation).upper() else "UNDER"
 
@@ -462,16 +463,17 @@ def _build_pick_context(row, dfs_df):
                 f"Line moved {direction} from {opening_line:.1f} to {current_line:.1f} "
                 f"({line_drift:+.1f}, {line_drift_pct:+.1f}%) over {line_snapshots} snapshots: {tell}"
             )
-        # Late-move signal: flag a sudden move between the prior snapshot and now,
-        # which often indicates breaking news (injury, rotation tweak) or last-minute
-        # sharp action that the open-to-close drift would average out.
-        if abs(recent_drift) >= 0.5 and recent_drift_hours and recent_drift_hours <= 4:
-            recent_dir = "UP" if recent_drift > 0 else "DOWN"
-            recent_aligns = (recent_drift > 0 and call == 'OVER') or (recent_drift < 0 and call == 'UNDER')
-            recent_tell = "late sharp action confirms our angle" if recent_aligns else "late move against us, proceed with caution"
+        if abs(last_hour_drift) >= 0.5 and last_hour_from and last_hour_minutes:
+            ctx['recent_drift'] = round(last_hour_drift, 2)
+            ctx['recent_drift_minutes'] = round(last_hour_minutes, 1)
+            late_aligns = (last_hour_drift > 0 and call == 'OVER') or (last_hour_drift < 0 and call == 'UNDER')
+            late_tell = (
+                "late sharp action confirms our pick" if late_aligns
+                else "late market moving against our pick (yellow flag)"
+            )
             ctx['late_move_signal'] = (
-                f"Line moved {recent_dir} {abs(recent_drift):.1f} in the last "
-                f"{recent_drift_hours:.1f}h: {recent_tell}"
+                f"Recent same-day move (last {last_hour_minutes:.0f} min): {last_hour_from:.1f} -> "
+                f"{current_line:.1f} ({last_hour_drift:+.1f}) // {late_tell}"
             )
 
     if recent_games:
@@ -1007,7 +1009,7 @@ WRITING STYLE:
 - Reference the book line and explain why the market is wrong.
 - Connect picks to slate-wide context (game totals, key absences, pace environments) when relevant.
 - When `line_movement_signal` is provided, treat it as a sharp money tell: the line drifting toward our pick (UP for OVER, DOWN for UNDER) is market confirmation worth calling out by name ("Vegas opened at X, moved to Y // sharp money agrees"). Line drifting against our pick is a yellow flag that should be acknowledged honestly, not buried. Only mention line movement when it is meaningful (drift >= 0.5).
-- When `late_move_signal` is also provided, that is a SUDDEN move (within the last few hours), not slow drift. Treat late moves as more meaningful than total drift since they often signal breaking injury news or last-minute sharp action. If the late move aligns with our pick, lean into it ("the line just moved our way in the last hour"). If it goes against us, call it out as a real risk and explain why we're still on the play.
+- When `late_move_signal` is also provided, this is even stronger than total drift — it captures recent same-day movement (the latest snapshot vs an anchor 1-4 hours earlier, which often surfaces injury news or sharp action firing late). Call it out distinctly from the overall open-to-current drift ("market just moved in the last few hours" / "late steam came in on this number"). If both `line_movement_signal` and `late_move_signal` align with our pick, that's a double confirmation. If they disagree (e.g., total drift agrees but recent drift opposes), explicitly flag the divergence.
 
 OUTPUT FORMAT:
 Return a JSON array where each element has:

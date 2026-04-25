@@ -1,23 +1,22 @@
 """
-Scheduler for mid-day sportsbook line snapshots — runs scrape_player_props.py
-at fixed hours during the day to capture richer line-movement signal.
+Scheduler for Intra-Day Player Prop Scrapes — fires `scrape_player_props.py
+--force` at 11:00 AM, 2:00 PM, and 4:00 PM ET. These additional snapshots fill
+the gap between the 1 AM post-game scrape (the "open") and the pre-game
+refresh ~60 minutes before tipoff (the "current"), giving us 4-5 line snapshots
+per day instead of 2.
 
-The existing pipeline already takes two snapshots per slate: 1 AM ET (post-game
-pipeline) and ~60 min before tip (pre-game refresh). This scheduler adds three
-mid-day snapshots so we can detect WHEN sharp money moved, not just total drift
-from open to close.
+Each scrape appends to `player_props_history`, so we can detect WHEN sharp money
+moved (sudden swing vs gradual drift) — a stronger signal than total drift alone.
 
-Active fires (ET): 10:00, 13:00, 15:00.
-
-If the scraper finds no games today, it exits cleanly (existing behavior). If
-THE_ODDS_API_KEY is missing, the scraper exits with code 1 and we skip the
-fire silently.
+Rate-limit aware: the underlying scraper auto-skips when there are no games
+today, so we don't burn API quota on dark slates.
 """
-import os
 import subprocess
 import sys
 import time
+import sqlite3
 from datetime import datetime, timedelta
+import os
 
 try:
     import zoneinfo
@@ -35,8 +34,8 @@ def _localize_et(naive_dt):
     return naive_dt.replace(tzinfo=ET)
 
 
-FIRE_HOURS = [10, 13, 15]
-GRACE_MIN = 30
+SCRAPE_HOURS = [11, 14, 16]
+DB_PATH = "/home/runner/workspace/dfs_nba.db"
 
 
 def get_et_now():
@@ -47,70 +46,92 @@ def get_et_now():
         return datetime.now(timezone.utc).astimezone(ET)
 
 
-def next_fire(now):
-    """Return next datetime we should fire, snapped to the next FIRE_HOURS slot."""
-    today_naive = datetime(now.year, now.month, now.day)
-    for h in FIRE_HOURS:
-        candidate = _localize_et(today_naive.replace(hour=h, minute=0, second=0, microsecond=0))
-        if candidate > now:
-            return candidate
-    tomorrow_naive = today_naive + timedelta(days=1)
-    return _localize_et(tomorrow_naive.replace(hour=FIRE_HOURS[0], minute=0, second=0, microsecond=0))
+def has_games_today():
+    """Return True if there are NBA games on today's slate.
+
+    Day-aware: requires `player_salaries` rows whose `scraped_at` falls on
+    today's ET date AND have a non-null `game_time`. The post-game pipeline
+    refreshes salaries every morning, so a same-day scrape is the strongest
+    signal we have a live slate.
+
+    Conservative: if we can't tell (no salary data yet, table missing, etc.)
+    we still allow the scrape — the scraper itself fetches the events list and
+    will short-circuit cleanly if no games are found, without spending much
+    quota beyond the events lookup.
+    """
+    today_et = get_et_now().strftime("%Y-%m-%d")
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT COUNT(DISTINCT game_time) FROM player_salaries "
+            "WHERE game_time IS NOT NULL AND substr(scraped_at, 1, 10) = ?",
+            (today_et,),
+        )
+        count = cur.fetchone()[0]
+        conn.close()
+        return count > 0
+    except Exception:
+        return True
 
 
-def within_grace(now):
-    """If we just booted into the active window, check if we're still within
-    GRACE_MIN of one of the fire times so we don't miss a slot to a restart."""
-    for h in FIRE_HOURS:
-        slot = _localize_et(datetime(now.year, now.month, now.day, h, 0, 0))
-        delta_min = (now - slot).total_seconds() / 60.0
-        if 0 <= delta_min <= GRACE_MIN:
-            return slot
-    return None
+def next_scrape_time(now):
+    """Return the next scheduled scrape datetime (ET) after `now`."""
+    today_targets = [
+        _localize_et(datetime(now.year, now.month, now.day, h, 0, 0))
+        for h in SCRAPE_HOURS
+    ]
+    for t in today_targets:
+        if t > now:
+            return t
+    tomorrow = now + timedelta(days=1)
+    return _localize_et(datetime(tomorrow.year, tomorrow.month, tomorrow.day,
+                                 SCRAPE_HOURS[0], 0, 0))
 
 
 def run_scrape():
+    now = get_et_now()
     print(f"\n{'='*50}")
-    print(f"TRIGGERING PROPS SCRAPE at {get_et_now().strftime('%Y-%m-%d %H:%M:%S ET')}")
+    print(f"INTRA-DAY PROPS SCRAPE at {now.strftime('%Y-%m-%d %H:%M:%S ET')}")
     print(f"{'='*50}", flush=True)
+
+    if not has_games_today():
+        print("No games on today's slate — skipping scrape to preserve API quota")
+        return
+
     try:
         result = subprocess.run(
             [sys.executable, "-u", "scrape_player_props.py", "--force"],
             cwd="/home/runner/workspace",
             text=True,
-            timeout=900,
+            timeout=600,
             env={**os.environ, "PYTHONUNBUFFERED": "1"},
         )
         if result.returncode == 0:
-            print(f"\nProps scrape completed at {get_et_now().strftime('%H:%M ET')}")
+            print(f"\nIntra-day props scrape completed at "
+                  f"{get_et_now().strftime('%H:%M ET')}")
         else:
-            print(f"\nProps scrape exited with code {result.returncode} (likely no games or no API key)")
+            print(f"\nIntra-day props scrape exited with code {result.returncode}")
     except subprocess.TimeoutExpired:
-        print("\nProps scrape timed out after 15 minutes")
+        print("\nIntra-day props scrape timed out after 10 minutes")
     except Exception as e:
-        print(f"\nProps scrape error: {e}")
+        print(f"\nIntra-day props scrape error: {e}")
 
 
 def main():
     print("=" * 50)
-    print("PROPS SNAPSHOT SCHEDULER")
-    print(f"Fire times (ET): {', '.join(f'{h:02d}:00' for h in FIRE_HOURS)}")
+    print("INTRA-DAY PROPS SCRAPE SCHEDULER")
+    print(f"Targets: {', '.join(f'{h:02d}:00 ET' for h in SCRAPE_HOURS)}")
     print("=" * 50, flush=True)
-
-    now = get_et_now()
-    grace_slot = within_grace(now)
-    if grace_slot is not None:
-        print(f"\n[{now.strftime('%Y-%m-%d %H:%M ET')}] Within grace of {grace_slot.strftime('%H:%M ET')} slot — running now")
-        run_scrape()
 
     while True:
         now = get_et_now()
-        target = next_fire(now)
+        target = next_scrape_time(now)
         wait_secs = max(30, (target - now).total_seconds())
         hrs = int(wait_secs // 3600)
         mins = int((wait_secs % 3600) // 60)
         print(f"\n[{now.strftime('%Y-%m-%d %H:%M ET')}] "
-              f"Next props snapshot at {target.strftime('%Y-%m-%d %H:%M ET')} "
+              f"Next scrape at {target.strftime('%Y-%m-%d %H:%M ET')} "
               f"({hrs}h {mins}m)", flush=True)
         time.sleep(wait_secs)
         run_scrape()

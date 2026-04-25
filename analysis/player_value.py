@@ -541,8 +541,11 @@ def _load_line_movement():
 
     Returns a dict keyed by (normalized_player, stat_label) with opening_line,
     current_line, line_drift (current - opening), line_drift_pct, snapshot_count,
-    and hours_tracked. Used to surface sharp money movement as a directional
-    bonus in the composite score and as narrative context in the article.
+    hours_tracked, and recent-window drift fields (last_hour_drift, last_hour_from,
+    last_hour_minutes — anchor must be 60 min to 4 h before the latest snapshot)
+    used to flag late sharp money moves separately from total overnight drift.
+    Used to surface sharp money movement as a directional bonus in the composite
+    score and as narrative context in the article.
 
     Gracefully returns an empty dict when the history table doesn't exist yet
     (first deploy after schema change) or when no snapshots exist for today.
@@ -589,18 +592,32 @@ def _load_line_movement():
 
             drift_pct = round((drift / opening_line) * 100.0, 2) if opening_line > 0 else 0.0
 
-            # Recent drift = last snapshot vs prior snapshot (regardless of time gap).
-            # This captures "the latest move" — useful for flagging late sharp action
-            # that the open-to-close drift would average out.
+            # Recent-window drift: pick the latest snapshot taken at least 60
+            # minutes before "current" and measure drift since then. With 4-5
+            # daily snapshots this isolates late same-day movement (often injury
+            # news or sharp action) from overnight drift off the open. Anchor
+            # is bounded to the prior 4 hours so the signal is genuinely
+            # "recent" and degrades gracefully on dark slates with sparse
+            # snapshots — outside that window we report None and the article
+            # generator falls back to the open-vs-current narrative only.
+            last_hour_drift = 0.0
+            last_hour_from = None
+            last_hour_minutes = 0.0
             if snapshots >= 2:
-                prior = grp_sorted.iloc[-2]
-                recent_drift = round(current_line - float(prior['line']), 2)
-                recent_drift_hours = round(
-                    (current['scraped_at_dt'] - prior['scraped_at_dt']).total_seconds() / 3600.0, 2
-                )
-            else:
-                recent_drift = 0.0
-                recent_drift_hours = 0.0
+                upper_cutoff = current['scraped_at_dt'] - pd.Timedelta(minutes=60)
+                lower_cutoff = current['scraped_at_dt'] - pd.Timedelta(hours=4)
+                window = grp_sorted[
+                    (grp_sorted['scraped_at_dt'] <= upper_cutoff)
+                    & (grp_sorted['scraped_at_dt'] >= lower_cutoff)
+                ]
+                if len(window) > 0:
+                    anchor = window.iloc[-1]
+                    anchor_line = float(anchor['line'])
+                    last_hour_drift = round(current_line - anchor_line, 2)
+                    last_hour_from = anchor_line
+                    last_hour_minutes = round(
+                        (current['scraped_at_dt'] - anchor['scraped_at_dt']).total_seconds() / 60.0, 1
+                    )
 
             key = (_normalize_prop_name(player_name), stat)
             lookup[key] = {
@@ -610,8 +627,9 @@ def _load_line_movement():
                 'line_drift_pct': drift_pct,
                 'snapshot_count': snapshots,
                 'hours_tracked': hours_tracked,
-                'recent_drift': recent_drift,
-                'recent_drift_hours': recent_drift_hours,
+                'last_hour_drift': last_hour_drift,
+                'last_hour_from': last_hour_from,
+                'last_hour_minutes': last_hour_minutes,
             }
         return lookup
     except Exception as e:
@@ -2143,7 +2161,10 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
     line_movement = _load_line_movement()
     if line_movement:
         snapshots_seen = sum(1 for v in line_movement.values() if v['snapshot_count'] > 1)
-        print(f"  Line movement: tracking {len(line_movement)} props ({snapshots_seen} with multi-snapshot drift data)")
+        late_movers = sum(1 for v in line_movement.values()
+                          if v.get('last_hour_drift') is not None
+                          and abs(v['last_hour_drift']) >= 0.5)
+        print(f"  Line movement: tracking {len(line_movement)} props ({snapshots_seen} with multi-snapshot drift data, {late_movers} with last-hour drift >=0.5)")
 
     props = []
     gate_failure_log = []
@@ -2299,8 +2320,9 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
                 line_drift_val = line_drift_data['line_drift'] if line_drift_data else None
                 line_drift_pct_val = line_drift_data['line_drift_pct'] if line_drift_data else None
                 line_snapshots_val = line_drift_data['snapshot_count'] if line_drift_data else 0
-                recent_drift_val = line_drift_data.get('recent_drift') if line_drift_data else None
-                recent_drift_hours_val = line_drift_data.get('recent_drift_hours') if line_drift_data else None
+                last_hour_drift_val = line_drift_data['last_hour_drift'] if line_drift_data else None
+                last_hour_from_val = line_drift_data['last_hour_from'] if line_drift_data else None
+                last_hour_minutes_val = line_drift_data['last_hour_minutes'] if line_drift_data else None
 
                 composite = _calculate_composite_score(
                     projected_value, player_avg, book_line,
@@ -2362,8 +2384,9 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
                     'line_drift': line_drift_val,
                     'line_drift_pct': line_drift_pct_val,
                     'line_snapshots': line_snapshots_val if line_snapshots_val and line_snapshots_val > 1 else None,
-                    'recent_drift': recent_drift_val,
-                    'recent_drift_hours': recent_drift_hours_val,
+                    'last_hour_drift': last_hour_drift_val,
+                    'last_hour_from': last_hour_from_val,
+                    'last_hour_minutes': last_hour_minutes_val,
                 }
                 props.append(prop_entry)
                 if conf.get('gate_failures'):
