@@ -472,6 +472,8 @@ def _build_pick_context(row, dfs_df):
         ctx['total_factor'] = round(total_factor, 3)
 
     if opening_line and line_snapshots and line_snapshots > 1:
+        if not current_line:
+            current_line = book_line or (opening_line + line_drift)
         ctx['opening_line'] = round(opening_line, 1)
         ctx['current_line'] = round(current_line, 1)
         ctx['line_drift'] = round(line_drift, 2)
