@@ -453,6 +453,9 @@ def _build_pick_context(row, dfs_df):
     team_is_3in4 = False
     team_days_rest = None
     load_mgmt_risk = False
+    opp_is_b2b = False
+    opp_days_rest = None
+    rest_diff = None
     if len(dfs_row):
         _r = dfs_row.iloc[0]
         team_is_b2b = bool(_r.get('team_is_b2b', False)) if not pd.isna(_r.get('team_is_b2b', False)) else False
@@ -460,6 +463,11 @@ def _build_pick_context(row, dfs_df):
         load_mgmt_risk = bool(_r.get('load_mgmt_risk', False)) if not pd.isna(_r.get('load_mgmt_risk', False)) else False
         rdr = _r.get('team_days_rest')
         team_days_rest = int(rdr) if rdr is not None and not pd.isna(rdr) else None
+        opp_is_b2b = bool(_r.get('opp_is_b2b', False)) if not pd.isna(_r.get('opp_is_b2b', False)) else False
+        odr = _r.get('opp_days_rest')
+        opp_days_rest = int(odr) if odr is not None and not pd.isna(odr) else None
+        rad = _r.get('rest_advantage_days')
+        rest_diff = int(rad) if rad is not None and not pd.isna(rad) else None
 
     recent_games = _get_recent_games(player, stat)
     matchup_hist = _get_matchup_history(player, opponent)
@@ -527,7 +535,23 @@ def _build_pick_context(row, dfs_df):
             )
     elif team_is_3in4:
         ctx['b2b_signal'] = f"{team} playing 3 games in 4 nights // mild fatigue context"
-    if team_days_rest is not None and team_days_rest >= 3:
+    if rest_diff is not None and rest_diff >= 2 and not team_is_b2b:
+        if opp_is_b2b:
+            ctx['rest_advantage'] = (
+                f"Rest mismatch in {team}'s favor // {team} on {team_days_rest} days rest, "
+                f"{opponent} on second night of B2B (diff +{rest_diff} days)"
+            )
+        else:
+            ctx['rest_advantage'] = (
+                f"Rest mismatch in {team}'s favor // {team} on {team_days_rest} days rest "
+                f"vs {opponent} on {opp_days_rest} (diff +{rest_diff} days)"
+            )
+    elif rest_diff is not None and rest_diff <= -2 and not opp_is_b2b:
+        ctx['rest_disadvantage'] = (
+            f"Rest mismatch against {team} // {team} on {team_days_rest} days rest "
+            f"vs {opponent} on {opp_days_rest} (diff {rest_diff} days)"
+        )
+    elif team_days_rest is not None and team_days_rest >= 3 and not team_is_b2b:
         ctx['rest_advantage'] = f"{team} coming off {team_days_rest} days rest"
 
     if opening_line and line_snapshots and line_snapshots > 1:
@@ -896,6 +920,7 @@ PICK SELECTION CRITERIA:
 - Opportunity Spikes (star absences creating usage vacuums) are the highest-edge situations
 - Consider the game environment: high implied totals create more scoring opportunities
 - When `b2b_signal` is present, the player's team is on the second night of a back-to-back. Stars on B2B carry load-management risk (trimmed minutes), and shooting efficiency dips ~2-3% league-wide. Be more skeptical of OVER picks for B2B teams; the model already trims minutes for flagged stars but Vegas usually prices this in too.
+- When `rest_advantage` is present, the player's team has a 2+ day rest edge over the opponent (especially strong if the opponent is on a B2B). Treat this as a real positive for OVERs on volume players and a yellow flag for UNDERs. When `rest_disadvantage` is present, the OPPONENT has the rest edge — small negative for OVERs.
 - Use the analytical framework provided to evaluate each potential pick
 
 WRITING STYLE:
@@ -1150,7 +1175,7 @@ WRITING STYLE:
 - When `line_movement_signal` is provided, treat it as a sharp money tell: the line drifting toward our pick (UP for OVER, DOWN for UNDER) is market confirmation worth calling out by name ("Vegas opened at X, moved to Y // sharp money agrees"). Line drifting against our pick is a yellow flag that should be acknowledged honestly, not buried. Only mention line movement when it is meaningful (drift >= 0.5).
 - When `late_move_signal` is also provided, this is even stronger than total drift — it captures recent same-day movement (the latest snapshot vs an anchor 1-4 hours earlier, which often surfaces injury news or sharp action firing late). Call it out distinctly from the overall open-to-current drift ("market just moved in the last few hours" / "late steam came in on this number"). If both `line_movement_signal` and `late_move_signal` align with our pick, that's a double confirmation. If they disagree (e.g., total drift agrees but recent drift opposes), explicitly flag the divergence.
 - When `sharp_swing_signal` is provided, the line was flat for most of the day and then jumped in a single snapshot — this is the strongest sharp-action tell we track and is meaningfully different from a steady drift of the same total magnitude. Treat it as a distinct, named signal: lead with it when it aligns with the pick ("sharp money fired in one tick" / "sudden swing on this number"), and be candid when it goes against us ("market just moved hard against this pick"). Do not conflate it with `line_movement_signal`; mention both only if the framing is genuinely different. When `reversal_note` is provided instead, the line moved both directions during the day — call that out as choppy market action and lean on `late_move_signal` rather than total drift.
-- When `b2b_signal` is provided, the player's team is on the second night of a back-to-back. Acknowledge it honestly when it cuts against the pick (especially OVERs on stars) — say something like "second night of a back-to-back, so load management is in play" or "fatigue is a real risk". When it's an UNDER pick on a B2B team, treat it as supporting context. Do not invent fatigue narrative when no `b2b_signal` is present. When `rest_advantage` is provided, the team is unusually well-rested (3+ days off), which is a small positive context for OVERs on volume-driven players.
+- When `b2b_signal` is provided, the player's team is on the second night of a back-to-back. Acknowledge it honestly when it cuts against the pick (especially OVERs on stars) — say something like "second night of a back-to-back, so load management is in play" or "fatigue is a real risk". When it's an UNDER pick on a B2B team, treat it as supporting context. Do not invent fatigue narrative when no `b2b_signal` is present. When `rest_advantage` is provided, the team has a 2+ day rest edge over the opponent (a meaningful matchup-level differential, not just absolute days off) — surface it as a real positive for OVERs and a yellow flag for UNDERs, especially when the opponent is on a B2B. When `rest_disadvantage` is provided, the OPPONENT has the rest edge — treat it as a small negative for OVERs.
 
 OUTPUT FORMAT:
 Return a JSON array where each element has:

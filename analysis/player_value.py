@@ -2092,9 +2092,11 @@ def _calculate_composite_score(projected, player_avg, book_line, dva_diff, dvp_d
     directional: line moving toward our pick = small bonus (sharp money confirmation),
     line moving against our pick = small malus (yellow flag).
 
-    B2B fatigue: when `is_b2b` is True and the pick is OVER, deduct a small penalty
-    (-3) UNLESS the matchup is already very poor (dva_diff <= -1.0), in which case the
-    composite is already suppressed and an additional B2B penalty would double-count.
+    B2B fatigue: when `is_b2b` is True and the pick is a HIGH-confidence OVER, deduct
+    a small penalty (-3) UNLESS the matchup is already very poor (dva_diff <= -1.0),
+    in which case the composite is already suppressed and an additional B2B penalty
+    would double-count. Gated to HIGH only because lower-confidence OVERs are already
+    discounted by their failing gates and an extra penalty would over-suppress them.
     """
     edge_score = 0
     if book_line and not pd.isna(book_line) and book_line > 0:
@@ -2173,7 +2175,7 @@ def _calculate_composite_score(projected, player_avg, book_line, dva_diff, dvp_d
             line_score = max(directed_drift * 1.5, -3)
 
     b2b_score = 0
-    if is_b2b and recommendation == 'OVER':
+    if is_b2b and recommendation == 'OVER' and str(confidence).upper() == 'HIGH':
         dva_for_check = dva_diff if dva_diff and not pd.isna(dva_diff) else 0
         if dva_for_check > -1.0:
             b2b_score = -3
