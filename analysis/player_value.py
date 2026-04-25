@@ -2080,23 +2080,54 @@ def _project_blocks(player_name, player_avg, opponent, position, game_env, data_
     return round(max(proj, 0), 1), factors
 
 
-def _calculate_composite_score(projected, player_avg, book_line, dva_diff, dvp_diff, game_env, confidence, hit_rate, cv, factors_list, recommendation='OVER', line_drift=None, is_b2b=False):
+def _calculate_composite_score(projected, player_avg, book_line, dva_diff, dvp_diff, game_env, confidence, hit_rate, cv, factors_list, recommendation='OVER', line_drift=None, last_hour_drift=None, move_pattern=None, snapshot_count=0, is_b2b=False):
     """Calculate a composite score (0-100) that ranks prop quality across all dimensions.
 
     Weights: Edge size (30%), Matchup alignment DVA+DVP (20%), game environment (20%),
-    consistency (15%), trend alignment (15%), plus a small directional line-movement
-    modifier capped at +/-3 points when sportsbook line drift aligns or opposes our pick.
+    consistency (15%), trend alignment (15%), plus a directional line-movement
+    modifier capped at +/-5 points (split between total drift, last-hour drift,
+    and a small move-pattern bonus).
 
     Matchup scoring is DIRECTIONAL: DVA/DVP values are scored based on whether they
     support the pick direction, not by raw absolute value. Line drift scoring is also
-    directional: line moving toward our pick = small bonus (sharp money confirmation),
-    line moving against our pick = small malus (yellow flag).
+    directional: line moving toward our pick = bonus (sharp money confirmation),
+    line moving against our pick = malus (yellow flag).
 
     B2B fatigue: when `is_b2b` is True and the pick is a HIGH-confidence OVER, deduct
     a small penalty (-3) UNLESS the matchup is already very poor (dva_diff <= -1.0),
     in which case the composite is already suppressed and an additional B2B penalty
     would double-count. Gated to HIGH only because lower-confidence OVERs are already
     discounted by their failing gates and an extra penalty would over-suppress them.
+
+    Line-movement calibration (Task #24, 2026-04-25):
+        After Task #23 added the 11/14/16 ET intra-day scrapes, we now have the
+        raw material for empirical calibration via `analysis/calibrate_drift_bonus.py`,
+        which buckets graded picks by directed total drift and last-hour drift.
+        The first run (60-day window, 36 graded picks matched to history) found
+        ZERO picks with multi-snapshot drift data — the intra-day scrapes had
+        only just started shipping multi-snapshot rows, so the empirical lift
+        per bucket cannot be measured yet. Until that backtest accumulates a
+        useful sample (>=15 multi-snapshot decided picks), the cap and slope
+        below are *prior-knowledge* defaults rather than fully data-driven.
+        The priors are designed to:
+          - Reduce the total-drift cap from +/-3 (open-vs-current placeholder)
+            to +/-2 because, with intra-day snapshots, the more recent move is
+            the sharper signal and total drift would otherwise double-count it.
+          - Add a separate last-hour-drift modifier (slope 2.0, cap +/-2.5):
+            higher slope per unit because late moves are usually injury or
+            sharp action, not noise. Threshold lowered to 0.25 so a single
+            half-point intra-day tick still scores.
+          - Add a small move-pattern bonus: a `sudden_swing` aligned with the
+            pick gets +0.5 (sharp confirmation), misaligned gets -0.5, and a
+            `reversal` gets -0.25 regardless of direction (book uncertainty).
+          - Combined cap of +/-5 keeps the modifier from ever overwhelming the
+            edge/matchup/form anchor of the composite.
+          - `snapshot_count` gates the richer signals: total drift requires
+            >=2 snapshots; last-hour drift and the move-pattern bonus both
+            require >=3 so we don't infer "intra-day shape" from data we
+            don't have.
+        Re-run the backtest tool once the multi-snapshot sample is large
+        enough and tighten these numbers from the empirical lift table.
     """
     edge_score = 0
     if book_line and not pd.isna(book_line) and book_line > 0:
@@ -2166,13 +2197,42 @@ def _calculate_composite_score(projected, player_avg, book_line, dva_diff, dvp_d
         else:
             trend_score = 3
 
-    line_score = 0
-    if line_drift is not None and not pd.isna(line_drift) and abs(line_drift) >= 0.5:
+    # Line-movement modifier — see calibration notes in the docstring above.
+    # Three components, each capped, with a final combined cap of +/-5.
+    # `snapshot_count` gates the richer signals: total drift only requires
+    # 2 snapshots (open vs current) to be meaningful, but last-hour drift
+    # and the move pattern need >=3 to actually distinguish "late move" from
+    # "single overnight tick" — without that we'd be inferring intra-day
+    # shape from data we don't have.
+    line_score = 0.0
+    snaps = snapshot_count or 0
+
+    if (
+        snaps >= 2
+        and line_drift is not None
+        and not pd.isna(line_drift)
+        and abs(line_drift) >= 0.5
+    ):
         directed_drift = line_drift if recommendation == 'OVER' else -line_drift
-        if directed_drift > 0:
-            line_score = min(directed_drift * 1.5, 3)
-        else:
-            line_score = max(directed_drift * 1.5, -3)
+        line_score += max(min(directed_drift * 1.0, 2.0), -2.0)
+
+    if (
+        snaps >= 3
+        and last_hour_drift is not None
+        and not pd.isna(last_hour_drift)
+        and abs(last_hour_drift) >= 0.25
+    ):
+        directed_lh = last_hour_drift if recommendation == 'OVER' else -last_hour_drift
+        line_score += max(min(directed_lh * 2.0, 2.5), -2.5)
+
+    if snaps >= 3:
+        if move_pattern == 'sudden_swing' and line_drift is not None and not pd.isna(line_drift) and line_drift != 0:
+            aligned = (line_drift > 0) == (recommendation == 'OVER')
+            line_score += 0.5 if aligned else -0.5
+        elif move_pattern == 'reversal':
+            line_score -= 0.25
+
+    line_score = max(min(line_score, 5.0), -5.0)
 
     b2b_score = 0
     if is_b2b and recommendation == 'OVER' and str(confidence).upper() == 'HIGH':
@@ -2431,6 +2491,9 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
                     conf['hit_rate'], conf['cv'], proj_factors,
                     recommendation=recommendation,
                     line_drift=line_drift_val,
+                    last_hour_drift=last_hour_drift_val,
+                    move_pattern=move_pattern_val,
+                    snapshot_count=line_snapshots_val or 0,
                     is_b2b=team_is_b2b_val,
                 )
 

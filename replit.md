@@ -40,6 +40,8 @@ The Stat-Specific Projection Engine generates projected values for each stat typ
 
 B2B fatigue features compute per-team `days_rest`, `is_b2b`, and `is_3in4`. The fatigue block runs after ML minutes adjustment and before `base_fp` so the drag propagates everywhere downstream. The composite score deducts -3 for HIGH OVER picks where the player is on a B2B side AND the matchup isn't already terrible. The article generator surfaces a "REST WATCH" section and a `b2b_signal` field per pick context. Both Claude system prompts instruct the model to treat B2B as a yellow flag for OVERs and supporting context for UNDERs. The template fallback injects different B2B caveat copy.
 
+Composite Score line-movement modifier is split across three signals (Task #24): a total-drift component (open-vs-current, slope 1.0, cap ±2), a sharper last-hour-drift component (slope 2.0, cap ±2.5, threshold 0.25 so a single intra-day half-point tick still scores), and a small move-pattern bonus (sudden_swing aligned with the pick = +0.5, misaligned = −0.5; reversal = −0.25 regardless of direction). Combined cap is ±5. Slopes/caps are conservative priors — the empirical-calibration backtest (`analysis/calibrate_drift_bonus.py`) joins `player_props_history` snapshots with `daily_pick_grades` and reports hit-rate lift per drift bucket. The first run found 36 graded picks but 0 with multi-snapshot drift (the intra-day scrapes had only just begun shipping rows), so the prior weights stand until ≥15 multi-snapshot decided picks accumulate, at which point the script should be re-run and the slope/cap tightened to match the empirical lift table.
+
 The Usage Redistribution Model v2 replaces flat injury boosts with hierarchical, archetype-weighted redistribution. It tracks vacated usage, MPG, and archetypes of OUT players. Cascade tiers activate based on total vacated usage, and archetype similarity determines absorption. Minutes escalation distributes vacated minutes to remaining starters. An Opportunity Index calculates compounded impact, and an "Opportunity Spike" flag indicates significant role increases combined with positive matchups.
 
 Prop recommendations require an actual sportsbook book line from The Odds API. HIGH Confidence Prop Classification requires ALL gates to pass, including hit rate >= 58%, CV <= 0.30, last-5 average clearing the book line, DVA/DVP support, implied team total support, and specific blocks for UNDER picks with high usage boosts. All 5 stat projection functions enforce a 20% inflation cap.
@@ -48,7 +50,6 @@ Avatar & Identity Design Direction follows a "Strategic Minimalism meets Editori
 
 Cookie consent and analytics tracking is implemented via `PageView` and `CookieConsent` models in PostgreSQL. A fixed cookie banner appears for first-time visitors. Users can accept or decline analytics cookies. IP addresses are hashed for privacy. A `/cookie-settings` page allows users to toggle analytics on/off at any time, with footer links on every page.
 
-The Model Performance dashboard at `/model-performance` (subscriber-gated) shows the pick model's actual track record: header KPIs, a calibration curve, a 30-day rolling hit rate line chart broken out by stat type, and four ablation tables (composite tier, archetype, DVA edge bucket, usage boost size).
 
 ## External Dependencies
 
