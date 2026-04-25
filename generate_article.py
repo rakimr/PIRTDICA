@@ -350,6 +350,8 @@ def build_analysis_text_template(row, dfs_df):
     line_drift_t = _safe_float(row.get('line_drift', 0))
     line_snapshots_t = int(_safe_float(row.get('line_snapshots', 0)))
     if opening_line_t and line_snapshots_t > 1 and abs(line_drift_t) >= 0.5:
+        if not current_line_t:
+            current_line_t = book_line or (opening_line_t + line_drift_t)
         direction_t = "up" if line_drift_t > 0 else "down"
         aligns_t = (line_drift_t > 0 and call == 'OVER') or (line_drift_t < 0 and call == 'UNDER')
         tell_t = "sharp money agrees with our pick" if aligns_t else "the market is moving against this pick (yellow flag)"
