@@ -381,6 +381,11 @@ def _build_pick_context(row, dfs_df):
     pace_factor = _safe_float(row.get('pace_factor', 0))
     total_factor = _safe_float(row.get('total_factor', 0))
     blend = row.get('blend', '')
+    opening_line = _safe_float(row.get('opening_line', 0))
+    current_line = _safe_float(row.get('current_line', 0))
+    line_drift = _safe_float(row.get('line_drift', 0))
+    line_drift_pct = _safe_float(row.get('line_drift_pct', 0))
+    line_snapshots = int(_safe_float(row.get('line_snapshots', 0)))
 
     call = "OVER" if "OVER" in str(recommendation).upper() else "UNDER"
 
@@ -440,6 +445,21 @@ def _build_pick_context(row, dfs_df):
         ctx['pace_factor'] = round(pace_factor, 3)
     if total_factor and total_factor > 0:
         ctx['total_factor'] = round(total_factor, 3)
+
+    if opening_line and line_snapshots and line_snapshots > 1:
+        ctx['opening_line'] = round(opening_line, 1)
+        ctx['current_line'] = round(current_line, 1)
+        ctx['line_drift'] = round(line_drift, 2)
+        ctx['line_drift_pct'] = round(line_drift_pct, 2)
+        ctx['line_snapshots'] = line_snapshots
+        if abs(line_drift) >= 0.5:
+            direction = "UP" if line_drift > 0 else "DOWN"
+            aligns = (line_drift > 0 and call == 'OVER') or (line_drift < 0 and call == 'UNDER')
+            tell = "sharp money agrees with our pick" if aligns else "line moving against our pick (yellow flag)"
+            ctx['line_movement_signal'] = (
+                f"Line moved {direction} from {opening_line:.1f} to {current_line:.1f} "
+                f"({line_drift:+.1f}, {line_drift_pct:+.1f}%) over {line_snapshots} snapshots: {tell}"
+            )
 
     if recent_games:
         ctx['recent_games'] = [
@@ -973,6 +993,7 @@ WRITING STYLE:
 - When players have an Opportunity Spike (out players creating usage vacuum), lead with that angle.
 - Reference the book line and explain why the market is wrong.
 - Connect picks to slate-wide context (game totals, key absences, pace environments) when relevant.
+- When `line_movement_signal` is provided, treat it as a sharp money tell: the line drifting toward our pick (UP for OVER, DOWN for UNDER) is market confirmation worth calling out by name ("Vegas opened at X, moved to Y // sharp money agrees"). Line drifting against our pick is a yellow flag that should be acknowledged honestly, not buried. Only mention line movement when it is meaningful (drift >= 0.5).
 
 OUTPUT FORMAT:
 Return a JSON array where each element has:

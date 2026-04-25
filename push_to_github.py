@@ -55,6 +55,8 @@ SOURCE_CODE_FILES = [
     "calculate_context_engine.py",
     "calculate_projections.py",
     "calculate_player_value.py",
+    "analysis/__init__.py",
+    "analysis/player_value.py",
     "estimate_ownership.py",
     "scrape_salaries.py",
     "scrape_dvp.py",
