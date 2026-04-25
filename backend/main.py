@@ -88,6 +88,25 @@ def auto_generate_house_lineup():
 
 @app.on_event("startup")
 async def startup_event():
+    try:
+        from sqlalchemy import inspect as sa_inspect, text as sa_text
+        from backend.database import engine as _eng
+        insp = sa_inspect(_eng)
+        if 'daily_pick_grades' in insp.get_table_names():
+            existing_cols = {c['name'] for c in insp.get_columns('daily_pick_grades')}
+            adds = []
+            if 'archetype' not in existing_cols:
+                adds.append("ADD COLUMN IF NOT EXISTS archetype VARCHAR(50)")
+            if 'dva_edge' not in existing_cols:
+                adds.append("ADD COLUMN IF NOT EXISTS dva_edge DOUBLE PRECISION")
+            if 'usage_boost' not in existing_cols:
+                adds.append("ADD COLUMN IF NOT EXISTS usage_boost DOUBLE PRECISION")
+            if adds:
+                with _eng.begin() as conn:
+                    conn.execute(sa_text(f"ALTER TABLE daily_pick_grades {', '.join(adds)}"))
+                print(f"[STARTUP] Added columns to daily_pick_grades: {adds}")
+    except Exception as e:
+        print(f"[STARTUP] daily_pick_grades migration skipped: {e}")
     thread = threading.Thread(target=auto_generate_house_lineup, daemon=True)
     thread.start()
 
@@ -297,6 +316,169 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
         "pre_lock": pre_lock,
         "prop_recs": prop_recs,
         "grading_report": grading_report,
+    })
+
+_PERF_CACHE = {}
+_PERF_CACHE_TTL = 3600
+
+def _bucket_composite(score):
+    if score is None:
+        return None
+    if score < 50: return "<50"
+    if score < 60: return "50-60"
+    if score < 70: return "60-70"
+    if score < 80: return "70-80"
+    return "80+"
+
+def _bucket_dva(edge):
+    if edge is None:
+        return None
+    if edge < -1.0: return "<-1.0"
+    if edge < -0.3: return "-1.0 to -0.3"
+    if edge < 0.3: return "-0.3 to +0.3"
+    if edge < 1.0: return "+0.3 to +1.0"
+    return "1.0+"
+
+def _bucket_usage(boost):
+    if boost is None:
+        return None
+    if boost <= 0: return "0 (none)"
+    if boost < 3: return "0-3%"
+    if boost < 6: return "3-6%"
+    if boost < 10: return "6-10%"
+    return "10%+"
+
+def _compute_performance_data(db):
+    from datetime import timedelta as _td
+    today = get_eastern_today()
+    cutoff_30 = today - _td(days=30)
+    grades = db.query(models.DailyPickGrade).all()
+    decided = [g for g in grades if g.hit is True or g.hit is False]
+    total = len(decided)
+    hits = sum(1 for g in decided if g.hit is True)
+    distinct_dates = len({g.slate_date for g in grades})
+
+    cal_buckets = {}
+    for g in decided:
+        if g.composite_score is None:
+            continue
+        pred = max(0.0, min(1.0, g.composite_score / 100.0))
+        bkey = round(pred * 10) / 10
+        if bkey not in cal_buckets:
+            cal_buckets[bkey] = {'pred_sum': 0.0, 'hits': 0, 'n': 0}
+        cal_buckets[bkey]['pred_sum'] += pred
+        cal_buckets[bkey]['hits'] += 1 if g.hit else 0
+        cal_buckets[bkey]['n'] += 1
+    calibration = []
+    for bkey in sorted(cal_buckets.keys()):
+        b = cal_buckets[bkey]
+        if b['n'] < 1:
+            continue
+        calibration.append({
+            'predicted': round(b['pred_sum'] / b['n'], 3),
+            'actual': round(b['hits'] / b['n'], 3),
+            'sample': b['n'],
+        })
+
+    rolling = {}
+    by_date_stat = {}
+    for g in decided:
+        if g.slate_date < cutoff_30:
+            continue
+        key = (g.slate_date, g.stat)
+        if key not in by_date_stat:
+            by_date_stat[key] = {'hits': 0, 'n': 0}
+        by_date_stat[key]['hits'] += 1 if g.hit else 0
+        by_date_stat[key]['n'] += 1
+    stats_seen = sorted({s for (_, s) in by_date_stat.keys()})
+    dates_seen = sorted({d for (d, _) in by_date_stat.keys()})
+    for stat in stats_seen:
+        series = []
+        for d in dates_seen:
+            v = by_date_stat.get((d, stat))
+            if v and v['n'] > 0:
+                series.append({'date': d.isoformat(), 'rate': round(v['hits'] / v['n'], 3), 'n': v['n']})
+            else:
+                series.append({'date': d.isoformat(), 'rate': None, 'n': 0})
+        rolling[stat] = series
+
+    def _ablate(label_fn, items):
+        out = {}
+        for g in items:
+            label = label_fn(g)
+            if label is None:
+                continue
+            if label not in out:
+                out[label] = {'hits': 0, 'n': 0}
+            out[label]['hits'] += 1 if g.hit else 0
+            out[label]['n'] += 1
+        return [{'bucket': k, 'rate': round(v['hits'] / v['n'], 3) if v['n'] else 0, 'sample': v['n']} for k, v in out.items()]
+
+    by_composite = _ablate(lambda g: _bucket_composite(g.composite_score), decided)
+    composite_order = ["<50", "50-60", "60-70", "70-80", "80+"]
+    by_composite.sort(key=lambda r: composite_order.index(r['bucket']) if r['bucket'] in composite_order else 99)
+
+    by_archetype = _ablate(lambda g: g.archetype if g.archetype else None, decided)
+    by_archetype.sort(key=lambda r: -r['sample'])
+
+    by_dva = _ablate(lambda g: _bucket_dva(g.dva_edge), decided)
+    dva_order = ["<-1.0", "-1.0 to -0.3", "-0.3 to +0.3", "+0.3 to +1.0", "1.0+"]
+    by_dva.sort(key=lambda r: dva_order.index(r['bucket']) if r['bucket'] in dva_order else 99)
+
+    by_usage = _ablate(lambda g: _bucket_usage(g.usage_boost), decided)
+    usage_order = ["0 (none)", "0-3%", "3-6%", "6-10%", "10%+"]
+    by_usage.sort(key=lambda r: usage_order.index(r['bucket']) if r['bucket'] in usage_order else 99)
+
+    archetype_captured = sum(1 for g in decided if g.archetype)
+    dva_captured = sum(1 for g in decided if g.dva_edge is not None)
+    usage_captured = sum(1 for g in decided if g.usage_boost is not None)
+
+    return {
+        'total_picks': total,
+        'total_hits': hits,
+        'overall_rate': round(hits / total, 3) if total else 0,
+        'distinct_dates': distinct_dates,
+        'calibration': calibration,
+        'rolling': rolling,
+        'rolling_stats': stats_seen,
+        'rolling_dates': [d.isoformat() for d in dates_seen],
+        'by_composite': by_composite,
+        'by_archetype': by_archetype,
+        'by_dva': by_dva,
+        'by_usage': by_usage,
+        'archetype_captured': archetype_captured,
+        'dva_captured': dva_captured,
+        'usage_captured': usage_captured,
+    }
+
+@app.get("/model-performance")
+async def model_performance_page(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    try:
+        from backend.stripe_billing import has_picks_access
+        has_access = has_picks_access(user, db)
+    except Exception as e:
+        print(f"[PERF] Stripe check failed: {e}")
+        has_access = False
+
+    data = None
+    if has_access:
+        cached = _PERF_CACHE.get('data')
+        if cached and (time.time() - cached[0]) < _PERF_CACHE_TTL:
+            data = cached[1]
+        else:
+            try:
+                data = _compute_performance_data(db)
+                _PERF_CACHE['data'] = (time.time(), data)
+            except Exception as e:
+                print(f"[PERF] compute failed: {e}")
+                data = None
+
+    return templates.TemplateResponse("model_performance.html", {
+        "request": request,
+        "user": user,
+        "has_access": has_access,
+        "data": data,
     })
 
 @app.get("/subscribe")

@@ -771,6 +771,9 @@ class DailyPickGrade(Base):
     actual = Column(Float)
     hit = Column(Boolean)
     composite_score = Column(Float)
+    archetype = Column(String(50), nullable=True)
+    dva_edge = Column(Float, nullable=True)
+    usage_boost = Column(Float, nullable=True)
     claude_analysis = Column(Text)
     created_at = Column(DateTime, server_default=func.now())
 

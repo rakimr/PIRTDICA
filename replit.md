@@ -48,6 +48,8 @@ Avatar & Identity Design Direction follows a "Strategic Minimalism meets Editori
 
 Cookie consent and analytics tracking is implemented via `PageView` and `CookieConsent` models in PostgreSQL. A fixed cookie banner appears for first-time visitors. Users can accept or decline analytics cookies. IP addresses are hashed for privacy. A `/cookie-settings` page allows users to toggle analytics on/off at any time, with footer links on every page.
 
+The Model Performance dashboard at `/model-performance` (subscriber-gated, same plan tiers as Articles) shows our pick model's actual track record: header KPIs (total graded picks, overall hit rate, W-L record, slates tracked), a calibration curve (composite score / 100 as predicted hit rate vs actual hit rate, with 45° reference line, point size = sample size), a 30-day rolling hit rate line chart broken out by stat type, and four ablation tables (composite tier, archetype, DVA edge bucket, usage boost size). Sample size is shown next to every metric. The route caches computed data in a module-level dict with a 1-hour TTL. `DailyPickGrade` was extended with nullable `archetype`, `dva_edge`, `usage_boost` columns (additive ALTER TABLE IF NOT EXISTS migration runs at startup). `generate_article.py` enriches `picks_data` with these fields in both the Claude Analyst path and the best-available fallback path so `grade_picks.py` can capture them at grade time. Historical grades pre-dating the enrichment will show NULLs for those three fields and are excluded from the corresponding ablation slices (a "captured X of Y" hint is shown when an ablation is empty).
+
 ## External Dependencies
 
 ### Web Scraping Targets

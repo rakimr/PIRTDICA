@@ -978,6 +978,9 @@ Remember:
                 'edge': f"{edge_sign}{vs_book_edge:.1f}%",
                 'pick': call,
                 'composite_score': round(composite, 1),
+                'archetype': str(source_row.get('archetype', '')),
+                'dva_edge': round(_safe_float(source_row.get('dva_edge', 0)), 2),
+                'usage_boost': round(_safe_float(source_row.get('usage_boost', 0)), 2),
             })
 
         analysis_data = []
@@ -1257,6 +1260,9 @@ def generate_article(target_date=None):
                 'edge': f"{edge_sign}{edge_val:.1f}%",
                 'pick': call,
                 'composite_score': round(_safe_float(row.get('composite_score', 0)), 1),
+                'archetype': str(row.get('archetype', '')),
+                'dva_edge': round(_safe_float(row.get('dva_edge', 0)), 2),
+                'usage_boost': round(_safe_float(row.get('usage_boost', 0)), 2),
             })
 
         claude_analyses = build_analysis_claude(high, dfs_df, best_available=using_best_available)
