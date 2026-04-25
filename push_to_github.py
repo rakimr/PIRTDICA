@@ -57,6 +57,7 @@ SOURCE_CODE_FILES = [
     "calculate_player_value.py",
     "analysis/__init__.py",
     "analysis/player_value.py",
+    "scheduler_props.py",
     "estimate_ownership.py",
     "scrape_salaries.py",
     "scrape_dvp.py",

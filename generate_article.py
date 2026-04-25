@@ -462,6 +462,17 @@ def _build_pick_context(row, dfs_df):
                 f"Line moved {direction} from {opening_line:.1f} to {current_line:.1f} "
                 f"({line_drift:+.1f}, {line_drift_pct:+.1f}%) over {line_snapshots} snapshots: {tell}"
             )
+        # Late-move signal: flag a sudden move between the prior snapshot and now,
+        # which often indicates breaking news (injury, rotation tweak) or last-minute
+        # sharp action that the open-to-close drift would average out.
+        if abs(recent_drift) >= 0.5 and recent_drift_hours and recent_drift_hours <= 4:
+            recent_dir = "UP" if recent_drift > 0 else "DOWN"
+            recent_aligns = (recent_drift > 0 and call == 'OVER') or (recent_drift < 0 and call == 'UNDER')
+            recent_tell = "late sharp action confirms our angle" if recent_aligns else "late move against us, proceed with caution"
+            ctx['late_move_signal'] = (
+                f"Line moved {recent_dir} {abs(recent_drift):.1f} in the last "
+                f"{recent_drift_hours:.1f}h: {recent_tell}"
+            )
 
     if recent_games:
         ctx['recent_games'] = [
@@ -996,6 +1007,7 @@ WRITING STYLE:
 - Reference the book line and explain why the market is wrong.
 - Connect picks to slate-wide context (game totals, key absences, pace environments) when relevant.
 - When `line_movement_signal` is provided, treat it as a sharp money tell: the line drifting toward our pick (UP for OVER, DOWN for UNDER) is market confirmation worth calling out by name ("Vegas opened at X, moved to Y // sharp money agrees"). Line drifting against our pick is a yellow flag that should be acknowledged honestly, not buried. Only mention line movement when it is meaningful (drift >= 0.5).
+- When `late_move_signal` is also provided, that is a SUDDEN move (within the last few hours), not slow drift. Treat late moves as more meaningful than total drift since they often signal breaking injury news or last-minute sharp action. If the late move aligns with our pick, lean into it ("the line just moved our way in the last hour"). If it goes against us, call it out as a real risk and explain why we're still on the play.
 
 OUTPUT FORMAT:
 Return a JSON array where each element has:
