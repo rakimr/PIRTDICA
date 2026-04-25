@@ -45,6 +45,14 @@ Avatar & Identity Design Direction follows a "Strategic Minimalism meets Editori
 
 Cookie consent and analytics tracking is implemented via `PageView` and `CookieConsent` models in PostgreSQL. A fixed cookie banner appears for first-time visitors. Users can accept or decline analytics cookies. IP addresses are hashed for privacy. A `/cookie-settings` page allows users to toggle analytics on/off at any time, with footer links on every page.
 
+## Session Memory
+Source of truth for historical narrative detail and session logs: `session_memory.md`. Always read both `replit.md` and `session_memory.md` for full context.
+- March 12, 2026: Gold-standard 80% hit rate slate (6 book-line plays).
+- March 15, 2026: 0-7 root cause analysis drove Task #5 (confidence tightening) and Task #6 (Usage Redistribution v2).
+- April 25, 2026: External "team-level Win/Loss" technical guide reviewed. Four ranked adoption candidates queued (line movement tracking, calibration/backtest dashboard, B2B/rest features, Claude divergence-prompt enrichment). Skip list includes full XGBoost classifier, Polymarket for player props, matplotlib viz, Telegram bot, team-level ELO. Separate YOLO/OpenCV CV system mentioned but not yet received.
+- Winning pattern keys: usage redistribution from injured stars, DVP/DVA double alignment, game total/pace environments, last-5 avg clearing book lines, high composite scores.
+- Unresolved bugs: `_detect_role_change` Series truth value error; article deduplication.
+
 ## External Dependencies
 
 ### Web Scraping Targets
