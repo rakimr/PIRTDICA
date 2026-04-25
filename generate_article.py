@@ -978,9 +978,9 @@ Remember:
                 'edge': f"{edge_sign}{vs_book_edge:.1f}%",
                 'pick': call,
                 'composite_score': round(composite, 1),
-                'archetype': str(source_row.get('archetype', '')),
-                'dva_edge': round(_safe_float(source_row.get('dva_edge', 0)), 2),
-                'usage_boost': round(_safe_float(source_row.get('usage_boost', 0)), 2),
+                'archetype': str(source_row.get('archetype', '')) or None,
+                'dva_edge': round(float(source_row['dva_edge']), 2) if 'dva_edge' in source_row and pd.notna(source_row['dva_edge']) else None,
+                'usage_boost': round(float(source_row['usage_boost']), 2) if 'usage_boost' in source_row and pd.notna(source_row['usage_boost']) else None,
             })
 
         analysis_data = []
@@ -1260,9 +1260,9 @@ def generate_article(target_date=None):
                 'edge': f"{edge_sign}{edge_val:.1f}%",
                 'pick': call,
                 'composite_score': round(_safe_float(row.get('composite_score', 0)), 1),
-                'archetype': str(row.get('archetype', '')),
-                'dva_edge': round(_safe_float(row.get('dva_edge', 0)), 2),
-                'usage_boost': round(_safe_float(row.get('usage_boost', 0)), 2),
+                'archetype': str(row.get('archetype', '')) or None,
+                'dva_edge': round(float(row['dva_edge']), 2) if 'dva_edge' in row and pd.notna(row['dva_edge']) else None,
+                'usage_boost': round(float(row['usage_boost']), 2) if 'usage_boost' in row and pd.notna(row['usage_boost']) else None,
             })
 
         claude_analyses = build_analysis_claude(high, dfs_df, best_available=using_best_available)
