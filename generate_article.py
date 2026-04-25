@@ -386,6 +386,8 @@ def _build_pick_context(row, dfs_df):
     line_drift = _safe_float(row.get('line_drift', 0))
     line_drift_pct = _safe_float(row.get('line_drift_pct', 0))
     line_snapshots = int(_safe_float(row.get('line_snapshots', 0)))
+    recent_drift = _safe_float(row.get('recent_drift', 0))
+    recent_drift_hours = _safe_float(row.get('recent_drift_hours', 0))
 
     call = "OVER" if "OVER" in str(recommendation).upper() else "UNDER"
 

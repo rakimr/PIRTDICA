@@ -589,6 +589,19 @@ def _load_line_movement():
 
             drift_pct = round((drift / opening_line) * 100.0, 2) if opening_line > 0 else 0.0
 
+            # Recent drift = last snapshot vs prior snapshot (regardless of time gap).
+            # This captures "the latest move" — useful for flagging late sharp action
+            # that the open-to-close drift would average out.
+            if snapshots >= 2:
+                prior = grp_sorted.iloc[-2]
+                recent_drift = round(current_line - float(prior['line']), 2)
+                recent_drift_hours = round(
+                    (current['scraped_at_dt'] - prior['scraped_at_dt']).total_seconds() / 3600.0, 2
+                )
+            else:
+                recent_drift = 0.0
+                recent_drift_hours = 0.0
+
             key = (_normalize_prop_name(player_name), stat)
             lookup[key] = {
                 'opening_line': opening_line,
@@ -597,6 +610,8 @@ def _load_line_movement():
                 'line_drift_pct': drift_pct,
                 'snapshot_count': snapshots,
                 'hours_tracked': hours_tracked,
+                'recent_drift': recent_drift,
+                'recent_drift_hours': recent_drift_hours,
             }
         return lookup
     except Exception as e:
@@ -2284,6 +2299,8 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
                 line_drift_val = line_drift_data['line_drift'] if line_drift_data else None
                 line_drift_pct_val = line_drift_data['line_drift_pct'] if line_drift_data else None
                 line_snapshots_val = line_drift_data['snapshot_count'] if line_drift_data else 0
+                recent_drift_val = line_drift_data.get('recent_drift') if line_drift_data else None
+                recent_drift_hours_val = line_drift_data.get('recent_drift_hours') if line_drift_data else None
 
                 composite = _calculate_composite_score(
                     projected_value, player_avg, book_line,
@@ -2345,6 +2362,8 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
                     'line_drift': line_drift_val,
                     'line_drift_pct': line_drift_pct_val,
                     'line_snapshots': line_snapshots_val if line_snapshots_val and line_snapshots_val > 1 else None,
+                    'recent_drift': recent_drift_val,
+                    'recent_drift_hours': recent_drift_hours_val,
                 }
                 props.append(prop_entry)
                 if conf.get('gate_failures'):
