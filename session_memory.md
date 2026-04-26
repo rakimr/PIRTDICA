@@ -117,3 +117,14 @@ If the system addresses any of those three, it's worth integrating. Otherwise it
 
 ### Implementation status
 - **All four adoption candidates remain unbuilt as of this entry.** No projection-engine, schema, or article-generator code was changed during this review. The user wanted feedback first before greenlighting individual builds. Each candidate should be its own task when approved.
+
+## April 25, 2026 — Move-Pattern Backtest (Task #26)
+
+Built `analysis/move_pattern_backtest.py` to validate whether picks aligned with a `sudden_swing` actually beat picks aligned with a `gradual_drift` of the same magnitude. The script joins `daily_pick_grades` (Postgres) and the `march*_grades.csv` slates against per-snapshot lines in `player_props_history` (SQLite), mirrors `_load_line_movement` (single-snapshot props classify as `flat`, drift=0), reruns `_classify_move_pattern` on each prop, and reports HIT% by bucket plus a `largest_swing_share` cutoff sensitivity sweep.
+
+Findings (`analysis/move_pattern_backtest.md`):
+- **Flat baseline:** 47.2% HIT (17/36 picks) — every matched pick collapses to `flat` because the props_history table has zero multi-snapshot props on any slate that overlaps a graded pick.
+- **gradual_drift / sudden_swing / reversal:** n=0. Cannot validate the 70% / 0.5 cutoffs yet.
+- Root cause: the `Props Refresh` workflow that drives `scheduler_props.py` is not running, so only one snapshot per (player, stat) per `game_date` exists in the historical record (one slate, 2026-03-03, has two minutes — but no graded picks on that date).
+
+Recommendation: keep the 70% / 0.5 thresholds at their current documented defaults, do NOT add a separate composite-score bump for sudden_swing, and re-run the backtest after the `Props Refresh` workflow has accumulated 3-4 weeks of intra-day snapshots (target n>=15 per bucket). The backtest script itself is built to handle that day-1.
