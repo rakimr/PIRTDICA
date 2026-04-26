@@ -16,24 +16,11 @@ from utils.timezone import get_eastern_date_str
 
 STAT_CATEGORIES = ['pts', 'reb', 'ast', 'stl', 'blk', '3pm']
 
-_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-DEFAULT_DB_PATH = os.path.join(_PROJECT_ROOT, 'dfs_nba.db')
-
-
-def get_db_path():
-    """Return the SQLite path used by every loader in this module.
-
-    Resolution order (checked at call time, so tests can override either):
-      1. ``DFS_DB_PATH`` environment variable
-      2. The module-level ``DEFAULT_DB_PATH`` constant
-    """
-    return os.environ.get('DFS_DB_PATH') or DEFAULT_DB_PATH
-
 def load_data():
     """Load player projections, DVP data, and DVA data."""
     players_df = pd.read_csv("dfs_players.csv")
     
-    conn = sqlite3.connect(get_db_path())
+    conn = sqlite3.connect("dfs_nba.db")
     dvp_df = pd.read_sql_query("SELECT * FROM dvp_blended", conn)
     stats_df = pd.read_sql_query("""
         SELECT player_name, team, pts_pg, reb_pg, ast_pg, stl_pg, blk_pg 
@@ -291,7 +278,7 @@ def generate_ref_foul_chart(output_path='static/images/ref_foul_chart.png'):
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     
     import sqlite3
-    conn = sqlite3.connect(get_db_path())
+    conn = sqlite3.connect("dfs_nba.db")
     
     today = get_eastern_date_str()
     
@@ -525,7 +512,7 @@ def _normalize_prop_name(name):
 def _load_book_props():
     """Load player prop lines from The Odds API data."""
     try:
-        conn = sqlite3.connect(get_db_path())
+        conn = sqlite3.connect("dfs_nba.db")
         today = get_eastern_date_str()
         df = pd.read_sql_query(
             "SELECT player_name, stat, line, over_odds, under_odds, bookmaker FROM player_props WHERE game_date = ?",
@@ -615,7 +602,7 @@ def _load_line_movement():
     (first deploy after schema change) or when no snapshots exist for today.
     """
     try:
-        conn = sqlite3.connect(get_db_path())
+        conn = sqlite3.connect("dfs_nba.db")
         today = get_eastern_date_str()
         try:
             df = pd.read_sql_query(
@@ -751,8 +738,9 @@ def _get_season_pct():
 
 def _load_game_logs_for_confidence():
     """Load player game logs from SQLite for prop confidence filtering."""
+    db_path = os.path.join(os.path.dirname(__file__), '..', 'dfs_nba.db')
     try:
-        conn = sqlite3.connect(get_db_path())
+        conn = sqlite3.connect(db_path)
         logs = pd.read_sql("SELECT player_name, game_date, pts, reb, ast, stl, blk FROM player_game_logs ORDER BY game_date DESC", conn)
         conn.close()
         return logs
@@ -896,7 +884,8 @@ def _evaluate_prop_confidence(player_name, stat_key, book_line, player_avg, game
 
 def _build_projection_cache():
     """Load ALL data tables once for stat-specific projection models."""
-    conn = sqlite3.connect(get_db_path())
+    db_path = os.path.join(os.path.dirname(__file__), '..', 'dfs_nba.db')
+    conn = sqlite3.connect(db_path)
     cache = {}
 
     try:

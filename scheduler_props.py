@@ -8,15 +8,39 @@ per day instead of 2.
 Each scrape appends to `player_props_history`, so we can detect WHEN sharp money
 moved (sudden swing vs gradual drift) — a stronger signal than total drift alone.
 
+Reliability features (added 2026-04-26 for Task #31):
+  - **Grace-window catch-up**: if the workflow restarts AFTER a target hour
+    has already passed today, we still fire that window provided we're within
+    `GRACE_WINDOW_MINUTES`. Without this, every restart silently skipped
+    whichever window had just elapsed — that's why historical slates only
+    have one snapshot per day.
+  - **DB-backed de-dup**: a target hour is treated as already satisfied if
+    `player_props_history` already has a snapshot within
+    `WINDOW_BUCKET_MINUTES` of it today (e.g. the Daily Update or Pre-Game
+    Refresh happened to scrape inside the same window). Saves API quota and
+    avoids redundant rows.
+  - **In-process attempt tracking**: once we attempt a window in this process,
+    we don't retry it the same day even if it failed. Avoids hammering a
+    broken API for an hour straight; a workflow restart still gets a fresh
+    chance the next day.
+  - **Short sleep cap (5m)**: every loop wakes at least every 5 minutes so the
+    scheduler reacts quickly to clock changes, restarts, or new game data.
+
 Rate-limit aware: the underlying scraper auto-skips when there are no games
-today, so we don't burn API quota on dark slates.
+today, and `has_games_today()` short-circuits before we even spawn it.
+
+CLI:
+  python scheduler_props.py             # run forever (the workflow entrypoint)
+  python scheduler_props.py --status    # print today's snapshot coverage and exit
+  python scheduler_props.py --once      # evaluate windows once, fire any due, exit
 """
+import argparse
+import os
+import sqlite3
 import subprocess
 import sys
 import time
-import sqlite3
 from datetime import datetime, timedelta
-import os
 
 try:
     import zoneinfo
@@ -35,6 +59,9 @@ def _localize_et(naive_dt):
 
 
 SCRAPE_HOURS = [11, 14, 16]
+GRACE_WINDOW_MINUTES = 90
+WINDOW_BUCKET_MINUTES = 75
+SLEEP_CAP_SECONDS = 300
 DB_PATH = "/home/runner/workspace/dfs_nba.db"
 
 
@@ -75,18 +102,59 @@ def has_games_today():
         return True
 
 
-def next_scrape_time(now):
-    """Return the next scheduled scrape datetime (ET) after `now`."""
-    today_targets = [
-        _localize_et(datetime(now.year, now.month, now.day, h, 0, 0))
-        for h in SCRAPE_HOURS
-    ]
-    for t in today_targets:
-        if t > now:
-            return t
-    tomorrow = now + timedelta(days=1)
-    return _localize_et(datetime(tomorrow.year, tomorrow.month, tomorrow.day,
-                                 SCRAPE_HOURS[0], 0, 0))
+def windows_satisfied_by_db():
+    """Return the subset of SCRAPE_HOURS already covered today.
+
+    A target hour H is "satisfied" if `player_props_history` contains at
+    least one row today with a `scraped_at` minute-of-day within
+    `WINDOW_BUCKET_MINUTES` of H:00. Covers cases where the Daily Update,
+    Pre-Game Refresh, or a manual scrape happened to fire inside the same
+    window — no need to re-scrape and burn API quota.
+    """
+    today_et = get_et_now().strftime("%Y-%m-%d")
+    satisfied = set()
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT DISTINCT substr(scraped_at, 12, 5) FROM player_props_history "
+            "WHERE substr(scraped_at, 1, 10) = ?",
+            (today_et,),
+        )
+        snapshot_minutes = []
+        for (hm,) in cur.fetchall():
+            try:
+                snapshot_minutes.append(int(hm[:2]) * 60 + int(hm[3:]))
+            except Exception:
+                continue
+        conn.close()
+    except Exception:
+        return satisfied
+    for target_h in SCRAPE_HOURS:
+        target_min = target_h * 60
+        for sm in snapshot_minutes:
+            if abs(sm - target_min) <= WINDOW_BUCKET_MINUTES:
+                satisfied.add(target_h)
+                break
+    return satisfied
+
+
+def snapshot_summary_today():
+    """Return (distinct_minute_count, sorted_minute_strings) for today."""
+    today_et = get_et_now().strftime("%Y-%m-%d")
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT DISTINCT substr(scraped_at, 12, 5) FROM player_props_history "
+            "WHERE substr(scraped_at, 1, 10) = ? ORDER BY 1",
+            (today_et,),
+        )
+        minutes = [row[0] for row in cur.fetchall() if row[0]]
+        conn.close()
+        return len(minutes), minutes
+    except Exception:
+        return 0, []
 
 
 def run_scrape():
@@ -118,23 +186,161 @@ def run_scrape():
         print(f"\nIntra-day props scrape error: {e}")
 
 
+def _today_target(now, hour):
+    return _localize_et(datetime(now.year, now.month, now.day, hour, 0, 0))
+
+
+def _next_morning_first_target(now):
+    tomorrow = now + timedelta(days=1)
+    return _localize_et(datetime(
+        tomorrow.year, tomorrow.month, tomorrow.day, SCRAPE_HOURS[0], 0, 0
+    ))
+
+
+def evaluate_and_fire(now, attempted_today):
+    """Decide whether to fire a window now, return seconds to next check.
+
+    A window is *due* if:
+      - It hasn't been attempted yet this process-day, AND
+      - It isn't already satisfied by a snapshot in the DB, AND
+      - now >= target hour, AND
+      - now <= target hour + GRACE_WINDOW_MINUTES.
+
+    If a window is due, fire it and mark it attempted regardless of outcome
+    (failed scrape attempts are tracked the same way so we don't loop on a
+    broken API). Returns the seconds to sleep before the next evaluation
+    (always capped at SLEEP_CAP_SECONDS).
+    """
+    satisfied = windows_satisfied_by_db()
+    fired_now = False
+
+    for h in SCRAPE_HOURS:
+        if h in attempted_today or h in satisfied:
+            continue
+        target = _today_target(now, h)
+        if now < target:
+            continue
+        late_minutes = (now - target).total_seconds() / 60.0
+        if late_minutes > GRACE_WINDOW_MINUTES:
+            # Past grace — give up on this window for today so we don't keep
+            # re-checking it. Marking attempted has the same effect.
+            attempted_today.add(h)
+            print(f"\n[{now.strftime('%Y-%m-%d %H:%M ET')}] "
+                  f"Skipping {h:02d}:00 ET window — {int(late_minutes)}m late, "
+                  f"past {GRACE_WINDOW_MINUTES}m grace", flush=True)
+            continue
+        # Due — fire it.
+        if late_minutes > 0:
+            print(f"\n[{now.strftime('%Y-%m-%d %H:%M ET')}] "
+                  f"Firing {h:02d}:00 ET window — {int(late_minutes)}m late, "
+                  f"within {GRACE_WINDOW_MINUTES}m grace", flush=True)
+        else:
+            print(f"\n[{now.strftime('%Y-%m-%d %H:%M ET')}] "
+                  f"Firing {h:02d}:00 ET window — on time", flush=True)
+        run_scrape()
+        attempted_today.add(h)
+        fired_now = True
+        # Refresh now so the next-target calculation uses the post-fire clock.
+        now = get_et_now()
+        break  # one fire per loop tick; re-evaluate immediately
+
+    if fired_now:
+        return 30  # short pause then re-evaluate (will pick up the next due window)
+
+    # Compute time to next still-eligible window today.
+    candidates = []
+    satisfied = windows_satisfied_by_db()  # refresh after any fire
+    for h in SCRAPE_HOURS:
+        if h in attempted_today or h in satisfied:
+            continue
+        target = _today_target(now, h)
+        if now < target:
+            candidates.append((target - now).total_seconds())
+        else:
+            late_minutes = (now - target).total_seconds() / 60.0
+            if late_minutes <= GRACE_WINDOW_MINUTES:
+                # Already overdue but still in grace — re-check soon.
+                candidates.append(30)
+    if candidates:
+        return max(30, min(min(candidates), SLEEP_CAP_SECONDS))
+
+    # No more windows today: sleep toward tomorrow's first target, capped.
+    secs = (_next_morning_first_target(now) - now).total_seconds()
+    return max(60, min(secs, SLEEP_CAP_SECONDS))
+
+
+def print_status():
+    now = get_et_now()
+    today = now.strftime("%Y-%m-%d")
+    games = has_games_today()
+    satisfied = windows_satisfied_by_db()
+    n_minutes, minutes = snapshot_summary_today()
+    print(f"INTRA-DAY PROPS SCHEDULER — STATUS")
+    print(f"  Now (ET):              {now.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"  Slate has games today: {games}")
+    print(f"  Target windows:        " + ", ".join(f"{h:02d}:00 ET" for h in SCRAPE_HOURS))
+    print(f"  Grace window:          {GRACE_WINDOW_MINUTES} min after target")
+    print(f"  DB-satisfied windows:  " + (
+        ", ".join(f"{h:02d}:00" for h in sorted(satisfied)) if satisfied else "(none)"
+    ))
+    print(f"  Distinct snapshot minutes today ({today}): {n_minutes}")
+    if minutes:
+        for m in minutes:
+            print(f"    - {m} ET")
+
+
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--status", action="store_true",
+                        help="Print today's snapshot coverage and exit.")
+    parser.add_argument("--once", action="store_true",
+                        help="Evaluate windows once, fire any due, exit.")
+    args = parser.parse_args()
+
+    if args.status:
+        print_status()
+        return
+
     print("=" * 50)
     print("INTRA-DAY PROPS SCRAPE SCHEDULER")
     print(f"Targets: {', '.join(f'{h:02d}:00 ET' for h in SCRAPE_HOURS)}")
+    print(f"Grace: {GRACE_WINDOW_MINUTES}m after target | "
+          f"DB de-dup: ±{WINDOW_BUCKET_MINUTES}m | "
+          f"Sleep cap: {SLEEP_CAP_SECONDS}s")
     print("=" * 50, flush=True)
+
+    attempted_today = set()
+    attempted_date = None
 
     while True:
         now = get_et_now()
-        target = next_scrape_time(now)
-        wait_secs = max(30, (target - now).total_seconds())
-        hrs = int(wait_secs // 3600)
-        mins = int((wait_secs % 3600) // 60)
+        today = now.strftime("%Y-%m-%d")
+        if attempted_date != today:
+            attempted_today = set()
+            attempted_date = today
+
+        if not has_games_today():
+            secs = (_next_morning_first_target(now) - now).total_seconds()
+            wait_secs = max(60, min(secs, SLEEP_CAP_SECONDS))
+            mins = int(wait_secs // 60)
+            print(f"\n[{now.strftime('%Y-%m-%d %H:%M ET')}] "
+                  f"No games on slate — re-checking in {mins}m", flush=True)
+            if args.once:
+                return
+            time.sleep(wait_secs)
+            continue
+
+        wait_secs = evaluate_and_fire(now, attempted_today)
+        if args.once:
+            return
+        now = get_et_now()
+        next_check = now + timedelta(seconds=wait_secs)
+        mins = int(wait_secs // 60)
+        secs = int(wait_secs % 60)
         print(f"\n[{now.strftime('%Y-%m-%d %H:%M ET')}] "
-              f"Next scrape at {target.strftime('%Y-%m-%d %H:%M ET')} "
-              f"({hrs}h {mins}m)", flush=True)
+              f"Next evaluation at {next_check.strftime('%H:%M:%S ET')} "
+              f"({mins}m {secs}s)", flush=True)
         time.sleep(wait_secs)
-        run_scrape()
 
 
 if __name__ == "__main__":
