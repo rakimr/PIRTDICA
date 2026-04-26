@@ -32,7 +32,7 @@ today, and `has_games_today()` short-circuits before we even spawn it.
 CLI:
   python scheduler_props.py             # run forever (the workflow entrypoint)
   python scheduler_props.py --status    # print today's snapshot coverage and exit
-  python scheduler_props.py --once      # evaluate windows once, fire any due, exit
+  python scheduler_props.py --once      # fire every currently-due window, then exit
 """
 import argparse
 import os
@@ -105,11 +105,16 @@ def has_games_today():
 def windows_satisfied_by_db():
     """Return the subset of SCRAPE_HOURS already covered today.
 
-    A target hour H is "satisfied" if `player_props_history` contains at
-    least one row today with a `scraped_at` minute-of-day within
-    `WINDOW_BUCKET_MINUTES` of H:00. Covers cases where the Daily Update,
-    Pre-Game Refresh, or a manual scrape happened to fire inside the same
-    window — no need to re-scrape and burn API quota.
+    Each snapshot in `player_props_history` is assigned to its **nearest**
+    target hour and counts as satisfying only that target — provided it's
+    within `WINDOW_BUCKET_MINUTES`. The nearest-target rule prevents a late
+    14:00 snapshot at, say, 14:50 from also marking 16:00 satisfied (which
+    would defeat the next intra-day window): 14:50 is 50min from 14:00 vs
+    70min from 16:00, so it satisfies 14:00 only and 16:00 still fires.
+
+    Covers cases where the Daily Update, Pre-Game Refresh, or a manual
+    scrape happened to fire inside the same window — no need to re-scrape
+    and burn API quota on a duplicate of an existing snapshot.
     """
     today_et = get_et_now().strftime("%Y-%m-%d")
     satisfied = set()
@@ -130,12 +135,10 @@ def windows_satisfied_by_db():
         conn.close()
     except Exception:
         return satisfied
-    for target_h in SCRAPE_HOURS:
-        target_min = target_h * 60
-        for sm in snapshot_minutes:
-            if abs(sm - target_min) <= WINDOW_BUCKET_MINUTES:
-                satisfied.add(target_h)
-                break
+    for sm in snapshot_minutes:
+        nearest = min(SCRAPE_HOURS, key=lambda h: abs(h * 60 - sm))
+        if abs(nearest * 60 - sm) <= WINDOW_BUCKET_MINUTES:
+            satisfied.add(nearest)
     return satisfied
 
 
@@ -294,7 +297,7 @@ def main():
     parser.add_argument("--status", action="store_true",
                         help="Print today's snapshot coverage and exit.")
     parser.add_argument("--once", action="store_true",
-                        help="Evaluate windows once, fire any due, exit.")
+                        help="Fire every currently-due window, then exit.")
     args = parser.parse_args()
 
     if args.status:
@@ -332,6 +335,13 @@ def main():
 
         wait_secs = evaluate_and_fire(now, attempted_today)
         if args.once:
+            # `evaluate_and_fire` returns 30 after a fire (so the persistent
+            # loop can pick up the next due window quickly). For --once we
+            # want to drain every due window in one invocation, so keep
+            # firing until we're back to a "no work right now" state.
+            while wait_secs < 60:
+                now = get_et_now()
+                wait_secs = evaluate_and_fire(now, attempted_today)
             return
         now = get_et_now()
         next_check = now + timedelta(seconds=wait_secs)
