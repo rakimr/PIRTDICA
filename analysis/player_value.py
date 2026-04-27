@@ -311,13 +311,21 @@ def generate_ref_foul_chart(output_path='static/images/ref_foul_chart.png'):
     )
     conn.close()
     
+    def _norm_team(t):
+        if not t:
+            return ''
+        s = str(t).strip().upper()
+        aliases = {'PHO': 'PHX', 'PHX': 'PHX', 'BRK': 'BKN', 'BKN': 'BKN', 'CHO': 'CHA', 'CHA': 'CHA'}
+        return aliases.get(s, s)
+
     if len(todays_games) > 0 and len(assignments) > 0:
         valid_pairs = set()
         for _, g in todays_games.iterrows():
-            valid_pairs.add((g['home_team'], g['away_team']))
-            valid_pairs.add((g['away_team'], g['home_team']))
+            h, a = _norm_team(g['home_team']), _norm_team(g['away_team'])
+            valid_pairs.add((h, a))
+            valid_pairs.add((a, h))
         assignments = assignments[
-            assignments.apply(lambda r: (r['home_team'], r['away_team']) in valid_pairs, axis=1)
+            assignments.apply(lambda r: (_norm_team(r['home_team']), _norm_team(r['away_team'])) in valid_pairs, axis=1)
         ]
     
     if len(assignments) == 0 or len(ref_stats) == 0:

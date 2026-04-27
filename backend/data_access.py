@@ -140,24 +140,69 @@ def get_player_salary_count():
         return 0
 
 
+def _team_aliases(t):
+    if not t:
+        return set()
+    s = str(t).strip().upper()
+    groups = [
+        {'PHO', 'PHX'},
+        {'BRK', 'BKN'},
+        {'CHO', 'CHA'},
+        {'NOP', 'NO'},
+        {'NYK', 'NY'},
+        {'SAS', 'SA'},
+        {'GSW', 'GS'},
+    ]
+    for g in groups:
+        if s in g:
+            return g
+    return {s}
+
+
 def get_all_game_times():
+    """Return distinct game_time strings from TODAY's tracked slate only.
+    Cross-references with game_odds (sqlite) / game_odds_live (postgres) so
+    that stale rows from previous slates in player_salaries_live can't poison
+    the home page countdown.
+    """
     if use_postgres():
         try:
             with engine.connect() as conn:
-                result = conn.execute(text(
-                    "SELECT DISTINCT game_time FROM player_salaries_live WHERE game_time IS NOT NULL"
-                ))
-                return [row[0] for row in result.fetchall()]
+                slate_rows = conn.execute(text(
+                    "SELECT home_team, away_team FROM game_odds_live"
+                )).fetchall()
+                slate_teams = set()
+                for h, a in slate_rows:
+                    slate_teams |= _team_aliases(h)
+                    slate_teams |= _team_aliases(a)
+
+                rows = conn.execute(text(
+                    "SELECT DISTINCT team, game_time FROM player_salaries_live WHERE game_time IS NOT NULL"
+                )).fetchall()
+                if not slate_teams:
+                    return list({r[1] for r in rows})
+                times = set()
+                for team, gt in rows:
+                    if team and gt and str(team).strip().upper() in slate_teams:
+                        times.add(gt)
+                return list(times)
         except Exception:
             return []
     try:
         import sqlite3
         conn = sqlite3.connect("dfs_nba.db")
         cur = conn.cursor()
-        cur.execute("SELECT DISTINCT game_time FROM player_salaries WHERE game_time IS NOT NULL")
-        times = [row[0] for row in cur.fetchall()]
+        cur.execute("SELECT home_team, away_team FROM game_odds")
+        slate_teams = set()
+        for h, a in cur.fetchall():
+            slate_teams |= _team_aliases(h)
+            slate_teams |= _team_aliases(a)
+        cur.execute("SELECT DISTINCT team, game_time FROM player_salaries WHERE game_time IS NOT NULL")
+        rows = cur.fetchall()
         conn.close()
-        return times
+        if not slate_teams:
+            return list({r[1] for r in rows})
+        return list({gt for team, gt in rows if team and gt and str(team).strip().upper() in slate_teams})
     except Exception:
         return []
 
