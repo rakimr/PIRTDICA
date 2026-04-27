@@ -1231,6 +1231,56 @@ async def trends(request: Request, db: Session = Depends(get_db)):
                         keep = [c for c in keep if c in explorer_df.columns]
                         explorer_df = pd.concat([explorer_df[keep], missing_df[keep]], ignore_index=True)
 
+        try:
+            shot_universe = data_access.get_player_shot_zones()
+            if shot_universe is not None and not shot_universe.empty:
+                positions_df = data_access.get_player_positions()
+                pos_lookup = {}
+                if positions_df is not None and not positions_df.empty:
+                    pos_cols = ['pg_pct', 'sg_pct', 'sf_pct', 'pf_pct', 'c_pct']
+                    pos_labels = ['PG', 'SG', 'SF', 'PF', 'C']
+                    for _, prow in positions_df.iterrows():
+                        tp = prow.get('true_position')
+                        if pd.notna(tp) and str(tp).strip():
+                            pos_lookup[prow['player_name']] = str(tp).strip()
+                            continue
+                        vals = [prow.get(c, 0) or 0 for c in pos_cols]
+                        if max(vals) > 0:
+                            pos_lookup[prow['player_name']] = pos_labels[vals.index(max(vals))]
+
+                existing_norm_full = set()
+                if not explorer_df.empty:
+                    existing_norm_full = set(explorer_df['player_name'].apply(_safe_normalize))
+
+                offslate_rows = []
+                for _, srow in shot_universe.iterrows():
+                    pname = srow.get('player_name')
+                    if not pname:
+                        continue
+                    nk = _safe_normalize(pname)
+                    if not nk or nk in existing_norm_full:
+                        continue
+                    offslate_rows.append({
+                        'player_name': pname,
+                        'true_position': pos_lookup.get(pname, ''),
+                        'team': srow.get('team', '') or '',
+                        'opponent': '',
+                        'injury_status': 'off-slate',
+                    })
+                    existing_norm_full.add(nk)
+
+                if offslate_rows:
+                    offslate_df = pd.DataFrame(offslate_rows)
+                    if explorer_df.empty:
+                        explorer_df = offslate_df
+                    else:
+                        keep = ['player_name', 'true_position', 'team', 'opponent', 'injury_status']
+                        keep = [c for c in keep if c in explorer_df.columns]
+                        explorer_df = pd.concat([explorer_df[keep], offslate_df[keep]], ignore_index=True)
+        except Exception:
+            import traceback
+            traceback.print_exc()
+
         if not explorer_df.empty:
             keep_cols = ['player_name', 'true_position', 'team', 'opponent', 'injury_status']
             keep_cols = [c for c in keep_cols if c in explorer_df.columns]
