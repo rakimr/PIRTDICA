@@ -1337,13 +1337,16 @@ def generate_article(target_date=None):
                 ascending=[True, False]
             ).drop_duplicates(subset='player').head(6)
             if best.empty:
-                print("No picks available at all.")
-                stale_header = f'static/images/article_header_{target_date.strftime("%Y-%m-%d")}.png'
-                if os.path.exists(stale_header):
-                    os.remove(stale_header)
-                    print(f"Removed stale header: {stale_header}")
-                save_to_db(target_date, None, [], [], 0)
-                print("Cleared article data from database.")
+                print(f"No picks available — saving placeholder article for {game_count} game(s) on slate.")
+                fallback_header = f'static/images/article_header_{target_date.strftime("%Y-%m-%d")}.png'
+                try:
+                    from generate_header import generate as gen_header
+                    gen_header(target_date, out_path=fallback_header, player_data=[])
+                except Exception as e:
+                    print(f"Fallback header generation failed: {e}")
+                header_arg = fallback_header if os.path.exists(fallback_header) else None
+                save_to_db(target_date, header_arg, [], [], game_count)
+                print(f"Saved placeholder article: {game_count} game(s), 0 picks, header={'yes' if header_arg else 'no'}.")
                 return False
             high = best
             using_best_available = True
