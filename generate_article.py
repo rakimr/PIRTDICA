@@ -1483,8 +1483,8 @@ def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_c
         else:
             prev = existing.header_image_path
             if prev:
-                disk_path = prev.lstrip("/")
-                if not os.path.exists(disk_path):
+                candidates = [prev, prev.lstrip("/")]
+                if not any(os.path.exists(c) for c in candidates):
                     existing.header_image_path = None
         existing.picks_json = json.dumps(picks_data)
         existing.analysis_json = json.dumps(analysis_data)
