@@ -200,24 +200,18 @@ def generate(target_date=None, out_path=None, player_data=None, subtitle_overrid
         print('No headshots available — rendering title-only fallback header.')
         return _render_title_only(out_path, date_str, subtitle_override)
 
-    has_pick_info = any(s[0].get('side') and s[0].get('stat') and s[0].get('line') is not None for s in shots)
-
     W = 1250
-    H = 540 if has_pick_info else 500
+    H = 500
 
     TITLE_Y = 139
     SUB_Y = 177
     HEADSHOT_Y = 221
     NAME_Y_OFFSET = 9
     NAME_LINE_H = 14
-    PICK_Y_OFFSET = 6
-    EDGE_Y_OFFSET = 4
 
     font_title = ImageFont.truetype(FONT_PATH, 26)
     font_sub = ImageFont.truetype(FONT_PATH, 12)
     font_name = ImageFont.truetype(FONT_PATH, 12)
-    font_pick = ImageFont.truetype(FONT_PATH, 11)
-    font_edge = ImageFont.truetype(FONT_PATH, 10)
 
     canvas = Image.new('RGB', (W, H), (255, 255, 255))
     draw = ImageDraw.Draw(canvas)
@@ -252,28 +246,7 @@ def generate(target_date=None, out_path=None, player_data=None, subtitle_overrid
                     line, font=font_name, fill=(17, 17, 17)
                 )
 
-            if has_pick_info:
-                stat = p.get('stat')
-                side = (p.get('side') or '').upper()
-                line_val = _format_line(p.get('line'))
-                edge = p.get('edge')
-                if side and stat and line_val:
-                    pick_text = f'{side} {line_val} {stat}'
-                    pw = draw.textlength(pick_text, font=font_pick)
-                    px = x_start + i * CARD_W + (CARD_W - pw) / 2
-                    py = y + HEADSHOT_D + NAME_Y_OFFSET + 2 * NAME_LINE_H + PICK_Y_OFFSET
-                    draw.text((px, py), pick_text, font=font_pick, fill=(17, 17, 17))
-                    if edge:
-                        edge_str = str(edge).strip()
-                        ew = draw.textlength(edge_str, font=font_edge)
-                        ex = x_start + i * CARD_W + (CARD_W - ew) / 2
-                        ey = py + 14 + EDGE_Y_OFFSET
-                        draw.text((ex, ey), edge_str, font=font_edge, fill=(136, 136, 136))
-
-        row_h = HEADSHOT_D + NAME_Y_OFFSET + 2 * NAME_LINE_H + 20
-        if has_pick_info:
-            row_h += 14 + 14
-        y += row_h
+        y += HEADSHOT_D + NAME_Y_OFFSET + 2 * NAME_LINE_H + 20
 
     os.makedirs(os.path.dirname(out_path) or '.', exist_ok=True)
     canvas.save(out_path, 'PNG')
