@@ -5,7 +5,13 @@ day. Keeps the static gallery PNGs current between full pipeline runs.
 Active window: every hour from START_HOUR to END_HOUR ET. Outside that window
 (overnight, and after the pre-game refresh has taken over for the slate), it
 sleeps until the next active hour.
+
+Env gate (Task #34): the scheduler exits cleanly unless `SCHEDULERS_ENABLED=1`
+is set, so dev workspaces don't double-fire alongside the production
+deployment. Pass `--force` to override the gate for one-off testing. The
+production launcher (`start_production.sh`) sets the env var automatically.
 """
+import argparse
 import subprocess
 import sys
 import time
@@ -81,6 +87,19 @@ def run_refresh():
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--force", action="store_true",
+                        help="Bypass SCHEDULERS_ENABLED gate for manual runs.")
+    args = parser.parse_args()
+
+    if os.environ.get("SCHEDULERS_ENABLED", "").strip() != "1" and not args.force:
+        print(
+            "[scheduler_charts] SCHEDULERS_ENABLED != 1 — exiting "
+            "(set the env var or pass --force to run).",
+            flush=True,
+        )
+        return
+
     print("=" * 50)
     print("CHART REFRESH SCHEDULER")
     print(f"Active window: {START_HOUR:02d}:00 - {END_HOUR:02d}:00 ET, every {INTERVAL_MIN} min")

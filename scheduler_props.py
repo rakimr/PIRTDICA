@@ -64,6 +64,18 @@ WINDOW_BUCKET_MINUTES = 75
 SLEEP_CAP_SECONDS = 300
 DB_PATH = "/home/runner/workspace/dfs_nba.db"
 
+# Movement-triggered article regen (Task #34). After every successful intra-day
+# scrape we compare the fresh prop snapshot against the snapshot at the time of
+# the last article generation. If enough lines have moved by enough points, we
+# regenerate the article so subscribers see late-breaking sharp action /
+# injury-driven moves before tipoff. Tunable via env vars so a flaky API or
+# noisy slate doesn't burn Claude credits unnecessarily.
+MOVEMENT_THRESHOLD = float(os.environ.get("PROPS_MOVE_THRESHOLD", "0.5"))
+MIN_MOVERS = int(os.environ.get("PROPS_MOVE_MIN_MOVERS", "3"))
+REGEN_COOLDOWN_MINUTES = int(os.environ.get("PROPS_REGEN_COOLDOWN_MIN", "30"))
+
+_last_movement_regen = None
+
 
 def get_et_now():
     try:
@@ -160,6 +172,188 @@ def snapshot_summary_today():
         return 0, []
 
 
+def _query_last_article_updated_at_et():
+    """Return today's daily_articles.updated_at as an ET datetime, or None."""
+    try:
+        from backend.database import SessionLocal
+        from backend import models
+        today = get_et_now().date()
+        with SessionLocal() as db:
+            article = db.query(models.DailyArticle).filter(
+                models.DailyArticle.slate_date == today
+            ).first()
+            if article and article.updated_at:
+                ua = article.updated_at
+                if ua.tzinfo is None:
+                    from datetime import timezone
+                    ua = ua.replace(tzinfo=timezone.utc)
+                return ua.astimezone(ET)
+    except Exception as e:
+        print(f"[movement] could not load article updated_at: {e}", flush=True)
+    return None
+
+
+def detect_material_movement(article_updated_at, db_path=None):
+    """Compare current props snapshot vs the snapshot at article_updated_at.
+
+    For each (player, stat, bookmaker) triple, we pull:
+      - the most recent snapshot today (the post-scrape line)
+      - the most recent snapshot at-or-before the article time (what Claude saw)
+    and return (count_of_movers, sample_string) where a "mover" is any prop
+    whose absolute line delta is >= MOVEMENT_THRESHOLD.
+    """
+    if article_updated_at is None:
+        return 0, ""
+    today_et = get_et_now().strftime("%Y-%m-%d")
+    # `scraped_at` is stored as ISO-8601 with offset (e.g.
+    # "2026-04-25T11:30:00-04:00"). We MUST wrap both sides in SQLite's
+    # `datetime()` so the comparison is normalized to UTC. A naive TEXT
+    # comparison would compare a "T"-separated value against a space-separated
+    # one, and silently exclude valid pre-article rows because 'T' (0x54) sorts
+    # greater than ' ' (0x20). Same reason we wrap the ORDER BYs — the fall-DST
+    # rollback hour can otherwise mis-rank snapshots within the same wall hour.
+    article_dt_str = article_updated_at.isoformat()
+    try:
+        conn = sqlite3.connect(db_path or DB_PATH)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            WITH latest AS (
+                SELECT player_name, stat, bookmaker, line, scraped_at,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY player_name, stat, bookmaker
+                           ORDER BY datetime(scraped_at) DESC
+                       ) AS rn
+                FROM player_props_history
+                WHERE game_date = ?
+            ),
+            article_time AS (
+                SELECT player_name, stat, bookmaker, line, scraped_at,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY player_name, stat, bookmaker
+                           ORDER BY datetime(scraped_at) DESC
+                       ) AS rn
+                FROM player_props_history
+                WHERE game_date = ? AND datetime(scraped_at) <= datetime(?)
+            )
+            SELECT l.player_name, l.stat, l.bookmaker,
+                   a.line AS old_line, l.line AS new_line
+            FROM latest l
+            JOIN article_time a USING (player_name, stat, bookmaker)
+            WHERE l.rn = 1 AND a.rn = 1
+            """,
+            (today_et, today_et, article_dt_str),
+        )
+        rows = cur.fetchall()
+        conn.close()
+    except Exception as e:
+        print(f"[movement] query failed: {e}", flush=True)
+        return 0, ""
+
+    movers = []
+    for player, stat, _book, old_line, new_line in rows:
+        if old_line is None or new_line is None:
+            continue
+        try:
+            delta = abs(float(new_line) - float(old_line))
+        except (TypeError, ValueError):
+            continue
+        if delta >= MOVEMENT_THRESHOLD:
+            movers.append((player, stat, float(old_line), float(new_line)))
+    sample = "; ".join(
+        f"{p} {s} {ol:.1f}->{nl:.1f}" for p, s, ol, nl in movers[:3]
+    )
+    return len(movers), sample
+
+
+def maybe_regen_article_for_movement():
+    """If material movement is detected since the last article, regen + push.
+
+    Returns True if a regen actually fired. Honors REGEN_COOLDOWN_MINUTES so
+    a back-to-back scrape (e.g. 14:00 and 14:30) can't burn Claude credits in
+    rapid succession. Cooldown state is process-local — a workflow restart
+    resets it, but the worst case is one extra regen per restart.
+    """
+    global _last_movement_regen
+    now = get_et_now()
+    if _last_movement_regen is not None:
+        elapsed = (now - _last_movement_regen).total_seconds() / 60.0
+        if elapsed < REGEN_COOLDOWN_MINUTES:
+            print(
+                f"[movement] cooldown active "
+                f"({REGEN_COOLDOWN_MINUTES - int(elapsed)}m left) — skipping check",
+                flush=True,
+            )
+            return False
+
+    article_ua = _query_last_article_updated_at_et()
+    if article_ua is None:
+        print("[movement] no article today yet — skipping movement check",
+              flush=True)
+        return False
+
+    movers_count, sample = detect_material_movement(article_ua)
+    print(
+        f"[movement] {movers_count} props moved by >= {MOVEMENT_THRESHOLD} "
+        f"since last article ({article_ua.strftime('%H:%M ET')})",
+        flush=True,
+    )
+    if sample:
+        print(f"[movement]   examples: {sample}", flush=True)
+
+    if movers_count < MIN_MOVERS:
+        return False
+
+    print(
+        f"[movement] >= {MIN_MOVERS} movers — triggering article regen",
+        flush=True,
+    )
+    try:
+        result = subprocess.run(
+            [sys.executable, "-u", "generate_article.py"],
+            cwd="/home/runner/workspace",
+            text=True,
+            timeout=600,
+            env={**os.environ, "PYTHONUNBUFFERED": "1"},
+        )
+        if result.returncode != 0:
+            print(
+                f"[movement] article regen failed (exit {result.returncode})",
+                flush=True,
+            )
+            return False
+    except Exception as e:
+        print(f"[movement] article regen error: {e}", flush=True)
+        return False
+
+    print(
+        f"[movement] article regen succeeded at {get_et_now().strftime('%H:%M ET')}",
+        flush=True,
+    )
+    _last_movement_regen = get_et_now()
+    try:
+        push_result = subprocess.run(
+            [
+                sys.executable,
+                "push_to_github.py",
+                f"Movement-triggered article regen — {now.strftime('%b %d %H:%M ET')}",
+            ],
+            cwd="/home/runner/workspace",
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        if push_result.returncode == 0:
+            print("[movement] pushed regen to GitHub", flush=True)
+        else:
+            tail = (push_result.stderr or "").strip()[-200:]
+            print(f"[movement] GitHub push exit {push_result.returncode}: {tail}",
+                  flush=True)
+    except Exception as e:
+        print(f"[movement] push error: {e}", flush=True)
+    return True
+
+
 def run_scrape():
     now = get_et_now()
     print(f"\n{'='*50}")
@@ -181,6 +375,10 @@ def run_scrape():
         if result.returncode == 0:
             print(f"\nIntra-day props scrape completed at "
                   f"{get_et_now().strftime('%H:%M ET')}")
+            try:
+                maybe_regen_article_for_movement()
+            except Exception as e:
+                print(f"[movement] post-scrape hook error: {e}", flush=True)
         else:
             print(f"\nIntra-day props scrape exited with code {result.returncode}")
     except subprocess.TimeoutExpired:
@@ -298,10 +496,28 @@ def main():
                         help="Print today's snapshot coverage and exit.")
     parser.add_argument("--once", action="store_true",
                         help="Fire every currently-due window, then exit.")
+    parser.add_argument("--force", action="store_true",
+                        help="Bypass SCHEDULERS_ENABLED gate for manual runs.")
     args = parser.parse_args()
 
     if args.status:
         print_status()
+        return
+
+    # `--once` and `--force` bypass the gate: both are explicit, non-persistent
+    # invocations (manual testing, cron, etc.) — they can't cause the silent
+    # doubling problem the gate is meant to prevent.
+    gate_open = (
+        os.environ.get("SCHEDULERS_ENABLED", "").strip() == "1"
+        or args.force
+        or args.once
+    )
+    if not gate_open:
+        print(
+            "[scheduler_props] SCHEDULERS_ENABLED != 1 — exiting "
+            "(set the env var, or pass --once/--force for a one-shot run).",
+            flush=True,
+        )
         return
 
     print("=" * 50)

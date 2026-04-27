@@ -8,10 +8,7 @@ Preferred communication style: Simple, everyday language.
 Auto-push to GitHub: Always push changes to GitHub at the end of every task using Replit's GitHub connector OAuth token.
 Daily auto-push: `run_daily_update.py` automatically commits and pushes pipeline data (CSVs, chart images) to GitHub after each run, keeping the live site current. Standalone `push_to_github.py` can also be run manually.
 Render deploy hook: After every GitHub push, `push_to_github.py` triggers a Render deploy hook (`RENDER_DEPLOY_HOOK_URL` env var) to automatically redeploy the production site.
-Pre-game refresh: `scheduler_pregame.py` runs as a persistent workflow, triggering `run_pregame_refresh.py` 60 minutes before the first NBA tipoff today. The earliest game time is read from SQLite `player_salaries.game_time` (same source as the home page countdown timer), parsed in ET, and the trigger is set to `first_game − 60min`. If no game times are available, falls back to 6:20 PM ET. A 180-minute grace window covers cases where the scheduler starts late (still triggers if within 3 hours of target). After running, sleeps until 8 AM ET the next day before reassessing — fires once per slate. The refresh re-scrapes injuries, depth charts, odds, props, rebuilds archetypes/projections, regenerates the article, and pushes to GitHub — ensuring data is fresh in time for early afternoon games (e.g., 1 PM ET tipoffs trigger at 12 PM).
-Post-game pipeline: `scheduler_postgame.py` runs as a persistent workflow, triggering `run_daily_update.py` at 1:00 AM ET daily. This ensures next-day data (salaries, odds, projections, article) is ready by morning after late West Coast games end (~12:30 AM ET). Has a 2-hour timeout.
-Chart Gallery refresh: `scheduler_charts.py` runs as a persistent workflow, triggering `refresh_charts.py` hourly between 8 AM and 5 PM ET. The refresh re-scrapes time-sensitive data (RotoGrinders/ESPN injuries, NBA referee assignments, game odds), regenerates the four gallery PNGs (`value_chart`, `upside_chart`, `dvp_heatmap`, `ref_foul_chart`) via `analysis/player_value.py`, and pushes to GitHub only if any chart bytes actually changed (SHA-256 hash check) — keeps commit volume sane. Boots with an immediate run if started inside the active window. The pre-game refresh takes over after 5 PM ET for the full slate rebuild. NBA referee crews typically post by 9 AM ET, so the morning ticks ensure the ref chart updates as soon as crews are public.
-Intra-day props scrapes: `scheduler_props.py` runs as a persistent workflow, triggering `scrape_player_props.py --force` at 11 AM, 2 PM, and 4 PM ET. Each run appends a snapshot to `player_props_history` (no DELETE). Combined with the 1 AM post-game scrape and the pre-tip pre-game scrape, this gives 4-5 daily snapshots per prop instead of just open vs current. Rate-limit aware: the underlying scraper auto-skips when no NBA events are scheduled today. The richer history powers `_load_line_movement`'s last-hour drift, which lets the article generator surface late same-day moves (often injury news or sharp action) as a distinct narrative signal. **Reliability (Task #31, 2026-04-26):** the scheduler now applies a 90-min grace window per target (a workflow restart at 11:30 still fires the 11:00 window), de-dups against `player_props_history` so windows already covered by the Daily Update / Pre-Game Refresh don't re-fire, tracks attempted windows in-process so a flaky API isn't hammered, and caps every sleep at 5 min so the loop reacts quickly to restarts. `python scheduler_props.py --status` prints today's coverage; `--once` evaluates one tick and exits (handy from cron or the shell).
+Scheduler env gate: All four schedulers (`scheduler_pregame.py`, `scheduler_charts.py`, `scheduler_postgame.py`, `scheduler_props.py`) check `SCHEDULERS_ENABLED=1` at startup and exit cleanly otherwise.
 Do NOT push to GitHub: `articles/` directory and conversation logs. These are local-only and must never be committed or pushed.
 
 ## System Architecture
@@ -40,7 +37,7 @@ The Stat-Specific Projection Engine generates projected values for each stat typ
 
 B2B fatigue features compute per-team `days_rest`, `is_b2b`, and `is_3in4`. The fatigue block runs after ML minutes adjustment and before `base_fp` so the drag propagates everywhere downstream. The composite score deducts -3 for HIGH OVER picks where the player is on a B2B side AND the matchup isn't already terrible. The article generator surfaces a "REST WATCH" section and a `b2b_signal` field per pick context. Both Claude system prompts instruct the model to treat B2B as a yellow flag for OVERs and supporting context for UNDERs. The template fallback injects different B2B caveat copy.
 
-Composite Score line-movement modifier is split across three signals (Task #24): a total-drift component (open-vs-current, slope 1.0, cap ±2), a sharper last-hour-drift component (slope 2.0, cap ±2.5, threshold 0.25 so a single intra-day half-point tick still scores), and a small move-pattern bonus (sudden_swing aligned with the pick = +0.5, misaligned = −0.5; reversal = −0.25 regardless of direction). Combined cap is ±5. Slopes/caps are conservative priors — the empirical-calibration backtest (`analysis/calibrate_drift_bonus.py`) joins `player_props_history` snapshots with `daily_pick_grades` and reports hit-rate lift per drift bucket. The first run found 36 graded picks but 0 with multi-snapshot drift (the intra-day scrapes had only just begun shipping rows), so the prior weights stand until ≥15 multi-snapshot decided picks accumulate, at which point the script should be re-run and the slope/cap tightened to match the empirical lift table.
+Composite Score line-movement modifier is split across three signals: a total-drift component (open-vs-current, slope 1.0, cap ±2), a sharper last-hour-drift component (slope 2.0, cap ±2.5, threshold 0.25 so a single intra-day half-point tick still scores), and a small move-pattern bonus (sudden_swing aligned with the pick = +0.5, misaligned = −0.5; reversal = −0.25 regardless of direction). Combined cap is ±5. Slopes/caps are conservative priors.
 
 The Usage Redistribution Model v2 replaces flat injury boosts with hierarchical, archetype-weighted redistribution. It tracks vacated usage, MPG, and archetypes of OUT players. Cascade tiers activate based on total vacated usage, and archetype similarity determines absorption. Minutes escalation distributes vacated minutes to remaining starters. An Opportunity Index calculates compounded impact, and an "Opportunity Spike" flag indicates significant role increases combined with positive matchups.
 
@@ -49,7 +46,6 @@ Prop recommendations require an actual sportsbook book line from The Odds API. H
 Avatar & Identity Design Direction follows a "Strategic Minimalism meets Editorial Sports Design" style with specific design rules and an accent palette. Cosmetics communicate Skill, Status, or Story.
 
 Cookie consent and analytics tracking is implemented via `PageView` and `CookieConsent` models in PostgreSQL. A fixed cookie banner appears for first-time visitors. Users can accept or decline analytics cookies. IP addresses are hashed for privacy. A `/cookie-settings` page allows users to toggle analytics on/off at any time, with footer links on every page.
-
 
 ## External Dependencies
 
@@ -74,13 +70,3 @@ Cookie consent and analytics tracking is implemented via `PageView` and `CookieC
 - SQLite: Staging database (dfs_nba.db)
 - PostgreSQL: Production database
 - Supabase: Used for syncing platform tables
-
-### Python Libraries
-- requests, BeautifulSoup: Web scraping
-- pandas, numpy: Data manipulation
-- sqlite3: SQLite interaction
-- PuLP: Linear programming
-- scikit-learn: K-means clustering
-- nba_api: NBA.com stats API wrapper
-- playwright: Headless browser for chart screenshot capture
-- stripe: Stripe payment processing

@@ -6,9 +6,15 @@ cd "$(dirname "$0")"
 LOG_DIR="/tmp/pirtdica_logs"
 mkdir -p "$LOG_DIR"
 
+# Task #34: Schedulers are env-gated so dev workspaces don't double-fire
+# alongside this production deployment. The gate is set HERE so the
+# deployment is the single source of truth for live scheduler runs.
+export SCHEDULERS_ENABLED=1
+
 echo "============================================"
 echo "PIRTDICA Reserved VM — production launcher"
 echo "Started: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+echo "SCHEDULERS_ENABLED=$SCHEDULERS_ENABLED"
 echo "============================================"
 
 PIDS=()
@@ -36,6 +42,7 @@ start_bg() {
 start_bg "chart_refresh"     "scheduler_charts.py"
 start_bg "pregame_refresh"   "scheduler_pregame.py"
 start_bg "postgame_pipeline" "scheduler_postgame.py"
+start_bg "props_refresh"     "scheduler_props.py"
 
 echo "  -> launching web app (uvicorn :5000)"
 python -u -m uvicorn backend.main:app \
