@@ -67,6 +67,30 @@ def fetch_headshot(espn_id, d=88):
     return white.convert('RGB')
 
 
+def _render_title_only(out_path, date_str, subtitle_override):
+    W = 1250
+    H = 220
+    font_title = ImageFont.truetype(FONT_PATH, 32)
+    font_sub = ImageFont.truetype(FONT_PATH, 14)
+
+    canvas = Image.new('RGB', (W, H), (255, 255, 255))
+    draw = ImageDraw.Draw(canvas)
+
+    title = 'PIRTDICA SPORTS CO.'
+    sub = subtitle_override if subtitle_override else f'{date_str} \u2014 ANALYSIS IN PROGRESS'
+
+    tw = draw.textlength(title, font=font_title)
+    draw.text(((W - tw) / 2, 90), title, font=font_title, fill=(17, 17, 17))
+
+    sw = draw.textlength(sub, font=font_sub)
+    draw.text(((W - sw) / 2, 138), sub, font=font_sub, fill=(136, 136, 136))
+
+    os.makedirs(os.path.dirname(out_path) or '.', exist_ok=True)
+    canvas.save(out_path, 'PNG')
+    print(f'Saved fallback header: {out_path} ({os.path.getsize(out_path):,} bytes, {W}x{H}px)')
+    return out_path
+
+
 def generate(target_date=None, out_path=None, player_data=None, subtitle_override=None):
     import pandas as pd
 
@@ -100,38 +124,36 @@ def generate(target_date=None, out_path=None, player_data=None, subtitle_overrid
             if team:
                 player_list.append((name, team))
 
-    if not player_list:
-        print('No players for header.')
-        return
-
-    names = [p[0] for p in player_list]
-    teams = [p[1] for p in player_list]
-
     HEADSHOT_D = 109
     CARD_W = 175
 
-    print(f'Building header for {len(names)} players...')
-    espn_ids = get_espn_ids(names, teams)
-
     shots = []
-    for name, team in player_list:
-        espn_id = espn_ids.get(name)
-        if espn_id:
-            try:
-                img = fetch_headshot(espn_id, HEADSHOT_D)
-                parts = name.split()
-                first = parts[0]
-                last = ' '.join(parts[1:])
-                shots.append((first, last, img))
-                print(f'  {name}: OK')
-            except Exception as e:
-                print(f'  {name}: FAILED ({e})')
-        else:
-            print(f'  {name}: ESPN ID not found')
+    if player_list:
+        names = [p[0] for p in player_list]
+        teams = [p[1] for p in player_list]
+        print(f'Building header for {len(names)} players...')
+        espn_ids = get_espn_ids(names, teams)
+
+        for name, team in player_list:
+            espn_id = espn_ids.get(name)
+            if espn_id:
+                try:
+                    img = fetch_headshot(espn_id, HEADSHOT_D)
+                    parts = name.split()
+                    first = parts[0]
+                    last = ' '.join(parts[1:])
+                    shots.append((first, last, img))
+                    print(f'  {name}: OK')
+                except Exception as e:
+                    print(f'  {name}: FAILED ({e})')
+            else:
+                print(f'  {name}: ESPN ID not found')
+    else:
+        print('No players supplied — rendering title-only fallback header.')
 
     if not shots:
-        print('No headshots fetched.')
-        return
+        print('No headshots available — rendering title-only fallback header.')
+        return _render_title_only(out_path, date_str, subtitle_override)
 
     W = 1250
     H = 500

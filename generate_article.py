@@ -1473,12 +1473,19 @@ def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_c
         DailyArticle.slate_date == target_date
     ).first()
 
-    web_path = None
+    new_web_path = None
     if header_image_path and os.path.exists(header_image_path):
-        web_path = "/" + header_image_path
+        new_web_path = "/" + header_image_path
 
     if existing:
-        existing.header_image_path = web_path
+        if new_web_path:
+            existing.header_image_path = new_web_path
+        else:
+            prev = existing.header_image_path
+            if prev:
+                disk_path = prev.lstrip("/")
+                if not os.path.exists(disk_path):
+                    existing.header_image_path = None
         existing.picks_json = json.dumps(picks_data)
         existing.analysis_json = json.dumps(analysis_data)
         existing.game_count = game_count
@@ -1487,7 +1494,7 @@ def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_c
     else:
         article = DailyArticle(
             slate_date=target_date,
-            header_image_path=web_path,
+            header_image_path=new_web_path,
             picks_json=json.dumps(picks_data),
             analysis_json=json.dumps(analysis_data),
             game_count=game_count,
