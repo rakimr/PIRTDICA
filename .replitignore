@@ -1,0 +1,65 @@
+# Exclude these from the deployment image to keep it under the 8 GiB limit.
+# Anything not listed here ships to the deployed Reserved VM as-is.
+#
+# Rule of thumb: include what the running web app reads, exclude everything
+# else (caches, local working dirs, dev tooling, raw historical research data).
+
+# --- local working / dev directories ---
+articles/
+conversation_logs/
+attached_assets/
+.local/
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+logs/
+tmp/
+.tmp/
+
+# --- python build artifacts (regenerated on first import) ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# --- node / virtual envs (project is python; if any creep in, exclude) ---
+node_modules/
+venv/
+.venv/
+env/
+
+# --- VCS metadata (not needed at runtime; gitFull is also being removed) ---
+.git/
+
+# --- secrets that must never ship (.gitignore already covers these) ---
+.stripe_keys.json
+.env
+.env.local
+
+# --- editor / OS junk ---
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# --- transient databases / journals ---
+*.db-journal
+*.sqlite-journal
+*.db.bak
+
+# --- tests are not run in production ---
+tests/
+
+# --- one-shot research scripts and historical CSVs ---
+# These are referenced only by analysis scripts you run by hand, never by the
+# web app or schedulers. compute_depth_ranks.py is a research helper that reads
+# attached_assets/2012-18_playerBoxScore_*.csv (already excluded above).
+compute_depth_ranks.py
+march8_grades.csv
+
+# --- agent / planning state ---
+.replit_workspace_state/

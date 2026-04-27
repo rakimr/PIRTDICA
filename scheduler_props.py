@@ -35,6 +35,7 @@ CLI:
   python scheduler_props.py --once      # fire every currently-due window, then exit
 """
 import argparse
+import json
 import os
 import sqlite3
 import subprocess
@@ -74,7 +75,14 @@ MOVEMENT_THRESHOLD = float(os.environ.get("PROPS_MOVE_THRESHOLD", "0.5"))
 MIN_MOVERS = int(os.environ.get("PROPS_MOVE_MIN_MOVERS", "3"))
 REGEN_COOLDOWN_MINUTES = int(os.environ.get("PROPS_REGEN_COOLDOWN_MIN", "30"))
 
-_last_movement_regen = None
+# Durable cooldown state (Task #37). Without this, a Render redeploy or worker
+# restart would wipe the in-memory cooldown and the very next scrape could fire
+# a duplicate Claude regen even though nothing material happened. The state
+# file is a tiny JSON blob: {"last_regen_at": "<isoformat ET>"}. Mirrors the
+# pregame state pattern at /tmp/pirtdica_pregame_state.json.
+MOVEMENT_STATE_PATH = "/tmp/pirtdica_movement_state.json"
+
+_last_movement_regen = None  # in-process cache; durable copy lives on disk
 
 
 def get_et_now():
@@ -83,6 +91,65 @@ def get_et_now():
     except Exception:
         from datetime import timezone
         return datetime.now(timezone.utc).astimezone(ET)
+
+
+def _load_persisted_last_regen(state_path=None):
+    """Load the durable last-regen timestamp (ET-aware) or None.
+
+    A missing file, empty file, malformed JSON, or unparseable timestamp all
+    fall through to None — we'd rather permit one extra regen than crash the
+    scrape loop on a corrupted state file. Mirrors the lenient pattern in
+    `scheduler_pregame._load_fired_state`.
+    """
+    path = state_path or MOVEMENT_STATE_PATH
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path) as f:
+            blob = json.load(f) or {}
+        ts = blob.get("last_regen_at")
+        if not ts:
+            return None
+        parsed = datetime.fromisoformat(ts)
+        if parsed.tzinfo is None:
+            parsed = _localize_et(parsed)
+        return parsed.astimezone(ET)
+    except Exception as e:
+        print(f"[movement] WARN: could not read cooldown state ({e}) — "
+              f"treating as no prior regen", flush=True)
+        return None
+
+
+def _persist_last_regen(when_et, state_path=None):
+    """Atomically write the last-regen timestamp so it survives a restart.
+
+    Writes to a temp file and renames so a crash mid-write doesn't leave a
+    half-written JSON blob behind.
+    """
+    path = state_path or MOVEMENT_STATE_PATH
+    try:
+        tmp = path + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump({"last_regen_at": when_et.isoformat()}, f)
+        os.replace(tmp, path)
+    except Exception as e:
+        print(f"[movement] WARN: could not persist cooldown state: {e}",
+              flush=True)
+
+
+def _effective_last_regen():
+    """Return the most recent of (in-memory, on-disk) last-regen timestamps.
+
+    We always read disk because a sibling process (or a previous incarnation
+    of this same process before a restart) may have updated it. The in-memory
+    cache is just an optimization for log-readable continuity within one
+    process.
+    """
+    persisted = _load_persisted_last_regen()
+    candidates = [t for t in (_last_movement_regen, persisted) if t is not None]
+    if not candidates:
+        return None
+    return max(candidates)
 
 
 def has_games_today():
@@ -271,17 +338,21 @@ def maybe_regen_article_for_movement():
 
     Returns True if a regen actually fired. Honors REGEN_COOLDOWN_MINUTES so
     a back-to-back scrape (e.g. 14:00 and 14:30) can't burn Claude credits in
-    rapid succession. Cooldown state is process-local — a workflow restart
-    resets it, but the worst case is one extra regen per restart.
+    rapid succession. The cooldown is durable: it survives a worker restart
+    via the JSON state file at MOVEMENT_STATE_PATH, so a Render redeploy
+    inside the cooldown window does NOT trigger a duplicate regen (Task #37).
     """
     global _last_movement_regen
     now = get_et_now()
-    if _last_movement_regen is not None:
-        elapsed = (now - _last_movement_regen).total_seconds() / 60.0
+    last_regen = _effective_last_regen()
+    if last_regen is not None:
+        elapsed = (now - last_regen).total_seconds() / 60.0
         if elapsed < REGEN_COOLDOWN_MINUTES:
+            source = "disk" if _last_movement_regen is None else "memory"
             print(
                 f"[movement] cooldown active "
-                f"({REGEN_COOLDOWN_MINUTES - int(elapsed)}m left) — skipping check",
+                f"({REGEN_COOLDOWN_MINUTES - int(elapsed)}m left, "
+                f"source={source}) — skipping check",
                 flush=True,
             )
             return False
@@ -326,11 +397,14 @@ def maybe_regen_article_for_movement():
         print(f"[movement] article regen error: {e}", flush=True)
         return False
 
+    regen_completed_at = get_et_now()
     print(
-        f"[movement] article regen succeeded at {get_et_now().strftime('%H:%M ET')}",
+        f"[movement] article regen succeeded at "
+        f"{regen_completed_at.strftime('%H:%M ET')}",
         flush=True,
     )
-    _last_movement_regen = get_et_now()
+    _last_movement_regen = regen_completed_at
+    _persist_last_regen(regen_completed_at)
     try:
         push_result = subprocess.run(
             [

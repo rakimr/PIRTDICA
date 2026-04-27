@@ -114,6 +114,7 @@ SOURCE_CODE_FILES = [
     "replit.md",
     "session_memory.md",
     ".gitignore",
+    ".replitignore",
 ]
 
 NEVER_PUSH = {"articles/", "conversation_logs/", ".local/", "__pycache__/", ".pythonlibs/"}
