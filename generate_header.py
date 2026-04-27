@@ -106,23 +106,25 @@ def generate(target_date=None, out_path=None, player_data=None, subtitle_overrid
     if player_data is not None:
         player_list = player_data
     else:
-        props = pd.read_csv('prop_recommendations.csv')
-        players_df = pd.read_csv('dfs_players.csv')
-
-        high = props[props['confidence'] == 'HIGH'].copy()
-        if high.empty:
-            print('No HIGH confidence picks found.')
-            return
-        high['abs_edge'] = high['vs_book_edge'].abs()
-        high = high.sort_values('abs_edge', ascending=False).drop_duplicates(subset='player').head(6)
-
         player_list = []
-        for _, row in high.iterrows():
-            name = row['player']
-            team_row = players_df[players_df['player_name'] == name]
-            team = team_row.iloc[0]['team'] if len(team_row) else None
-            if team:
-                player_list.append((name, team))
+        try:
+            props = pd.read_csv('prop_recommendations.csv')
+            players_df = pd.read_csv('dfs_players.csv')
+
+            high = props[props['confidence'] == 'HIGH'].copy()
+            if high.empty:
+                print('No HIGH confidence picks found.')
+            else:
+                high['abs_edge'] = high['vs_book_edge'].abs()
+                high = high.sort_values('abs_edge', ascending=False).drop_duplicates(subset='player').head(6)
+                for _, row in high.iterrows():
+                    name = row['player']
+                    team_row = players_df[players_df['player_name'] == name]
+                    team = team_row.iloc[0]['team'] if len(team_row) else None
+                    if team:
+                        player_list.append((name, team))
+        except FileNotFoundError as e:
+            print(f'CSV not available ({e}); will fall through to title-only header.')
 
     HEADSHOT_D = 109
     CARD_W = 175
