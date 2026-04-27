@@ -105,7 +105,6 @@ SOURCE_CODE_FILES = [
     "templates/error.html",
     "migrations/enable_rls.sql",
     "migrations/add_notifications.sql",
-    ".stripe_keys.json",
     "run_pregame_refresh.py",
     "scheduler_pregame.py",
     "refresh_charts.py",

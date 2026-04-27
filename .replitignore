@@ -63,3 +63,5 @@ march8_grades.csv
 
 # --- agent / planning state ---
 .replit_workspace_state/
+.agents/
+.upm/
