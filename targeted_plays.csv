@@ -1,7 +1,12 @@
 player_name,team,opponent,position,salary,stat,player_avg,opp_allows,league_avg,extra_fp,edge_pct,recommendation
-Tari Eason,HOU,LAL,SF,5500,Points,10.5,24.7,22.7,2.0,8.9,LAL gives up +2.0 FP in Points to SFs
-Amen Thompson,HOU,LAL,PG,9000,Assists,5.3,9.1,8.3,1.1,9.2,LAL gives up +1.1 FP in Assists to PGs
-Amen Thompson,HOU,LAL,PG,9000,Steals,1.5,2.3,2.0,0.9,15.8,LAL gives up +0.9 FP in Steals to PGs
-LeBron James,LAL,HOU,SF,10500,Steals,1.2,2.0,1.7,0.9,18.6,HOU gives up +0.9 FP in Steals to SFs
-Jake LaRavia,LAL,HOU,SF,3800,Steals,1.3,2.0,1.7,0.9,18.6,HOU gives up +0.9 FP in Steals to SFs
-Reed Sheppard,HOU,LAL,SG,6000,Assists,3.4,5.9,5.4,0.7,8.7,LAL gives up +0.7 FP in Assists to SGs
+Jamal Murray,DEN,MIN,PG,9400,Points,25.4,25.3,24.0,1.3,5.6,MIN gives up +1.3 FP in Points to PGs
+Cade Cunningham,DET,ORL,PG,10200,Points,23.9,25.1,24.0,1.1,4.8,ORL gives up +1.1 FP in Points to PGs
+Jaden McDaniels,MIN,DEN,SF,6600,Points,14.8,23.8,22.7,1.1,4.9,DEN gives up +1.1 FP in Points to SFs
+Jamal Murray,DEN,MIN,PG,9400,Rebounds,4.4,6.8,6.1,0.9,11.7,MIN gives up +0.9 FP in Rebounds to PGs
+Julius Randle,MIN,DEN,PF,8400,Assists,5.0,4.7,4.2,0.8,12.0,DEN gives up +0.8 FP in Assists to PFs
+Jalen Duren,DET,ORL,C,7300,Blocks,0.8,2.2,2.0,0.6,9.6,ORL gives up +0.6 FP in Blocks to Cs
+Jalen Suggs,ORL,DET,PG,6600,Steals,1.8,2.2,2.0,0.6,10.7,DET gives up +0.6 FP in Steals to PGs
+Anthony Black,ORL,DET,PG,4400,Steals,1.4,2.2,2.0,0.6,10.7,DET gives up +0.6 FP in Steals to PGs
+Isaiah Stewart,DET,ORL,C,3800,Blocks,1.6,2.2,2.0,0.6,9.6,ORL gives up +0.6 FP in Blocks to Cs
+Royce O'Neale,PHO,OKC,SF,4200,Rebounds,4.8,8.3,7.8,0.6,6.1,OKC gives up +0.6 FP in Rebounds to SFs
+Jamal Murray,DEN,MIN,PG,9400,Assists,7.1,8.7,8.3,0.5,4.4,MIN gives up +0.5 FP in Assists to PGs
