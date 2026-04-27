@@ -1416,17 +1416,39 @@ def generate_article(target_date=None):
 
     header_player_data = []
     seen_header = set()
+    try:
+        _props_lookup = pd.read_csv('prop_recommendations.csv')
+    except Exception:
+        _props_lookup = None
     for pick in picks_data:
         pname = pick['player']
         if pname in seen_header:
             continue
         seen_header.add(pname)
-        pteam = None
-        trow = dfs_df[dfs_df['player_name'] == pname]
-        if len(trow):
-            pteam = trow.iloc[0]['team']
+        pteam = pick.get('team')
+        if not pteam and dfs_df is not None and 'player_name' in dfs_df.columns:
+            trow = dfs_df[dfs_df['player_name'] == pname]
+            if len(trow):
+                pteam = trow.iloc[0]['team']
+        if not pteam and _props_lookup is not None and 'player' in _props_lookup.columns:
+            prow = _props_lookup[_props_lookup['player'] == pname]
+            if len(prow):
+                pteam = prow.iloc[0].get('team')
+        if not pteam:
+            game = str(pick.get('game') or '')
+            if '@' in game:
+                halves = [h.strip() for h in game.split('@')]
+                if halves:
+                    pteam = halves[-1]
         if pteam:
-            header_player_data.append((pname, pteam))
+            header_player_data.append({
+                'player': pname,
+                'team': pteam,
+                'stat': pick.get('stat'),
+                'side': pick.get('pick') or pick.get('side'),
+                'line': pick.get('line') or pick.get('book_line'),
+                'edge': pick.get('edge'),
+            })
 
     date_str_upper = target_date.strftime('%B %-d, %Y').upper()
     if using_best_available:
