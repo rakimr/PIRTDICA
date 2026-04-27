@@ -159,11 +159,26 @@ def _team_aliases(t):
     return {s}
 
 
+def _parse_matchup_teams(game_str):
+    """Extract both team codes from a 'game' field like 'OKC vs @PHO',
+    'DEN vs MIN', or 'LAL @ HOU'. Returns set of normalized aliases."""
+    if not game_str:
+        return set()
+    s = str(game_str).replace('@', ' ').replace(' vs ', ' ').replace(' VS ', ' ')
+    parts = [p.strip().upper() for p in s.split() if p.strip() and p.strip().lower() != 'vs']
+    if len(parts) < 2:
+        return set()
+    out = set()
+    for p in parts[:2]:
+        out |= _team_aliases(p)
+    return out
+
+
 def get_all_game_times():
     """Return distinct game_time strings from TODAY's tracked slate only.
-    Cross-references with game_odds (sqlite) / game_odds_live (postgres) so
-    that stale rows from previous slates in player_salaries_live can't poison
-    the home page countdown.
+    Cross-references with game_odds (sqlite) / game_odds_live (postgres) at
+    the matchup level: a salary row's game must contain BOTH teams that are
+    in today's slate. Empty slate returns [] (no fallback) to avoid stale times.
     """
     if use_postgres():
         try:
@@ -175,15 +190,20 @@ def get_all_game_times():
                 for h, a in slate_rows:
                     slate_teams |= _team_aliases(h)
                     slate_teams |= _team_aliases(a)
+                if not slate_teams:
+                    return []
 
                 rows = conn.execute(text(
-                    "SELECT DISTINCT team, game_time FROM player_salaries_live WHERE game_time IS NOT NULL"
+                    "SELECT DISTINCT game, game_time FROM player_salaries_live "
+                    "WHERE game_time IS NOT NULL AND game IS NOT NULL"
                 )).fetchall()
-                if not slate_teams:
-                    return list({r[1] for r in rows})
                 times = set()
-                for team, gt in rows:
-                    if team and gt and str(team).strip().upper() in slate_teams:
+                for game_str, gt in rows:
+                    matchup = _parse_matchup_teams(game_str)
+                    if not matchup:
+                        continue
+                    teams_in_slate = matchup & slate_teams
+                    if len(teams_in_slate) >= 2 or (matchup and matchup.issubset(slate_teams)):
                         times.add(gt)
                 return list(times)
         except Exception:
@@ -197,12 +217,20 @@ def get_all_game_times():
         for h, a in cur.fetchall():
             slate_teams |= _team_aliases(h)
             slate_teams |= _team_aliases(a)
-        cur.execute("SELECT DISTINCT team, game_time FROM player_salaries WHERE game_time IS NOT NULL")
+        if not slate_teams:
+            conn.close()
+            return []
+        cur.execute("SELECT DISTINCT game, game_time FROM player_salaries WHERE game_time IS NOT NULL AND game IS NOT NULL")
         rows = cur.fetchall()
         conn.close()
-        if not slate_teams:
-            return list({r[1] for r in rows})
-        return list({gt for team, gt in rows if team and gt and str(team).strip().upper() in slate_teams})
+        times = set()
+        for game_str, gt in rows:
+            matchup = _parse_matchup_teams(game_str)
+            if not matchup:
+                continue
+            if matchup.issubset(slate_teams) and len(matchup) >= 2:
+                times.add(gt)
+        return list(times)
     except Exception:
         return []
 
@@ -333,18 +361,27 @@ def get_player_game_log_averages():
 
 def get_player_shot_zones():
     if use_postgres():
-        return _pg_query(
-            "SELECT player_name, rim_paint_pct, three_pct, corner3_fga, atb3_fga, three_fga "
-            "FROM player_shot_zones_live"
+        df = _pg_query(
+            "SELECT z.player_name, z.rim_paint_pct, z.three_pct, z.corner3_fga, "
+            "z.atb3_fga, z.three_fga, p.team "
+            "FROM player_shot_zones_live z "
+            "LEFT JOIN player_per100_live p ON p.player_name = z.player_name"
         )
+        if df is not None and not df.empty:
+            df = df.drop_duplicates(subset=['player_name'], keep='first')
+        return df
     try:
         import sqlite3
         conn = sqlite3.connect("dfs_nba.db")
         df = pd.read_sql_query(
-            "SELECT player_name, rim_paint_pct, three_pct, corner3_fga, atb3_fga, three_fga "
-            "FROM player_shot_zones", conn
+            "SELECT z.player_name, z.rim_paint_pct, z.three_pct, z.corner3_fga, "
+            "z.atb3_fga, z.three_fga, p.team "
+            "FROM player_shot_zones z "
+            "LEFT JOIN player_per100 p ON p.player_name = z.player_name", conn
         )
         conn.close()
+        if not df.empty:
+            df = df.drop_duplicates(subset=['player_name'], keep='first')
         return df
     except Exception:
         return pd.DataFrame()
