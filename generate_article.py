@@ -1489,9 +1489,17 @@ def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_c
                 candidates = [prev, prev.lstrip("/")]
                 if not any(os.path.exists(c) for c in candidates):
                     existing.header_image_path = None
-        existing.picks_json = json.dumps(picks_data)
-        existing.analysis_json = json.dumps(analysis_data)
-        existing.game_count = game_count
+        try:
+            existing_picks = json.loads(existing.picks_json) if existing.picks_json else []
+        except Exception:
+            existing_picks = []
+        new_picks = picks_data or []
+        if existing_picks and not new_picks:
+            print(f"PRESERVE PICKS: existing has {len(existing_picks)} picks, new is empty — keeping existing picks AND game_count.")
+        else:
+            existing.picks_json = json.dumps(new_picks)
+            existing.analysis_json = json.dumps(analysis_data)
+            existing.game_count = game_count
         existing.best_available = best_available
         existing.claude_selected = claude_selected
     else:
