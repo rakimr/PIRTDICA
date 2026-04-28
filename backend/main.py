@@ -5,7 +5,7 @@ from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import os
 import sys
 import time
@@ -2201,6 +2201,175 @@ async def ban_user(request: Request, db: Session = Depends(get_db)):
     target.is_banned = True
     db.commit()
     return {"success": True, "message": f"Banned user '{target.username}'"}
+
+
+@app.get("/admin/lookup-user")
+async def admin_lookup_user(request: Request, username: str = "", db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not require_admin(user):
+        return {"success": False, "message": "Unauthorized"}
+    from backend.models import UserSubscription
+    from backend.stripe_billing import PLANS, PLAN_DISPLAY_NAMES
+
+    uname = (username or "").strip()
+    if not uname:
+        return {"success": False, "message": "Username required"}
+
+    target = db.query(models.User).filter(models.User.username.ilike(uname)).first()
+    if not target:
+        return {"success": False, "message": f"User '{uname}' not found"}
+
+    subs = db.query(UserSubscription).filter(
+        UserSubscription.user_id == target.id,
+        UserSubscription.status.in_(["active", "canceled"]),
+    ).order_by(UserSubscription.created_at.desc()).all()
+
+    sub_list = []
+    for s in subs:
+        is_manual = bool(s.stripe_subscription_id and s.stripe_subscription_id.startswith("manual_"))
+        sub_list.append({
+            "id": s.id,
+            "plan": s.plan,
+            "plan_name": PLAN_DISPLAY_NAMES.get(s.plan, s.plan),
+            "status": s.status,
+            "period_end": s.current_period_end.strftime("%Y-%m-%d") if s.current_period_end else "Lifetime",
+            "stripe_subscription_id": s.stripe_subscription_id,
+            "is_manual": is_manual,
+        })
+
+    return {
+        "success": True,
+        "user": {
+            "id": target.id,
+            "username": target.username,
+            "email": target.email,
+            "stripe_customer_id": target.stripe_customer_id,
+        },
+        "subscriptions": sub_list,
+        "available_plans": [{"key": k, "name": v["name"]} for k, v in PLANS.items()],
+    }
+
+
+@app.post("/admin/grant-subscription")
+async def admin_grant_subscription(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not require_admin(user):
+        return {"success": False, "message": "Unauthorized"}
+    from backend.models import UserSubscription
+    from backend.stripe_billing import PLANS, sync_user_subscription_fields
+
+    body = await request.json()
+    uname = (body.get("username") or "").strip()
+    plan = (body.get("plan") or "").strip().lower()
+    days_raw = body.get("days")
+
+    if not uname or plan not in PLANS:
+        return {"success": False, "message": "Username and valid plan required"}
+
+    target = db.query(models.User).filter(models.User.username.ilike(uname)).first()
+    if not target:
+        return {"success": False, "message": f"User '{uname}' not found"}
+
+    period_end = None
+    if days_raw not in (None, "", 0, "0"):
+        try:
+            days = int(days_raw)
+            if days > 0:
+                period_end = datetime.utcnow() + timedelta(days=days)
+        except (TypeError, ValueError):
+            return {"success": False, "message": "Days must be a positive integer or empty for lifetime"}
+
+    from sqlalchemy.exc import IntegrityError
+
+    existing = db.query(UserSubscription).filter(
+        UserSubscription.user_id == target.id,
+        UserSubscription.plan == plan,
+        UserSubscription.status == "active",
+        UserSubscription.stripe_subscription_id.like("manual_%"),
+    ).first()
+
+    manual_id = None
+    if existing:
+        existing.current_period_end = period_end
+        existing.status = "active"
+        action = "extended"
+        manual_id = existing.stripe_subscription_id
+    else:
+        manual_id = f"manual_{plan}_{target.id}_{int(datetime.utcnow().timestamp())}"
+        new_sub = UserSubscription(
+            user_id=target.id,
+            stripe_subscription_id=manual_id,
+            plan=plan,
+            status="active",
+            current_period_end=period_end,
+        )
+        db.add(new_sub)
+        action = "granted"
+
+    has_stripe_managed = db.query(UserSubscription).filter(
+        UserSubscription.user_id == target.id,
+        UserSubscription.status == "active",
+        UserSubscription.stripe_subscription_id.like("sub_%"),
+    ).first() is not None
+
+    if not has_stripe_managed:
+        sync_user_subscription_fields(db, target, plan, manual_id, "active", period_end)
+    else:
+        print(f"[Admin Grant] User {target.id} has active Stripe sub; not overwriting legacy fields")
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return {"success": False, "message": "Concurrent grant detected — please retry."}
+
+    expiry_str = period_end.strftime("%Y-%m-%d") if period_end else "lifetime"
+    print(f"[Admin Grant] {action} {plan} for user {target.id} ({target.username}), expires {expiry_str}")
+    return {
+        "success": True,
+        "message": f"{action.capitalize()} {plan} for {target.username} ({expiry_str})",
+    }
+
+
+@app.post("/admin/revoke-subscription")
+async def admin_revoke_subscription(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not require_admin(user):
+        return {"success": False, "message": "Unauthorized"}
+    from backend.models import UserSubscription
+
+    body = await request.json()
+    sub_id = body.get("subscription_id")
+    if not sub_id:
+        return {"success": False, "message": "subscription_id required"}
+
+    sub = db.query(UserSubscription).filter(UserSubscription.id == int(sub_id)).first()
+    if not sub:
+        return {"success": False, "message": "Subscription not found"}
+
+    if not (sub.stripe_subscription_id or "").startswith("manual_"):
+        return {"success": False, "message": "Only manually-granted subscriptions can be revoked here. Use Stripe Dashboard for paid subs."}
+
+    target = db.query(models.User).filter(models.User.id == sub.user_id).first()
+    sub.status = "canceled"
+
+    if target and target.stripe_subscription_id == sub.stripe_subscription_id:
+        remaining = db.query(UserSubscription).filter(
+            UserSubscription.user_id == target.id,
+            UserSubscription.status == "active",
+            UserSubscription.id != sub.id,
+        ).first()
+        if remaining:
+            target.subscription_plan = remaining.plan
+            target.stripe_subscription_id = remaining.stripe_subscription_id
+            target.subscription_current_period_end = remaining.current_period_end
+        else:
+            target.subscription_status = "canceled"
+
+    db.commit()
+    print(f"[Admin Revoke] Revoked manual {sub.plan} (sub.id={sub.id}) for user {sub.user_id}")
+    return {"success": True, "message": f"Revoked {sub.plan} subscription"}
+
 
 _live_scores_cache = {"data": {}, "timestamp": 0}
 LIVE_SCORES_CACHE_TTL = 30

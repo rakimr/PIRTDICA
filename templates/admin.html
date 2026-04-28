@@ -113,6 +113,34 @@
     </div>
 
     <div class="admin-card">
+        <h2>Manual Subscription Access</h2>
+        <p>Grant complimentary access to subscriber-only features (Picks / Stat Pack / Bundle). Manually granted plans don't go through Stripe and won't trigger billing.</p>
+
+        <div style="display: flex; gap: 0.5rem; margin: 1rem 0; flex-wrap: wrap;">
+            <input type="text" id="subUsername" placeholder="Username (case-insensitive)" style="flex: 1; min-width: 180px; padding: 0.5rem;">
+            <button class="btn-refresh" onclick="lookupUser()">Look Up</button>
+        </div>
+
+        <div id="subResults" style="display:none; margin-top: 1rem;">
+            <div id="subUserInfo" style="margin-bottom: 1rem;"></div>
+            <div id="subList"></div>
+            <div id="subGrantForm" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Grant New / Extend</h3>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                    <select id="grantPlan" style="padding: 0.45rem; flex: 1; min-width: 140px;">
+                        <option value="picks">PIRTDICA Picks</option>
+                        <option value="statpack">PIRTDICA Stat Pack</option>
+                        <option value="bundle">PIRTDICA Bundle</option>
+                    </select>
+                    <input type="number" id="grantDays" placeholder="Days (blank = lifetime)" min="1" style="padding: 0.45rem; width: 200px;">
+                    <button class="btn-add" onclick="grantSubscription()">Grant</button>
+                </div>
+                <div id="grantStatus" style="margin-top: 0.5rem; font-size: 0.85rem;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="admin-card">
         <h2>Quick Links</h2>
         <div class="quick-links">
             <a href="/trends" class="quick-link">View Chart Gallery</a>
@@ -492,6 +520,99 @@ function forceRename(userId) {
             const row = document.getElementById('row-' + userId);
             row.style.opacity = '0.4';
             row.querySelector('td:nth-child(4)').innerHTML = '<span class="status-success">' + escapeHtml(data.message) + '</span>';
+        } else {
+            alert(data.message);
+        }
+    })
+    .catch(err => alert('Error: ' + err));
+}
+
+let _lookupUsername = '';
+
+function lookupUser() {
+    const uname = document.getElementById('subUsername').value.trim();
+    if (!uname) { alert('Enter a username'); return; }
+    _lookupUsername = uname;
+    document.getElementById('grantStatus').innerHTML = '';
+
+    fetch('/admin/lookup-user?username=' + encodeURIComponent(uname))
+        .then(r => r.json())
+        .then(data => {
+            const results = document.getElementById('subResults');
+            const info = document.getElementById('subUserInfo');
+            const list = document.getElementById('subList');
+            results.style.display = 'block';
+
+            if (!data.success) {
+                info.innerHTML = '<span class="status-error">' + escapeHtml(data.message || 'Lookup failed') + '</span>';
+                list.innerHTML = '';
+                return;
+            }
+
+            const u = data.user;
+            info.innerHTML = '<strong>' + escapeHtml(u.username) + '</strong> &middot; ' + escapeHtml(u.email || 'no email') + ' &middot; user_id ' + u.id +
+                (u.stripe_customer_id ? ' &middot; <span style="color:var(--text-muted)">Stripe customer on file</span>' : ' &middot; <span style="color:var(--text-muted)">no Stripe customer</span>');
+
+            if (!data.subscriptions.length) {
+                list.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem;">No subscriptions yet.</p>';
+                return;
+            }
+
+            let html = '<table class="admin-lineup-table"><thead><tr><th>Plan</th><th>Status</th><th>Source</th><th>Expires</th><th>Action</th></tr></thead><tbody>';
+            data.subscriptions.forEach(s => {
+                html += '<tr id="sub-row-' + s.id + '">';
+                html += '<td>' + escapeHtml(s.plan_name) + '</td>';
+                html += '<td>' + escapeHtml(s.status) + '</td>';
+                html += '<td>' + (s.is_manual ? '<span style="color:#0F9D58;">Manual</span>' : 'Stripe') + '</td>';
+                html += '<td>' + escapeHtml(s.period_end) + '</td>';
+                if (s.is_manual && s.status === 'active') {
+                    html += '<td><button class="btn-refresh" style="background:#D72638" onclick="revokeSubscription(' + s.id + ')">Revoke</button></td>';
+                } else {
+                    html += '<td style="color:var(--text-muted);font-size:0.8rem;">' + (s.is_manual ? '-' : 'managed in Stripe') + '</td>';
+                }
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            list.innerHTML = html;
+        })
+        .catch(err => alert('Error: ' + err));
+}
+
+function grantSubscription() {
+    if (!_lookupUsername) { alert('Look up a user first'); return; }
+    const plan = document.getElementById('grantPlan').value;
+    const daysVal = document.getElementById('grantDays').value.trim();
+    const status = document.getElementById('grantStatus');
+    status.innerHTML = '<span style="color:var(--text-muted)">Granting...</span>';
+
+    fetch('/admin/grant-subscription', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({username: _lookupUsername, plan: plan, days: daysVal || null})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            status.innerHTML = '<span class="status-success">' + escapeHtml(data.message) + '</span>';
+            lookupUser();
+        } else {
+            status.innerHTML = '<span class="status-error">' + escapeHtml(data.message) + '</span>';
+        }
+    })
+    .catch(err => status.innerHTML = '<span class="status-error">Error: ' + err + '</span>');
+}
+
+function revokeSubscription(subId) {
+    if (!confirm('Revoke this manually-granted subscription?')) return;
+    fetch('/admin/revoke-subscription', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({subscription_id: subId})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            lookupUser();
         } else {
             alert(data.message);
         }
