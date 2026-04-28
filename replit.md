@@ -8,7 +8,8 @@ Preferred communication style: Simple, everyday language.
 Auto-push to GitHub: Always push changes to GitHub at the end of every task using Replit's GitHub connector OAuth token.
 Daily auto-push: `run_daily_update.py` automatically commits and pushes pipeline data (CSVs, chart images) to GitHub after each run, keeping the live site current. Standalone `push_to_github.py` can also be run manually.
 Render deploy hook: After every GitHub push, `push_to_github.py` triggers a Render deploy hook (`RENDER_DEPLOY_HOOK_URL` env var) to automatically redeploy the production site.
-Scheduler env gate: All four schedulers (`scheduler_pregame.py`, `scheduler_charts.py`, `scheduler_postgame.py`, `scheduler_props.py`) check `SCHEDULERS_ENABLED=1` at startup and exit cleanly otherwise.
+Scheduler env gate: All four schedulers (`scheduler_pregame.py`, `scheduler_charts.py`, `scheduler_postgame.py`, `scheduler_props.py`) check `SCHEDULERS_ENABLED=1` at startup and exit cleanly otherwise. The Reserved VM launcher (`start_production.sh`) sets the gate and is the single source of truth for live runs.
+Scheduler visibility: `start_production.sh` tees each scheduler's stdout/stderr to BOTH the local file (`/tmp/pirtdica_logs/<name>.log`) AND the deployment's stdout (so `fetch_deployment_logs` shows live activity prefixed with `[scheduler_name]`). `set -m` puts each backgrounded subshell in its own process group so SIGTERM cleanup reaches python+awk+tee on graceful shutdown. Admin-only `/admin/scheduler-status` endpoint + the "Scheduler Status (Reserved VM)" card on `/admin` show per-scheduler log freshness, state JSON, and a tail of the last 40 log lines, with a 15s auto-refresh toggle.
 Do NOT push to GitHub: `articles/` directory and conversation logs. These are local-only and must never be committed or pushed.
 
 ## System Architecture

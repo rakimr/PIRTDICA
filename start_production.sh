@@ -22,18 +22,31 @@ PIDS=()
 cleanup() {
     echo "Shutting down child processes..."
     for pid in "${PIDS[@]}"; do
-        kill -TERM "$pid" 2>/dev/null || true
+        # Negative pid signals the whole process group. With `set -m` below,
+        # each backgrounded subshell becomes its own pgroup, so SIGTERM
+        # reaches every member of the python|awk|tee pipeline (not just the
+        # subshell). Falls back to plain TERM if pgroup signaling fails
+        # (e.g. for the uvicorn process which isn't in a subshell).
+        kill -TERM -"$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
     done
     wait
     exit 0
 }
 trap cleanup SIGTERM SIGINT
 
+# Job-control / monitor mode: each `( ... ) &` gets its own process group,
+# which makes the cleanup trap above able to kill the full pipeline cleanly.
+set -m
+
 start_bg() {
     local name="$1"
     local script="$2"
     echo "  -> launching $name ($script)"
-    python -u "$script" >> "$LOG_DIR/${name}.log" 2>&1 &
+    # Tee to both stdout (deployment logs) AND local file so we can debug
+    # remotely via fetch_deployment_logs OR via the admin scheduler-status panel.
+    # Each line is prefixed with [<name>] so different schedulers can be told
+    # apart in the combined deployment log stream.
+    ( python -u "$script" 2>&1 | awk -v tag="[$name]" '{ print tag, $0; fflush(); }' | tee -a "$LOG_DIR/${name}.log" ) &
     local pid=$!
     PIDS+=("$pid")
     echo "     pid $pid (logs: $LOG_DIR/${name}.log)"

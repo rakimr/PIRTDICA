@@ -113,6 +113,17 @@
     </div>
 
     <div class="admin-card">
+        <h2>Scheduler Status (Reserved VM)</h2>
+        <p>Live view of the four production schedulers running on the Reserved VM. Use this to verify they're firing automatically (you should NOT have to open Replit for the daily pipeline to run).</p>
+
+        <button class="btn-refresh" onclick="loadSchedulerStatus()">Check Status</button>
+        <button class="btn-refresh" onclick="loadSchedulerStatus(true)" style="margin-left:0.5rem; background:#6b7280;">Auto-refresh: <span id="autoRefreshLabel">OFF</span></button>
+
+        <div id="schedulerEnvWarn" style="display:none; margin-top:1rem; padding:0.75rem; background:rgba(215,38,56,0.1); border:1px solid rgba(215,38,56,0.3); border-radius:6px; color:#D72638; font-size:0.85rem;"></div>
+        <div id="schedulerStatus" style="display:none; margin-top: 1rem;"></div>
+    </div>
+
+    <div class="admin-card">
         <h2>Manual Subscription Access</h2>
         <p>Grant complimentary access to subscriber-only features (Picks / Stat Pack / Bundle). Manually granted plans don't go through Stripe and won't trigger billing.</p>
 
@@ -525,6 +536,63 @@ function forceRename(userId) {
         }
     })
     .catch(err => alert('Error: ' + err));
+}
+
+let _autoRefreshTimer = null;
+
+function loadSchedulerStatus(toggleAuto) {
+    if (toggleAuto) {
+        if (_autoRefreshTimer) {
+            clearInterval(_autoRefreshTimer);
+            _autoRefreshTimer = null;
+            document.getElementById('autoRefreshLabel').textContent = 'OFF';
+            return;
+        } else {
+            _autoRefreshTimer = setInterval(() => loadSchedulerStatus(false), 15000);
+            document.getElementById('autoRefreshLabel').textContent = 'ON (15s)';
+        }
+    }
+
+    fetch('/admin/scheduler-status')
+        .then(r => r.json())
+        .then(data => {
+            const wrap = document.getElementById('schedulerStatus');
+            const warn = document.getElementById('schedulerEnvWarn');
+            wrap.style.display = 'block';
+
+            if (!data.schedulers_enabled) {
+                warn.style.display = 'block';
+                warn.innerHTML = '<strong>SCHEDULERS_ENABLED is NOT set.</strong> You\'re viewing this page from the dev workspace, which is gated off. To check production status, view this page on your live Reserved VM URL (the one ending in .replit.app).';
+            } else {
+                warn.style.display = 'none';
+            }
+
+            let html = '';
+            data.items.forEach(item => {
+                const fresh = item.log_mtime ? (Date.now() - new Date(item.log_mtime + ' UTC').getTime()) / 60000 : null;
+                const freshClass = fresh === null ? 'status-error' : (fresh < 90 ? 'status-success' : (fresh < 360 ? '' : 'status-error'));
+                const freshLabel = fresh === null ? 'no log file' : (fresh < 1 ? 'just now' : (fresh < 60 ? Math.round(fresh) + ' min ago' : (fresh / 60).toFixed(1) + ' h ago'));
+
+                html += '<div class="admin-card" style="background:var(--bg); margin-bottom:0.75rem;">';
+                html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">';
+                html += '<strong>' + escapeHtml(item.name) + '</strong>';
+                html += '<span class="' + freshClass + '" style="font-size:0.8rem;">last log: ' + escapeHtml(freshLabel) + '</span>';
+                html += '</div>';
+
+                if (item.state) {
+                    html += '<div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.5rem;">state: ' + escapeHtml(JSON.stringify(item.state).slice(0, 200)) + '</div>';
+                }
+
+                if (item.tail.length) {
+                    html += '<pre style="background:#0a0a0a; color:#d4d4d4; padding:0.5rem; border-radius:4px; font-size:0.7rem; max-height:200px; overflow:auto; margin:0;">' + escapeHtml(item.tail.join('\n')) + '</pre>';
+                } else {
+                    html += '<p style="color:var(--text-muted); font-size:0.8rem; margin:0;">No log output yet.</p>';
+                }
+                html += '</div>';
+            });
+            wrap.innerHTML = html;
+        })
+        .catch(err => alert('Error: ' + err));
 }
 
 let _lookupUsername = '';
