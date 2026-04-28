@@ -2203,6 +2203,51 @@ async def ban_user(request: Request, db: Session = Depends(get_db)):
     return {"success": True, "message": f"Banned user '{target.username}'"}
 
 
+@app.get("/admin/scheduler-status")
+async def admin_scheduler_status(request: Request, db: Session = Depends(get_db)):
+    """Read scheduler log files + state files from /tmp so the admin can verify
+    that the production schedulers are actually firing on the Reserved VM."""
+    user = get_current_user(request, db)
+    if not require_admin(user):
+        return {"success": False, "message": "Unauthorized"}
+
+    log_dir = "/tmp/pirtdica_logs"
+    state_files = {
+        "pregame_refresh": "/tmp/pirtdica_pregame_state.json",
+        "props_refresh": "/tmp/pirtdica_movement_state.json",
+    }
+    schedulers = ["chart_refresh", "pregame_refresh", "postgame_pipeline", "props_refresh"]
+
+    out = {"success": True, "schedulers_enabled": os.environ.get("SCHEDULERS_ENABLED") == "1", "items": []}
+
+    for name in schedulers:
+        log_path = os.path.join(log_dir, f"{name}.log")
+        item = {"name": name, "log_exists": os.path.exists(log_path), "log_size": 0,
+                "log_mtime": None, "tail": [], "state": None}
+        if item["log_exists"]:
+            try:
+                st = os.stat(log_path)
+                item["log_size"] = st.st_size
+                item["log_mtime"] = datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+                with open(log_path, "rb") as f:
+                    f.seek(max(0, st.st_size - 8000))
+                    item["tail"] = f.read().decode("utf-8", errors="replace").splitlines()[-40:]
+            except Exception as e:
+                item["tail"] = [f"<read error: {e}>"]
+
+        sp = state_files.get(name)
+        if sp and os.path.exists(sp):
+            try:
+                with open(sp) as f:
+                    item["state"] = json.load(f)
+            except Exception as e:
+                item["state"] = {"_error": str(e)}
+
+        out["items"].append(item)
+
+    return out
+
+
 @app.get("/admin/lookup-user")
 async def admin_lookup_user(request: Request, username: str = "", db: Session = Depends(get_db)):
     user = get_current_user(request, db)
