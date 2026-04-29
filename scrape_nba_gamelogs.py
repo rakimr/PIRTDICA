@@ -182,8 +182,15 @@ def scrape_gamelogs():
     if 'FG3M' in df.columns:
         log_cols.append('FG3M')
         rename_map['FG3M'] = 'fg3m'
+    if 'season_type' in df.columns:
+        log_cols.append('season_type')
     game_logs = df[log_cols].copy()
     game_logs = game_logs.rename(columns=rename_map)
+    if 'season_type' not in game_logs.columns:
+        from utils.season_phase import classify_game_date
+        game_logs['season_type'] = game_logs['game_date'].apply(classify_game_date)
+    else:
+        game_logs['season_type'] = game_logs['season_type'].fillna('REGULAR')
     game_logs['scraped_at'] = datetime.now().isoformat()
     game_logs = game_logs.sort_values(['player_name', 'game_date'], ascending=[True, False])
 
