@@ -28,16 +28,56 @@ def calc_fanduel_fp(row):
 
 
 def scrape_gamelogs():
-    print("Fetching all player game logs from NBA.com...")
-    
-    df = nba_api_call_with_retry(
+    print("Fetching all player game logs from NBA.com (Regular Season + Playoffs)...")
+
+    df_reg = nba_api_call_with_retry(
         leaguegamelog.LeagueGameLog,
-        "game logs",
+        "regular season game logs",
         season='2025-26',
         player_or_team_abbreviation='P',
         season_type_all_star='Regular Season'
     )
-    
+    if df_reg is not None and len(df_reg) > 0:
+        df_reg = df_reg.copy()
+        df_reg['season_type'] = 'REGULAR'
+        print(f"  Regular Season: {len(df_reg)} entries")
+    else:
+        df_reg = None
+
+    df_po = nba_api_call_with_retry(
+        leaguegamelog.LeagueGameLog,
+        "playoffs game logs",
+        season='2025-26',
+        player_or_team_abbreviation='P',
+        season_type_all_star='Playoffs'
+    )
+    if df_po is not None and len(df_po) > 0:
+        df_po = df_po.copy()
+        df_po['season_type'] = 'PLAYOFF'
+        print(f"  Playoffs: {len(df_po)} entries")
+    else:
+        df_po = None
+
+    df_pi = nba_api_call_with_retry(
+        leaguegamelog.LeagueGameLog,
+        "play-in game logs",
+        season='2025-26',
+        player_or_team_abbreviation='P',
+        season_type_all_star='PlayIn'
+    )
+    if df_pi is not None and len(df_pi) > 0:
+        df_pi = df_pi.copy()
+        df_pi['season_type'] = 'PLAYOFF'
+        print(f"  Play-In: {len(df_pi)} entries (treated as PLAYOFF)")
+    else:
+        df_pi = None
+
+    parts = [p for p in (df_reg, df_po, df_pi) if p is not None]
+    if parts:
+        df = pd.concat(parts, ignore_index=True)
+    else:
+        df = None
+
     if df is None or len(df) == 0:
         print("WARNING: NBA.com unreachable — trying Basketball Reference fallback...")
         try:

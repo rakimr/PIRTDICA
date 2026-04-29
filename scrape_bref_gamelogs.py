@@ -277,6 +277,19 @@ def merge_and_save(new_logs):
     except Exception:
         existing_logs = pd.DataFrame()
 
+    if len(new_logs) > 0:
+        try:
+            from utils.season_phase import classify_game_date
+            new_logs = new_logs.copy()
+            new_logs["season_type"] = new_logs["game_date"].apply(classify_game_date)
+            po_count = (new_logs["season_type"] == "PLAYOFF").sum()
+            if po_count:
+                print(f"  [season_type] Tagged {po_count} bref rows as PLAYOFF")
+        except Exception as _e:
+            print(f"  [season_type] tagging failed ({_e}); defaulting REGULAR")
+            new_logs = new_logs.copy()
+            new_logs["season_type"] = "REGULAR"
+
     if len(existing_logs) > 0 and len(new_logs) > 0:
         new_logs["scraped_at"] = datetime.now().isoformat()
 

@@ -54,19 +54,58 @@ def _get_recent_games(player_name, stat, n=5):
     try:
         conn = sqlite3.connect("dfs_nba.db")
         col = STAT_LOG_COL.get(stat, stat.lower())
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(player_game_logs)").fetchall()]
+        has_phase = 'season_type' in cols
+        sel = f"SELECT game_date, matchup, {col}, min{', season_type' if has_phase else ''} " \
+              f"FROM player_game_logs WHERE player_name = ? ORDER BY game_date DESC LIMIT ?"
+        rows = conn.execute(sel, (player_name, n)).fetchall()
+        conn.close()
+        out = []
+        for r in rows:
+            phase = (r[4] if has_phase else 'REGULAR') or 'REGULAR'
+            tag = '[P]' if phase == 'PLAYOFF' else '[R]'
+            mu = r[1] or ''
+            out.append({
+                'date': r[0],
+                'matchup': f"{tag} {mu}".strip(),
+                'val': r[2],
+                'min': r[3],
+                'phase': phase,
+            })
+        return out
+    except Exception:
+        return []
+
+
+def _get_playoff_recent_games(player_name, stat, n=5):
+    """Return only PLAYOFF games for the player, most recent first."""
+    import sqlite3
+    try:
+        conn = sqlite3.connect("dfs_nba.db")
+        col = STAT_LOG_COL.get(stat, stat.lower())
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(player_game_logs)").fetchall()]
+        if 'season_type' not in cols:
+            conn.close()
+            return []
         rows = conn.execute(
             f"SELECT game_date, matchup, {col}, min FROM player_game_logs "
-            f"WHERE player_name = ? ORDER BY game_date DESC LIMIT ?",
+            f"WHERE player_name = ? AND season_type = 'PLAYOFF' "
+            f"ORDER BY game_date DESC LIMIT ?",
             (player_name, n)
         ).fetchall()
         conn.close()
-        return [{'date': r[0], 'matchup': r[1], 'val': r[2], 'min': r[3]} for r in rows]
+        return [{'date': r[0], 'matchup': r[1] or '', 'val': r[2], 'min': r[3]} for r in rows]
     except Exception:
         return []
 
 
 def _get_matchup_history(player_name, opponent):
+    """Returns matchup history. When playoff games vs the same opponent exist
+    (current series), surfaces a `series` block with playoff-only stats so
+    Claude isn't reasoning off stale regular-season meetings.
+    """
     import sqlite3
+    out = None
     try:
         conn = sqlite3.connect("dfs_nba.db")
         rows = conn.execute(
@@ -74,13 +113,41 @@ def _get_matchup_history(player_name, opponent):
             "FROM matchup_history WHERE player_name = ? AND opponent = ?",
             (player_name, opponent)
         ).fetchall()
-        conn.close()
         if rows:
-            return {'vs_fp_avg': rows[0][0], 'season_fp_avg': rows[0][1],
-                    'fp_diff': rows[0][2], 'score': rows[0][3], 'games': rows[0][4]}
+            out = {'vs_fp_avg': rows[0][0], 'season_fp_avg': rows[0][1],
+                   'fp_diff': rows[0][2], 'score': rows[0][3], 'games': rows[0][4]}
+
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(player_game_logs)").fetchall()]
+        if 'season_type' in cols:
+            opp_pat = f"%{opponent}%"
+            srows = conn.execute(
+                "SELECT pts, reb, ast, fp, min, game_date FROM player_game_logs "
+                "WHERE player_name = ? AND season_type = 'PLAYOFF' "
+                "AND (matchup LIKE ? OR matchup LIKE ?) "
+                "ORDER BY game_date DESC",
+                (player_name, f"% vs. {opponent}", f"% @ {opponent}")
+            ).fetchall()
+            if srows:
+                games = len(srows)
+                avg = lambda i: round(sum((r[i] or 0) for r in srows) / games, 1)
+                series_block = {
+                    'games': games,
+                    'pts_avg': avg(0),
+                    'reb_avg': avg(1),
+                    'ast_avg': avg(2),
+                    'fp_avg': avg(3),
+                    'min_avg': avg(4),
+                    'last_min': srows[0][4],
+                    'first_min': srows[-1][4],
+                    'min_trend': round((srows[0][4] or 0) - (srows[-1][4] or 0), 1),
+                }
+                if out is None:
+                    out = {}
+                out['series'] = series_block
+        conn.close()
     except Exception:
         pass
-    return None
+    return out
 
 
 def _parse_factors(factors_text):
@@ -746,8 +813,44 @@ He's scored in a DEN matchup before (+2.4 H2H edge) and the game environment is 
 """
 
 
+def _get_playoff_summary(player_name, stat):
+    """Aggregate stats for a player's playoff games this postseason."""
+    import sqlite3
+    try:
+        conn = sqlite3.connect("dfs_nba.db")
+        col = STAT_LOG_COL.get(stat, stat.lower())
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(player_game_logs)").fetchall()]
+        if 'season_type' not in cols:
+            conn.close()
+            return None
+        rows = conn.execute(
+            f"SELECT {col}, min, game_date FROM player_game_logs "
+            f"WHERE player_name = ? AND season_type = 'PLAYOFF' "
+            f"ORDER BY game_date DESC",
+            (player_name,)
+        ).fetchall()
+        conn.close()
+        if not rows:
+            return None
+        vals = [r[0] for r in rows if r[0] is not None]
+        mins = [r[1] for r in rows if r[1] is not None]
+        if not vals:
+            return None
+        return {
+            'games': len(rows),
+            'avg': round(sum(vals) / len(vals), 1),
+            'min_avg': round(sum(mins) / len(mins), 1) if mins else 0,
+            'last_min': mins[0] if mins else 0,
+            'last_val': vals[0] if vals else 0,
+        }
+    except Exception:
+        return None
+
+
 def _build_full_slate_briefing(props_df, dfs_df):
     import sqlite3
+    from utils.season_phase import is_playoff_window_active
+    playoff_mode = is_playoff_window_active()
 
     games = {}
     for _, row in dfs_df.iterrows():
@@ -850,17 +953,47 @@ def _build_full_slate_briefing(props_df, dfs_df):
                 {'date': g['date'], 'vs': g['matchup'], 'val': g['val'], 'min': g['min']}
                 for g in recent[:5]
             ]
+            playoff_in_recent = sum(1 for g in recent if g.get('phase') == 'PLAYOFF')
+            if playoff_in_recent:
+                entry['recent_includes_playoff'] = playoff_in_recent
+
+        po_summary = _get_playoff_summary(player, stat)
+        if po_summary:
+            entry['playoff_avg'] = po_summary['avg']
+            entry['playoff_games_count'] = po_summary['games']
+            entry['playoff_min_avg'] = po_summary['min_avg']
+            entry['playoff_last_min'] = po_summary['last_min']
+            entry['playoff_last_val'] = po_summary['last_val']
+            po_recent = _get_playoff_recent_games(player, stat, n=8)
+            if po_recent:
+                entry['playoff_game_log'] = [
+                    {'date': g['date'], 'vs': g['matchup'], 'val': g['val'], 'min': g['min']}
+                    for g in po_recent
+                ]
 
         matchup = _get_matchup_history(player, opponent)
         if matchup and matchup.get('games', 0) >= 1:
             entry['h2h'] = {
                 'fp_diff': round(matchup.get('fp_diff', 0), 1),
                 'games': matchup.get('games', 0),
+                'note': 'regular_season_only',
+            }
+        if matchup and matchup.get('series'):
+            s = matchup['series']
+            entry['series_vs_opponent'] = {
+                'games': s['games'],
+                'pts_avg': s['pts_avg'],
+                'reb_avg': s['reb_avg'],
+                'ast_avg': s['ast_avg'],
+                'fp_avg': s['fp_avg'],
+                'min_avg': s['min_avg'],
+                'min_trend': s['min_trend'],
             }
 
         prop_lines.append(entry)
 
     briefing = {
+        'playoff_mode': bool(playoff_mode),
         'game_count': len(games),
         'games': [{'game': k, 'implied_total': v} for k, v in sorted(game_env.items())],
         'key_absences': key_absences[:20],
@@ -906,6 +1039,26 @@ def build_claude_analyst(props_df, dfs_df):
     briefing = _build_full_slate_briefing(props_df, dfs_df)
     briefing_json = json.dumps(briefing, indent=2, default=str)
     print(f"Claude Analyst briefing: {len(briefing['prop_lines'])} prop lines across {briefing['game_count']} games ({len(briefing_json)} chars)")
+
+    playoff_mode_active = bool(briefing.get('playoff_mode'))
+    playoff_mode_block = """
+
+PLAYOFF MODE ACTIVE
+The slate is in the NBA Play-In/Playoffs window. Every prop entry includes playoff-specific fields when available:
+- `playoff_avg`, `playoff_games_count`, `playoff_min_avg`, `playoff_last_min`, `playoff_last_val`: this player's stats in this postseason only.
+- `playoff_game_log`: the full chronological postseason log for this stat.
+- `series_vs_opponent`: pts_avg, reb_avg, ast_avg, fp_avg, min_avg, min_trend across THIS series only.
+- `recent_games[].vs` is prefixed with `[P]` for playoff games and `[R]` for regular-season games.
+- `recent_includes_playoff` shows how many of the last 5 are playoff games.
+
+Reasoning rules in playoff mode:
+1. Postseason rotations tighten dramatically. A player averaging 22 MPG in the regular season but logging 9-12 in the series IS the new baseline. Trust the playoff minutes, not the season MPG.
+2. Series-level data (`series_vs_opponent`) overrides any regular-season `h2h` data when ≥2 series games exist. The `h2h.note: regular_season_only` flag is your reminder that head-to-head numbers from December are often irrelevant.
+3. Cite playoff games explicitly. If you reference a recent stat line, prefer one tagged `[P]`. Do not cite a regular-season game (`[R]`) against a non-current opponent to justify a playoff prop.
+4. When `playoff_games_count` >= 3 and `playoff_avg` clearly diverges from `player_avg` or `last5_avg`, weight `playoff_avg` more heavily.
+5. Watch `series_vs_opponent.min_trend`: a positive trend (minutes climbing across the series) supports OVERs on volume; a negative trend supports UNDERs.
+6. Single-elimination Play-In games carry full intensity — treat their data the same as Playoff games.
+"""
 
     system_prompt = """You are an elite NBA DFS analyst for PIRTDICA SPORTS CO. You are given the FULL slate data with projections, matchup edges, usage context, injury impacts, game environments, and recent form.
 
@@ -961,6 +1114,17 @@ Return a JSON object with two keys:
 
 Return ONLY the JSON object, no other text. Order picks by edge strength (strongest first)."""
 
+    if playoff_mode_active:
+        system_prompt += playoff_mode_block
+
+    playoff_user_reminder = ""
+    if playoff_mode_active:
+        playoff_user_reminder = (
+            "- PLAYOFF MODE: prefer playoff_avg / series_vs_opponent / playoff_game_log over "
+            "regular-season averages. Cite [P]-tagged games when justifying picks. Do not lean on "
+            "regular-season h2h vs the current opponent (see h2h.note: regular_season_only).\n"
+        )
+
     user_prompt = f"""Analyze the full slate and select your HIGH confidence picks.
 
 {CLAUDE_ANALYST_PATTERNS}
@@ -976,7 +1140,7 @@ Remember:
 - You can pick ANY prop line from the full slate, not just ones the model labeled HIGH
 - Each analysis must be data-driven, cite specific numbers, and end with **The Call:** line
 - NEVER use em-dashes or double hyphens. Use periods, commas, colons, or "//" instead.
-- Return ONLY a JSON object with "picks" and "analyses" keys"""
+{playoff_user_reminder}- Return ONLY a JSON object with "picks" and "analyses" keys"""
 
     try:
         from anthropic import Anthropic

@@ -758,11 +758,18 @@ def _get_season_pct():
     return max(0.0, min(1.0, elapsed / total))
 
 def _load_game_logs_for_confidence():
-    """Load player game logs from SQLite for prop confidence filtering."""
+    """Load player game logs from SQLite for prop confidence filtering.
+    Pulls season_type when available so playoff games can be weighted heavier."""
     try:
         conn = sqlite3.connect(get_db_path())
-        logs = pd.read_sql("SELECT player_name, game_date, pts, reb, ast, stl, blk FROM player_game_logs ORDER BY game_date DESC", conn)
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(player_game_logs)").fetchall()]
+        sel_cols = "player_name, game_date, pts, reb, ast, stl, blk"
+        if 'season_type' in cols:
+            sel_cols += ", season_type"
+        logs = pd.read_sql(f"SELECT {sel_cols} FROM player_game_logs ORDER BY game_date DESC", conn)
         conn.close()
+        if 'season_type' not in logs.columns:
+            logs['season_type'] = 'REGULAR'
         return logs
     except Exception:
         return pd.DataFrame()
@@ -788,7 +795,8 @@ def _evaluate_prop_confidence(player_name, stat_key, book_line, player_avg, game
         return {'hit_rate': None, 'cv': None, 'last5_avg': None, 'confidence': 'LOW',
                 'confidence_reasons': ['No game log data'], 'gate_failures': {'no_data': True}}
 
-    stat_values = player_logs[col].dropna()
+    pl = player_logs.dropna(subset=[col]).copy()
+    stat_values = pl[col]
     fail_reasons = []
     support_reasons = []
     gate_failures = {}
@@ -798,18 +806,35 @@ def _evaluate_prop_confidence(player_name, stat_key, book_line, player_avg, game
         return {'hit_rate': None, 'cv': None, 'last5_avg': None, 'confidence': 'LOW',
                 'confidence_reasons': fail_reasons, 'gate_failures': {'small_sample': True}}
 
+    PLAYOFF_WEIGHT = 2.5
+    if 'season_type' in pl.columns:
+        weights = pl['season_type'].apply(lambda s: PLAYOFF_WEIGHT if s == 'PLAYOFF' else 1.0).astype(float)
+    else:
+        weights = pd.Series([1.0] * len(pl), index=pl.index)
+    playoff_n = int((weights > 1.0).sum())
+
     line = book_line if book_line and not pd.isna(book_line) and book_line > 0 else round(player_avg) - 0.5
     if recommendation == 'UNDER':
-        hit_rate = round((stat_values < line).mean() * 100, 1)
+        hits_mask = (stat_values < line).astype(float)
     else:
-        hit_rate = round((stat_values > line).mean() * 100, 1)
+        hits_mask = (stat_values > line).astype(float)
+    total_w = float(weights.sum()) or 1.0
+    hit_rate = round((hits_mask * weights).sum() / total_w * 100, 1)
 
-    avg = stat_values.mean()
-    std = stat_values.std()
+    w_arr = weights.to_numpy()
+    v_arr = stat_values.to_numpy(dtype=float)
+    avg = float((v_arr * w_arr).sum() / total_w)
+    var = float(((v_arr - avg) ** 2 * w_arr).sum() / total_w)
+    std = var ** 0.5
     cv = round(std / avg, 2) if avg > 0 else 99.0
 
     last5 = stat_values.head(5)
     last5_avg = round(last5.mean(), 1)
+    if playoff_n >= 2:
+        po_vals = pl[pl['season_type'] == 'PLAYOFF'][col].head(5)
+        if len(po_vals) >= 2:
+            last5_avg = round(po_vals.mean(), 1)
+            support_reasons.append(f'Playoff-weighted last{len(po_vals)} {last5_avg}')
 
     if hit_rate < 58:
         fail_reasons.append(f'Hit rate {hit_rate}% < 58%')
