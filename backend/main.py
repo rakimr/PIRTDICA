@@ -89,6 +89,14 @@ def auto_generate_house_lineup():
 @app.on_event("startup")
 async def startup_event():
     try:
+        from migrations.add_season_type import ensure_season_type_schema
+        result = ensure_season_type_schema(verbose=False)
+        if result.get("player_game_logs", 0) or result.get("matchup_history", 0):
+            print(f"[startup] season_type migration: {result}")
+    except Exception as e:
+        print(f"[startup] season_type migration warning: {e}")
+
+    try:
         from sqlalchemy import inspect as sa_inspect, text as sa_text
         from backend.database import engine as _eng
         insp = sa_inspect(_eng)

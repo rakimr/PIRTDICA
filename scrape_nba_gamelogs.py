@@ -216,7 +216,24 @@ def scrape_gamelogs():
         merged_logs = game_logs
         print(f"[player_game_logs] Fresh insert: {len(game_logs)} entries")
 
+    if 'season_type' not in merged_logs.columns:
+        from utils.season_phase import classify_game_date
+        merged_logs['season_type'] = merged_logs['game_date'].apply(classify_game_date)
+    else:
+        from utils.season_phase import classify_game_date
+        missing = merged_logs['season_type'].isna() | (merged_logs['season_type'] == '')
+        if missing.any():
+            merged_logs.loc[missing, 'season_type'] = merged_logs.loc[missing, 'game_date'].apply(classify_game_date)
+
     merged_logs.to_sql('player_game_logs', conn, if_exists='replace', index=False)
+    try:
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_pgl_player_phase_date "
+            "ON player_game_logs(player_name, season_type, game_date DESC)"
+        )
+        conn.commit()
+    except Exception as e:
+        print(f"[player_game_logs] index recreate warning: {e}")
     print(f"Saved {len(merged_logs)} total game log entries to player_game_logs table.")
 
     conn.close()

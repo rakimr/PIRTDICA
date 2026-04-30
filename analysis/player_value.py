@@ -807,22 +807,36 @@ def _evaluate_prop_confidence(player_name, stat_key, book_line, player_avg, game
                 'confidence_reasons': fail_reasons, 'gate_failures': {'small_sample': True}}
 
     PLAYOFF_WEIGHT = 2.5
+    PLAYOFF_GATE = 3
     if 'season_type' in pl.columns:
-        weights = pl['season_type'].apply(lambda s: PLAYOFF_WEIGHT if s == 'PLAYOFF' else 1.0).astype(float)
+        playoff_mask = (pl['season_type'] == 'PLAYOFF')
+        playoff_n = int(playoff_mask.sum())
+    else:
+        playoff_mask = pd.Series([False] * len(pl), index=pl.index)
+        playoff_n = 0
+
+    apply_playoff_weight = playoff_n >= PLAYOFF_GATE
+    if apply_playoff_weight:
+        weights = playoff_mask.apply(lambda b: PLAYOFF_WEIGHT if b else 1.0).astype(float)
     else:
         weights = pd.Series([1.0] * len(pl), index=pl.index)
-    playoff_n = int((weights > 1.0).sum())
 
     line = book_line if book_line and not pd.isna(book_line) and book_line > 0 else round(player_avg) - 0.5
     if recommendation == 'UNDER':
         hits_mask = (stat_values < line).astype(float)
     else:
         hits_mask = (stat_values > line).astype(float)
+
+    n = float(len(stat_values)) or 1.0
+    unweighted_hit_rate = round(hits_mask.sum() / n * 100, 1)
+    v_arr = stat_values.to_numpy(dtype=float)
+    unweighted_avg = float(v_arr.mean()) if len(v_arr) else 0.0
+    unweighted_std = float(v_arr.std(ddof=0)) if len(v_arr) else 0.0
+    unweighted_cv = round(unweighted_std / unweighted_avg, 2) if unweighted_avg > 0 else 99.0
+
     total_w = float(weights.sum()) or 1.0
     hit_rate = round((hits_mask * weights).sum() / total_w * 100, 1)
-
     w_arr = weights.to_numpy()
-    v_arr = stat_values.to_numpy(dtype=float)
     avg = float((v_arr * w_arr).sum() / total_w)
     var = float(((v_arr - avg) ** 2 * w_arr).sum() / total_w)
     std = var ** 0.5
@@ -830,8 +844,9 @@ def _evaluate_prop_confidence(player_name, stat_key, book_line, player_avg, game
 
     last5 = stat_values.head(5)
     last5_avg = round(last5.mean(), 1)
-    if playoff_n >= 2:
-        po_vals = pl[pl['season_type'] == 'PLAYOFF'][col].head(5)
+    last5_unweighted_avg = last5_avg
+    if apply_playoff_weight:
+        po_vals = pl[playoff_mask][col].head(5)
         if len(po_vals) >= 2:
             last5_avg = round(po_vals.mean(), 1)
             support_reasons.append(f'Playoff-weighted last{len(po_vals)} {last5_avg}')
@@ -924,7 +939,10 @@ def _evaluate_prop_confidence(player_name, stat_key, book_line, player_avg, game
 
     return {'hit_rate': hit_rate, 'cv': cv, 'last5_avg': last5_avg, 'confidence': confidence,
             'confidence_reasons': reasons_out, 'gate_failures': gate_failures,
-            'gate_fail_count': len(gate_failures)}
+            'gate_fail_count': len(gate_failures),
+            'hit_rate_unweighted': unweighted_hit_rate, 'cv_unweighted': unweighted_cv,
+            'last5_avg_unweighted': last5_unweighted_avg,
+            'playoff_n': playoff_n, 'playoff_weight_applied': apply_playoff_weight}
 
 
 def _build_projection_cache():
@@ -2570,6 +2588,11 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
                     'hit_rate': conf['hit_rate'],
                     'cv': conf['cv'],
                     'last5_avg': conf['last5_avg'],
+                    'hit_rate_unweighted': conf.get('hit_rate_unweighted'),
+                    'cv_unweighted': conf.get('cv_unweighted'),
+                    'last5_avg_unweighted': conf.get('last5_avg_unweighted'),
+                    'playoff_n': conf.get('playoff_n', 0),
+                    'playoff_weight_applied': conf.get('playoff_weight_applied', False),
                     'confidence': conf['confidence'],
                     'confidence_reasons': '; '.join(conf['confidence_reasons']) if conf['confidence_reasons'] else '',
                     'gate_fail_count': conf.get('gate_fail_count', 0),

@@ -59,11 +59,26 @@ def _get_recent_games(player_name, stat, n=5):
         sel = f"SELECT game_date, matchup, {col}, min{', season_type' if has_phase else ''} " \
               f"FROM player_game_logs WHERE player_name = ? ORDER BY game_date DESC LIMIT ?"
         rows = conn.execute(sel, (player_name, n)).fetchall()
+
+        playoff_seq = {}
+        if has_phase:
+            playoff_dates = conn.execute(
+                "SELECT game_date FROM player_game_logs "
+                "WHERE player_name = ? AND season_type = 'PLAYOFF' "
+                "ORDER BY game_date ASC",
+                (player_name,)
+            ).fetchall()
+            for idx, (gd,) in enumerate(playoff_dates, start=1):
+                playoff_seq[gd] = idx
         conn.close()
         out = []
         for r in rows:
             phase = (r[4] if has_phase else 'REGULAR') or 'REGULAR'
-            tag = '[P]' if phase == 'PLAYOFF' else '[R]'
+            if phase == 'PLAYOFF':
+                gnum = playoff_seq.get(r[0])
+                tag = f'[PLAYOFF G{gnum}]' if gnum else '[PLAYOFF]'
+            else:
+                tag = '[REG]'
             mu = r[1] or ''
             out.append({
                 'date': r[0],
@@ -75,6 +90,35 @@ def _get_recent_games(player_name, stat, n=5):
         return out
     except Exception:
         return []
+
+
+def _get_regular_season_min_avg(player_name, last_n=20):
+    """Average minutes across the player's most recent N regular-season games."""
+    import sqlite3
+    try:
+        conn = sqlite3.connect("dfs_nba.db")
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(player_game_logs)").fetchall()]
+        if 'season_type' in cols:
+            rows = conn.execute(
+                "SELECT min FROM player_game_logs "
+                "WHERE player_name = ? AND season_type = 'REGULAR' "
+                "ORDER BY game_date DESC LIMIT ?",
+                (player_name, last_n)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT min FROM player_game_logs "
+                "WHERE player_name = ? "
+                "ORDER BY game_date DESC LIMIT ?",
+                (player_name, last_n)
+            ).fetchall()
+        conn.close()
+        vals = [r[0] for r in rows if r[0] is not None]
+        if not vals:
+            return None
+        return round(sum(vals) / len(vals), 1)
+    except Exception:
+        return None
 
 
 def _get_playoff_recent_games(player_name, stat, n=5):
@@ -913,6 +957,17 @@ def _build_full_slate_briefing(props_df, dfs_df):
             except Exception:
                 pass
 
+        _hr_un = row.get('hit_rate_unweighted')
+        _cv_un = row.get('cv_unweighted')
+        _l5_un = row.get('last5_avg_unweighted')
+        _po_n = row.get('playoff_n')
+        _po_w = row.get('playoff_weight_applied')
+        conf_unweighted_hit_rate = round(_safe_float(_hr_un), 1) if _hr_un is not None and not pd.isna(_hr_un) else None
+        conf_unweighted_cv = round(_safe_float(_cv_un), 3) if _cv_un is not None and not pd.isna(_cv_un) else None
+        conf_unweighted_last5 = round(_safe_float(_l5_un), 1) if _l5_un is not None and not pd.isna(_l5_un) else None
+        conf_playoff_n = int(_safe_float(_po_n)) if _po_n is not None and not pd.isna(_po_n) else None
+        conf_weight_applied = bool(_po_w) if _po_w is not None and not pd.isna(_po_w) else False
+
         entry = {
             'player': player,
             'team': team,
@@ -980,15 +1035,57 @@ def _build_full_slate_briefing(props_df, dfs_df):
             }
         if matchup and matchup.get('series'):
             s = matchup['series']
-            entry['series_vs_opponent'] = {
+            entry['series_avg_vs_opponent'] = {
                 'games': s['games'],
                 'pts_avg': s['pts_avg'],
                 'reb_avg': s['reb_avg'],
                 'ast_avg': s['ast_avg'],
                 'fp_avg': s['fp_avg'],
                 'min_avg': s['min_avg'],
-                'min_trend': s['min_trend'],
             }
+            entry['series_minutes_trend'] = s['min_trend']
+
+            season_min_avg = _get_regular_season_min_avg(player)
+            if season_min_avg is not None:
+                role_delta = round(s['min_avg'] - season_min_avg, 1)
+                if role_delta >= 4:
+                    role_label = 'expanded'
+                elif role_delta <= -4:
+                    role_label = 'reduced'
+                else:
+                    role_label = 'stable'
+                entry['series_role_change'] = {
+                    'season_min_avg': season_min_avg,
+                    'series_min_avg': s['min_avg'],
+                    'delta': role_delta,
+                    'label': role_label,
+                }
+
+        entry['hit_rate_unweighted'] = (
+            conf_unweighted_hit_rate
+            if conf_unweighted_hit_rate is not None
+            else entry['hit_rate']
+        )
+        entry['cv_unweighted'] = (
+            conf_unweighted_cv
+            if conf_unweighted_cv is not None
+            else entry['cv']
+        )
+        entry['last5_avg_unweighted'] = (
+            conf_unweighted_last5
+            if conf_unweighted_last5 is not None
+            else entry['last5_avg']
+        )
+        entry['playoff_n'] = (
+            conf_playoff_n
+            if conf_playoff_n is not None
+            else int(entry.get('playoff_games_count', 0) or 0)
+        )
+        entry['playoff_weight_applied'] = bool(
+            conf_weight_applied
+            if _po_w is not None and not pd.isna(_po_w)
+            else (entry['playoff_n'] >= 3)
+        )
 
         prop_lines.append(entry)
 
@@ -1047,16 +1144,19 @@ PLAYOFF MODE ACTIVE
 The slate is in the NBA Play-In/Playoffs window. Every prop entry includes playoff-specific fields when available:
 - `playoff_avg`, `playoff_games_count`, `playoff_min_avg`, `playoff_last_min`, `playoff_last_val`: this player's stats in this postseason only.
 - `playoff_game_log`: the full chronological postseason log for this stat.
-- `series_vs_opponent`: pts_avg, reb_avg, ast_avg, fp_avg, min_avg, min_trend across THIS series only.
-- `recent_games[].vs` is prefixed with `[P]` for playoff games and `[R]` for regular-season games.
+- `series_avg_vs_opponent`: pts_avg, reb_avg, ast_avg, fp_avg, min_avg across THIS series only.
+- `series_minutes_trend`: numeric delta of minutes from first series game to most recent (positive = trending up).
+- `series_role_change`: {season_min_avg, series_min_avg, delta, label} — label is 'expanded'/'reduced'/'stable'. Use to flag rotation shifts.
+- `hit_rate_unweighted` / `cv_unweighted`: same metrics computed against regular-season-only data, for comparison with playoff-weighted `hit_rate` / `cv`. Divergence between the two signals a regime change.
+- `recent_games[].vs` is prefixed with `[PLAYOFF G{n}]` for playoff games (n = chronological playoff game number for the player) and `[REG]` for regular-season games.
 - `recent_includes_playoff` shows how many of the last 5 are playoff games.
 
 Reasoning rules in playoff mode:
 1. Postseason rotations tighten dramatically. A player averaging 22 MPG in the regular season but logging 9-12 in the series IS the new baseline. Trust the playoff minutes, not the season MPG.
-2. Series-level data (`series_vs_opponent`) overrides any regular-season `h2h` data when ≥2 series games exist. The `h2h.note: regular_season_only` flag is your reminder that head-to-head numbers from December are often irrelevant.
-3. Cite playoff games explicitly. If you reference a recent stat line, prefer one tagged `[P]`. Do not cite a regular-season game (`[R]`) against a non-current opponent to justify a playoff prop.
-4. When `playoff_games_count` >= 3 and `playoff_avg` clearly diverges from `player_avg` or `last5_avg`, weight `playoff_avg` more heavily.
-5. Watch `series_vs_opponent.min_trend`: a positive trend (minutes climbing across the series) supports OVERs on volume; a negative trend supports UNDERs.
+2. Series-level data (`series_avg_vs_opponent`) overrides any regular-season `h2h` data when ≥2 series games exist. The `h2h.note: regular_season_only` flag is your reminder that head-to-head numbers from December are often irrelevant.
+3. Cite playoff games explicitly. If you reference a recent stat line, prefer one tagged `[PLAYOFF G{n}]`. Do not cite a regular-season game (`[REG]`) against a non-current opponent to justify a playoff prop.
+4. When `playoff_games_count` >= 3 and `playoff_avg` clearly diverges from `player_avg` or `last5_avg`, weight `playoff_avg` more heavily. Compare `hit_rate` (playoff-weighted) vs `hit_rate_unweighted` (regular-only): meaningful divergence is a regime signal.
+5. Watch `series_minutes_trend`: a positive value (minutes climbing across the series) supports OVERs on volume; a negative value supports UNDERs. `series_role_change.label` ('expanded' vs 'reduced') is the cleaner version of this signal.
 6. Single-elimination Play-In games carry full intensity — treat their data the same as Playoff games.
 """
 
@@ -1120,9 +1220,10 @@ Return ONLY the JSON object, no other text. Order picks by edge strength (strong
     playoff_user_reminder = ""
     if playoff_mode_active:
         playoff_user_reminder = (
-            "- PLAYOFF MODE: prefer playoff_avg / series_vs_opponent / playoff_game_log over "
-            "regular-season averages. Cite [P]-tagged games when justifying picks. Do not lean on "
-            "regular-season h2h vs the current opponent (see h2h.note: regular_season_only).\n"
+            "- PLAYOFF MODE: prefer playoff_avg / series_avg_vs_opponent / playoff_game_log over "
+            "regular-season averages. Cite [PLAYOFF G{n}]-tagged games when justifying picks. Do not lean on "
+            "regular-season h2h vs the current opponent (see h2h.note: regular_season_only). "
+            "If hit_rate (playoff-weighted) and hit_rate_unweighted disagree, treat the playoff-weighted value as the truer signal.\n"
         )
 
     user_prompt = f"""Analyze the full slate and select your HIGH confidence picks.
