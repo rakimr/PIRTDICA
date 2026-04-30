@@ -966,7 +966,14 @@ def _build_full_slate_briefing(props_df, dfs_df):
         conf_unweighted_cv = round(_safe_float(_cv_un), 3) if _cv_un is not None and not pd.isna(_cv_un) else None
         conf_unweighted_last5 = round(_safe_float(_l5_un), 1) if _l5_un is not None and not pd.isna(_l5_un) else None
         conf_playoff_n = int(_safe_float(_po_n)) if _po_n is not None and not pd.isna(_po_n) else None
-        conf_weight_applied = bool(_po_w) if _po_w is not None and not pd.isna(_po_w) else False
+        if _po_w is None or (hasattr(pd, 'isna') and pd.isna(_po_w)):
+            conf_weight_applied = None
+        elif isinstance(_po_w, bool):
+            conf_weight_applied = _po_w
+        elif isinstance(_po_w, (int, float)):
+            conf_weight_applied = bool(_po_w)
+        else:
+            conf_weight_applied = str(_po_w).strip().lower() in ('true', '1', 'yes', 't')
 
         entry = {
             'player': player,
