@@ -821,7 +821,8 @@ def _evaluate_prop_confidence(player_name, stat_key, book_line, player_avg, game
 
     reg_mask = ~playoff_mask
     reg_logs = pl[reg_mask]
-    reg_values = reg_logs[col] if len(reg_logs) else stat_values
+    has_regular_baseline = len(reg_logs) > 0
+    reg_values = reg_logs[col] if has_regular_baseline else stat_values
     reg_n = float(len(reg_values)) or 1.0
     if recommendation == 'UNDER':
         reg_hits = (reg_values < line).astype(float)
@@ -950,8 +951,9 @@ def _evaluate_prop_confidence(player_name, stat_key, book_line, player_avg, game
     return {'hit_rate': hit_rate, 'cv': cv, 'last5_avg': last5_avg, 'confidence': confidence,
             'confidence_reasons': reasons_out, 'gate_failures': gate_failures,
             'gate_fail_count': len(gate_failures),
-            'hit_rate_unweighted': unweighted_hit_rate, 'cv_unweighted': unweighted_cv,
-            'last5_avg_unweighted': last5_unweighted_avg,
+            'hit_rate_unweighted': unweighted_hit_rate if has_regular_baseline else None,
+            'cv_unweighted': unweighted_cv if has_regular_baseline else None,
+            'last5_avg_unweighted': last5_unweighted_avg if has_regular_baseline else None,
             'playoff_n': playoff_n, 'playoff_weight_applied': apply_playoff_weight}
 
 
