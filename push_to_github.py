@@ -264,21 +264,6 @@ def main():
     print(f"  Pushed {len(tree_items)} files to GitHub ({new_commit_sha[:8]})")
     print(f"  Commit: {full_msg}")
 
-    trigger_render_deploy()
-
-
-def trigger_render_deploy():
-    hook_url = os.environ.get("RENDER_DEPLOY_HOOK_URL")
-    if not hook_url:
-        print("  Render deploy hook not configured — skipping")
-        return
-    try:
-        req = urllib.request.Request(hook_url, method="POST", data=b"")
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            print(f"  Render deploy triggered (HTTP {resp.status})")
-    except Exception as e:
-        print(f"  Render deploy hook failed: {e}")
-
 
 if __name__ == "__main__":
     main()
