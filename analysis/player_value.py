@@ -1044,7 +1044,11 @@ def _build_projection_cache():
         cache['depth_charts'] = {}
 
     try:
-        df = pd.read_sql("SELECT player_name, opponent, matchup_score, vs_fp_avg, vs_fppm, fppm_diff FROM matchup_history", conn)
+        df = pd.read_sql(
+            "SELECT player_name, opponent, matchup_score, vs_fp_avg, vs_fppm, fppm_diff "
+            "FROM matchup_history WHERE season_type='REGULAR'",
+            conn,
+        )
         cache['matchup_hist'] = {(r['player_name'], r['opponent']): r.to_dict() for _, r in df.iterrows()}
     except Exception:
         cache['matchup_hist'] = {}
