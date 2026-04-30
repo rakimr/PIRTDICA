@@ -1108,6 +1108,7 @@ def _build_full_slate_briefing(props_df, dfs_df, game_date=None):
                     'series_min_avg': s['min_avg'],
                     'delta': role_delta,
                     'label': role_label,
+                    'role_shifted': role_label != 'stable',
                 }
 
         if playoff_mode:
