@@ -180,15 +180,27 @@ def _get_matchup_history(player_name, opponent, game_date=None):
                    'fp_diff': rows[0][2], 'score': rows[0][3], 'games': rows[0][4]}
 
         if is_playoff_window_active(game_date):
+            from utils.season_phase import current_playoff_window_start
+            series_start = current_playoff_window_start(game_date)
             cols = [r[1] for r in conn.execute("PRAGMA table_info(player_game_logs)").fetchall()]
             if 'season_type' in cols:
-                srows = conn.execute(
-                    "SELECT pts, reb, ast, fp, min, game_date FROM player_game_logs "
-                    "WHERE player_name = ? AND season_type = 'PLAYOFF' "
-                    "AND (matchup LIKE ? OR matchup LIKE ?) "
-                    "ORDER BY game_date DESC",
-                    (player_name, f"% vs. {opponent}", f"% @ {opponent}")
-                ).fetchall()
+                if series_start is not None:
+                    srows = conn.execute(
+                        "SELECT pts, reb, ast, fp, min, game_date FROM player_game_logs "
+                        "WHERE player_name = ? AND season_type = 'PLAYOFF' "
+                        "AND (matchup LIKE ? OR matchup LIKE ?) "
+                        "AND game_date >= ? "
+                        "ORDER BY game_date DESC",
+                        (player_name, f"% vs. {opponent}", f"% @ {opponent}", str(series_start))
+                    ).fetchall()
+                else:
+                    srows = conn.execute(
+                        "SELECT pts, reb, ast, fp, min, game_date FROM player_game_logs "
+                        "WHERE player_name = ? AND season_type = 'PLAYOFF' "
+                        "AND (matchup LIKE ? OR matchup LIKE ?) "
+                        "ORDER BY game_date DESC",
+                        (player_name, f"% vs. {opponent}", f"% @ {opponent}")
+                    ).fetchall()
                 if srows:
                     games = len(srows)
                     avg = lambda i: round(sum((r[i] or 0) for r in srows) / games, 1)
