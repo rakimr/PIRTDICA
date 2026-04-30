@@ -145,7 +145,7 @@ def _get_playoff_recent_games(player_name, stat, n=5):
         return []
 
 
-def _get_matchup_history(player_name, opponent):
+def _get_matchup_history(player_name, opponent, game_date=None):
     """Returns matchup history.
 
     Base block: regular-season-only player-vs-team aggregate (fp_diff vs
@@ -179,7 +179,7 @@ def _get_matchup_history(player_name, opponent):
             out = {'vs_fp_avg': rows[0][0], 'season_fp_avg': rows[0][1],
                    'fp_diff': rows[0][2], 'score': rows[0][3], 'games': rows[0][4]}
 
-        if is_playoff_window_active():
+        if is_playoff_window_active(game_date):
             cols = [r[1] for r in conn.execute("PRAGMA table_info(player_game_logs)").fetchall()]
             if 'season_type' in cols:
                 srows = conn.execute(
@@ -260,7 +260,7 @@ def _parse_factors(factors_text):
     return parsed
 
 
-def build_analysis_text_template(row, dfs_df):
+def build_analysis_text_template(row, dfs_df, game_date=None):
     player = row['player']
     last_name = player.split()[-1] if ' ' in player else player
     stat = row['stat']
@@ -306,7 +306,7 @@ def build_analysis_text_template(row, dfs_df):
             template_load_mgmt = False
 
     recent_games = _get_recent_games(player, stat)
-    matchup_hist = _get_matchup_history(player, opponent)
+    matchup_hist = _get_matchup_history(player, opponent, game_date=game_date)
     factors = _parse_factors(projection_factors)
 
     paragraphs = []
@@ -469,7 +469,7 @@ def build_analysis_text_template(row, dfs_df):
         intro = "Beyond the matchup data, " if matchup_parts else "The game context matters here. "
         paragraphs.append(intro + ", ".join(context_parts) + ".")
 
-    template_playoff_active = is_playoff_window_active()
+    template_playoff_active = is_playoff_window_active(game_date)
     series_block = matchup_hist.get('series') if matchup_hist else None
 
     if template_playoff_active and series_block and series_block.get('games', 0) >= 2:
@@ -610,7 +610,7 @@ def _build_pick_context(row, dfs_df):
         rest_diff = int(rad) if rad is not None and not pd.isna(rad) else None
 
     recent_games = _get_recent_games(player, stat)
-    matchup_hist = _get_matchup_history(player, opponent)
+    matchup_hist = _get_matchup_history(player, opponent, game_date=game_date)
 
     game_label = build_game_label(player, team, opponent, dfs_df)
 
@@ -920,10 +920,10 @@ def _get_playoff_summary(player_name, stat):
         return None
 
 
-def _build_full_slate_briefing(props_df, dfs_df):
+def _build_full_slate_briefing(props_df, dfs_df, game_date=None):
     import sqlite3
     from utils.season_phase import is_playoff_window_active
-    playoff_mode = is_playoff_window_active()
+    playoff_mode = is_playoff_window_active(game_date)
 
     games = {}
     for _, row in dfs_df.iterrows():
@@ -1063,7 +1063,7 @@ def _build_full_slate_briefing(props_df, dfs_df):
                         for g in po_recent
                     ]
 
-        matchup = _get_matchup_history(player, opponent)
+        matchup = _get_matchup_history(player, opponent, game_date=game_date)
         if matchup and matchup.get('games', 0) >= 1:
             entry['h2h'] = {
                 'fp_diff': round(matchup.get('fp_diff', 0), 1),
@@ -1085,9 +1085,9 @@ def _build_full_slate_briefing(props_df, dfs_df):
             season_min_avg = _get_regular_season_min_avg(player)
             if season_min_avg is not None:
                 role_delta = round(s['min_avg'] - season_min_avg, 1)
-                if role_delta >= 4:
+                if role_delta >= 5:
                     role_label = 'expanded'
-                elif role_delta <= -4:
+                elif role_delta <= -5:
                     role_label = 'reduced'
                 else:
                     role_label = 'stable'
@@ -1164,14 +1164,14 @@ QUALITY GATES (reference, not hard constraints):
 """
 
 
-def build_claude_analyst(props_df, dfs_df):
+def build_claude_analyst(props_df, dfs_df, game_date=None):
     api_key = os.environ.get("AI_INTEGRATIONS_ANTHROPIC_API_KEY")
     base_url = os.environ.get("AI_INTEGRATIONS_ANTHROPIC_BASE_URL")
     if not api_key or not base_url:
         print("Claude API not configured — cannot run Claude Analyst mode")
         return None
 
-    briefing = _build_full_slate_briefing(props_df, dfs_df)
+    briefing = _build_full_slate_briefing(props_df, dfs_df, game_date=game_date)
     briefing_json = json.dumps(briefing, indent=2, default=str)
     print(f"Claude Analyst briefing: {len(briefing['prop_lines'])} prop lines across {briefing['game_count']} games ({len(briefing_json)} chars)")
 
@@ -1434,7 +1434,7 @@ Remember:
         return None
 
 
-def build_analysis_claude(high_rows, dfs_df, best_available=False):
+def build_analysis_claude(high_rows, dfs_df, best_available=False, game_date=None):
     api_key = os.environ.get("AI_INTEGRATIONS_ANTHROPIC_API_KEY")
     base_url = os.environ.get("AI_INTEGRATIONS_ANTHROPIC_BASE_URL")
     if not api_key or not base_url:
@@ -1487,7 +1487,7 @@ Return a JSON array where each element has:
 
 Return ONLY the JSON array, no other text."""
 
-    narrator_playoff_active = is_playoff_window_active()
+    narrator_playoff_active = is_playoff_window_active(game_date)
     if narrator_playoff_active:
         system_prompt += """
 
@@ -1638,7 +1638,7 @@ def generate_article(target_date=None):
                 games.add(f"{o} @ {t}")
     game_count = len(games)
 
-    claude_result = build_claude_analyst(props, dfs_df)
+    claude_result = build_claude_analyst(props, dfs_df, game_date=target_date)
 
     if claude_result:
         print("Claude Analyst mode: picks selected by Claude from full slate analysis")
@@ -1718,7 +1718,7 @@ def generate_article(target_date=None):
                 'usage_boost': round(float(row['usage_boost']), 2) if 'usage_boost' in row and pd.notna(row['usage_boost']) else None,
             })
 
-        claude_analyses = build_analysis_claude(high, dfs_df, best_available=using_best_available)
+        claude_analyses = build_analysis_claude(high, dfs_df, best_available=using_best_available, game_date=target_date)
         if claude_analyses:
             print(f"Using Claude AI analyses for article")
         else:
@@ -1734,7 +1734,7 @@ def generate_article(target_date=None):
             if claude_analyses and player in claude_analyses:
                 analysis_text = claude_analyses[player]
             else:
-                analysis_text = build_analysis_text_template(row, dfs_df)
+                analysis_text = build_analysis_text_template(row, dfs_df, game_date=target_date)
             call = "OVER" if "OVER" in str(row.get('recommendation', '')).upper() else "UNDER"
             analysis_data.append({
                 'player': player,
