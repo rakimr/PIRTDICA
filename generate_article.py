@@ -146,50 +146,66 @@ def _get_playoff_recent_games(player_name, stat, n=5):
 
 
 def _get_matchup_history(player_name, opponent):
-    """Returns matchup history. When playoff games vs the same opponent exist
-    (current series), surfaces a `series` block with playoff-only stats so
-    Claude isn't reasoning off stale regular-season meetings.
+    """Returns matchup history.
+
+    Base block: regular-season-only player-vs-team aggregate (fp_diff vs
+    season baseline). The persisted matchup_history table now holds both
+    REGULAR and PLAYOFF partitions; we explicitly select REGULAR so the
+    season-baseline diff isn't polluted by a tiny playoff sample.
+
+    Series block (only added when the slate is in the playoff window):
+    playoff-only stats vs this opponent, so Claude reasons about the
+    current series rather than stale December meetings.
     """
     import sqlite3
     out = None
     try:
         conn = sqlite3.connect("dfs_nba.db")
-        rows = conn.execute(
-            "SELECT vs_fp_avg, season_fp_avg, fp_diff, matchup_score, games_vs "
-            "FROM matchup_history WHERE player_name = ? AND opponent = ?",
-            (player_name, opponent)
-        ).fetchall()
+        mh_cols = [r[1] for r in conn.execute("PRAGMA table_info(matchup_history)").fetchall()]
+        if 'season_type' in mh_cols:
+            rows = conn.execute(
+                "SELECT vs_fp_avg, season_fp_avg, fp_diff, matchup_score, games_vs "
+                "FROM matchup_history WHERE player_name = ? AND opponent = ? "
+                "AND season_type = 'REGULAR'",
+                (player_name, opponent)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT vs_fp_avg, season_fp_avg, fp_diff, matchup_score, games_vs "
+                "FROM matchup_history WHERE player_name = ? AND opponent = ?",
+                (player_name, opponent)
+            ).fetchall()
         if rows:
             out = {'vs_fp_avg': rows[0][0], 'season_fp_avg': rows[0][1],
                    'fp_diff': rows[0][2], 'score': rows[0][3], 'games': rows[0][4]}
 
-        cols = [r[1] for r in conn.execute("PRAGMA table_info(player_game_logs)").fetchall()]
-        if 'season_type' in cols:
-            opp_pat = f"%{opponent}%"
-            srows = conn.execute(
-                "SELECT pts, reb, ast, fp, min, game_date FROM player_game_logs "
-                "WHERE player_name = ? AND season_type = 'PLAYOFF' "
-                "AND (matchup LIKE ? OR matchup LIKE ?) "
-                "ORDER BY game_date DESC",
-                (player_name, f"% vs. {opponent}", f"% @ {opponent}")
-            ).fetchall()
-            if srows:
-                games = len(srows)
-                avg = lambda i: round(sum((r[i] or 0) for r in srows) / games, 1)
-                series_block = {
-                    'games': games,
-                    'pts_avg': avg(0),
-                    'reb_avg': avg(1),
-                    'ast_avg': avg(2),
-                    'fp_avg': avg(3),
-                    'min_avg': avg(4),
-                    'last_min': srows[0][4],
-                    'first_min': srows[-1][4],
-                    'min_trend': round((srows[0][4] or 0) - (srows[-1][4] or 0), 1),
-                }
-                if out is None:
-                    out = {}
-                out['series'] = series_block
+        if is_playoff_window_active():
+            cols = [r[1] for r in conn.execute("PRAGMA table_info(player_game_logs)").fetchall()]
+            if 'season_type' in cols:
+                srows = conn.execute(
+                    "SELECT pts, reb, ast, fp, min, game_date FROM player_game_logs "
+                    "WHERE player_name = ? AND season_type = 'PLAYOFF' "
+                    "AND (matchup LIKE ? OR matchup LIKE ?) "
+                    "ORDER BY game_date DESC",
+                    (player_name, f"% vs. {opponent}", f"% @ {opponent}")
+                ).fetchall()
+                if srows:
+                    games = len(srows)
+                    avg = lambda i: round(sum((r[i] or 0) for r in srows) / games, 1)
+                    series_block = {
+                        'games': games,
+                        'pts_avg': avg(0),
+                        'reb_avg': avg(1),
+                        'ast_avg': avg(2),
+                        'fp_avg': avg(3),
+                        'min_avg': avg(4),
+                        'last_min': srows[0][4],
+                        'first_min': srows[-1][4],
+                        'min_trend': round((srows[0][4] or 0) - (srows[-1][4] or 0), 1),
+                    }
+                    if out is None:
+                        out = {}
+                    out['series'] = series_block
         conn.close()
     except Exception:
         pass
@@ -1032,19 +1048,20 @@ def _build_full_slate_briefing(props_df, dfs_df):
             if playoff_in_recent:
                 entry['recent_includes_playoff'] = playoff_in_recent
 
-        po_summary = _get_playoff_summary(player, stat)
-        if po_summary:
-            entry['playoff_avg'] = po_summary['avg']
-            entry['playoff_games_count'] = po_summary['games']
-            entry['playoff_min_avg'] = po_summary['min_avg']
-            entry['playoff_last_min'] = po_summary['last_min']
-            entry['playoff_last_val'] = po_summary['last_val']
-            po_recent = _get_playoff_recent_games(player, stat, n=8)
-            if po_recent:
-                entry['playoff_game_log'] = [
-                    {'date': g['date'], 'vs': g['matchup'], 'val': g['val'], 'min': g['min']}
-                    for g in po_recent
-                ]
+        if playoff_mode:
+            po_summary = _get_playoff_summary(player, stat)
+            if po_summary:
+                entry['playoff_avg'] = po_summary['avg']
+                entry['playoff_games_count'] = po_summary['games']
+                entry['playoff_min_avg'] = po_summary['min_avg']
+                entry['playoff_last_min'] = po_summary['last_min']
+                entry['playoff_last_val'] = po_summary['last_val']
+                po_recent = _get_playoff_recent_games(player, stat, n=8)
+                if po_recent:
+                    entry['playoff_game_log'] = [
+                        {'date': g['date'], 'vs': g['matchup'], 'val': g['val'], 'min': g['min']}
+                        for g in po_recent
+                    ]
 
         matchup = _get_matchup_history(player, opponent)
         if matchup and matchup.get('games', 0) >= 1:
@@ -1081,31 +1098,32 @@ def _build_full_slate_briefing(props_df, dfs_df):
                     'label': role_label,
                 }
 
-        entry['hit_rate_unweighted'] = (
-            conf_unweighted_hit_rate
-            if conf_unweighted_hit_rate is not None
-            else entry['hit_rate']
-        )
-        entry['cv_unweighted'] = (
-            conf_unweighted_cv
-            if conf_unweighted_cv is not None
-            else entry['cv']
-        )
-        entry['last5_avg_unweighted'] = (
-            conf_unweighted_last5
-            if conf_unweighted_last5 is not None
-            else entry['last5_avg']
-        )
-        entry['playoff_n'] = (
-            conf_playoff_n
-            if conf_playoff_n is not None
-            else int(entry.get('playoff_games_count', 0) or 0)
-        )
-        entry['playoff_weight_applied'] = bool(
-            conf_weight_applied
-            if _po_w is not None and not pd.isna(_po_w)
-            else (entry['playoff_n'] >= 3)
-        )
+        if playoff_mode:
+            entry['hit_rate_unweighted'] = (
+                conf_unweighted_hit_rate
+                if conf_unweighted_hit_rate is not None
+                else entry['hit_rate']
+            )
+            entry['cv_unweighted'] = (
+                conf_unweighted_cv
+                if conf_unweighted_cv is not None
+                else entry['cv']
+            )
+            entry['last5_avg_unweighted'] = (
+                conf_unweighted_last5
+                if conf_unweighted_last5 is not None
+                else entry['last5_avg']
+            )
+            entry['playoff_n'] = (
+                conf_playoff_n
+                if conf_playoff_n is not None
+                else int(entry.get('playoff_games_count', 0) or 0)
+            )
+            entry['playoff_weight_applied'] = bool(
+                conf_weight_applied
+                if _po_w is not None and not pd.isna(_po_w)
+                else (entry['playoff_n'] >= 3)
+            )
 
         prop_lines.append(entry)
 
