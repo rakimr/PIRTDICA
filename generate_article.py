@@ -451,7 +451,18 @@ def build_analysis_text_template(row, dfs_df):
         intro = "Beyond the matchup data, " if matchup_parts else "The game context matters here. "
         paragraphs.append(intro + ", ".join(context_parts) + ".")
 
-    if matchup_hist and matchup_hist.get('games', 0) >= 2:
+    template_playoff_active = is_playoff_window_active()
+    series_block = matchup_hist.get('series') if matchup_hist else None
+
+    if template_playoff_active and series_block and series_block.get('games', 0) >= 2:
+        s = series_block
+        paragraphs.append(
+            f"In this series so far ({s['games']} games), {last_name} is averaging "
+            f"{s['fp_avg']:.1f} fantasy points on {s['min_avg']:.1f} minutes "
+            f"(pts {s['pts_avg']:.1f} / reb {s['reb_avg']:.1f} / ast {s['ast_avg']:.1f}). "
+            f"Minutes trend across the series: {s['min_trend']:+.1f}."
+        )
+    elif matchup_hist and matchup_hist.get('games', 0) >= 2 and not template_playoff_active:
         fp_diff = matchup_hist.get('fp_diff', 0)
         games_played = matchup_hist.get('games', 0)
         if fp_diff > 2:
@@ -1456,15 +1467,44 @@ Return a JSON array where each element has:
 
 Return ONLY the JSON array, no other text."""
 
+    narrator_playoff_active = is_playoff_window_active()
+    if narrator_playoff_active:
+        system_prompt += """
+
+PLAYOFF MODE ACTIVE
+The slate is in the NBA Play-In/Playoffs window. Each pick context includes playoff-specific fields when available:
+- `playoff_avg`, `playoff_games_count`, `playoff_min_avg`, `playoff_last_min`, `playoff_last_val`: this player's stats in this postseason only.
+- `playoff_game_log`: the full chronological postseason log for this stat.
+- `series_avg_vs_opponent`: pts_avg, reb_avg, ast_avg, fp_avg, min_avg across THIS series only.
+- `series_minutes_trend`: numeric delta of minutes from first series game to most recent.
+- `series_role_change`: {season_min_avg, series_min_avg, delta, label='expanded'/'reduced'/'stable'}.
+- `recent_games[].vs` is prefixed `[PLAYOFF G{n}]` (chronological playoff game number) or `[REG]`.
+- `h2h.note: regular_season_only` is your reminder that any h2h line is December data, not the current series.
+
+Playoff narrative rules:
+1. Cite playoff games explicitly. Never use a regular-season ([REG]) line against a non-current opponent to justify a playoff prop.
+2. When `series_role_change.label` is 'reduced' or 'expanded', lead with the rotation shift, not the season averages.
+3. Trust playoff minutes (`playoff_min_avg`, `playoff_last_min`) over regular-season MPG when describing volume expectations.
+4. Series-level data (`series_avg_vs_opponent`) overrides regular-season h2h once ≥2 series games exist; do not write narratives like "he torched them in November" when a fresh series sample disagrees.
+5. Single-elimination Play-In games carry full playoff intensity — treat them the same as Playoff games."""
+
     if best_available:
         confidence_label = "today's top picks (best available: these narrowly missed HIGH confidence but are the strongest edges on the slate)"
     else:
         confidence_label = "HIGH confidence prop analysis for today's slate"
 
+    playoff_user_reminder = ""
+    if narrator_playoff_active:
+        playoff_user_reminder = (
+            "\nPLAYOFF MODE: prefer playoff_avg / series_avg_vs_opponent / playoff_game_log over "
+            "regular-season averages. Cite [PLAYOFF G{n}]-tagged games when justifying picks. Do not lean on "
+            "regular-season h2h vs the current opponent (see h2h.note: regular_season_only).\n"
+        )
+
     user_prompt = f"""Write {confidence_label}.
 
 {slate_context}
-
+{playoff_user_reminder}
 {FEW_SHOT_EXAMPLES}
 
 Now write analyses for today's picks. Here is the full model data for each pick:

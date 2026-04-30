@@ -816,40 +816,50 @@ def _evaluate_prop_confidence(player_name, stat_key, book_line, player_avg, game
         playoff_n = 0
 
     apply_playoff_weight = playoff_n >= PLAYOFF_GATE
-    if apply_playoff_weight:
-        weights = playoff_mask.apply(lambda b: PLAYOFF_WEIGHT if b else 1.0).astype(float)
-    else:
-        weights = pd.Series([1.0] * len(pl), index=pl.index)
 
     line = book_line if book_line and not pd.isna(book_line) and book_line > 0 else round(player_avg) - 0.5
+
+    reg_mask = ~playoff_mask
+    reg_logs = pl[reg_mask]
+    reg_values = reg_logs[col] if len(reg_logs) else stat_values
+    reg_n = float(len(reg_values)) or 1.0
+    if recommendation == 'UNDER':
+        reg_hits = (reg_values < line).astype(float)
+    else:
+        reg_hits = (reg_values > line).astype(float)
+    unweighted_hit_rate = round(reg_hits.sum() / reg_n * 100, 1)
+    reg_arr = reg_values.to_numpy(dtype=float)
+    unweighted_avg = float(reg_arr.mean()) if len(reg_arr) else 0.0
+    unweighted_std = float(reg_arr.std(ddof=0)) if len(reg_arr) else 0.0
+    unweighted_cv = round(unweighted_std / unweighted_avg, 2) if unweighted_avg > 0 else 99.0
+    last5_unweighted_avg = round(reg_values.head(5).mean(), 1) if len(reg_values) > 0 else 0.0
+
     if recommendation == 'UNDER':
         hits_mask = (stat_values < line).astype(float)
     else:
         hits_mask = (stat_values > line).astype(float)
-
-    n = float(len(stat_values)) or 1.0
-    unweighted_hit_rate = round(hits_mask.sum() / n * 100, 1)
     v_arr = stat_values.to_numpy(dtype=float)
-    unweighted_avg = float(v_arr.mean()) if len(v_arr) else 0.0
-    unweighted_std = float(v_arr.std(ddof=0)) if len(v_arr) else 0.0
-    unweighted_cv = round(unweighted_std / unweighted_avg, 2) if unweighted_avg > 0 else 99.0
 
-    total_w = float(weights.sum()) or 1.0
-    hit_rate = round((hits_mask * weights).sum() / total_w * 100, 1)
-    w_arr = weights.to_numpy()
-    avg = float((v_arr * w_arr).sum() / total_w)
-    var = float(((v_arr - avg) ** 2 * w_arr).sum() / total_w)
-    std = var ** 0.5
-    cv = round(std / avg, 2) if avg > 0 else 99.0
-
-    last5 = stat_values.head(5)
-    last5_avg = round(last5.mean(), 1)
-    last5_unweighted_avg = last5_avg
     if apply_playoff_weight:
+        weights = playoff_mask.apply(lambda b: PLAYOFF_WEIGHT if b else 1.0).astype(float)
+        total_w = float(weights.sum()) or 1.0
+        hit_rate = round((hits_mask * weights).sum() / total_w * 100, 1)
+        w_arr = weights.to_numpy()
+        avg = float((v_arr * w_arr).sum() / total_w)
+        var = float(((v_arr - avg) ** 2 * w_arr).sum() / total_w)
+        std = var ** 0.5
+        cv = round(std / avg, 2) if avg > 0 else 99.0
         po_vals = pl[playoff_mask][col].head(5)
         if len(po_vals) >= 2:
             last5_avg = round(po_vals.mean(), 1)
             support_reasons.append(f'Playoff-weighted last{len(po_vals)} {last5_avg}')
+        else:
+            last5_avg = round(stat_values.head(5).mean(), 1)
+    else:
+        hit_rate = unweighted_hit_rate
+        avg = unweighted_avg
+        cv = unweighted_cv
+        last5_avg = last5_unweighted_avg
 
     if hit_rate < 58:
         fail_reasons.append(f'Hit rate {hit_rate}% < 58%')
