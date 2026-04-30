@@ -15,6 +15,8 @@ from datetime import date, datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from utils.season_phase import is_playoff_window_active
+
 
 def _safe_float(val, default=0):
     try:
