@@ -55,6 +55,8 @@ SOURCE_CODE_FILES = [
     "calculate_context_engine.py",
     "calculate_projections.py",
     "calculate_player_value.py",
+    "dfs_players.py",
+    "detect_rotation_changes.py",
     "analysis/__init__.py",
     "analysis/player_value.py",
     "scheduler_props.py",

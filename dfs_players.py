@@ -13,8 +13,23 @@ if salaries.empty:
     conn.close()
     exit(0)
 
+_ODDS_TO_PIPELINE_TEAM = {
+    "PHX": "PHO", "GSW": "GS", "NYK": "NY", "NOP": "NO", "SAS": "SA",
+    "CHO": "CHA", "BRK": "BKN", "UTH": "UTA",
+}
+
 rotation = pd.read_sql("SELECT * FROM rotation_minutes", conn)
 game_odds = pd.read_sql("SELECT * FROM game_odds", conn)
+
+if not game_odds.empty:
+    game_odds["away_team"] = game_odds["away_team"].map(lambda t: _ODDS_TO_PIPELINE_TEAM.get(t, t))
+    game_odds["home_team"] = game_odds["home_team"].map(lambda t: _ODDS_TO_PIPELINE_TEAM.get(t, t))
+    today_teams = set(game_odds["away_team"].tolist() + game_odds["home_team"].tolist())
+    before_count = len(salaries)
+    salaries = salaries[salaries["team"].isin(today_teams)]
+    removed = before_count - len(salaries)
+    if removed > 0:
+        print(f"  GAME DATE FILTER: Removed {removed} players from non-today games (keeping {len(salaries)} players on {len(today_teams)} teams)")
 dvp = pd.read_sql("SELECT * FROM dvp_blended", conn)
 try:
     dva_stats = pd.read_sql("SELECT opp_team, archetype, dvs_multiplier FROM dva_stats", conn)
@@ -25,6 +40,59 @@ hist_lines = pd.read_sql("SELECT team, AVG(team_line) as avg_team_line FROM hist
 player_stats = pd.read_sql("SELECT * FROM player_stats", conn)
 player_positions = pd.read_sql("SELECT player_name, true_position FROM player_positions", conn)
 
+BBREF_TO_PIPELINE_TEAM = {
+    "GSW": "GS", "NYK": "NY", "NOP": "NO", "SAS": "SA",
+    "CHO": "CHA", "BRK": "BKN", "UTH": "UTA",
+}
+
+try:
+    depth_teams = pd.read_sql(
+        "SELECT player_name, team FROM depth_charts WHERE team IS NOT NULL",
+        conn
+    )
+    depth_teams = depth_teams.drop_duplicates(subset="player_name", keep="first")
+    depth_team_map = dict(zip(depth_teams["player_name"].str.strip(), depth_teams["team"].str.strip()))
+    depth_norm_map = {}
+    for dname, dteam in depth_team_map.items():
+        nk = unicodedata.normalize('NFKD', dname.lower()).encode('ascii', 'ignore').decode('ascii')
+        nk = re.sub(r'[.\-]', ' ', nk)
+        nk = re.sub(r'\s+(jr|sr|ii|iii|iv|v)\.?$', '', nk)
+        nk = re.sub(r'\s+', ' ', nk).strip()
+        depth_norm_map[nk] = dteam
+except Exception:
+    depth_team_map = {}
+    depth_norm_map = {}
+
+for _tbl_name, _tbl in [("rotation", rotation), ("hist_lines", hist_lines), ("dvp", dvp)]:
+    if "team" in _tbl.columns:
+        _tbl["team"] = _tbl["team"].replace(BBREF_TO_PIPELINE_TEAM)
+
+if "team" in player_stats.columns:
+    player_stats["team"] = player_stats["team"].replace(BBREF_TO_PIPELINE_TEAM)
+
+    multi_team_mask = player_stats["team"].str.contains("TM", na=False)
+    resolved = 0
+    unresolved_names = []
+    for idx in player_stats.index[multi_team_mask]:
+        pname = player_stats.at[idx, "player_name"].strip()
+        if pname in depth_team_map:
+            player_stats.at[idx, "team"] = depth_team_map[pname]
+            resolved += 1
+        else:
+            nk = unicodedata.normalize('NFKD', pname.lower()).encode('ascii', 'ignore').decode('ascii')
+            nk = re.sub(r'[.\-]', ' ', nk)
+            nk = re.sub(r'\s+(jr|sr|ii|iii|iv|v)\.?$', '', nk)
+            nk = re.sub(r'\s+', ' ', nk).strip()
+            if nk in depth_norm_map:
+                player_stats.at[idx, "team"] = depth_norm_map[nk]
+                resolved += 1
+            else:
+                unresolved_names.append(pname)
+    if resolved > 0:
+        print(f"  TEAM RESOLUTION: Resolved {resolved} traded players (2TM/3TM) via depth charts")
+    if unresolved_names:
+        print(f"  TEAM RESOLUTION: {len(unresolved_names)} players still unresolved: {', '.join(unresolved_names[:5])}")
+
 NAME_ALIASES = {
     "ryan nembhard": "rj nembhard",
     "nicolas claxton": "nic claxton",
@@ -34,6 +102,9 @@ NAME_ALIASES = {
     "patty mills": "patrick mills",
     "egor dmin": "egor demin",
     "ronald holland": "ron holland",
+    "moe wagner": "moritz wagner",
+    "lu dort": "luguentz dort",
+    "carlton carrington": "bub carrington",
 }
 
 def normalize_name(name):
@@ -54,6 +125,8 @@ def normalize_name(name):
     return NAME_ALIASES.get(name, name)
 
 salaries["player_name"] = salaries["player_name"].str.strip()
+if "team" in salaries.columns:
+    salaries["team"] = salaries["team"].replace(BBREF_TO_PIPELINE_TEAM)
 salaries = salaries.drop_duplicates(subset=["player_name", "team"], keep="first")
 salaries["salary"] = pd.to_numeric(salaries["salary"], errors="coerce").fillna(0).astype(int)
 
@@ -331,6 +404,73 @@ try:
 except Exception as e:
     df['ml_min_adj'] = 1.0
 
+try:
+    from rest_features import compute_team_rest, is_star_baseline
+    from datetime import date as _date
+
+    _today_iso = _date.today().isoformat()
+    _rest_features = compute_team_rest(today_iso=_today_iso)
+
+    df['team_days_rest'] = df['team'].map(
+        lambda t: _rest_features.get(t, {}).get('days_rest')
+    )
+    df['team_is_b2b'] = df['team'].map(
+        lambda t: bool(_rest_features.get(t, {}).get('is_b2b'))
+    ).astype(bool)
+    df['team_is_3in4'] = df['team'].map(
+        lambda t: bool(_rest_features.get(t, {}).get('is_3in4'))
+    ).astype(bool)
+
+    B2B_STAR_MIN_PENALTY = 2.5
+    B2B_FPPM_PENALTY = 0.975
+
+    df['load_mgmt_risk'] = False
+    star_mask = df.apply(
+        lambda r: is_star_baseline(r.get('mpg'), r.get('projected_min')),
+        axis=1,
+    )
+    star_b2b_mask = star_mask & df['team_is_b2b']
+    df.loc[star_b2b_mask, 'projected_min'] = (
+        df.loc[star_b2b_mask, 'projected_min'].fillna(0) - B2B_STAR_MIN_PENALTY
+    ).clip(lower=0)
+    df.loc[star_b2b_mask, 'load_mgmt_risk'] = True
+
+    b2b_mask = df['team_is_b2b']
+    df.loc[b2b_mask, 'fppm_adj'] = df.loc[b2b_mask, 'fppm_adj'] * B2B_FPPM_PENALTY
+
+    df['opp_days_rest'] = df['opponent'].map(
+        lambda t: _rest_features.get(t, {}).get('days_rest')
+    )
+    df['opp_is_b2b'] = df['opponent'].map(
+        lambda t: bool(_rest_features.get(t, {}).get('is_b2b'))
+    ).astype(bool)
+    df['rest_advantage_days'] = df.apply(
+        lambda r: (
+            (r['team_days_rest'] - r['opp_days_rest'])
+            if r.get('team_days_rest') is not None
+            and r.get('opp_days_rest') is not None
+            else None
+        ),
+        axis=1,
+    )
+
+    b2b_teams = sorted({t for t, f in _rest_features.items() if f.get('is_b2b')})
+    threein4_teams = sorted({t for t, f in _rest_features.items() if f.get('is_3in4')})
+    print(
+        f"B2B Fatigue: {len(b2b_teams)} teams on B2B {b2b_teams or '[]'} "
+        f"// {int(star_b2b_mask.sum())} star players flagged for load mgmt "
+        f"// 3-in-4 teams: {threein4_teams or '[]'}"
+    )
+except Exception as _b2b_e:
+    print(f"B2B Fatigue: skipped ({_b2b_e})")
+    df['team_days_rest'] = None
+    df['team_is_b2b'] = False
+    df['team_is_3in4'] = False
+    df['load_mgmt_risk'] = False
+    df['opp_days_rest'] = None
+    df['opp_is_b2b'] = False
+    df['rest_advantage_days'] = None
+
 df["base_fp"] = df["fppm_adj"] * df["projected_min"].fillna(0)
 
 vol_df = pd.read_sql("SELECT player_name, min_sd, fp_sd, avg_fp, max_fp, min_fp, avg_fppm, fppm_sd FROM player_volatility", conn)
@@ -470,7 +610,8 @@ except Exception as e:
 df["ceiling"] = (df["proj_fp"] + 1.5 * df["fp_sd"]).round(1)
 df["floor"] = (df["proj_fp"] - 1.0 * df["fp_sd"]).clip(lower=0).round(1)
 df["fp_range"] = df["ceiling"] - df["floor"]
-df["upside_ratio"] = ((df["ceiling"] - df["proj_fp"]) / df["proj_fp"]).round(3)
+_safe_proj_fp = df["proj_fp"].where(df["proj_fp"] > 0)
+df["upside_ratio"] = ((df["ceiling"] - df["proj_fp"]) / _safe_proj_fp).round(3).fillna(0)
 
 try:
     if tier_profiles:
@@ -559,7 +700,8 @@ if not dva_stats.empty and 'archetype' in df.columns:
     df["ceiling"] = (df["proj_fp"] + 1.5 * df["fp_sd"]).round(1)
     df["floor"] = (df["proj_fp"] - 1.0 * df["fp_sd"]).clip(lower=0).round(1)
     df["fp_range"] = df["ceiling"] - df["floor"]
-    df["upside_ratio"] = ((df["ceiling"] - df["proj_fp"]) / df["proj_fp"]).round(3)
+    _safe_proj_fp = df["proj_fp"].where(df["proj_fp"] > 0)
+    df["upside_ratio"] = ((df["ceiling"] - df["proj_fp"]) / _safe_proj_fp).round(3).fillna(0)
 
     dva_applied = (df["dvs_raw"].abs() > 0.01).sum()
     ceil_boosted = favorable_mask.sum()
@@ -575,14 +717,43 @@ output_cols = [
     "player_name", "position", "true_position", "projected_min", "salary",
     "team", "opponent", "location", "implied_total", "fp_pg", "fp_per_min", "usg_pct", "usg_boost", "fppm_adj",
     "ref_weight", "dvp_weight", "line_weight", "games_pct", "gp_weight", "low_gp_flag", "min_sd", "omega", "omega_weight",
-    "proj_fp", "fp_sd", "ceiling", "floor", "fp_range", "upside_ratio", "hist_max_fp", "hist_min_fp"
+    "proj_fp", "fp_sd", "ceiling", "floor", "fp_range", "upside_ratio", "hist_max_fp", "hist_min_fp",
+    "team_days_rest", "team_is_b2b", "team_is_3in4", "load_mgmt_risk",
+    "opp_days_rest", "opp_is_b2b", "rest_advantage_days"
 ] + value_cols
 
 df_output = df[output_cols].copy()
 df_output = df_output.rename(columns={"position": "fd_position"})
 
+_pre = len(df_output)
+_pmin_nan = df_output['projected_min'].isna().sum()
+_opp_nan = df_output['opponent'].isna().sum()
 df_output = df_output.dropna(subset=["projected_min"])
 df_output = df_output.dropna(subset=["opponent"])
+print(f"  Slate filter: {_pre} players in -> {len(df_output)} out (dropped {_pmin_nan} no-projected_min, {_opp_nan} no-opponent)")
+
+STALENESS_DAYS = 10
+try:
+    from datetime import datetime, timedelta
+    game_logs = pd.read_sql("SELECT player_name, MAX(game_date) as last_game FROM player_game_logs GROUP BY player_name", conn)
+    game_logs['norm_name'] = game_logs['player_name'].apply(normalize_name)
+    norm_latest = game_logs.groupby('norm_name')['last_game'].max().reset_index()
+    cutoff_date = (datetime.now() - timedelta(days=STALENESS_DAYS)).strftime('%Y-%m-%d')
+    stale_norms = set(norm_latest[norm_latest['last_game'] < cutoff_date]['norm_name'])
+    df_output['_norm'] = df_output['player_name'].apply(normalize_name)
+    stale_mask = df_output['_norm'].isin(stale_norms)
+    stale_in_slate = df_output[stale_mask]
+    if len(stale_in_slate) > 0:
+        print(f"\n  STALENESS FILTER: Removing {len(stale_in_slate)} players with no game in {STALENESS_DAYS}+ days:")
+        for _, sp in stale_in_slate.iterrows():
+            norm = sp['_norm']
+            last = norm_latest[norm_latest['norm_name'] == norm]['last_game'].iloc[0]
+            print(f"    REMOVED: {sp['player_name']} ({sp['team']}) - last game {last}")
+        df_output = df_output[~stale_mask]
+    df_output = df_output.drop(columns=['_norm'])
+except Exception as e:
+    print(f"  Warning: Staleness filter skipped: {e}")
+
 df_output = df_output.sort_values("proj_fp", ascending=False)
 
 df_output.to_sql("dfs_players", conn, if_exists="replace", index=False)

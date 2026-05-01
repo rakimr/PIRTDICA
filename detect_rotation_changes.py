@@ -10,6 +10,38 @@ conn = sqlite3.connect("dfs_nba.db")
 depth = pd.read_sql("SELECT * FROM depth_charts", conn)
 salaries = pd.read_sql("SELECT * FROM player_salaries", conn)
 
+# === FALLBACK: depth_charts empty (e.g. ESPN throttling Replit IP with 202s) ===
+# Synthesize a minimal depth chart from player_salaries + player_stats so the
+# rest of the rotation pipeline still runs. Without this, projected_min ends up
+# NaN for every player and dfs_players.csv comes out empty -> stale article table.
+if depth.empty and not salaries.empty:
+    print("  WARNING: depth_charts is empty // building MPG-based fallback from player_stats")
+    _stats_check = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='player_stats'", conn)
+    if not _stats_check.empty:
+        _ps = pd.read_sql("SELECT player_name, mpg FROM player_stats WHERE mpg IS NOT NULL", conn)
+        _ps['norm_name'] = _ps['player_name'].apply(lambda x: x.strip().lower() if pd.notna(x) else "")
+        _ps = _ps.sort_values('mpg', ascending=False).drop_duplicates('norm_name')
+        _sal = salaries.copy()
+        _sal['norm_name'] = _sal['player_name'].apply(lambda x: x.strip().lower() if pd.notna(x) else "")
+        _fallback = _sal.merge(_ps[['norm_name', 'mpg']], on='norm_name', how='left')
+        # Default unmatched players (e.g. rookies / new call-ups) to a low baseline
+        # so they aren't dropped entirely by downstream dropna(projected_min).
+        _fallback['baseline_min'] = _fallback['mpg'].fillna(8.0).clip(lower=4.0, upper=40.0)
+        # Rank players within each team by mpg to assign rough position slots.
+        _fallback = _fallback.sort_values(['team', 'baseline_min'], ascending=[True, False])
+        _fallback['rank'] = _fallback.groupby('team').cumcount() + 1
+        # Use generic slot labels (depth ranks); position-specific slot info is
+        # unavailable without ESPN, but downstream only needs `team` + `player_name`
+        # to perform the merge.
+        _fallback['position_slot'] = _fallback['rank'].apply(lambda r: f"D{int(r)}")
+        _fallback['injury_indicator'] = None
+        from datetime import datetime as _dt
+        _fallback['scraped_at'] = _dt.utcnow().isoformat()
+        depth = _fallback[['team', 'position_slot', 'player_name', 'baseline_min', 'injury_indicator', 'scraped_at']].copy()
+        print(f"  Fallback depth chart built: {len(depth)} players across {depth['team'].nunique()} teams")
+    else:
+        print("  ERROR: player_stats also unavailable // cannot build fallback")
+
 odds_exists = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='game_odds'", conn)
 if not odds_exists.empty:
     odds = pd.read_sql("SELECT * FROM game_odds", conn)
@@ -21,6 +53,17 @@ if not injury_exists.empty:
     injuries = pd.read_sql("SELECT player_name, status FROM injury_alerts WHERE status = 'OUT'", conn)
 else:
     injuries = pd.DataFrame()
+
+try:
+    dc_injuries = pd.read_sql("SELECT DISTINCT player_name, injury_indicator AS status FROM depth_charts WHERE injury_indicator = 'OUT'", conn)
+    if not dc_injuries.empty:
+        existing_names = set(injuries['player_name'].str.lower()) if not injuries.empty else set()
+        new_from_dc = dc_injuries[~dc_injuries['player_name'].str.lower().isin(existing_names)]
+        if not new_from_dc.empty:
+            injuries = pd.concat([injuries, new_from_dc], ignore_index=True)
+            print(f"  Added {len(new_from_dc)} OUT players from depth chart (IL) indicators")
+except Exception:
+    pass
 
 stats_exists = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='player_stats'", conn)
 if not stats_exists.empty:

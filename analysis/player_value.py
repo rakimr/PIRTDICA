@@ -2867,17 +2867,33 @@ def run_analysis():
     
     valued_df.to_csv("dfs_players_valued.csv", index=False)
     print("Saved valued players to dfs_players_valued.csv")
-    
-    print("\n=== TOP 10 VALUE PLAYS ===")
-    top_value = valued_df.nlargest(10, 'value')[['player_name', 'team', 'salary', 'proj_fp', 'value', 'salary_tier']]
-    print(top_value.to_string(index=False))
-    
-    print("\n=== TOP 5 UPSIDE PLAYS ===")
-    top_upside = valued_df.nlargest(5, 'upside_ratio')[['player_name', 'salary', 'proj_fp', 'ceiling', 'upside_ratio']]
-    print(top_upside.to_string(index=False))
-    
+
+    # Defensive guard: when upstream produced zero players (e.g. depth chart
+    # scrape failure or empty slate), `value` may be object-dtype and nlargest
+    # raises TypeError, which previously aborted the run BEFORE prop_recommendations.csv
+    # got refreshed -> stale article table. Skip the diagnostic prints when empty
+    # and continue to the prop step (which will overwrite the CSV with empty data).
+    if len(valued_df) > 0 and 'value' in valued_df.columns:
+        try:
+            print("\n=== TOP 10 VALUE PLAYS ===")
+            top_value = valued_df.nlargest(10, 'value')[['player_name', 'team', 'salary', 'proj_fp', 'value', 'salary_tier']]
+            print(top_value.to_string(index=False))
+
+            print("\n=== TOP 5 UPSIDE PLAYS ===")
+            top_upside = valued_df.nlargest(5, 'upside_ratio')[['player_name', 'salary', 'proj_fp', 'ceiling', 'upside_ratio']]
+            print(top_upside.to_string(index=False))
+        except (TypeError, KeyError) as e:
+            print(f"  (skipping top-N diagnostics: {e})")
+    else:
+        print("\n  WARNING: valued_df is empty // skipping top-N diagnostics")
+
     print("\nGenerating prop recommendations (DVP + DVA blend)...")
-    props_df = get_prop_recommendations(valued_df, dvp_df, per100_df, dva_df=dva_df)
+    try:
+        props_df = get_prop_recommendations(valued_df, dvp_df, per100_df, dva_df=dva_df)
+    except Exception as _prop_e:
+        print(f"  ERROR in get_prop_recommendations: {_prop_e}")
+        import pandas as _pd
+        props_df = _pd.DataFrame()
     
     if len(props_df) > 0:
         pre_filter = len(props_df)
@@ -2890,7 +2906,11 @@ def run_analysis():
         props_df.to_csv("prop_recommendations.csv", index=False)
         print("\nSaved prop recommendations to prop_recommendations.csv")
     else:
-        print("No prop recommendations available (need opponent data)")
+        # Always overwrite the CSV so a failed run doesn't leave stale picks
+        # on the live /articles page table.
+        import pandas as _pd
+        _pd.DataFrame().to_csv("prop_recommendations.csv", index=False)
+        print("No prop recommendations available // wrote empty prop_recommendations.csv to clear stale data")
     
     print("\nGenerating targeted stat plays...")
     targeted_df = get_targeted_plays(valued_df, per100_df, dvp_df)

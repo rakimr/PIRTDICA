@@ -3,6 +3,8 @@ import pandas as pd
 from bs4 import BeautifulSoup
 import sqlite3
 import re
+import time
+import random
 from datetime import datetime
 from team_map import TEAM_MAP
 from baseline_minutes import get_baseline_minutes
@@ -14,7 +16,9 @@ from baseline_minutes import get_baseline_minutes
 conn = sqlite3.connect("dfs_nba.db")
 cursor = conn.cursor()
 
-cursor.execute("DROP TABLE IF EXISTS depth_charts")
+# Ensure table exists but DO NOT drop it yet // we only clear rows after a
+# successful fetch+parse so a transient ESPN failure (e.g. 202 bot-throttle)
+# leaves the previous depth chart in place as a fallback.
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS depth_charts (
     team TEXT,
@@ -28,21 +32,58 @@ CREATE TABLE IF NOT EXISTS depth_charts (
 conn.commit()
 
 # ============================
-# 2. SCRAPE ESPN DEPTH CHARTS
+# 2. SCRAPE ESPN DEPTH CHARTS (with retries + browser-like headers)
 # ============================
 
 URL = "https://www.espn.com/nba/depth/_/type/full"
-headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-}
+
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+]
+
+def fetch_espn_depth(max_attempts: int = 4):
+    last_status = None
+    for attempt in range(1, max_attempts + 1):
+        ua = random.choice(USER_AGENTS)
+        headers = {
+            "User-Agent": ua,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+            "Referer": "https://www.espn.com/nba/",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "same-origin",
+            "Upgrade-Insecure-Requests": "1",
+        }
+        try:
+            resp = requests.get(URL, headers=headers, timeout=30)
+            last_status = resp.status_code
+            if resp.status_code == 200 and "tablehead" in resp.text:
+                return resp
+            print(f"  attempt {attempt}/{max_attempts}: status={resp.status_code} len={len(resp.text)}")
+        except Exception as e:
+            print(f"  attempt {attempt}/{max_attempts}: error={e}")
+        # Exponential backoff with jitter
+        time.sleep(min(2 ** attempt, 8) + random.uniform(0, 1.5))
+    print(f"All {max_attempts} attempts failed (last status={last_status})")
+    return None
 
 print("Fetching ESPN depth charts...")
-response = requests.get(URL, headers=headers, timeout=30)
+response = fetch_espn_depth()
 
-if response.status_code != 200:
-    print(f"Error fetching page: {response.status_code}")
+if response is None:
+    # Preserve existing depth_charts rows so downstream rotation_minutes
+    # can still build off the most recent successful scrape.
+    cursor.execute("SELECT COUNT(*) FROM depth_charts")
+    existing = cursor.fetchone()[0]
+    print(f"Depth chart fetch failed // preserving {existing} existing rows as fallback")
     conn.close()
-    exit(1)
+    exit(0 if existing > 0 else 1)
 
 soup = BeautifulSoup(response.text, "html.parser")
 
@@ -118,7 +159,10 @@ for table in team_tables:
 df = pd.DataFrame(rows)
 
 if not df.empty:
+    # Atomic replace: clear old rows then insert fresh ones in one transaction.
+    cursor.execute("DELETE FROM depth_charts")
     df.to_sql("depth_charts", conn, if_exists="append", index=False)
+    conn.commit()
     print(f"Depth charts scraped successfully. {len(df)} rows saved.")
     print(df.head(10))
 
@@ -128,6 +172,10 @@ if not df.empty:
         for _, p in il_players.iterrows():
             print(f"  {p['player_name']:25s} ({p['team']}) {p['position_slot']:5s} -> {p['injury_indicator']}")
 else:
-    print("No depth chart data found.")
+    # Fetch succeeded but parse yielded zero rows (HTML format change?).
+    # Preserve existing rows rather than wipe them.
+    cursor.execute("SELECT COUNT(*) FROM depth_charts")
+    existing = cursor.fetchone()[0]
+    print(f"No depth chart rows parsed from response // preserving {existing} existing rows")
 
 conn.close()
