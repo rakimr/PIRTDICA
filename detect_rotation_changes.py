@@ -14,6 +14,11 @@ salaries = pd.read_sql("SELECT * FROM player_salaries", conn)
 # Synthesize a minimal depth chart from player_salaries + player_stats so the
 # rest of the rotation pipeline still runs. Without this, projected_min ends up
 # NaN for every player and dfs_players.csv comes out empty -> stale article table.
+#
+# CRITICAL: position_slot must use REAL position codes (PG/SG/SF/PF/C with depth
+# numbers like PG1, SG2) because baseline_minutes.get_baseline_minutes() only
+# recognizes those keys. Synthetic D# slots collapse role_baseline to 0.0 and
+# bias projected_min downward via the omega-weighted formula.
 if depth.empty and not salaries.empty:
     print("  WARNING: depth_charts is empty // building MPG-based fallback from player_stats")
     _stats_check = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='player_stats'", conn)
@@ -24,21 +29,26 @@ if depth.empty and not salaries.empty:
         _sal = salaries.copy()
         _sal['norm_name'] = _sal['player_name'].apply(lambda x: x.strip().lower() if pd.notna(x) else "")
         _fallback = _sal.merge(_ps[['norm_name', 'mpg']], on='norm_name', how='left')
-        # Default unmatched players (e.g. rookies / new call-ups) to a low baseline
-        # so they aren't dropped entirely by downstream dropna(projected_min).
         _fallback['baseline_min'] = _fallback['mpg'].fillna(8.0).clip(lower=4.0, upper=40.0)
-        # Rank players within each team by mpg to assign rough position slots.
-        _fallback = _fallback.sort_values(['team', 'baseline_min'], ascending=[True, False])
-        _fallback['rank'] = _fallback.groupby('team').cumcount() + 1
-        # Use generic slot labels (depth ranks); position-specific slot info is
-        # unavailable without ESPN, but downstream only needs `team` + `player_name`
-        # to perform the merge.
-        _fallback['position_slot'] = _fallback['rank'].apply(lambda r: f"D{int(r)}")
+
+        # Map FantasyPros position string (e.g. "SG/SF" or "PG") to the primary
+        # slot prefix expected by baseline_minutes (PG, SG, SF, PF, C).
+        def _primary_pos(pos_str):
+            if not isinstance(pos_str, str) or not pos_str:
+                return 'SF'  # neutral default for unknowns
+            first = pos_str.split('/')[0].strip().upper()
+            return first if first in ('PG', 'SG', 'SF', 'PF', 'C') else 'SF'
+
+        _fallback['_pos'] = _fallback['position'].apply(_primary_pos) if 'position' in _fallback.columns else 'SF'
+        # Within each (team, position), rank by MPG descending to assign depth.
+        _fallback = _fallback.sort_values(['team', '_pos', 'baseline_min'], ascending=[True, True, False])
+        _fallback['_depth'] = _fallback.groupby(['team', '_pos']).cumcount() + 1
+        _fallback['position_slot'] = _fallback.apply(lambda r: f"{r['_pos']}{int(r['_depth'])}", axis=1)
         _fallback['injury_indicator'] = None
         from datetime import datetime as _dt
         _fallback['scraped_at'] = _dt.utcnow().isoformat()
         depth = _fallback[['team', 'position_slot', 'player_name', 'baseline_min', 'injury_indicator', 'scraped_at']].copy()
-        print(f"  Fallback depth chart built: {len(depth)} players across {depth['team'].nunique()} teams")
+        print(f"  Fallback depth chart built: {len(depth)} players across {depth['team'].nunique()} teams (slots: PG/SG/SF/PF/C ranked by MPG)")
     else:
         print("  ERROR: player_stats also unavailable // cannot build fallback")
 

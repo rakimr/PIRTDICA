@@ -2907,10 +2907,28 @@ def run_analysis():
         print("\nSaved prop recommendations to prop_recommendations.csv")
     else:
         # Always overwrite the CSV so a failed run doesn't leave stale picks
-        # on the live /articles page table.
+        # on the live /articles page table. Write WITH expected schema columns
+        # so downstream consumers (generate_article.py checks for 'confidence',
+        # backend/main.py reads many fields) don't break on missing columns.
         import pandas as _pd
-        _pd.DataFrame().to_csv("prop_recommendations.csv", index=False)
-        print("No prop recommendations available // wrote empty prop_recommendations.csv to clear stale data")
+        _empty_cols = [
+            'player', 'team', 'opponent', 'salary', 'value', 'stat',
+            'player_avg', 'projected_value', 'adjusted_avg', 'extra_fp',
+            'edge_pct', 'recommendation', 'book_line', 'book_over', 'book_under',
+            'vs_book_edge', 'archetype', 'dva_edge', 'dvp_edge', 'blend',
+            'hit_rate', 'cv', 'last5_avg', 'hit_rate_unweighted', 'cv_unweighted',
+            'last5_avg_unweighted', 'playoff_n', 'playoff_weight_applied',
+            'confidence', 'confidence_reasons', 'gate_fail_count', 'composite_score',
+            'pace_factor', 'total_factor', 'physical_edge', 'usage_boost',
+            'opportunity_index', 'cascade_tier', 'opportunity_spike',
+            'out_player_details', 'total_vacated_usage', 'total_vacated_minutes',
+            'projected_min', 'implied_team_total', 'blowout_cap', 'projection_factors',
+            'opening_line', 'current_line', 'line_drift', 'line_drift_pct',
+            'line_snapshots', 'last_hour_drift', 'last_hour_from',
+            'last_hour_minutes', 'move_pattern', 'largest_swing', 'largest_swing_share',
+        ]
+        _pd.DataFrame(columns=_empty_cols).to_csv("prop_recommendations.csv", index=False)
+        print("No prop recommendations available // wrote empty schema-only prop_recommendations.csv to clear stale data")
     
     print("\nGenerating targeted stat plays...")
     targeted_df = get_targeted_plays(valued_df, per100_df, dvp_df)
