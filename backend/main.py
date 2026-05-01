@@ -2,7 +2,6 @@ from fastapi import FastAPI, Request, Depends, Form, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
-from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from datetime import datetime, date, timedelta
@@ -38,13 +37,35 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=500
     )
 
-class NoCacheMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        response = await call_next(request)
-        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
-        return response
+class NoCacheMiddleware:
+    """Pure ASGI middleware (NOT BaseHTTPMiddleware) so it doesn't buffer
+    StaticFiles FileResponses in memory. The BaseHTTPMiddleware variant was
+    triggering [Errno 5] Input/output error for every CSS/JS/image on the
+    Reserved VM by reading the streaming response body through an internal
+    memory stream. We also skip /static/ entirely so browsers and Replit's
+    proxy can cache assets normally.
+    """
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope.get("path", "").startswith("/static/"):
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_no_cache(message):
+            if message["type"] == "http.response.start":
+                headers = [
+                    (k, v) for k, v in message.get("headers", [])
+                    if k.lower() not in (b"cache-control", b"pragma", b"expires")
+                ]
+                headers.append((b"cache-control", b"no-cache, no-store, must-revalidate"))
+                headers.append((b"pragma", b"no-cache"))
+                headers.append((b"expires", b"0"))
+                message["headers"] = headers
+            await send(message)
+
+        await self.app(scope, receive, send_with_no_cache)
 
 app.add_middleware(NoCacheMiddleware)
 app.mount("/static", StaticFiles(directory="static"), name="static")
