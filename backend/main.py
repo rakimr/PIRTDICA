@@ -68,7 +68,8 @@ class NoCacheMiddleware:
         await self.app(scope, receive, send_with_no_cache)
 
 app.add_middleware(NoCacheMiddleware)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+from backend.static_handler import CachedStaticFiles
+app.mount("/static", CachedStaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 _house_lineup_lock = threading.Lock()
