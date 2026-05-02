@@ -394,7 +394,7 @@ async def subscribe_page(request: Request, db: Session = Depends(get_db)):
 async def subscribe_success(request: Request, db: Session = Depends(get_db)):
     from backend.stripe_billing import (get_stripe_client, resolve_plan_from_subscription,
                                          upsert_user_subscription, cancel_individual_subs_for_bundle,
-                                         sync_user_subscription_fields)
+                                         sync_user_subscription_fields, get_subscription_period_end)
     user = get_current_user(request, db)
     if not user:
         print(f"[Stripe] SUCCESS redirect: user not logged in (session lost during Stripe redirect)")
@@ -419,9 +419,10 @@ async def subscribe_success(request: Request, db: Session = Depends(get_db)):
         sub, plan_key = resolve_plan_from_subscription(client, session.subscription)
         print(f"[Stripe] Resolved plan={plan_key}, sub_status={sub.status}, sub_id={sub.id}")
         user.stripe_customer_id = session.customer
-        period_end = datetime.fromtimestamp(sub.current_period_end) if sub.current_period_end else None
+        period_end_ts = get_subscription_period_end(sub)
+        period_end = datetime.fromtimestamp(period_end_ts) if period_end_ts else None
         _, is_new = upsert_user_subscription(db, user.id, sub.id, plan_key, sub.status, period_end)
-        sync_user_subscription_fields(db, user, plan_key, sub.id, sub.status, sub.current_period_end)
+        sync_user_subscription_fields(db, user, plan_key, sub.id, sub.status, period_end_ts)
         if plan_key == "bundle":
             cancel_individual_subs_for_bundle(db, user.id, sub.id)
         if is_new:
@@ -459,7 +460,7 @@ async def stripe_webhook(request: Request):
     try:
         from backend.stripe_billing import (get_stripe_client, resolve_plan_from_subscription,
                                              upsert_user_subscription, cancel_individual_subs_for_bundle,
-                                             sync_user_subscription_fields)
+                                             sync_user_subscription_fields, get_subscription_period_end)
 
         if event.type == "checkout.session.completed":
             session = event.data.object
@@ -484,9 +485,10 @@ async def stripe_webhook(request: Request):
                 if user:
                     client = get_stripe_client()
                     sub, plan_key = resolve_plan_from_subscription(client, subscription_id)
-                    period_end = datetime.fromtimestamp(sub.current_period_end) if sub.current_period_end else None
+                    period_end_ts = get_subscription_period_end(sub)
+                    period_end = datetime.fromtimestamp(period_end_ts) if period_end_ts else None
                     _, is_new = upsert_user_subscription(db, user.id, subscription_id, plan_key, sub.status, period_end)
-                    sync_user_subscription_fields(db, user, plan_key, subscription_id, sub.status, sub.current_period_end)
+                    sync_user_subscription_fields(db, user, plan_key, subscription_id, sub.status, period_end_ts)
                     if plan_key == "bundle":
                         cancel_individual_subs_for_bundle(db, user.id, subscription_id)
                     if is_new:
@@ -523,9 +525,10 @@ async def stripe_webhook(request: Request):
                 if user:
                     client = get_stripe_client()
                     sub, plan_key = resolve_plan_from_subscription(client, subscription_id)
-                    period_end = datetime.fromtimestamp(sub.current_period_end) if sub.current_period_end else None
+                    period_end_ts = get_subscription_period_end(sub)
+                    period_end = datetime.fromtimestamp(period_end_ts) if period_end_ts else None
                     upsert_user_subscription(db, user.id, subscription_id, plan_key, sub.status, period_end)
-                    sync_user_subscription_fields(db, user, plan_key, subscription_id, sub.status, sub.current_period_end)
+                    sync_user_subscription_fields(db, user, plan_key, subscription_id, sub.status, period_end_ts)
                     db.commit()
                     print(f"[Stripe Webhook] SUCCESS: Updated {plan_key} for user {user.id} ({user.username})")
 
@@ -571,7 +574,8 @@ async def stripe_webhook(request: Request):
 @app.post("/billing/recover")
 async def billing_recover(request: Request, db: Session = Depends(get_db)):
     from backend.stripe_billing import (get_stripe_client, resolve_plan_from_subscription,
-                                         upsert_user_subscription, sync_user_subscription_fields)
+                                         upsert_user_subscription, sync_user_subscription_fields,
+                                         get_subscription_period_end)
     user = get_current_user(request, db)
     if not user:
         return JSONResponse({"error": "Not logged in"}, status_code=401)
@@ -583,9 +587,10 @@ async def billing_recover(request: Request, db: Session = Depends(get_db)):
         recovered = []
         for stripe_sub in subs.data:
             sub, plan_key = resolve_plan_from_subscription(client, stripe_sub.id)
-            period_end = datetime.fromtimestamp(sub.current_period_end) if sub.current_period_end else None
+            period_end_ts = get_subscription_period_end(sub)
+            period_end = datetime.fromtimestamp(period_end_ts) if period_end_ts else None
             _, is_new = upsert_user_subscription(db, user.id, stripe_sub.id, plan_key, sub.status, period_end)
-            sync_user_subscription_fields(db, user, plan_key, stripe_sub.id, sub.status, sub.current_period_end)
+            sync_user_subscription_fields(db, user, plan_key, stripe_sub.id, sub.status, period_end_ts)
             recovered.append(plan_key)
         db.commit()
         if recovered:
@@ -613,14 +618,16 @@ async def billing_page(request: Request, db: Session = Depends(get_db)):
     if not active_subs and user.stripe_customer_id:
         try:
             from backend.stripe_billing import (get_stripe_client, resolve_plan_from_subscription,
-                                                 upsert_user_subscription, sync_user_subscription_fields)
+                                                 upsert_user_subscription, sync_user_subscription_fields,
+                                                 get_subscription_period_end)
             client = get_stripe_client()
             stripe_subs = client.Subscription.list(customer=user.stripe_customer_id, status="active", limit=10)
             for stripe_sub in stripe_subs.data:
                 sub, plan_key = resolve_plan_from_subscription(client, stripe_sub.id)
-                period_end = datetime.fromtimestamp(sub.current_period_end) if sub.current_period_end else None
+                period_end_ts = get_subscription_period_end(sub)
+                period_end = datetime.fromtimestamp(period_end_ts) if period_end_ts else None
                 upsert_user_subscription(db, user.id, stripe_sub.id, plan_key, sub.status, period_end)
-                sync_user_subscription_fields(db, user, plan_key, stripe_sub.id, sub.status, sub.current_period_end)
+                sync_user_subscription_fields(db, user, plan_key, stripe_sub.id, sub.status, period_end_ts)
             db.commit()
             subs_db = db.query(UserSubscription).filter(
                 UserSubscription.user_id == user.id,

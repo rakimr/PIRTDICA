@@ -187,6 +187,33 @@ def resolve_plan_from_subscription(client, subscription_id):
     return sub, plan_key
 
 
+def get_subscription_period_end(sub):
+    """Return the subscription's current_period_end as a Unix timestamp.
+
+    Stripe API version 2025-09-30 moved `current_period_end` off the top-level
+    Subscription object and onto each item under `items.data[i].current_period_end`
+    (so multi-item subscriptions can have differing cycles). This helper reads
+    the new location first and falls back to the legacy top-level field for
+    accounts still on older API versions. Returns None if neither is present.
+    """
+    try:
+        items = sub["items"]["data"]
+        if items:
+            first = items[0]
+            cpe = first.get("current_period_end") if hasattr(first, "get") else getattr(first, "current_period_end", None)
+            if cpe:
+                return int(cpe)
+    except (KeyError, TypeError, IndexError, AttributeError):
+        pass
+    try:
+        cpe = sub.get("current_period_end") if hasattr(sub, "get") else getattr(sub, "current_period_end", None)
+        if cpe:
+            return int(cpe)
+    except (KeyError, AttributeError, TypeError):
+        pass
+    return None
+
+
 def upsert_user_subscription(db, user_id, stripe_subscription_id, plan_key, status, current_period_end=None):
     from backend.models import UserSubscription
     from datetime import datetime
