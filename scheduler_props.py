@@ -75,11 +75,11 @@ MOVEMENT_THRESHOLD = float(os.environ.get("PROPS_MOVE_THRESHOLD", "0.5"))
 MIN_MOVERS = int(os.environ.get("PROPS_MOVE_MIN_MOVERS", "3"))
 REGEN_COOLDOWN_MINUTES = int(os.environ.get("PROPS_REGEN_COOLDOWN_MIN", "30"))
 
-# Durable cooldown state (Task #37). Without this, a Render redeploy or worker
-# restart would wipe the in-memory cooldown and the very next scrape could fire
-# a duplicate Claude regen even though nothing material happened. The state
-# file is a tiny JSON blob: {"last_regen_at": "<isoformat ET>"}. Mirrors the
-# pregame state pattern at /tmp/pirtdica_pregame_state.json.
+# Durable cooldown state (Task #37). Without this, a Reserved VM restart or
+# scheduler crash would wipe the in-memory cooldown and the very next scrape
+# could fire a duplicate Claude regen even though nothing material happened.
+# The state file is a tiny JSON blob: {"last_regen_at": "<isoformat ET>"}.
+# Mirrors the pregame state pattern at /tmp/pirtdica_pregame_state.json.
 MOVEMENT_STATE_PATH = "/tmp/pirtdica_movement_state.json"
 
 _last_movement_regen = None  # in-process cache; durable copy lives on disk
@@ -339,7 +339,7 @@ def maybe_regen_article_for_movement():
     Returns True if a regen actually fired. Honors REGEN_COOLDOWN_MINUTES so
     a back-to-back scrape (e.g. 14:00 and 14:30) can't burn Claude credits in
     rapid succession. The cooldown is durable: it survives a worker restart
-    via the JSON state file at MOVEMENT_STATE_PATH, so a Render redeploy
+    via the JSON state file at MOVEMENT_STATE_PATH, so a Reserved VM restart
     inside the cooldown window does NOT trigger a duplicate regen (Task #37).
     """
     global _last_movement_regen
