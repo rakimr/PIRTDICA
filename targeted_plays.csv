@@ -1,7 +1,11 @@
 player_name,team,opponent,position,salary,stat,player_avg,opp_allows,league_avg,extra_fp,edge_pct,recommendation
-Jordan Walsh,BOS,PHI,PF,2100,Rebounds,4.0,11.0,10.3,0.8,6.3,PHI gives up +0.8 FP in Rebounds to PFs
-Derrick White,BOS,PHI,SG,10200,Assists,5.4,5.9,5.4,0.7,8.7,PHI gives up +0.7 FP in Assists to SGs
-Derrick White,BOS,PHI,SG,10200,Points,16.5,24.0,23.4,0.6,2.7,PHI gives up +0.6 FP in Points to SGs
-Jaylen Brown,BOS,PHI,SF,16000,Assists,5.1,4.9,4.5,0.6,9.6,PHI gives up +0.6 FP in Assists to SFs
-Neemias Queta,BOS,PHI,C,7500,Rebounds,8.4,14.9,14.4,0.5,3.1,PHI gives up +0.5 FP in Rebounds to Cs
-Luka Garza,BOS,PHI,C,1500,Rebounds,4.1,14.9,14.4,0.5,3.1,PHI gives up +0.5 FP in Rebounds to Cs
+Cade Cunningham,DET,ORL,PG,10800,Points,23.9,25.1,24.0,1.1,4.8,ORL gives up +1.1 FP in Points to PGs
+Scottie Barnes,TOR,CLE,PF,10300,Points,18.1,23.7,22.9,0.8,3.4,CLE gives up +0.8 FP in Points to PFs
+Sandro Mamukelashvili,TOR,CLE,C,3900,Rebounds,4.9,15.1,14.4,0.8,4.5,CLE gives up +0.8 FP in Rebounds to Cs
+Jakob Poeltl,TOR,CLE,C,4600,Rebounds,7.0,15.1,14.4,0.8,4.5,CLE gives up +0.8 FP in Rebounds to Cs
+Jalen Duren,DET,ORL,C,6800,Blocks,0.8,2.2,2.0,0.6,9.6,ORL gives up +0.6 FP in Blocks to Cs
+Jalen Suggs,ORL,DET,PG,6500,Steals,1.8,2.2,2.0,0.6,10.7,DET gives up +0.6 FP in Steals to PGs
+Anthony Black,ORL,DET,PG,5100,Steals,1.4,2.2,2.0,0.6,10.7,DET gives up +0.6 FP in Steals to PGs
+Paul Reed,DET,ORL,C,3800,Blocks,0.9,2.2,2.0,0.6,9.6,ORL gives up +0.6 FP in Blocks to Cs
+Jamal Shead,TOR,CLE,PG,4800,Assists,5.4,8.7,8.3,0.5,4.4,CLE gives up +0.5 FP in Assists to PGs
+Dean Wade,CLE,TOR,PF,3900,Rebounds,4.2,10.8,10.3,0.5,4.4,TOR gives up +0.5 FP in Rebounds to PFs
