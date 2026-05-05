@@ -139,8 +139,13 @@ async def startup_event():
         print(f"[STARTUP] daily_pick_grades migration skipped: {e}")
 
     # Task #45: Official Call Snapshot — add columns + backfill past slates so
-    # historical W-L cards keep rendering against the locked snapshot.
+    # historical W-L cards keep rendering against the locked snapshot. This block
+    # re-imports its own `insp`/`_eng` so a failure in an earlier migration block
+    # can't cause this one to silently skip.
     try:
+        from sqlalchemy import inspect as sa_inspect, text as sa_text
+        from backend.database import engine as _eng
+        insp = sa_inspect(_eng)
         if 'daily_articles' in insp.get_table_names():
             existing_cols = {c['name'] for c in insp.get_columns('daily_articles')}
             adds = []
