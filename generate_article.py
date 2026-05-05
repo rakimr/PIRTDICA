@@ -1829,6 +1829,12 @@ def generate_article(target_date=None):
 
 
 _OFFICIAL_LOCK_WINDOW_MINUTES = 60
+# Grace floor: how many minutes AFTER first tip we still allow the first lock to
+# fire. This handles the realistic "wave started at T-5 but DB write landed at
+# T+5" race, while refusing a stale 9 PM regen from suddenly being recorded as
+# the "official call" for a 6 PM tipoff. If the slate is never locked within
+# this window, the grader cleanly falls back to picks_json (legacy path).
+_OFFICIAL_LOCK_GRACE_AFTER_TIP_MINUTES = 30
 _DFS_DB_PATH = "/home/runner/workspace/dfs_nba.db"
 
 
@@ -1869,18 +1875,20 @@ def _first_tipoff_today_et(target_date):
 
 
 def _should_lock_official_call(target_date, now_et):
-    """Return True iff the slate's first tipoff is within the lock window.
+    """Return True iff we're inside the slate's lock window.
 
-    Window: tipoff is at most LOCK_WINDOW_MINUTES (60) in the future, OR has
-    already passed. The lock is one-shot (caller checks official_picks_json is
-    NULL before calling) // once the window opens it stays open so a late
-    regen still locks if the pregame wave was missed.
+    Window: from T-LOCK_WINDOW_MINUTES (60 min before first tip) through
+    T+GRACE_AFTER_TIP_MINUTES (30 min after first tip). The lock is one-shot
+    (caller checks official_picks_json is NULL first). If the window closes
+    without a lock firing, the grader cleanly falls back to picks_json so
+    we never silently record a stale post-tip regen as the "official call".
     """
     first_tip = _first_tipoff_today_et(target_date)
     if first_tip is None:
         return False
     delta_min = (first_tip - now_et).total_seconds() / 60.0
-    return delta_min <= _OFFICIAL_LOCK_WINDOW_MINUTES
+    # delta_min > 0 → still before tip; delta_min < 0 → past tip
+    return -_OFFICIAL_LOCK_GRACE_AFTER_TIP_MINUTES <= delta_min <= _OFFICIAL_LOCK_WINDOW_MINUTES
 
 
 def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_count,
