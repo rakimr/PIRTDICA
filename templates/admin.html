@@ -113,6 +113,30 @@
     </div>
 
     <div class="admin-card">
+        <h2>Official Call Lock</h2>
+        <p>The "official call" is the picks snapshot frozen pre-tipoff and used by the next-day grading report. It auto-locks the first time the article is generated within 60 minutes of the slate's first tipoff (typically the T-60 pregame wave). Subsequent regens won't overwrite it. Use the button below ONLY if a major news drop after the auto-lock means the current `picks_json` is sharper and you want THAT to be graded.</p>
+
+        <div class="official-lock-status" id="officialLockStatus">
+            <div><strong>Slate:</strong> {{ official_lock_state.slate_date }}</div>
+            <div>
+                <strong>State:</strong>
+                {% if official_lock_state.locked %}
+                <span style="color:#10b981; font-weight:bold;">LOCKED</span>
+                at {{ official_lock_state.locked_at }} ({{ official_lock_state.pick_count }} picks)
+                {% else %}
+                <span style="color:#f59e0b; font-weight:bold;">UNLOCKED</span>
+                (working article has {{ official_lock_state.working_pick_count }} picks)
+                {% endif %}
+            </div>
+        </div>
+
+        <button class="btn-refresh" onclick="relockOfficialCall()" style="margin-top: 1rem;">
+            {% if official_lock_state.locked %}Re-snapshot Now (Override Lock){% else %}Lock Now (One-shot){% endif %}
+        </button>
+        <div id="relockResult" style="margin-top: 0.75rem; font-size: 0.9rem;"></div>
+    </div>
+
+    <div class="admin-card">
         <h2>Scheduler Status (Reserved VM)</h2>
         <p>Live view of the four production schedulers running on the Reserved VM. Use this to verify they're firing automatically (you should NOT have to open Replit for the daily pipeline to run).</p>
 
@@ -469,6 +493,32 @@ function addInjury(event) {
 
 if ({{ 'true' if refresh_status.running else 'false' }}) {
     pollInterval = setInterval(pollStatus, 2000);
+}
+
+function relockOfficialCall() {
+    const result = document.getElementById('relockResult');
+    const status = document.getElementById('officialLockStatus');
+    if (!confirm('Re-snapshot the current picks_json into the official call? This overrides any auto-lock and is what the next-day grading report will grade against.')) {
+        return;
+    }
+    result.innerHTML = '<span class="status-running">Locking...</span>';
+    fetch('/admin/relock-official-call', {method: 'POST'})
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                result.innerHTML = '<span class="status-success">' + escapeHtml(data.message) + '</span>';
+                if (status) {
+                    status.querySelector('div:nth-child(2)').innerHTML =
+                        '<strong>State:</strong> <span style="color:#10b981; font-weight:bold;">LOCKED</span> at ' +
+                        escapeHtml(data.locked_at) + ' (' + data.pick_count + ' picks)';
+                }
+            } else {
+                result.innerHTML = '<span class="status-error">' + escapeHtml(data.message || 'Failed') + '</span>';
+            }
+        })
+        .catch(err => {
+            result.innerHTML = '<span class="status-error">Error: ' + escapeHtml(String(err)) + '</span>';
+        });
 }
 
 function scanUsernames() {

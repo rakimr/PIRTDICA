@@ -4704,6 +4704,52 @@ th[data-sortable].sort-desc::after {
     line-height: 1.4;
 }
 
+/* Task #45: Official Call lock pill — sits above the picks card so subscribers
+   know whether they're looking at the frozen pre-tipoff snapshot (LOCKED) or
+   the still-changing working article (UNLOCKED). */
+.official-call-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.85rem;
+    border-radius: 999px;
+    font-family: 'Marvel', sans-serif;
+    font-size: 0.85rem;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    margin: 0 0 0.75rem 0;
+    cursor: help;
+}
+
+.official-call-pill .official-call-icon {
+    font-size: 0.95rem;
+    line-height: 1;
+}
+
+.official-call-pill .official-call-label {
+    text-transform: uppercase;
+}
+
+.official-call-pill .official-call-meta {
+    font-weight: normal;
+    font-size: 0.78rem;
+    opacity: 0.85;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.official-call-locked {
+    background: rgba(16, 185, 129, 0.12);
+    color: #047857;
+    border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.official-call-working {
+    background: rgba(245, 158, 11, 0.12);
+    color: #b45309;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
 .article-table {
     width: 100%;
     border-collapse: collapse;

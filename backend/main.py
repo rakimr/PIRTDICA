@@ -137,6 +137,39 @@ async def startup_event():
                 print(f"[STARTUP] Added columns to daily_pick_grades: {adds}")
     except Exception as e:
         print(f"[STARTUP] daily_pick_grades migration skipped: {e}")
+
+    # Task #45: Official Call Snapshot — add columns + backfill past slates so
+    # historical W-L cards keep rendering against the locked snapshot.
+    try:
+        if 'daily_articles' in insp.get_table_names():
+            existing_cols = {c['name'] for c in insp.get_columns('daily_articles')}
+            adds = []
+            if 'official_picks_json' not in existing_cols:
+                adds.append("ADD COLUMN IF NOT EXISTS official_picks_json TEXT")
+            if 'official_locked_at' not in existing_cols:
+                adds.append("ADD COLUMN IF NOT EXISTS official_locked_at TIMESTAMP WITH TIME ZONE")
+            if adds:
+                with _eng.begin() as conn:
+                    conn.execute(sa_text(f"ALTER TABLE daily_articles {', '.join(adds)}"))
+                print(f"[STARTUP] Added columns to daily_articles: {adds}")
+            # One-shot backfill: copy picks_json into official_picks_json for every
+            # PAST slate where the latter is NULL and the former is non-empty. The
+            # locked-at timestamp is set to updated_at so the badge renders sensibly.
+            with _eng.begin() as conn:
+                result = conn.execute(sa_text("""
+                    UPDATE daily_articles
+                    SET official_picks_json = picks_json,
+                        official_locked_at = COALESCE(updated_at, NOW())
+                    WHERE official_picks_json IS NULL
+                      AND picks_json IS NOT NULL
+                      AND picks_json <> ''
+                      AND picks_json <> '[]'
+                      AND slate_date < CURRENT_DATE
+                """))
+                if result.rowcount:
+                    print(f"[STARTUP] Backfilled official_picks_json for {result.rowcount} past slates")
+    except Exception as e:
+        print(f"[STARTUP] daily_articles official-call migration skipped: {e}")
     thread = threading.Thread(target=auto_generate_house_lineup, daemon=True)
     thread.start()
 
@@ -278,6 +311,15 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
                     picks = json.loads(article.picks_json)
             except (json.JSONDecodeError, TypeError):
                 picks = []
+            # Task #45: Once the official call is locked, render the locked
+            # snapshot so subscribers see EXACTLY what was frozen pre-tipoff
+            # (which is also what gets graded). Before lock we keep showing
+            # the working picks_json so the page is never blank.
+            if article.official_picks_json:
+                try:
+                    picks = json.loads(article.official_picks_json)
+                except (json.JSONDecodeError, TypeError):
+                    pass
             try:
                 if article.analysis_json:
                     analysis = json.loads(article.analysis_json)
@@ -336,6 +378,17 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
         except Exception as e:
             print(f"[ARTICLES] Grading report load failed: {e}")
 
+    # Task #45: surface the official-call lock state for the badge + hint above
+    # the picks card. `official_locked_at` is stored as TIMESTAMPTZ so it comes
+    # back as an aware UTC datetime // convert to ET for display.
+    official_locked = bool(article and article.official_locked_at)
+    official_locked_at_str = None
+    if official_locked:
+        try:
+            from utils.timezone import EASTERN as _EASTERN
+            official_locked_at_str = article.official_locked_at.astimezone(_EASTERN).strftime('%-I:%M %p ET')
+        except Exception:
+            official_locked_at_str = article.official_locked_at.strftime('%H:%M ET')
     return templates.TemplateResponse("articles.html", {
         "request": request,
         "user": user,
@@ -346,6 +399,8 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
         "pre_lock": pre_lock,
         "prop_recs": prop_recs,
         "grading_report": grading_report,
+        "official_locked": official_locked,
+        "official_locked_at_str": official_locked_at_str,
     })
 
 @app.get("/subscribe")
@@ -2101,13 +2156,80 @@ async def admin_page(request: Request, db: Session = Depends(get_db)):
             models.HouseLineupPlayer.contest_id == contest.id
         ).all()
     
+    # Task #45: surface today's official-call lock state for the admin panel.
+    today_article = db.query(models.DailyArticle).filter(
+        models.DailyArticle.slate_date == today
+    ).first()
+    official_lock_state = {
+        "slate_date": today.strftime("%Y-%m-%d"),
+        "locked": False,
+        "locked_at": None,
+        "pick_count": 0,
+        "working_pick_count": 0,
+    }
+    if today_article:
+        if today_article.picks_json:
+            try:
+                official_lock_state["working_pick_count"] = len(json.loads(today_article.picks_json) or [])
+            except Exception:
+                pass
+        if today_article.official_locked_at:
+            official_lock_state["locked"] = True
+            try:
+                from utils.timezone import EASTERN as _EASTERN
+                official_lock_state["locked_at"] = today_article.official_locked_at.astimezone(_EASTERN).strftime('%Y-%m-%d %-I:%M %p ET')
+            except Exception:
+                official_lock_state["locked_at"] = today_article.official_locked_at.strftime('%Y-%m-%d %H:%M ET')
+            try:
+                official_lock_state["pick_count"] = len(json.loads(today_article.official_picks_json or "[]") or [])
+            except Exception:
+                pass
     return templates.TemplateResponse("admin.html", {
         "request": request,
         "user": user,
         "refresh_status": refresh_status,
         "contest": contest,
-        "house_players": house_players
+        "house_players": house_players,
+        "official_lock_state": official_lock_state,
     })
+
+@app.post("/admin/relock-official-call")
+async def relock_official_call(request: Request, db: Session = Depends(get_db)):
+    """Task #45: re-snapshot today's picks_json into official_picks_json.
+
+    Use case: a major injury news drops 30 min pre-tip, the prop-movement
+    regen rebuilt picks_json with sharper picks, and we want THAT to be the
+    official call instead of the T-60 pregame wave's snapshot. Admin-only,
+    one-shot, immediately reflected on /articles + grading.
+    """
+    user = get_current_user(request, db)
+    if not require_admin(user):
+        return {"success": False, "message": "Unauthorized"}
+    today = get_eastern_today()
+    article = db.query(models.DailyArticle).filter(
+        models.DailyArticle.slate_date == today
+    ).first()
+    if not article:
+        return {"success": False, "message": f"No article exists for {today}"}
+    if not article.picks_json:
+        return {"success": False, "message": "Article has no picks_json to snapshot"}
+    try:
+        parsed = json.loads(article.picks_json) or []
+    except Exception:
+        return {"success": False, "message": "picks_json is not valid JSON"}
+    if not parsed:
+        return {"success": False, "message": "picks_json is empty // nothing to lock"}
+    from utils.timezone import get_eastern_now as _get_et_now
+    article.official_picks_json = article.picks_json
+    article.official_locked_at = _get_et_now()
+    db.commit()
+    return {
+        "success": True,
+        "message": f"Re-snapshotted {len(parsed)} picks for {today} at {article.official_locked_at.strftime('%-I:%M %p ET')}",
+        "pick_count": len(parsed),
+        "locked_at": article.official_locked_at.strftime('%Y-%m-%d %-I:%M %p ET'),
+    }
+
 
 @app.post("/admin/refresh")
 async def trigger_refresh(request: Request, db: Session = Depends(get_db)):

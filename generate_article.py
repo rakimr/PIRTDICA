@@ -1828,6 +1828,61 @@ def generate_article(target_date=None):
     return True
 
 
+_OFFICIAL_LOCK_WINDOW_MINUTES = 60
+_DFS_DB_PATH = "/home/runner/workspace/dfs_nba.db"
+
+
+def _first_tipoff_today_et(target_date):
+    """Return the earliest tipoff datetime in ET for `target_date`, or None.
+
+    Uses the same `player_salaries.game_time` source as `scheduler_pregame.py`
+    so the lock window matches when the pregame waves actually fire (T-60 from
+    the first tip). Returns None on any failure or when no game times exist //
+    callers must treat that as "no lock yet".
+    """
+    try:
+        import sqlite3
+        from zoneinfo import ZoneInfo as _ZI
+        et_zone = _ZI("America/New_York")
+        if not os.path.exists(_DFS_DB_PATH):
+            return None
+        conn = sqlite3.connect(_DFS_DB_PATH)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT DISTINCT game_time FROM player_salaries WHERE game_time IS NOT NULL"
+        )
+        raw = [row[0] for row in cur.fetchall()]
+        conn.close()
+        parsed = []
+        for gt in raw:
+            try:
+                t = datetime.strptime(gt, "%I:%M%p")
+                naive = t.replace(year=target_date.year, month=target_date.month, day=target_date.day)
+                parsed.append(naive.replace(tzinfo=et_zone))
+            except Exception:
+                continue
+        if not parsed:
+            return None
+        return min(parsed)
+    except Exception:
+        return None
+
+
+def _should_lock_official_call(target_date, now_et):
+    """Return True iff the slate's first tipoff is within the lock window.
+
+    Window: tipoff is at most LOCK_WINDOW_MINUTES (60) in the future, OR has
+    already passed. The lock is one-shot (caller checks official_picks_json is
+    NULL before calling) // once the window opens it stays open so a late
+    regen still locks if the pregame wave was missed.
+    """
+    first_tip = _first_tipoff_today_et(target_date)
+    if first_tip is None:
+        return False
+    delta_min = (first_tip - now_et).total_seconds() / 60.0
+    return delta_min <= _OFFICIAL_LOCK_WINDOW_MINUTES
+
+
 def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_count,
                best_available=False, claude_selected=False):
     from backend.database import engine
@@ -1869,6 +1924,7 @@ def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_c
             existing.game_count = game_count
         existing.best_available = best_available
         existing.claude_selected = claude_selected
+        article_row = existing
     else:
         article = DailyArticle(
             slate_date=target_date,
@@ -1880,6 +1936,29 @@ def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_c
             claude_selected=claude_selected,
         )
         session.add(article)
+        article_row = article
+
+    # Task #45: Official Call Snapshot — freeze picks_json into
+    # official_picks_json the first time we save within the lock window
+    # (typically the T-60 pregame wave for the slate's first tipoff). Once
+    # locked, subsequent regens (later pregame waves, prop-movement regens)
+    # update picks_json only // the official snapshot is immutable until an
+    # admin re-snapshots it.
+    try:
+        from zoneinfo import ZoneInfo as _ZI
+        now_et = datetime.now(_ZI("America/New_York"))
+        if not article_row.official_picks_json and _should_lock_official_call(target_date, now_et):
+            current_picks = article_row.picks_json or json.dumps([])
+            try:
+                parsed_picks = json.loads(current_picks)
+            except Exception:
+                parsed_picks = []
+            if parsed_picks:
+                article_row.official_picks_json = current_picks
+                article_row.official_locked_at = now_et
+                print(f"[OFFICIAL CALL] Locked snapshot for {target_date} at {now_et.strftime('%Y-%m-%d %H:%M ET')} ({len(parsed_picks)} picks)")
+    except Exception as e:
+        print(f"[OFFICIAL CALL] Lock skipped for {target_date}: {e}")
 
     session.commit()
     session.close()

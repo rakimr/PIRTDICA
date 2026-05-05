@@ -31,6 +31,19 @@
     {% if picks %}
     <div class="article-section">
         <h2>{% if article.best_available %}Today's Top Picks{% else %}Today's HIGH Confidence Picks{% endif %}</h2>
+        {% if official_locked %}
+        <div class="official-call-pill official-call-locked" title="These picks are PIRTDICA's official call for this slate. They were frozen pre-tipoff and are what the next-day grading report grades against.">
+            <span class="official-call-icon">&#x1F512;</span>
+            <span class="official-call-label">OFFICIAL CALL</span>
+            <span class="official-call-meta">Locked at {{ official_locked_at_str }}</span>
+        </div>
+        {% else %}
+        <div class="official-call-pill official-call-working" title="Picks may still update from late prop-line moves. The official call is locked at the slate's first tipoff.">
+            <span class="official-call-icon">&#x270D;</span>
+            <span class="official-call-label">WORKING CALL</span>
+            <span class="official-call-meta">Official call locks at first tipoff</span>
+        </div>
+        {% endif %}
         <p class="picks-disclaimer">Articles generated earlier in the day should be read with caution. Player performance becomes more predictable closer to game start.</p>
         <div class="table-wrap">
             <table class="props-table article-table">
