@@ -2,8 +2,8 @@ player_name,team,opponent,position,salary,stat,player_avg,opp_allows,league_avg,
 Shai Gilgeous-Alexander,OKC,LAL,PG,10400,Assists,6.6,9.1,8.3,1.1,9.2,LAL gives up +1.1 FP in Assists to PGs
 Jarrett Allen,CLE,DET,C,6000,Steals,1.0,1.7,1.4,0.9,21.4,DET gives up +0.9 FP in Steals to Cs
 Shai Gilgeous-Alexander,OKC,LAL,PG,10400,Steals,1.4,2.3,2.0,0.9,15.8,LAL gives up +0.9 FP in Steals to PGs
-Paul Reed,DET,CLE,C,3500,Rebounds,4.5,15.1,14.5,0.8,4.5,CLE gives up +0.8 FP in Rebounds to Cs
-Jalen Duren,DET,CLE,C,6800,Rebounds,10.5,15.1,14.5,0.8,4.5,CLE gives up +0.8 FP in Rebounds to Cs
+Paul Reed,DET,CLE,C,3500,Rebounds,4.5,15.1,14.4,0.8,4.5,CLE gives up +0.8 FP in Rebounds to Cs
+Jalen Duren,DET,CLE,C,6800,Rebounds,10.5,15.1,14.4,0.8,4.5,CLE gives up +0.8 FP in Rebounds to Cs
 Tobias Harris,DET,CLE,PF,6800,Points,13.3,23.7,22.9,0.8,3.4,CLE gives up +0.8 FP in Points to PFs
 Ajay Mitchell,OKC,LAL,SG,5400,Assists,3.6,5.9,5.4,0.7,8.7,LAL gives up +0.7 FP in Assists to SGs
 Jake LaRavia,LAL,OKC,SF,3600,Rebounds,4.0,8.3,7.8,0.6,6.1,OKC gives up +0.6 FP in Rebounds to SFs
