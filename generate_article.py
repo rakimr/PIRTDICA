@@ -1964,9 +1964,9 @@ def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_c
             if parsed_picks:
                 article_row.official_picks_json = current_picks
                 article_row.official_locked_at = now_et
-                print(f"[OFFICIAL CALL] Locked snapshot for {target_date} at {now_et.strftime('%Y-%m-%d %H:%M ET')} ({len(parsed_picks)} picks)")
+                print(f"[OFFICIAL CALL][source=auto-lock] Locked snapshot for {target_date} at {now_et.strftime('%Y-%m-%d %H:%M ET')} ({len(parsed_picks)} picks)")
     except Exception as e:
-        print(f"[OFFICIAL CALL] Lock skipped for {target_date}: {e}")
+        print(f"[OFFICIAL CALL][source=auto-lock] Lock skipped for {target_date}: {e}")
 
     session.commit()
     session.close()

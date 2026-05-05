@@ -2232,9 +2232,17 @@ async def relock_official_call(request: Request, db: Session = Depends(get_db)):
     if not parsed:
         return {"success": False, "message": "picks_json is empty // nothing to lock"}
     from utils.timezone import get_eastern_now as _get_et_now
+    was_already_locked = bool(article.official_locked_at)
     article.official_picks_json = article.picks_json
     article.official_locked_at = _get_et_now()
     db.commit()
+    # Greppable in prod: distinguish admin re-locks from auto-locks. The
+    # `override=` flag tells us whether this was a fresh first-lock done
+    # manually (override=False) or an explicit overwrite of an existing
+    # auto-lock (override=True).
+    print(f"[OFFICIAL CALL][source=admin-relock][override={was_already_locked}] "
+          f"User={user.username} resnapshotted {len(parsed)} picks for {today} "
+          f"at {article.official_locked_at.strftime('%Y-%m-%d %H:%M ET')}")
     return {
         "success": True,
         "message": f"Re-snapshotted {len(parsed)} picks for {today} at {article.official_locked_at.strftime('%-I:%M %p ET')}",
