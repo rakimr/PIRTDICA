@@ -395,7 +395,8 @@ async def subscribe_page(request: Request, db: Session = Depends(get_db)):
 async def subscribe_success(request: Request, db: Session = Depends(get_db)):
     from backend.stripe_billing import (get_stripe_client, resolve_plan_from_subscription,
                                          upsert_user_subscription, cancel_individual_subs_for_bundle,
-                                         sync_user_subscription_fields, get_subscription_period_end)
+                                         sync_user_subscription_fields, get_subscription_period_end,
+                                         _so_get)
     user = get_current_user(request, db)
     if not user:
         print(f"[Stripe] SUCCESS redirect: user not logged in (session lost during Stripe redirect)")
@@ -410,7 +411,7 @@ async def subscribe_success(request: Request, db: Session = Depends(get_db)):
     try:
         session = client.checkout.Session.retrieve(session_id)
         print(f"[Stripe] SUCCESS redirect: user={user.id} ({user.username}), session={session_id}, payment_status={session.payment_status}, subscription={session.subscription}, customer={session.customer}")
-        session_user_id = (session.metadata or {}).get("user_id", "")
+        session_user_id = _so_get(_so_get(session, "metadata"), "user_id", "")
         if str(user.id) != str(session_user_id):
             print(f"[Stripe] Session user_id mismatch: session={session_user_id}, logged_in={user.id}")
             return html_redirect("/articles")
@@ -461,15 +462,16 @@ async def stripe_webhook(request: Request):
     try:
         from backend.stripe_billing import (get_stripe_client, resolve_plan_from_subscription,
                                              upsert_user_subscription, cancel_individual_subs_for_bundle,
-                                             sync_user_subscription_fields, get_subscription_period_end)
+                                             sync_user_subscription_fields, get_subscription_period_end,
+                                             _so_get)
 
         if event.type == "checkout.session.completed":
             session = event.data.object
-            customer_id = session.get("customer")
-            subscription_id = session.get("subscription")
-            metadata = session.get("metadata") or {}
-            metadata_user_id = metadata.get("user_id")
-            metadata_plan = metadata.get("plan")
+            customer_id = _so_get(session, "customer")
+            subscription_id = _so_get(session, "subscription")
+            metadata = _so_get(session, "metadata")
+            metadata_user_id = _so_get(metadata, "user_id")
+            metadata_plan = _so_get(metadata, "plan")
             print(f"[Stripe Webhook] checkout.session.completed: customer={customer_id}, sub={subscription_id}, metadata_user_id={metadata_user_id}, metadata_plan={metadata_plan}")
             if customer_id and subscription_id:
                 user = db.query(models.User).filter(models.User.stripe_customer_id == customer_id).first()
@@ -503,11 +505,11 @@ async def stripe_webhook(request: Request):
         elif event.type in ("invoice.payment_succeeded", "customer.subscription.updated"):
             sub_data = event.data.object
             if event.type == "invoice.payment_succeeded":
-                subscription_id = sub_data.get("subscription")
-                customer_id = sub_data.get("customer")
+                subscription_id = _so_get(sub_data, "subscription")
+                customer_id = _so_get(sub_data, "customer")
             else:
-                subscription_id = sub_data.get("id")
-                customer_id = sub_data.get("customer")
+                subscription_id = _so_get(sub_data, "id")
+                customer_id = _so_get(sub_data, "customer")
             print(f"[Stripe Webhook] {event.type}: sub={subscription_id}, customer={customer_id}")
             if subscription_id:
                 from backend.models import UserSubscription
@@ -535,7 +537,7 @@ async def stripe_webhook(request: Request):
 
         elif event.type == "customer.subscription.deleted":
             sub_data = event.data.object
-            subscription_id = sub_data.get("id")
+            subscription_id = _so_get(sub_data, "id")
             print(f"[Stripe Webhook] customer.subscription.deleted: sub={subscription_id}")
             if subscription_id:
                 from backend.models import UserSubscription

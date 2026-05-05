@@ -6,6 +6,25 @@ logger = logging.getLogger(__name__)
 
 _stripe_keys = None
 
+
+def _so_get(obj, key, default=None):
+    """Safely get a key from a Stripe object OR a plain dict.
+
+    Stripe SDK 15.x's StripeObject.__getattr__ delegates to __getitem__, which
+    means calling `obj.get("foo")` raises AttributeError because there is no
+    data key literally named "get". We work around that by using getattr with
+    a default for StripeObjects, and falling back to dict.get for real dicts.
+    Returns `default` for missing keys or None values.
+    """
+    if obj is None:
+        return default
+    if isinstance(obj, dict):
+        val = obj.get(key, default)
+        return val if val is not None else default
+    val = getattr(obj, key, None)
+    return val if val is not None else default
+
+
 def _load_stripe_keys():
     global _stripe_keys
     if _stripe_keys:
