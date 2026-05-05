@@ -158,8 +158,15 @@ async def startup_event():
                     conn.execute(sa_text(f"ALTER TABLE daily_articles {', '.join(adds)}"))
                 print(f"[STARTUP] Added columns to daily_articles: {adds}")
             # One-shot backfill: copy picks_json into official_picks_json for every
-            # PAST slate where the latter is NULL and the former is non-empty. The
-            # locked-at timestamp is set to updated_at so the badge renders sensibly.
+            # PAST slate (strictly < today's ET date) where the latter is NULL and
+            # the former is non-empty. We compute the cutoff in ET (not UTC), so a
+            # late-evening ET restart doesn't classify the in-progress slate as past
+            # (CURRENT_DATE in Postgres is UTC and would be one day ahead of ET).
+            # The locked-at timestamp is set to updated_at so the badge renders
+            # sensibly for backfilled rows.
+            from datetime import datetime as _dt
+            from zoneinfo import ZoneInfo as _ZI
+            et_today = _dt.now(_ZI("America/New_York")).date()
             with _eng.begin() as conn:
                 result = conn.execute(sa_text("""
                     UPDATE daily_articles
@@ -169,10 +176,10 @@ async def startup_event():
                       AND picks_json IS NOT NULL
                       AND picks_json <> ''
                       AND picks_json <> '[]'
-                      AND slate_date < CURRENT_DATE
-                """))
+                      AND slate_date < :et_today
+                """), {"et_today": et_today})
                 if result.rowcount:
-                    print(f"[STARTUP] Backfilled official_picks_json for {result.rowcount} past slates")
+                    print(f"[STARTUP] Backfilled official_picks_json for {result.rowcount} past slates (ET cutoff: {et_today})")
     except Exception as e:
         print(f"[STARTUP] daily_articles official-call migration skipped: {e}")
     thread = threading.Thread(target=auto_generate_house_lineup, daemon=True)
