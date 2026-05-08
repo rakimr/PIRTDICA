@@ -895,6 +895,17 @@ He's scored in a DEN matchup before (+2.4 H2H edge) and the game environment is 
 **The line at 10.5 hasn't caught up to his recent form, which is exactly the inefficiency we're targeting.**
 
 **The Call: OVER 10.5 PTS** // We project Harper at 14.5 points tonight (+38.1% edge vs. the book). Composite score: 61.8.
+
+**ZONE-LED EXAMPLE (use this structure when shot_diet, opp_def_zones, or zone_matchup_edges are populated):**
+
+**ANTHONY EDWARDS // PTS OVER 26.5 (MIN @ HOU)**
+Edwards takes 38% of his shots from three and HOU allows 38.4% from above-the-break (def rank 27/30 // leaky). Combine that with the 22% he takes at the rim where HOU gives up 67.1% (rank 24/30) and you have a shot diet that maps perfectly into Houston's two softest zones.
+
+The model's shot-zone adjustment adds **+1.4 PTS** to his baseline before any usage or pace tailwind, which is how it lands at 28.9 projected. Houston's top defensive coverage is Pick & Roll Ball Handler at the 22nd percentile, which is where Edwards initiates most of his offense. Their pace is fast (101.9, +2.8 vs lg avg) so possessions aren't a constraint either.
+
+**Hit rate of 61% and a last-5 of 28.4 confirm what the matchup already tells us.** FP projection of 49.2 sits well above his season pace of 45.8, so the entire stat line gets a tailwind, not just points.
+
+**The Call: OVER 26.5 PTS** // We project Edwards at 28.9 points tonight (+9.1% edge vs. the book). Composite score: 68.4.
 """
 
 
@@ -932,10 +943,358 @@ def _get_playoff_summary(player_name, stat):
         return None
 
 
+def _load_briefing_enrichment_caches():
+    """Load shot zones, team defenses, play types, hustle, shot creation, measurements once.
+
+    Returns a dict consumed by `_enrich_pick_blocks` to add scheme/zone context to Claude's
+    briefing. Failures are logged but never raise — the briefing degrades gracefully.
+    """
+    import sqlite3
+    cache = {
+        'shot_zones': {}, 'team_def_zones': {}, 'shot_creation': {},
+        'hustle': {}, 'play_types_off': {}, 'play_types_def': {},
+        'measurements': {}, 'pace': {}, 'zone_def_ranks': {},
+        'league_avg_pace': None,
+    }
+    try:
+        conn = sqlite3.connect("dfs_nba.db")
+        cur = conn.cursor()
+        cols = [r[1] for r in cur.execute("PRAGMA table_info(player_shot_zones)")]
+        if cols:
+            for row in cur.execute("SELECT * FROM player_shot_zones"):
+                d = dict(zip(cols, row))
+                cache['shot_zones'][d.get('player_name')] = d
+        cols = [r[1] for r in cur.execute("PRAGMA table_info(team_defense_shot_zones)")]
+        if cols:
+            for row in cur.execute("SELECT * FROM team_defense_shot_zones"):
+                d = dict(zip(cols, row))
+                cache['team_def_zones'][d.get('team')] = d
+            for zone in ['ra_fg_pct', 'paint_fg_pct', 'mid_fg_pct', 'corner3_fg_pct', 'atb3_fg_pct']:
+                pairs = [(t, d.get(zone)) for t, d in cache['team_def_zones'].items()
+                         if d.get(zone) is not None and (d.get(zone) or 0) > 0]
+                pairs.sort(key=lambda x: x[1])
+                for rank, (t, _) in enumerate(pairs, start=1):
+                    cache['zone_def_ranks'].setdefault(t, {})[zone] = rank
+        cols = [r[1] for r in cur.execute("PRAGMA table_info(player_shot_creation)")]
+        if cols:
+            for row in cur.execute("SELECT * FROM player_shot_creation"):
+                d = dict(zip(cols, row))
+                cache['shot_creation'][d.get('player_name')] = d
+        cols = [r[1] for r in cur.execute("PRAGMA table_info(player_hustle_stats)")]
+        if cols:
+            for row in cur.execute("SELECT * FROM player_hustle_stats"):
+                d = dict(zip(cols, row))
+                cache['hustle'][d.get('player_name')] = d
+        team_abbrev_alias = {
+            'GS': 'GSW', 'NO': 'NOP', 'NY': 'NYK', 'PHO': 'PHX', 'SA': 'SAS',
+            'GSW': 'GSW', 'NOP': 'NOP', 'NYK': 'NYK', 'PHX': 'PHX', 'SAS': 'SAS',
+        }
+        def _norm(t):
+            if not t:
+                return t
+            return team_abbrev_alias.get(t, t)
+
+        cols = [r[1] for r in cur.execute("PRAGMA table_info(team_play_types)")]
+        if cols:
+            for row in cur.execute("SELECT * FROM team_play_types"):
+                d = dict(zip(cols, row))
+                bucket = cache['play_types_off'] if d.get('type_grouping') == 'Offensive' else cache['play_types_def']
+                bucket.setdefault(_norm(d.get('team')), []).append(d)
+        try:
+            paces = list(cur.execute("SELECT team, pace FROM team_pace"))
+            for t, p in paces:
+                cache['pace'][_norm(t)] = p
+            if paces:
+                cache['league_avg_pace'] = sum(p for _, p in paces) / len(paces)
+        except Exception:
+            pass
+        try:
+            cols = [r[1] for r in cur.execute("PRAGMA table_info(player_measurements)")]
+            if cols:
+                for row in cur.execute("SELECT * FROM player_measurements"):
+                    d = dict(zip(cols, row))
+                    cache['measurements'][d.get('player_name')] = d
+        except Exception:
+            pass
+        conn.close()
+    except Exception as e:
+        print(f"[brief] enrichment cache load failed: {e}")
+    return cache
+
+
+def _zone_rank_label(rank):
+    """Map team rank (1=best defense, 30=leakiest) to a human label."""
+    if not rank:
+        return None
+    if rank <= 6:
+        return "elite"
+    if rank <= 12:
+        return "good"
+    if rank <= 18:
+        return "avg"
+    if rank <= 24:
+        return "below-avg"
+    return "leaky"
+
+
+def _pace_label(team_pace, league_avg):
+    if not team_pace or not league_avg:
+        return None
+    diff = team_pace - league_avg
+    if diff >= 1.5:
+        return f"fast ({team_pace:.1f}, +{diff:.1f} vs lg avg)"
+    if diff <= -1.5:
+        return f"slow ({team_pace:.1f}, {diff:.1f} vs lg avg)"
+    return f"avg ({team_pace:.1f})"
+
+
+def _enrich_pick_blocks(player, team, opponent, stat, caches, entry=None):
+    """Build the enrichment blocks (shot_diet, opp_def_zones, etc.) for a single pick.
+
+    Each block is added only when source data clears a minimum sample threshold,
+    and is capped to its 2-3 most informative numbers to bound prompt size.
+    `entry` is the partially-built prop_line, used to source redistribution context.
+    Returns a dict of optional sub-blocks to merge into the prop_line entry.
+    """
+    out = {}
+    _alias = {'GS': 'GSW', 'NO': 'NOP', 'NY': 'NYK', 'PHO': 'PHX', 'SA': 'SAS'}
+    nopp = _alias.get(opponent, opponent) if opponent else opponent
+    pz = caches['shot_zones'].get(player)
+    opp_def = caches['team_def_zones'].get(nopp) or caches['team_def_zones'].get(opponent)
+
+    player_zones = []
+    if pz and (pz.get('total_fga') or 0) >= 50:
+        def _pct(fgm, fga):
+            return round(100.0 * fgm / fga, 1) if fga else None
+        zone_rows = [
+            ('rim',   pz.get('ra_pct'),    _pct(pz.get('ra_fgm') or 0,    pz.get('ra_fga') or 0)),
+            ('paint', pz.get('paint_pct'), _pct(pz.get('paint_fgm') or 0, pz.get('paint_fga') or 0)),
+            ('mid',   pz.get('mid_pct'),   _pct(pz.get('mid_fgm') or 0,   pz.get('mid_fga') or 0)),
+            ('three', pz.get('three_pct'), _pct(pz.get('three_fgm') or 0, pz.get('three_fga') or 0)),
+        ]
+        zone_rows = [(z, s, fg) for z, s, fg in zone_rows if s and s >= 8]
+        zone_rows.sort(key=lambda r: -(r[1] or 0))
+        player_zones = zone_rows[:3]
+        if player_zones:
+            out['shot_diet'] = {
+                'season_fga': pz.get('total_fga'),
+                'top_zones': [
+                    {'zone': z, 'share_pct': round(s, 1), 'fg_pct': fg}
+                    for z, s, fg in player_zones
+                ],
+            }
+
+    if opp_def and player_zones:
+        ranks = caches['zone_def_ranks'].get(nopp) or caches['zone_def_ranks'].get(opponent) or {}
+        zone_to_def_key = {
+            'rim':   'ra_fg_pct',
+            'paint': 'paint_fg_pct',
+            'mid':   'mid_fg_pct',
+            'three': 'atb3_fg_pct',
+        }
+        relevant = []
+        for z, _share, _fg in player_zones:
+            key = zone_to_def_key.get(z)
+            if not key:
+                continue
+            v = opp_def.get(key)
+            if not v:
+                continue
+            r = ranks.get(key)
+            relevant.append({
+                'zone': z,
+                'allowed_fg_pct': round(v, 1),
+                'def_rank': f"{r}/30 ({_zone_rank_label(r)})" if r else None,
+            })
+        if relevant:
+            out['opp_def_zones'] = relevant
+
+    if pz and opp_def and (pz.get('total_fga') or 0) >= 50:
+        league_avgs = {'ra': 65.0, 'paint': 42.0, 'mid': 41.0, 'three': 36.0}
+        edges = []
+        zone_map = [
+            ('rim', 'ra_pct', 'ra_fg_pct', 'ra'),
+            ('paint', 'paint_pct', 'paint_fg_pct', 'paint'),
+            ('mid', 'mid_pct', 'mid_fg_pct', 'mid'),
+            ('three', 'three_pct', 'atb3_fg_pct', 'three'),
+        ]
+        ranks = caches['zone_def_ranks'].get(nopp) or caches['zone_def_ranks'].get(opponent) or {}
+        for label, share_k, opp_k, lavg_k in zone_map:
+            share = pz.get(share_k) or 0
+            opp_allowed = opp_def.get(opp_k) or 0
+            lavg = league_avgs[lavg_k]
+            if share < 8:
+                continue
+            diff = opp_allowed - lavg
+            mag = abs(share * diff)
+            if mag <= 0.5:
+                continue
+            rk = ranks.get(opp_k)
+            tone = "easier" if diff > 0 else "tougher"
+            base = (f"{label}: takes {share:.0f}% of shots, opp allows {opp_allowed:.1f}% "
+                    f"(lg avg {lavg:.0f}")
+            if rk:
+                base += f", def rank {rk}/30 // {_zone_rank_label(rk)}"
+            base += f" // {tone} than avg)"
+            edges.append((mag, base))
+        edges.sort(key=lambda e: -e[0])
+        top = [t for _, t in edges[:2]]
+        if top:
+            out['zone_matchup_edges'] = top
+
+    sc = caches['shot_creation'].get(player)
+    if sc and (sc.get('total_fga') or 0) >= 50 and ((sc.get('cs_pct') or 0) + (sc.get('pu_pct') or 0)) > 0:
+        sc_block = {
+            'catch_shoot_pct': sc.get('cs_pct'),
+            'pull_up_pct': sc.get('pu_pct'),
+            'paint_pct': sc.get('paint_pct'),
+            'cs_three_share_pct': sc.get('cs_3_share'),
+            'pu_three_share_pct': sc.get('pu_3_share'),
+        }
+        sc_block = {k: v for k, v in sc_block.items() if v}
+        if sc_block:
+            out['shot_creation'] = sc_block
+
+    if stat in ('STL', 'BLK', 'REB'):
+        h = caches['hustle'].get(player)
+        if h and (h.get('minutes') or 0) >= 100:
+            hb = {
+                'deflections_per48': h.get('deflections_per48'),
+                'contested_shots_per48': h.get('contested_per48'),
+                'contested_2pt_total': h.get('contested_2pt'),
+                'box_outs_per48': h.get('box_outs_per48'),
+                'screen_ast_per48': h.get('screen_ast_per48'),
+            }
+            hb = {k: v for k, v in hb.items() if v}
+            if hb:
+                out['hustle_signals'] = hb
+
+    drivers = {}
+    try:
+        from analysis.player_value import _shot_zone_efficiency_adjustment, _physical_mismatch_score
+        mini_cache = {
+            'shot_zones': caches['shot_zones'],
+            'team_def_zones': caches['team_def_zones'],
+            'measurements': caches['measurements'],
+        }
+        if stat == 'PTS':
+            sz_adj, sz_details = _shot_zone_efficiency_adjustment(player, nopp, mini_cache)
+            if not sz_details and nopp != opponent:
+                sz_adj, sz_details = _shot_zone_efficiency_adjustment(player, opponent, mini_cache)
+            if abs(sz_adj) >= 0.1:
+                drivers['shot_zone_adj_pts'] = sz_adj
+                if sz_details:
+                    top_break = sorted(sz_details.items(), key=lambda kv: -abs(kv[1]))[:3]
+                    drivers['shot_zone_adj_breakdown'] = dict(top_break)
+        if stat in ('REB', 'BLK'):
+            meas = caches['measurements'].get(player)
+            if meas and meas.get('position'):
+                pm_score, pm_details = _physical_mismatch_score(player, nopp, meas['position'], mini_cache)
+                if not pm_details and nopp != opponent:
+                    pm_score, pm_details = _physical_mismatch_score(player, opponent, meas['position'], mini_cache)
+                if pm_score is not None:
+                    drivers['physical_mismatch_score'] = pm_score
+                if pm_details:
+                    drivers['physical_mismatch_details'] = pm_details
+    except Exception:
+        pass
+
+    if entry is not None:
+        usage_boost = entry.get('usage_boost') or 0
+        vacated_usg = entry.get('total_vacated_usage') or 0
+        vacated_min = entry.get('total_vacated_minutes') or 0
+        if vacated_usg >= 5 or usage_boost >= 1.5:
+            redis = {}
+            if vacated_usg:
+                redis['vacated_usage_pct'] = round(vacated_usg, 1)
+            if vacated_min:
+                redis['vacated_minutes'] = round(vacated_min, 1)
+            if usage_boost:
+                redis['player_usage_boost'] = round(usage_boost, 1)
+            if vacated_usg > 0 and usage_boost > 0:
+                redis['player_share_of_vacated_pct'] = round(100.0 * usage_boost / vacated_usg, 1)
+            if redis:
+                drivers['opportunity_redistribution'] = redis
+
+    if drivers:
+        out['projection_drivers'] = drivers
+
+    return out
+
+
+def _build_game_scheme_blocks(games_dict, caches):
+    """Build per-game scheme blocks: off + def top play types, pace label, recent allowed-by-zone.
+
+    Returns {game_key: scheme_dict_keyed_by_team}. Each team's block has at most
+    ~12 numeric fields (3 off + 3 def play types compressed, pace, top-3 leakiest zones).
+    """
+    out = {}
+    pt_off = caches['play_types_off']
+    pt_def = caches['play_types_def']
+    lg_pace = caches.get('league_avg_pace')
+    tdz = caches['team_def_zones']
+    ranks = caches['zone_def_ranks']
+    _alias = {'GS': 'GSW', 'NO': 'NOP', 'NY': 'NYK', 'PHO': 'PHX', 'SA': 'SAS'}
+    def _nt(t):
+        return _alias.get(t, t) if t else t
+
+    def _pt_summary(rows, side):
+        rows = sorted(rows, key=lambda d: -(d.get('poss_pct') or 0))[:3]
+        return [
+            {
+                'play_type': d.get('play_type_label') or d.get('play_type'),
+                'freq_pct': round((d.get('poss_pct') or 0) * 100, 1),
+                'ppp': round(d.get('ppp') or 0, 2),
+                ('def_percentile' if side == 'def' else 'off_percentile'):
+                    round((d.get('percentile') or 0) * 100),
+            }
+            for d in rows
+        ]
+
+    def _team_block(team):
+        block = {}
+        nt = _nt(team)
+        if nt in pt_off:
+            block['top_off_play_types'] = _pt_summary(pt_off[nt], 'off')
+        if nt in pt_def:
+            block['top_def_play_types'] = _pt_summary(pt_def[nt], 'def')
+        plabel = _pace_label(caches['pace'].get(nt), lg_pace)
+        if plabel:
+            block['pace'] = plabel
+        td = tdz.get(nt) or tdz.get(team)
+        if td:
+            zone_keys = [('rim','ra_fg_pct'),('paint','paint_fg_pct'),
+                         ('mid','mid_fg_pct'),('corner3','corner3_fg_pct'),
+                         ('atb3','atb3_fg_pct')]
+            zone_rows = []
+            for label, key in zone_keys:
+                v = td.get(key)
+                r = ranks.get(nt, {}).get(key) or ranks.get(team, {}).get(key)
+                if v and r:
+                    zone_rows.append({'zone': label, 'allowed_fg_pct': round(v, 1),
+                                       'def_rank': f"{r}/30 ({_zone_rank_label(r)})"})
+            zone_rows.sort(key=lambda z: -int(z['def_rank'].split('/')[0]))
+            if zone_rows:
+                block['leakiest_zones_allowed'] = zone_rows[:3]
+        return block
+
+    for game_key, g in games_dict.items():
+        teams = sorted(g.get('teams', set()))
+        team_blocks = {}
+        for t in teams:
+            tb = _team_block(t)
+            if tb:
+                team_blocks[t] = tb
+        if team_blocks:
+            out[game_key] = team_blocks
+    return out
+
+
 def _build_full_slate_briefing(props_df, dfs_df, game_date=None):
     import sqlite3
     from utils.season_phase import is_playoff_window_active
     playoff_mode = is_playoff_window_active(game_date)
+    enrichment = _load_briefing_enrichment_caches()
 
     games = {}
     for _, row in dfs_df.iterrows():
@@ -1050,6 +1409,28 @@ def _build_full_slate_briefing(props_df, dfs_df, game_date=None):
         if out_summary:
             entry['out_players'] = out_summary
 
+        if len(dfs_row):
+            drow = dfs_row.iloc[0]
+            fp_block = {
+                'fp_per_min': round(_safe_float(drow.get('fp_per_min', 0)), 2),
+                'season_fp_pg': round(_safe_float(drow.get('fp_pg', 0)), 1),
+                'projected_fp_tonight': round(_safe_float(drow.get('proj_fp', 0)), 1),
+                'projected_fp_ceiling': round(_safe_float(drow.get('ceiling', 0)), 1),
+                'projected_fp_floor': round(_safe_float(drow.get('floor', 0)), 1),
+            }
+            fp_block = {k: v for k, v in fp_block.items() if v}
+            if 'projected_fp_tonight' in fp_block:
+                fp_block['fp_proj'] = fp_block['projected_fp_tonight']
+            if fp_block:
+                entry['fp_context'] = fp_block
+
+        try:
+            enrich_blocks = _enrich_pick_blocks(player, team, opponent, stat, enrichment, entry=entry)
+            for k, v in enrich_blocks.items():
+                entry[k] = v
+        except Exception as _enr_err:
+            print(f"[brief] enrichment for {player}/{stat}: {_enr_err}")
+
         recent = _get_recent_games(player, stat)
         if recent:
             entry['recent_games'] = [
@@ -1140,10 +1521,23 @@ def _build_full_slate_briefing(props_df, dfs_df, game_date=None):
 
         prop_lines.append(entry)
 
+    try:
+        scheme_blocks = _build_game_scheme_blocks(games, enrichment)
+    except Exception as _sb_err:
+        print(f"[brief] game scheme blocks failed: {_sb_err}")
+        scheme_blocks = {}
+
+    games_payload = []
+    for k, v in sorted(game_env.items()):
+        gb = {'game': k, 'implied_total': v}
+        if k in scheme_blocks:
+            gb['scheme'] = scheme_blocks[k]
+        games_payload.append(gb)
+
     briefing = {
         'playoff_mode': bool(playoff_mode),
         'game_count': len(games),
-        'games': [{'game': k, 'implied_total': v} for k, v in sorted(game_env.items())],
+        'games': games_payload,
         'key_absences': key_absences[:20],
         'prop_lines': prop_lines,
     }
@@ -1151,21 +1545,31 @@ def _build_full_slate_briefing(props_df, dfs_df, game_date=None):
 
 
 CLAUDE_ANALYST_PATTERNS = """
-ANALYTICAL FRAMEWORK (What separates a great pick from a good one, from our 80% hit rate reference slate):
+ANALYTICAL FRAMEWORK (in priority order // lead each analysis with the highest-priority signal that fires for that pick):
 
-1. USAGE REDISTRIBUTION FROM STAR ABSENCES: When high-usage stars are OUT, their usage/minutes redistribute to teammates. Look for players with high total_vacated_usage (>30%) and opportunity_spike=true. These are the highest-edge plays.
+1. SHOT-DIET vs OPPONENT-DEFENSE-BY-ZONE (HEADLINE SIGNAL when present): If the pick has `zone_matchup_edges` or `shot_diet` + `opp_def_zones`, lead with it. Cite the player's zone share and the opponent's allowed FG% and rank in that zone (e.g. "takes 36% of shots from mid // MIA allows 49.1% there // def rank 28/30 // leaky"). This is the single most distinguishing piece of context per pick — never bury it.
 
-2. DVP/DVA DOUBLE ALIGNMENT: The strongest picks have BOTH Defense vs Position (dvp_edge) AND Defense vs Archetype (dva_edge) supporting the direction. Both >+0.5 for OVER = strong signal. If both are negative, avoid.
+2. PROJECTION DRIVERS (the math behind the projection): When `projection_drivers` is present, cite it. `shot_zone_adj_pts` is the points the model has added or subtracted from the player's baseline based on shot-zone × opponent-defense alignment. `physical_mismatch_score` (REB/BLK only) shows the player's height/weight/wingspan edge over a positional baseline. Use these to explain WHY the model arrived at `projected_value`.
 
-3. GAME TOTAL / PACE ENVIRONMENTS: High implied team totals (>115) and game totals (check game implied_total) of 235+ create more possessions and scoring. These environments amplify OVER picks, especially for PTS and AST.
+3. OPPONENT SCHEME (`games[i].scheme[<opp>].top_def_play_types` + `pace`): Find your player's game in the `games` array, then read the opponent team's scheme block. For passers/PnR ball-handlers, look for opponents who are weak vs Pick & Roll Ball Handler or Iso. For spot-up shooters, look for weak vs Spot Up. `def_percentile` is on a 0-100 scale where higher = better defense (so LOW percentile in the play types your player runs = juicy). Cross-reference the player's own team `top_off_play_types` to confirm they actually run the coverage you are exploiting.
 
-4. LAST-5 AVERAGE CLEARING THE BOOK LINE: For OVER picks, the player's last5_avg should already clear the book_line. This confirms recent form supports the direction. For UNDER picks, last5_avg should be below the line.
+4. SHOT-CREATION FIT (`shot_creation`): Catch-and-shoot heavy players need sets and screens — verify their team has a creator on the floor. Pull-up heavy players are scheme-proof but capped by minutes. Match this against the OUT players to see if their creator is on or off.
 
-5. HIGH COMPOSITE SCORES: Composite score ranks multi-factor quality. Picks above 60 are strong; above 70 are elite.
+5. HUSTLE SIGNALS (STL/BLK/REB only, in `hustle_signals`): `deflections_per48` >= 3.5 is elite for STL OVERs. `contested_shots_per48` >= 8 is elite for BLK OVERs. `box_outs_per48` supports defensive REB OVERs.
 
-6. CONTRARIAN DISCIPLINE: Limit UNDER picks to 1-2 max per slate. Only take UNDERs where the projection is clearly below the line AND matchup/game environment supports lower production. NEVER take UNDER when usage_boost > 3.0.
+6. FANTASY-POINT SANITY CHECK (`fp_context`): If `projected_fp_tonight` is near or below `season_fp_pg`, be skeptical of any aggressive stat-line OVER. If projected is well above season, the entire stat line gets a tailwind.
 
-7. CONSISTENCY CHECK: CV (coefficient of variation) below 0.30 = very consistent player. Above 0.50 = volatile (higher risk).
+7. USAGE REDISTRIBUTION FROM STAR ABSENCES: When high-usage stars are OUT (`out_players` populated, `total_vacated_usage` > 30, `opportunity_spike=true`), this is the highest-edge category in DFS. Cite specifically WHICH stars are out and HOW that funnels to your player.
+
+8. DVP/DVA DOUBLE ALIGNMENT: The strongest picks have BOTH Defense vs Position (dvp_edge) AND Defense vs Archetype (dva_edge) supporting the direction. Both >+0.5 for OVER = strong signal. If both are negative, avoid.
+
+9. GAME ENVIRONMENT: High implied team totals (>115) and game totals (235+) amplify scoring picks. `b2b_signal` flags fatigue. `rest_advantage`/`rest_disadvantage` shows rest mismatches.
+
+10. RECENT FORM AND HIT RATE (CONFIRMING signals, NOT headlines): `last5_avg` and `hit_rate` are confirmation, not the lede. Two analyses leading with "He hit it 64% of the time and last 5 is X" are indistinguishable. Use these to confirm your zone/scheme thesis, not to replace it.
+
+11. CONTRARIAN DISCIPLINE: Limit UNDER picks to 1-2 max per slate. NEVER take UNDER when usage_boost > 3.0. NEVER take UNDER when zone_matchup_edges and shot_zone_adj_pts both lean OVER.
+
+12. CONSISTENCY CHECK: CV below 0.30 = very consistent. Above 0.50 = volatile.
 
 QUALITY GATES (reference, not hard constraints):
 - Hit rate >= 58%
@@ -1186,7 +1590,17 @@ def build_claude_analyst(props_df, dfs_df, game_date=None):
 
     briefing = _build_full_slate_briefing(props_df, dfs_df, game_date=game_date)
     briefing_json = json.dumps(briefing, indent=2, default=str)
-    print(f"Claude Analyst briefing: {len(briefing['prop_lines'])} prop lines across {briefing['game_count']} games ({len(briefing_json)} chars)")
+    n_props = len(briefing['prop_lines'])
+    avg_chars = (len(briefing_json) // n_props) if n_props else 0
+    enrich_keys = ('shot_diet', 'opp_def_zones', 'zone_matchup_edges',
+                   'shot_creation', 'hustle_signals',
+                   'projection_drivers', 'fp_context')
+    enrich_counts = {k: sum(1 for p in briefing['prop_lines'] if k in p) for k in enrich_keys}
+    games_with_scheme = sum(1 for g in briefing.get('games', []) if 'scheme' in g)
+    print(f"Claude Analyst briefing: {n_props} prop lines across {briefing['game_count']} games "
+          f"({len(briefing_json)} chars, ~{avg_chars}/pick)")
+    print(f"  per-pick enrichment coverage: {enrich_counts}")
+    print(f"  game-level scheme coverage: {games_with_scheme}/{briefing['game_count']} games")
 
     playoff_mode_active = bool(briefing.get('playoff_mode'))
     playoff_mode_block = """
@@ -1226,6 +1640,27 @@ PICK SELECTION CRITERIA:
 - When `b2b_signal` is present, the player's team is on the second night of a back-to-back. Stars on B2B carry load-management risk (trimmed minutes), and shooting efficiency dips ~2-3% league-wide. Be more skeptical of OVER picks for B2B teams; the model already trims minutes for flagged stars but Vegas usually prices this in too.
 - When `rest_advantage` is present, the player's team has a 2+ day rest edge over the opponent (especially strong if the opponent is on a B2B). Treat this as a real positive for OVERs on volume players and a yellow flag for UNDERs. When `rest_disadvantage` is present, the OPPONENT has the rest edge — small negative for OVERs.
 - Use the analytical framework provided to evaluate each potential pick
+
+CONTEXT BLOCKS YOU WILL SEE (use these to make every analysis distinctive — DO NOT default to hit_rate/last5_avg as the headline):
+
+GAME-LEVEL (`games[i].scheme[<team>]` // applies to every player on that team in that game):
+- `top_off_play_types` and `top_def_play_types`: the team's top 3 offensive and top 3 defensive coverages by frequency. Each entry has `play_type` (e.g. "Pick & Roll Ball Handler", "Spot Up", "Isolation"), `freq_pct` (% of possessions), `ppp` (points per possession), and a percentile on a 0-100 scale where 100 = league-best. For DEF entries, LOW `def_percentile` (< 30) means leaky in that coverage. For OFF entries, HIGH `off_percentile` means a strong offensive identity worth respecting.
+- `pace`: team pace labelled fast/avg/slow vs league average.
+- `leakiest_zones_allowed`: the opponent's 3 most-exploitable zones with allowed FG% and "X/30 (label)" rank.
+
+PER-PICK:
+- `shot_diet`: `season_fga` plus `top_zones`, the player's 3 most-used shooting zones with `share_pct` and `fg_pct`. Zones below 8% share are dropped as immaterial.
+- `opp_def_zones`: only the opponent's allowed FG% + "X/30 (label)" rank in the zones THIS PLAYER actually shoots from. RANK 1 = best defense, RANK 30 = leakiest. Higher rank in your player's zones = juicy.
+- `zone_matchup_edges`: pre-computed top 1-2 mismatches as one-line strings. When present, this is the headline of your analysis.
+- `projection_drivers`:
+    * `shot_zone_adj_pts` + `shot_zone_adj_breakdown` (PTS only): the points the model added or subtracted from the player's baseline due to shot-zone × opponent-defense, with the top-3 contributing zones.
+    * `physical_mismatch_score` + `physical_mismatch_details` (REB/BLK only): height/weight/wingspan deltas vs the positional baseline.
+    * `opportunity_redistribution` (when usage is being vacated): `vacated_usage_pct`, `vacated_minutes`, `player_usage_boost`, `player_share_of_vacated_pct` (what % of the freed-up usage funnels to THIS player).
+- `shot_creation`: catch_shoot_pct, pull_up_pct, paint_pct. Cross-check with `out_players` to see if the player's primary creator is OUT.
+- `hustle_signals` (STL/BLK/REB only): deflections_per48, contested_shots_per48, contested_2pt_total, box_outs_per48, screen_ast_per48.
+- `fp_context`: season fantasy points per game, fp_per_min, projected fp tonight (with ceiling and floor). If `projected_fp_tonight` clears `season_fp_pg` by 3+, the entire stat line gets a tailwind. If it does not, be more conservative on aggressive OVERs.
+
+WRITING DIRECTIVE: Lead each analysis with a zone, scheme, projection-driver, or usage-redistribution cue when it is present. Hit rate and last-5 average are CONFIRMATION, not the headline. Two analyses that both lead with "Hit rate of X%, last 5 is Y" are a failure of differentiation.
 
 WRITING STYLE:
 - Write like you're talking to a sharp friend, not a lecture hall. Conversational, direct, confident.
