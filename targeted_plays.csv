@@ -1,12 +1,15 @@
 player_name,team,opponent,position,salary,stat,player_avg,opp_allows,league_avg,extra_fp,edge_pct,recommendation
-Shai Gilgeous-Alexander,OKC,LAL,PG,10300,Assists,6.6,9.1,8.3,1.1,9.2,LAL gives up +1.1 FP in Assists to PGs
-Shai Gilgeous-Alexander,OKC,LAL,PG,10300,Steals,1.4,2.3,2.0,0.9,15.8,LAL gives up +0.9 FP in Steals to PGs
-Jarrett Allen,CLE,DET,C,6000,Steals,1.0,1.7,1.4,0.9,21.4,DET gives up +0.9 FP in Steals to Cs
-Paul Reed,DET,CLE,C,3500,Rebounds,4.5,15.1,14.4,0.8,4.5,CLE gives up +0.8 FP in Rebounds to Cs
-Jalen Duren,DET,CLE,C,6700,Rebounds,10.5,15.1,14.4,0.8,4.5,CLE gives up +0.8 FP in Rebounds to Cs
-Tobias Harris,DET,CLE,PF,7000,Points,13.3,23.7,22.9,0.8,3.4,CLE gives up +0.8 FP in Points to PFs
-Ajay Mitchell,OKC,LAL,SG,5600,Assists,3.6,5.9,5.4,0.7,8.7,LAL gives up +0.7 FP in Assists to SGs
-Jake LaRavia,LAL,OKC,SF,4100,Rebounds,4.0,8.3,7.8,0.6,6.1,OKC gives up +0.6 FP in Rebounds to SFs
-LeBron James,LAL,OKC,SF,9000,Rebounds,6.1,8.3,7.8,0.6,6.1,OKC gives up +0.6 FP in Rebounds to SFs
-Cade Cunningham,DET,CLE,PG,10700,Assists,9.9,8.7,8.3,0.5,4.4,CLE gives up +0.5 FP in Assists to PGs
-Daniss Jenkins,DET,CLE,PG,4400,Assists,3.9,8.7,8.3,0.5,4.4,CLE gives up +0.5 FP in Assists to PGs
+Stephon Castle,SA,MIN,PG,7400,Points,16.7,25.3,24.0,1.3,5.6,MIN gives up +1.3 FP in Points to PGs
+De'Aaron Fox,SA,MIN,PG,7200,Points,18.6,25.3,24.0,1.3,5.6,MIN gives up +1.3 FP in Points to PGs
+Victor Wembanyama,SA,MIN,C,12600,Assists,3.1,4.6,4.0,0.9,14.3,MIN gives up +0.9 FP in Assists to Cs
+Stephon Castle,SA,MIN,PG,7400,Rebounds,5.3,6.8,6.1,0.9,11.7,MIN gives up +0.9 FP in Rebounds to PGs
+OG Anunoby,NY,PHI,PF,7100,Rebounds,5.2,11.0,10.3,0.8,6.3,PHI gives up +0.8 FP in Rebounds to PFs
+Rudy Gobert,MIN,SA,C,6200,Points,10.9,22.6,21.8,0.8,3.9,SA gives up +0.8 FP in Points to Cs
+Naz Reid,MIN,SA,C,5400,Points,13.6,22.6,21.8,0.8,3.9,SA gives up +0.8 FP in Points to Cs
+OG Anunoby,NY,PHI,PF,7100,Points,16.7,23.6,22.9,0.7,3.0,PHI gives up +0.7 FP in Points to PFs
+Josh Hart,NY,PHI,SF,6600,Assists,4.8,4.9,4.5,0.6,9.6,PHI gives up +0.6 FP in Assists to SFs
+Mikal Bridges,NY,PHI,SF,5200,Assists,3.7,4.9,4.5,0.6,9.6,PHI gives up +0.6 FP in Assists to SFs
+Miles McBride,NY,PHI,SG,3600,Points,12.0,24.0,23.4,0.6,2.7,PHI gives up +0.6 FP in Points to SGs
+Stephon Castle,SA,MIN,PG,7400,Assists,7.4,8.7,8.3,0.5,4.4,MIN gives up +0.5 FP in Assists to PGs
+Karl-Anthony Towns,NY,PHI,C,9300,Rebounds,11.9,14.9,14.4,0.5,3.1,PHI gives up +0.5 FP in Rebounds to Cs
+De'Aaron Fox,SA,MIN,PG,7200,Assists,6.2,8.7,8.3,0.5,4.4,MIN gives up +0.5 FP in Assists to PGs
