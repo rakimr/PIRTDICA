@@ -1,7 +1,7 @@
 player_name,team,opponent,position,salary,stat,player_avg,opp_allows,league_avg,extra_fp,edge_pct,recommendation
 Shai Gilgeous-Alexander,OKC,LAL,PG,10300,Assists,6.6,9.1,8.3,1.1,9.2,LAL gives up +1.1 FP in Assists to PGs
-Jarrett Allen,CLE,DET,C,6000,Steals,1.0,1.7,1.4,0.9,21.4,DET gives up +0.9 FP in Steals to Cs
 Shai Gilgeous-Alexander,OKC,LAL,PG,10300,Steals,1.4,2.3,2.0,0.9,15.8,LAL gives up +0.9 FP in Steals to PGs
+Jarrett Allen,CLE,DET,C,6000,Steals,1.0,1.7,1.4,0.9,21.4,DET gives up +0.9 FP in Steals to Cs
 Paul Reed,DET,CLE,C,3500,Rebounds,4.5,15.1,14.4,0.8,4.5,CLE gives up +0.8 FP in Rebounds to Cs
 Jalen Duren,DET,CLE,C,6700,Rebounds,10.5,15.1,14.4,0.8,4.5,CLE gives up +0.8 FP in Rebounds to Cs
 Tobias Harris,DET,CLE,PF,7000,Points,13.3,23.7,22.9,0.8,3.4,CLE gives up +0.8 FP in Points to PFs
