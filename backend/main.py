@@ -1139,6 +1139,130 @@ async def login(
         print(f"[LOGIN] Stripe check failed for {username}, skipping: {e}")
     return html_redirect("/", token=token, extra_cookies=extra_cookies)
 
+@app.get("/forgot-password")
+async def forgot_password_page(request: Request):
+    return templates.TemplateResponse("forgot_password.html", {"request": request})
+
+
+@app.post("/forgot-password")
+async def forgot_password(
+    request: Request,
+    email: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    generic_ok = templates.TemplateResponse("forgot_password.html", {
+        "request": request,
+        "sent": True,
+    })
+
+    email_clean = (email or "").strip().lower()
+    if not email_clean or "@" not in email_clean:
+        return generic_ok
+
+    user = db.query(models.User).filter(models.User.email == email_clean).first()
+    if not user:
+        return generic_ok
+
+    try:
+        raw_token = auth.create_password_reset_token(db, user.id)
+    except Exception as e:
+        print(f"[forgot_password] token create failed for user {user.id}: {e}")
+        return generic_ok
+
+    base = str(request.base_url).rstrip("/")
+    reset_url = f"{base}/reset-password?token={raw_token}"
+    subject = "Reset your PIRTDICA password"
+    body_html = f"""
+    <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#111;">
+      <h2 style="margin:0 0 16px 0;">Reset your password</h2>
+      <p>Someone (hopefully you) asked to reset the password for your PIRTDICA account.</p>
+      <p>Click the button below to choose a new password. This link expires in {auth.PASSWORD_RESET_TTL_MINUTES} minutes and can only be used once.</p>
+      <p style="margin:24px 0;">
+        <a href="{reset_url}" style="background:#d4af37;color:#111;padding:12px 20px;text-decoration:none;border-radius:6px;font-weight:bold;">Reset password</a>
+      </p>
+      <p style="color:#555;font-size:13px;">If the button does not work, paste this link into your browser:</p>
+      <p style="word-break:break-all;color:#555;font-size:13px;">{reset_url}</p>
+      <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+      <p style="color:#888;font-size:12px;">If you did not request a password reset, you can safely ignore this email // your password will not change.</p>
+    </div>
+    """
+
+    try:
+        from backend.email_service import send_email
+        ok, err = send_email(user.email, subject, body_html)
+        if not ok:
+            print(f"[forgot_password] send failed for user {user.id}: {err}")
+    except Exception as e:
+        print(f"[forgot_password] send exception for user {user.id}: {e}")
+
+    return generic_ok
+
+
+@app.get("/reset-password")
+async def reset_password_page(request: Request, token: str = "", db: Session = Depends(get_db)):
+    record = auth.consume_password_reset_token(db, token)
+    if not record:
+        return templates.TemplateResponse("reset_password.html", {
+            "request": request,
+            "invalid": True,
+        })
+    return templates.TemplateResponse("reset_password.html", {
+        "request": request,
+        "token": token,
+    })
+
+
+@app.post("/reset-password")
+async def reset_password(
+    request: Request,
+    token: str = Form(...),
+    password: str = Form(...),
+    confirm_password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    record = auth.consume_password_reset_token(db, token)
+    if not record:
+        return templates.TemplateResponse("reset_password.html", {
+            "request": request,
+            "invalid": True,
+        })
+
+    if len(password or "") < 6:
+        return templates.TemplateResponse("reset_password.html", {
+            "request": request,
+            "token": token,
+            "error": "Password must be at least 6 characters.",
+        })
+    if password != confirm_password:
+        return templates.TemplateResponse("reset_password.html", {
+            "request": request,
+            "token": token,
+            "error": "Passwords do not match.",
+        })
+
+    user = db.query(models.User).filter(models.User.id == record.user_id).first()
+    if not user:
+        return templates.TemplateResponse("reset_password.html", {
+            "request": request,
+            "invalid": True,
+        })
+
+    user.password_hash = auth.hash_password(password)
+    auth.mark_password_reset_token_used(db, record)
+
+    try:
+        db.query(auth.UserSession).filter(auth.UserSession.user_id == user.id).delete()
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"[reset_password] session purge failed for user {user.id}: {e}")
+
+    return templates.TemplateResponse("reset_password.html", {
+        "request": request,
+        "success": True,
+    })
+
+
 @app.get("/logout")
 async def logout(request: Request, db: Session = Depends(get_db)):
     token = request.cookies.get("session_token")
