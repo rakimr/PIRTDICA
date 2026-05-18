@@ -1,15 +1,7 @@
 player_name,team,opponent,position,salary,stat,player_avg,opp_allows,league_avg,extra_fp,edge_pct,recommendation
-Stephon Castle,SA,MIN,PG,7400,Points,16.7,25.3,24.0,1.3,5.6,MIN gives up +1.3 FP in Points to PGs
-De'Aaron Fox,SA,MIN,PG,6800,Points,18.6,25.3,24.0,1.3,5.6,MIN gives up +1.3 FP in Points to PGs
-Stephon Castle,SA,MIN,PG,7400,Rebounds,5.3,6.8,6.1,0.9,11.7,MIN gives up +0.9 FP in Rebounds to PGs
-Victor Wembanyama,SA,MIN,C,12600,Assists,3.1,4.6,4.0,0.9,14.3,MIN gives up +0.9 FP in Assists to Cs
-Jarrett Allen,CLE,DET,C,5900,Steals,1.0,1.7,1.4,0.9,21.4,DET gives up +0.9 FP in Steals to Cs
-Jalen Duren,DET,CLE,C,6000,Rebounds,10.5,15.1,14.4,0.8,4.5,CLE gives up +0.8 FP in Rebounds to Cs
-Naz Reid,MIN,SA,C,5600,Points,13.6,22.6,21.8,0.8,3.9,SA gives up +0.8 FP in Points to Cs
-Tobias Harris,DET,CLE,PF,7200,Points,13.3,23.7,22.9,0.8,3.4,CLE gives up +0.8 FP in Points to PFs
-Rudy Gobert,MIN,SA,C,5700,Points,10.9,22.6,21.8,0.8,3.9,SA gives up +0.8 FP in Points to Cs
-Paul Reed,DET,CLE,C,3600,Rebounds,4.5,15.1,14.4,0.8,4.5,CLE gives up +0.8 FP in Rebounds to Cs
-Stephon Castle,SA,MIN,PG,7400,Assists,7.4,8.7,8.3,0.5,4.4,MIN gives up +0.5 FP in Assists to PGs
-Cade Cunningham,DET,CLE,PG,10300,Assists,9.9,8.7,8.3,0.5,4.4,CLE gives up +0.5 FP in Assists to PGs
-De'Aaron Fox,SA,MIN,PG,6800,Assists,6.2,8.7,8.3,0.5,4.4,MIN gives up +0.5 FP in Assists to PGs
-Daniss Jenkins,DET,CLE,PG,3800,Assists,3.9,8.7,8.3,0.5,4.4,CLE gives up +0.5 FP in Assists to PGs
+Jarrett Allen,CLE,DET,C,12300,Steals,1.0,1.7,1.4,0.9,21.4,DET gives up +0.9 FP in Steals to Cs
+Jalen Duren,DET,CLE,C,13800,Rebounds,10.5,15.1,14.4,0.8,4.5,CLE gives up +0.8 FP in Rebounds to Cs
+Paul Reed,DET,CLE,C,3000,Rebounds,4.5,15.1,14.4,0.8,4.5,CLE gives up +0.8 FP in Rebounds to Cs
+Tobias Harris,DET,CLE,PF,15300,Points,13.3,23.7,22.9,0.8,3.4,CLE gives up +0.8 FP in Points to PFs
+Cade Cunningham,DET,CLE,PG,16000,Assists,9.9,8.7,8.3,0.5,4.4,CLE gives up +0.5 FP in Assists to PGs
+Daniss Jenkins,DET,CLE,PG,3300,Assists,3.9,8.7,8.3,0.5,4.4,CLE gives up +0.5 FP in Assists to PGs
