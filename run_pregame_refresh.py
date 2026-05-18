@@ -10,6 +10,12 @@ import time
 from datetime import datetime
 
 REFRESH_SCRIPTS = [
+    # Salary scrape must run first so the slate (game_time, players, teams)
+    # exists before downstream steps depend on it. Without this, production
+    # never re-scrapes the daily FanDuel slate and player_salaries_live goes
+    # stale (the symptom: home page shows "no contests today" even when
+    # games are scheduled).
+    ("scrape_player_salaries.py", "Player Salaries (FanDuel via RotoGrinders)"),
     ("scrape_injury_alerts.py", "Injury Alerts (RotoGrinders)"),
     ("scrape_espn_injuries.py", "Injury Alerts (ESPN Backup)"),
     ("scrape_depth_charts.py", "Depth Charts (Rotation/Injury)"),

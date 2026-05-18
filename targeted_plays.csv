@@ -1,7 +1,5 @@
 player_name,team,opponent,position,salary,stat,player_avg,opp_allows,league_avg,extra_fp,edge_pct,recommendation
-Jarrett Allen,CLE,DET,C,12300,Steals,1.0,1.7,1.4,0.9,21.4,DET gives up +0.9 FP in Steals to Cs
-Jalen Duren,DET,CLE,C,13800,Rebounds,10.5,15.1,14.4,0.8,4.5,CLE gives up +0.8 FP in Rebounds to Cs
-Paul Reed,DET,CLE,C,3000,Rebounds,4.5,15.1,14.4,0.8,4.5,CLE gives up +0.8 FP in Rebounds to Cs
-Tobias Harris,DET,CLE,PF,15300,Points,13.3,23.7,22.9,0.8,3.4,CLE gives up +0.8 FP in Points to PFs
-Cade Cunningham,DET,CLE,PG,16000,Assists,9.9,8.7,8.3,0.5,4.4,CLE gives up +0.5 FP in Assists to PGs
-Daniss Jenkins,DET,CLE,PG,3300,Assists,3.9,8.7,8.3,0.5,4.4,CLE gives up +0.5 FP in Assists to PGs
+Isaiah Hartenstein,OKC,SA,C,8700,Assists,3.5,4.8,4.0,1.2,19.3,SA gives up +1.2 FP in Assists to Cs
+Chet Holmgren,OKC,SA,C,16000,Points,17.1,22.6,21.8,0.8,3.9,SA gives up +0.8 FP in Points to Cs
+Julian Champagnie,SA,OKC,SF,6900,Rebounds,5.8,8.3,7.8,0.6,6.1,OKC gives up +0.6 FP in Rebounds to SFs
+Keldon Johnson,SA,OKC,SF,3000,Rebounds,5.4,8.3,7.8,0.6,6.1,OKC gives up +0.6 FP in Rebounds to SFs
