@@ -1,5 +1,5 @@
 player_name,team,opponent,position,salary,stat,player_avg,opp_allows,league_avg,extra_fp,edge_pct,recommendation
-Isaiah Hartenstein,OKC,SA,C,8700,Assists,3.5,4.8,4.0,1.2,19.3,SA gives up +1.2 FP in Assists to Cs
-Chet Holmgren,OKC,SA,C,16000,Points,17.1,22.6,21.8,0.8,3.9,SA gives up +0.8 FP in Points to Cs
+Isaiah Hartenstein,OKC,SA,C,7500,Assists,3.5,4.8,4.0,1.2,19.3,SA gives up +1.2 FP in Assists to Cs
+Chet Holmgren,OKC,SA,C,13800,Points,17.1,22.6,21.8,0.8,3.9,SA gives up +0.8 FP in Points to Cs
 Julian Champagnie,SA,OKC,SF,6900,Rebounds,5.8,8.3,7.8,0.6,6.1,OKC gives up +0.6 FP in Rebounds to SFs
-Keldon Johnson,SA,OKC,SF,3000,Rebounds,5.4,8.3,7.8,0.6,6.1,OKC gives up +0.6 FP in Rebounds to SFs
+Keldon Johnson,SA,OKC,SF,3300,Rebounds,5.4,8.3,7.8,0.6,6.1,OKC gives up +0.6 FP in Rebounds to SFs
