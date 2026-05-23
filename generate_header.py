@@ -151,13 +151,19 @@ def generate(target_date=None, out_path=None, player_data=None, subtitle_overrid
             props = pd.read_csv('prop_recommendations.csv')
             players_df = pd.read_csv('dfs_players.csv')
 
-            high = props[props['confidence'] == 'HIGH'].copy()
-            if high.empty:
-                print('No HIGH confidence picks found.')
-            else:
-                high['abs_edge'] = high['vs_book_edge'].abs()
-                high = high.sort_values('abs_edge', ascending=False).drop_duplicates(subset='player').head(6)
-                for _, row in high.iterrows():
+            picks = props[props['confidence'] == 'HIGH'].copy()
+            if picks.empty:
+                # Soften: when no HIGH picks exist (common on tiny playoff
+                # slates), fall back to the top picks by absolute edge
+                # regardless of confidence so the header still shows real
+                # players on tonight's slate instead of the blank
+                # "ANALYSIS IN PROGRESS" fallback PNG.
+                picks = props.copy()
+                print(f'No HIGH confidence picks found — falling back to top picks by edge ({len(picks)} candidates).')
+            if not picks.empty:
+                picks['abs_edge'] = picks['vs_book_edge'].abs()
+                picks = picks.sort_values('abs_edge', ascending=False).drop_duplicates(subset='player').head(6)
+                for _, row in picks.iterrows():
                     name = row['player']
                     team_row = players_df[players_df['player_name'] == name]
                     team = team_row.iloc[0]['team'] if len(team_row) else None
