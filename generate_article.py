@@ -28,30 +28,46 @@ def _safe_float(val, default=0):
         return default
 
 
-def _get_slate_game_count():
+def _get_slate_game_count(max_age_hours=36):
     """Return the number of games on tonight's slate from the game_odds table.
 
     This is the same odds source the rest of the site reads (game_odds_live),
     so the article's slate size stays consistent with the contest pages even
     when the downstream dfs_players.csv pipeline drops players whose opponent
-    could not be resolved. Returns an int, or None if the table is missing or
-    cannot be read (caller falls back to the dfs-derived count).
+    could not be resolved.
+
+    Only rows scraped within `max_age_hours` of now are counted so a stale
+    odds table left over from a prior slate cannot inflate today's count.
+    Returns an int, or None if the table is missing, empty, stale, or cannot
+    be read (caller falls back to the dfs-derived count).
     """
     import sqlite3
     try:
         conn = sqlite3.connect('dfs_nba.db')
         try:
             df = pd.read_sql(
-                "SELECT DISTINCT away_team, home_team FROM game_odds "
+                "SELECT away_team, home_team, scraped_at FROM game_odds "
                 "WHERE away_team IS NOT NULL AND away_team != '' "
                 "AND home_team IS NOT NULL AND home_team != ''",
                 conn,
             )
         finally:
             conn.close()
+
+        if df.empty:
+            return None
+
+        ts = pd.to_datetime(df['scraped_at'], errors='coerce')
+        now = pd.Timestamp.utcnow().tz_localize(None)
+        fresh = df[ts.notna() & ((now - ts).dt.total_seconds() <= max_age_hours * 3600)]
+        if fresh.empty:
+            newest = ts.max()
+            print(f"  Slate game count: odds table is stale (newest scraped_at={newest}); using dfs-derived count.")
+            return None
+
         pairs = {
             frozenset((str(r['away_team']).strip(), str(r['home_team']).strip()))
-            for _, r in df.iterrows()
+            for _, r in fresh.iterrows()
         }
         return len(pairs)
     except Exception as e:
