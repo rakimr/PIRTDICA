@@ -28,7 +28,7 @@ def _safe_float(val, default=0):
         return default
 
 
-def _get_slate_game_count(max_age_hours=36):
+def _get_slate_game_count(max_age_hours=36, game_date=None):
     """Return the number of games on tonight's slate from the game_odds table.
 
     This is the same odds source the rest of the site reads (game_odds_live),
@@ -64,6 +64,22 @@ def _get_slate_game_count(max_age_hours=36):
             newest = ts.max()
             print(f"  Slate game count: odds table is stale (newest scraped_at={newest}); using dfs-derived count.")
             return None
+
+        # Date guard: game_odds has no date column, so a missed scrape can leave
+        # a prior slate's rows that are still inside the freshness window. When a
+        # target slate date is known, reject odds whose newest scrape (in ET) is
+        # from more than a day before the slate, so yesterday's games can never be
+        # counted as tonight's. The one-day tolerance keeps overnight runs that
+        # cross midnight ET working off the prior evening's scrape.
+        if game_date is not None:
+            try:
+                newest_et = ts.max().tz_localize('UTC').tz_convert('US/Eastern').date()
+                from datetime import timedelta as _td
+                if newest_et < game_date - _td(days=1):
+                    print(f"  Slate game count: newest odds scrape (ET {newest_et}) predates slate {game_date}; using dfs-derived count.")
+                    return None
+            except Exception:
+                pass
 
         pairs = {
             frozenset((str(r['away_team']).strip(), str(r['home_team']).strip()))
@@ -2189,7 +2205,7 @@ def generate_article(target_date=None):
     # collapses to 0 even though there are clearly games on the slate. Use
     # the odds table as the source of truth and only fall back to the
     # dfs-derived count if the odds table is unavailable/empty.
-    slate_game_count = _get_slate_game_count()
+    slate_game_count = _get_slate_game_count(game_date=target_date)
     if slate_game_count is not None and slate_game_count > game_count:
         print(f"  Slate game count: using odds table ({slate_game_count}) over dfs-derived ({game_count}).")
         game_count = slate_game_count
@@ -2468,7 +2484,14 @@ def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_c
             existing_picks = []
         new_picks = picks_data or []
         if existing_picks and not new_picks:
-            print(f"PRESERVE PICKS: existing has {len(existing_picks)} picks, new is empty — keeping existing picks AND game_count.")
+            print(f"PRESERVE PICKS: existing has {len(existing_picks)} picks, new is empty — keeping existing picks/analysis.")
+            # Still correct the slate size: game_count is derived from the live
+            # odds source, not from the picks, so a later run must be able to fix
+            # a stale count (e.g. the '0 games on the slate' bug) even when it has
+            # no new picks to write.
+            if game_count and game_count != existing.game_count:
+                print(f"  Updating game_count {existing.game_count} -> {game_count} while preserving picks.")
+                existing.game_count = game_count
         else:
             existing.picks_json = json.dumps(new_picks)
             existing.analysis_json = json.dumps(analysis_data)
