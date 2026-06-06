@@ -28,6 +28,37 @@ def _safe_float(val, default=0):
         return default
 
 
+def _get_slate_game_count():
+    """Return the number of games on tonight's slate from the game_odds table.
+
+    This is the same odds source the rest of the site reads (game_odds_live),
+    so the article's slate size stays consistent with the contest pages even
+    when the downstream dfs_players.csv pipeline drops players whose opponent
+    could not be resolved. Returns an int, or None if the table is missing or
+    cannot be read (caller falls back to the dfs-derived count).
+    """
+    import sqlite3
+    try:
+        conn = sqlite3.connect('dfs_nba.db')
+        try:
+            df = pd.read_sql(
+                "SELECT DISTINCT away_team, home_team FROM game_odds "
+                "WHERE away_team IS NOT NULL AND away_team != '' "
+                "AND home_team IS NOT NULL AND home_team != ''",
+                conn,
+            )
+        finally:
+            conn.close()
+        pairs = {
+            frozenset((str(r['away_team']).strip(), str(r['home_team']).strip()))
+            for _, r in df.iterrows()
+        }
+        return len(pairs)
+    except Exception as e:
+        print(f"  Slate game count: odds table unavailable ({e}); using dfs-derived count.")
+        return None
+
+
 def build_game_label(player_name, player_team, opponent, dfs_df):
     player_row = dfs_df[dfs_df['player_name'] == player_name]
     if player_row.empty:
@@ -551,7 +582,7 @@ def build_analysis_text_template(row, dfs_df, game_date=None):
     return "\n\n".join(paragraphs)
 
 
-def _build_pick_context(row, dfs_df):
+def _build_pick_context(row, dfs_df, game_date=None):
     player = row['player']
     stat = row['stat']
     stat_label = STAT_LABELS.get(stat, stat.lower())
@@ -1945,7 +1976,7 @@ def build_analysis_claude(high_rows, dfs_df, best_available=False, game_date=Non
         if player in seen:
             continue
         seen.add(player)
-        pick_contexts.append(_build_pick_context(row, dfs_df))
+        pick_contexts.append(_build_pick_context(row, dfs_df, game_date=game_date))
 
     if not pick_contexts:
         return None
@@ -2134,6 +2165,18 @@ def generate_article(target_date=None):
             else:
                 games.add(f"{o} @ {t}")
     game_count = len(games)
+
+    # Authoritative slate size comes from the game_odds table (the same
+    # source the rest of the site reads via game_odds_live). dfs_df drops
+    # every player whose opponent could not be resolved, so on nights when
+    # the odds scrape lags behind the salary scrape the dfs-derived count
+    # collapses to 0 even though there are clearly games on the slate. Use
+    # the odds table as the source of truth and only fall back to the
+    # dfs-derived count if the odds table is unavailable/empty.
+    slate_game_count = _get_slate_game_count()
+    if slate_game_count is not None and slate_game_count > game_count:
+        print(f"  Slate game count: using odds table ({slate_game_count}) over dfs-derived ({game_count}).")
+        game_count = slate_game_count
 
     claude_result = build_claude_analyst(props, dfs_df, game_date=target_date)
 
