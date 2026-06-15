@@ -40,6 +40,8 @@ SCRIPTS = [
     ("scrape_wnba_props.py --force", "WNBA Games & Props (The Odds API)"),
     ("scrape_wnba_standings.py", "WNBA Standings (ESPN)"),
     ("scrape_wnba_gamelogs.py", "WNBA Game Logs & Season Stats (ESPN)"),
+    ("scrape_wnba_player_shot_zones.py", "WNBA Player Shot Zones (Basketball Reference)"),
+    ("scrape_wnba_team_defense_zones.py", "WNBA Defensive Shot Zones (ESPN play-by-play)"),
     ("build_wnba_projections.py", "WNBA Projections & Prop Recommendations"),
     ("scrape_wnba_referee_assignments.py", "WNBA Referee Assignments (official.nba.com)"),
     ("build_wnba_referee_stats.py", "WNBA Referee Foul Tendencies (ESPN)"),

@@ -543,28 +543,31 @@ def get_player_game_log(player_name, stat_col, n=20):
         return None, str(e)
 
 
-def get_player_shot_zone_detail(player_name_key):
+def get_player_shot_zone_detail(player_name_key, league="nba"):
+    tbl = "wnba_player_shot_zones" if league == "wnba" else "player_shot_zones"
     if use_postgres():
         try:
-            df = _pg_query("SELECT * FROM player_shot_zones_live")
-            return df if not df.empty else None
+            df = _pg_query(f"SELECT * FROM {tbl}_live")
+            if df is not None and not df.empty:
+                return df
         except Exception:
-            return None
+            pass
     try:
         import sqlite3
         conn = sqlite3.connect("dfs_nba.db")
         tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
-        if "player_shot_zones" not in tables:
+        if tbl not in tables:
             conn.close()
             return None
-        df = pd.read_sql_query("SELECT * FROM player_shot_zones", conn)
+        df = pd.read_sql_query(f"SELECT * FROM {tbl}", conn)
         conn.close()
         return df if not df.empty else None
     except Exception:
         return None
 
 
-def get_team_defense_shot_zone(team):
+def get_team_defense_shot_zone(team, league="nba"):
+    tbl = "wnba_team_defense_shot_zones" if league == "wnba" else "team_defense_shot_zones"
     if use_postgres():
         try:
             with engine.connect() as conn:
@@ -573,22 +576,23 @@ def get_team_defense_shot_zone(team):
                     "mid_fga, mid_fgm, corner3_fga, corner3_fgm, atb3_fga, atb3_fgm, "
                     "ra_freq, paint_freq, mid_freq, corner3_freq, atb3_freq, "
                     "ra_fg_pct, paint_fg_pct, mid_fg_pct, corner3_fg_pct, atb3_fg_pct "
-                    "FROM team_defense_shot_zones_live WHERE team = :team"
+                    f"FROM {tbl}_live WHERE team = :team"
                 ), {"team": team.upper()})
                 row = result.fetchone()
 
                 all_rows = conn.execute(text(
                     "SELECT total_fga, ra_fga, ra_fgm, paint_fga, paint_fgm, mid_fga, mid_fgm, "
-                    "corner3_fga, corner3_fgm, atb3_fga, atb3_fgm FROM team_defense_shot_zones_live"
+                    f"corner3_fga, corner3_fgm, atb3_fga, atb3_fgm FROM {tbl}_live"
                 )).fetchall()
-                return row, all_rows
+                if row is not None or all_rows:
+                    return row, all_rows
         except Exception:
-            return None, []
+            pass
     try:
         import sqlite3
         conn = sqlite3.connect("dfs_nba.db")
         tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
-        if "team_defense_shot_zones" not in tables:
+        if tbl not in tables:
             conn.close()
             return None, []
 
@@ -597,13 +601,13 @@ def get_team_defense_shot_zone(team):
             "mid_fga, mid_fgm, corner3_fga, corner3_fgm, atb3_fga, atb3_fgm, "
             "ra_freq, paint_freq, mid_freq, corner3_freq, atb3_freq, "
             "ra_fg_pct, paint_fg_pct, mid_fg_pct, corner3_fg_pct, atb3_fg_pct "
-            "FROM team_defense_shot_zones WHERE team = ?",
+            f"FROM {tbl} WHERE team = ?",
             (team.upper(),)
         ).fetchone()
 
         all_rows = conn.execute(
             "SELECT total_fga, ra_fga, ra_fgm, paint_fga, paint_fgm, mid_fga, mid_fgm, "
-            "corner3_fga, corner3_fgm, atb3_fga, atb3_fgm FROM team_defense_shot_zones"
+            f"corner3_fga, corner3_fgm, atb3_fga, atb3_fgm FROM {tbl}"
         ).fetchall()
         conn.close()
         return row, all_rows
@@ -611,24 +615,27 @@ def get_team_defense_shot_zone(team):
         return None, []
 
 
-def get_team_defense_teams():
+def get_team_defense_teams(league="nba"):
+    tbl = "wnba_team_defense_shot_zones" if league == "wnba" else "team_defense_shot_zones"
     if use_postgres():
         try:
             with engine.connect() as conn:
                 result = conn.execute(text(
-                    "SELECT DISTINCT team FROM team_defense_shot_zones_live ORDER BY team"
+                    f"SELECT DISTINCT team FROM {tbl}_live ORDER BY team"
                 ))
-                return [row[0] for row in result.fetchall()]
+                teams = [row[0] for row in result.fetchall()]
+                if teams:
+                    return teams
         except Exception:
-            return []
+            pass
     try:
         import sqlite3
         conn = sqlite3.connect("dfs_nba.db")
         tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
-        if "team_defense_shot_zones" not in tables:
+        if tbl not in tables:
             conn.close()
             return []
-        teams = [r[0] for r in conn.execute("SELECT DISTINCT team FROM team_defense_shot_zones ORDER BY team").fetchall()]
+        teams = [r[0] for r in conn.execute(f"SELECT DISTINCT team FROM {tbl} ORDER BY team").fetchall()]
         conn.close()
         return teams
     except Exception:

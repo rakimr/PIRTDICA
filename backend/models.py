@@ -585,6 +585,33 @@ class PlayerShotZoneLive(Base):
     updated_at = Column(DateTime, server_default=func.now())
 
 
+class WNBAPlayerShotZoneLive(Base):
+    __tablename__ = "wnba_player_shot_zones_live"
+
+    id = Column(Integer, primary_key=True, index=True)
+    player_name = Column(String(100), nullable=False, index=True)
+    player_id = Column(Integer)
+    team = Column(String(10))
+    total_fga = Column(Integer)
+    ra_fga = Column(Integer)
+    ra_fgm = Column(Integer)
+    paint_fga = Column(Integer)
+    paint_fgm = Column(Integer)
+    mid_fga = Column(Integer)
+    mid_fgm = Column(Integer)
+    three_fga = Column(Integer)
+    three_fgm = Column(Integer)
+    corner3_fga = Column(Integer)
+    atb3_fga = Column(Integer)
+    ra_pct = Column(Float)
+    paint_pct = Column(Float)
+    rim_paint_pct = Column(Float)
+    mid_pct = Column(Float)
+    three_pct = Column(Float)
+    scraped_at = Column(String(50))
+    updated_at = Column(DateTime, server_default=func.now())
+
+
 class PlayerShotCreationLive(Base):
     __tablename__ = "player_shot_creation_live"
 
@@ -720,6 +747,38 @@ class TeamDefenseShotZoneLive(Base):
     mid_fg_pct = Column(Float)
     corner3_fg_pct = Column(Float)
     atb3_fg_pct = Column(Float)
+    updated_at = Column(DateTime, server_default=func.now())
+
+
+class WNBATeamDefenseShotZoneLive(Base):
+    __tablename__ = "wnba_team_defense_shot_zones_live"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team = Column(String(10), nullable=False, index=True)
+    team_name = Column(String(50))
+    team_id = Column(Integer)
+    total_fga = Column(Integer)
+    ra_fga = Column(Integer)
+    ra_fgm = Column(Integer)
+    paint_fga = Column(Integer)
+    paint_fgm = Column(Integer)
+    mid_fga = Column(Integer)
+    mid_fgm = Column(Integer)
+    corner3_fga = Column(Integer)
+    corner3_fgm = Column(Integer)
+    atb3_fga = Column(Integer)
+    atb3_fgm = Column(Integer)
+    ra_freq = Column(Float)
+    paint_freq = Column(Float)
+    mid_freq = Column(Float)
+    corner3_freq = Column(Float)
+    atb3_freq = Column(Float)
+    ra_fg_pct = Column(Float)
+    paint_fg_pct = Column(Float)
+    mid_fg_pct = Column(Float)
+    corner3_fg_pct = Column(Float)
+    atb3_fg_pct = Column(Float)
+    scraped_at = Column(String(50))
     updated_at = Column(DateTime, server_default=func.now())
 
 

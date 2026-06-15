@@ -58,6 +58,8 @@ SQLITE_TABLE_MAP = {
     "wnba_games": "wnba_games_live",
     "wnba_props": "wnba_props_live",
     "wnba_standings": "wnba_standings_live",
+    "wnba_player_shot_zones": "wnba_player_shot_zones_live",
+    "wnba_team_defense_shot_zones": "wnba_team_defense_shot_zones_live",
 }
 
 

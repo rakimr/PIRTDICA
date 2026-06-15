@@ -161,6 +161,7 @@
         </div>
         <div id="cluster-legend" class="cluster-legend"></div>
     </div>
+    {% endif %}
 
     <div class="trends-section">
         <h2>Defensive Shot Charts</h2>
@@ -193,16 +194,26 @@
     {% if explorer_players %}
     <div class="trends-section">
         <h2>Player Explorer</h2>
+        {% if league == 'wnba' %}
+        <p class="chart-description">Browse every WNBA player with shot data. Search by name or filter by position and team, then click any player to view their shot chart.</p>
+        {% else %}
         <p class="chart-description">Browse every NBA player with shot data. Today's slate players appear at the top with matchup and status. Off-slate players are searchable too // perfect for content prep or scouting a name that isn't on tonight's card. Click any player to view their shot chart.</p>
+        {% endif %}
         <div class="explorer-filters">
             <input type="text" id="explorer-search" class="pool-search" placeholder="Search players...">
             <select id="explorer-pos-filter" class="pool-select">
                 <option value="">All Positions</option>
+                {% if league == 'wnba' %}
+                <option value="G">G</option>
+                <option value="F">F</option>
+                <option value="C">C</option>
+                {% else %}
                 <option value="PG">PG</option>
                 <option value="SG">SG</option>
                 <option value="SF">SF</option>
                 <option value="PF">PF</option>
                 <option value="C">C</option>
+                {% endif %}
             </select>
             <select id="explorer-team-filter" class="pool-select">
                 <option value="">All Teams</option>
@@ -266,6 +277,7 @@
     </div>
     {% endif %}
 
+    {% if league != 'wnba' %}
     {% if top_value %}
     <div class="trends-section">
         <h2>Top Value Plays</h2>
@@ -389,6 +401,7 @@
         </div>
     </div>
     {% endif %}
+    {% endif %}
 </div>
 
 <div id="explorer-shot-chart-modal" class="sc-modal-overlay" style="display:none;" onclick="if(event.target===this)closeExplorerShotChart()">
@@ -415,6 +428,7 @@
     </div>
 </div>
 
+{% if league != 'wnba' %}
 <div id="trend-modal" class="trend-modal-overlay" style="display:none;">
     <div class="trend-modal">
         <div class="trend-modal-header">
@@ -433,8 +447,8 @@
             <span id="trend-modal-call"></span>
         </div>
     </div>
-    {% endif %}
 </div>
+{% endif %}
 
 {% if league != 'wnba' %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -1111,13 +1125,20 @@ document.querySelectorAll('.scheme-mode-btn').forEach(btn => {
 
 loadSchemeData();
 
+</script>
+{% endif %}
+
+<script>
+// Defensive Shot Charts + Player Explorer // shared by NBA and WNBA (raw canvas,
+// no Chart.js). TRENDS_LEAGUE selects which league's data the API returns.
+var TRENDS_LEAGUE = "{{ league }}";
 (function() {
     var defShotSelect = document.getElementById('def-shot-team-select');
     var defShotContainer = document.getElementById('def-shot-chart-container');
     var defShotLoading = document.getElementById('def-shot-loading');
     var defShotEmpty = document.getElementById('def-shot-empty');
 
-    fetch('/api/team-defense-shot-chart-teams')
+    fetch('/api/team-defense-shot-chart-teams?league=' + TRENDS_LEAGUE)
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (!data.teams || data.teams.length === 0) return;
@@ -1140,7 +1161,7 @@ loadSchemeData();
         defShotContainer.style.display = 'none';
         defShotLoading.style.display = 'block';
 
-        fetch('/api/team-defense-shot-chart/' + encodeURIComponent(team))
+        fetch('/api/team-defense-shot-chart/' + encodeURIComponent(team) + '?league=' + TRENDS_LEAGUE)
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 defShotLoading.style.display = 'none';
@@ -1468,7 +1489,7 @@ function openExplorerShotChart(playerName, evt) {
     document.getElementById('esc-total-fga').textContent = '';
     document.getElementById('esc-zone-stats').innerHTML = '';
 
-    fetch('/api/player-shot-chart/' + encodeURIComponent(playerName))
+    fetch('/api/player-shot-chart/' + encodeURIComponent(playerName) + '?league=' + TRENDS_LEAGUE)
         .then(function(r) { return r.json(); })
         .then(function(data) {
             loading.style.display = 'none';
@@ -1649,5 +1670,4 @@ function renderExplorerZoneStats(data) {
 }
 
 </script>
-{% endif %}
 {% endblock %}

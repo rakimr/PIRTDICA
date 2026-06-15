@@ -521,6 +521,38 @@ def _render_wnba_trends(request: Request, user, db: Session):
     except Exception as e:
         print(f"[WNBA TRENDS] prop table load failed: {e}")
 
+    # Player Explorer rows: every player with a WNBA shot-zone profile, plus
+    # position from wnba_player_stats (G/F/C). No archetype/creation columns //
+    # there is no WNBA tracking source, mirroring how WNBA articles use position.
+    explorer_players = []
+    try:
+        import sqlite3 as _sq
+        _conn = _sq.connect("dfs_nba.db")
+        _tables = {r[0] for r in _conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        if "wnba_player_shot_zones" in _tables:
+            pos_map = {}
+            if "wnba_player_stats" in _tables:
+                for nm, ps in _conn.execute(
+                        "SELECT player_name, position FROM wnba_player_stats"):
+                    if nm:
+                        pos_map[nm] = (ps or "").strip()
+            for nm, tm in _conn.execute(
+                    "SELECT player_name, team FROM wnba_player_shot_zones "
+                    "ORDER BY player_name"):
+                if not nm:
+                    continue
+                explorer_players.append({
+                    "player_name": nm,
+                    "true_position": pos_map.get(nm, ""),
+                    "team": tm or "",
+                    "opponent": "",
+                    "injury_status": "",
+                })
+        _conn.close()
+    except Exception as e:
+        print(f"[WNBA TRENDS] explorer build failed: {e}")
+
     return templates.TemplateResponse("trends.html", {
         "request": request,
         "user": user,
@@ -529,7 +561,7 @@ def _render_wnba_trends(request: Request, user, db: Session):
         "targeted": [],
         "ref_chart_exists": _os.path.exists("static/images/wnba_ref_foul_chart.png"),
         "cache_bust": int(_time.time()),
-        "explorer_players": [],
+        "explorer_players": explorer_players,
         "headshots": {},
         "charts_last_updated": charts_last_updated,
         "charts_stale": charts_stale,
@@ -3362,7 +3394,7 @@ async def api_player_trend(player_name: str, stat: str, n: int = 10):
         return {"error": str(e), "games": []}
 
 @app.get("/api/player-shot-chart/{player_name}")
-async def api_player_shot_chart(player_name: str):
+async def api_player_shot_chart(player_name: str, league: str = "nba"):
     import unicodedata
     import re as re_mod
 
@@ -3386,7 +3418,7 @@ async def api_player_shot_chart(player_name: str):
         return ascii_name
 
     try:
-        df = data_access.get_player_shot_zone_detail(player_name)
+        df = data_access.get_player_shot_zone_detail(player_name, league=league)
         if df is None or df.empty:
             return {"error": "Shot zone data not yet available.", "zones": {}}
 
@@ -3518,9 +3550,9 @@ async def api_player_shot_chart(player_name: str):
 
 
 @app.get("/api/team-defense-shot-chart/{team}")
-async def api_team_defense_shot_chart(team: str):
+async def api_team_defense_shot_chart(team: str, league: str = "nba"):
     try:
-        row, all_teams = data_access.get_team_defense_shot_zone(team)
+        row, all_teams = data_access.get_team_defense_shot_zone(team, league=league)
 
         if not row:
             return {"error": f"No data for team {team}", "zones": {}}
@@ -3560,7 +3592,7 @@ async def api_team_defense_shot_chart(team: str):
             league_avg["Corner 3"] = lg_z(t_c3, t_c3_m, t_fga)
             league_avg["Above Break 3"] = lg_z(t_atb3, t_atb3_m, t_fga)
 
-        teams_list = data_access.get_team_defense_teams()
+        teams_list = data_access.get_team_defense_teams(league=league)
 
         return {
             "team": row[0],
@@ -3575,9 +3607,9 @@ async def api_team_defense_shot_chart(team: str):
 
 
 @app.get("/api/team-defense-shot-chart-teams")
-async def api_team_defense_teams():
+async def api_team_defense_teams(league: str = "nba"):
     try:
-        teams = data_access.get_team_defense_teams()
+        teams = data_access.get_team_defense_teams(league=league)
         return {"teams": teams}
     except Exception:
         return {"teams": []}
