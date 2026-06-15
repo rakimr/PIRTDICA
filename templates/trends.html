@@ -51,7 +51,7 @@
         <h2>Usage to Fantasy Points</h2>
         <p class="chart-description">Usage rate vs fantasy points. Bigger bubbles = better value (FP per $1K). Top-right = high-usage stars.</p>
         <div class="chart-container">
-            <img src="/static/images/value_chart.png?v={{ cache_bust }}" alt="Usage to Fantasy Points" class="trend-chart">
+            <img src="/static/images/{{ chart_pre }}value_chart.png?v={{ cache_bust }}" alt="Usage to Fantasy Points" class="trend-chart">
         </div>
     </div>
     
@@ -59,10 +59,11 @@
         <h2>Risk-Reward Frontier</h2>
         <p class="chart-description">Bottom-right = cash plays, top-left = GPP darts, top-right = slate breakers.</p>
         <div class="chart-container">
-            <img src="/static/images/upside_chart.png?v={{ cache_bust }}" alt="Risk-Reward Frontier" class="trend-chart">
+            <img src="/static/images/{{ chart_pre }}upside_chart.png?v={{ cache_bust }}" alt="Risk-Reward Frontier" class="trend-chart">
         </div>
     </div>
     
+    {% if league != 'wnba' %}
     <div class="trends-section">
         <h2>Referee Foul Tendencies</h2>
         <p class="chart-description">Tonight's crews plotted by foul volume (X) and home/away bias (Y). ▲ = home-favored, ▼ = road-favored.</p>
@@ -76,15 +77,17 @@
             {% endif %}
         </div>
     </div>
+    {% endif %}
     
     <div class="trends-section">
         <h2>Defense vs Position Matchups</h2>
         <p class="chart-description">Green = soft matchup (target). Red = tough matchup (avoid).</p>
         <div class="chart-container">
-            <img src="/static/images/dvp_heatmap.png?v={{ cache_bust }}" alt="DVP Heatmap" class="trend-chart dvp-heatmap">
+            <img src="/static/images/{{ chart_pre }}dvp_heatmap.png?v={{ cache_bust }}" alt="DVP Heatmap" class="trend-chart dvp-heatmap">
         </div>
     </div>
 
+    {% if league != 'wnba' %}
     <div class="trends-section">
         <h2>Defense vs Archetype (DVA)</h2>
         <p class="chart-description">How teams defend playstyles, not positions. DVS multiplier combines archetype stat profile with defensive leaks. Toggle between FP/min differential and DVS multiplier. Hover cells for stat breakdown.</p>
@@ -432,8 +435,10 @@
             <span id="trend-modal-call"></span>
         </div>
     </div>
+    {% endif %}
 </div>
 
+{% if league != 'wnba' %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 const ARCHETYPE_COLORS = {
@@ -1646,4 +1651,5 @@ function renderExplorerZoneStats(data) {
 }
 
 </script>
+{% endif %}
 {% endblock %}

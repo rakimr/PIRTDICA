@@ -19,6 +19,7 @@ from PIL import Image, ImageDraw, ImageFont
 FONT_PATH = '/tmp/Righteous-Regular.ttf'
 FONT_URL = 'https://github.com/google/fonts/raw/main/ofl/righteous/Righteous-Regular.ttf'
 ESPN_HEADSHOT = 'https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/{id}.png&h=200&w=200&scale=crop'
+ESPN_HEADSHOT_WNBA = 'https://a.espncdn.com/combiner/i?img=/i/headshots/wnba/players/full/{id}.png&h=200&w=200&scale=crop'
 
 ESPN_TEAM_IDS = {
     'ATL': 1, 'BOS': 2, 'BKN': 17, 'CHA': 30, 'CHI': 4,
@@ -67,8 +68,9 @@ def get_espn_ids(player_names, teams):
     return ids
 
 
-def fetch_headshot(espn_id, d=109):
-    url = ESPN_HEADSHOT.format(id=espn_id)
+def fetch_headshot(espn_id, d=109, league='nba'):
+    tmpl = ESPN_HEADSHOT_WNBA if league == 'wnba' else ESPN_HEADSHOT
+    url = tmpl.format(id=espn_id)
     r = requests.get(url, timeout=10)
     img = Image.open(io.BytesIO(r.content)).convert('RGBA').resize((d, d), Image.LANCZOS)
     white = Image.new('RGBA', (d, d), (255, 255, 255, 255))
@@ -131,7 +133,8 @@ def _format_line(line):
         return str(line)
 
 
-def generate(target_date=None, out_path=None, player_data=None, subtitle_override=None):
+def generate(target_date=None, out_path=None, player_data=None, subtitle_override=None,
+             espn_ids=None, league='nba'):
     import pandas as pd
 
     if target_date is None:
@@ -186,13 +189,14 @@ def generate(target_date=None, out_path=None, player_data=None, subtitle_overrid
         names = [p['name'] for p in normalized]
         teams = [p['team'] for p in normalized]
         print(f'Building header for {len(names)} players...')
-        espn_ids = get_espn_ids(names, teams)
+        if espn_ids is None:
+            espn_ids = get_espn_ids(names, teams)
 
         for p in normalized:
             espn_id = espn_ids.get(p['name'])
             if espn_id:
                 try:
-                    img = fetch_headshot(espn_id, HEADSHOT_D)
+                    img = fetch_headshot(espn_id, HEADSHOT_D, league=league)
                     shots.append((p, img))
                     print(f'  {p["name"]}: OK')
                 except Exception as e:

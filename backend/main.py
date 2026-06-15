@@ -399,17 +399,135 @@ def build_wnba_standings():
     return east, west
 
 
+def _render_wnba_articles(request: Request, user, db: Session):
+    """Render the shared articles.html with REAL WNBA modeled content
+    (Claude analysis + Pillow header + prop recs), mirroring the NBA page."""
+    try:
+        article = db.query(models.WNBADailyArticle).order_by(
+            models.WNBADailyArticle.slate_date.desc()
+        ).first()
+    except Exception as e:
+        print(f"[WNBA ARTICLES] DB query failed: {e}")
+        article = None
+
+    try:
+        from backend.stripe_billing import has_picks_access
+        has_access = has_picks_access(user, db)
+    except Exception as e:
+        print(f"[WNBA ARTICLES] Stripe check failed: {e}")
+        has_access = False
+
+    picks, analysis, prop_recs = [], [], []
+    if article and has_access:
+        try:
+            if article.picks_json:
+                picks = json.loads(article.picks_json)
+        except (json.JSONDecodeError, TypeError):
+            picks = []
+        try:
+            if article.analysis_json:
+                analysis = json.loads(article.analysis_json)
+        except (json.JSONDecodeError, TypeError):
+            analysis = []
+        try:
+            import pandas as pd
+            prop_csv = os.path.join(os.path.dirname(__file__), '..', 'wnba_prop_recommendations.csv')
+            if os.path.exists(prop_csv):
+                df = pd.read_csv(prop_csv)
+                if 'composite_score' in df.columns:
+                    df = df.sort_values('composite_score', ascending=False)
+                for _, row in df.head(20).iterrows():
+                    book_line = row.get('book_line')
+                    proj = row.get('projected_value', row.get('player_avg', 0))
+                    avg = row.get('player_avg', 0)
+                    edge = row.get('vs_book_edge')
+                    edge_str = f"+{edge}%" if edge and edge > 0 else f"{edge}%" if edge else ""
+                    prop_recs.append({
+                        'player': row.get('player', ''),
+                        'team': row.get('team', ''),
+                        'opponent': row.get('opponent', ''),
+                        'stat': row.get('stat', ''),
+                        'avg': round(avg, 1) if pd.notna(avg) else '',
+                        'line': round(book_line, 1) if pd.notna(book_line) else '',
+                        'projected': round(proj, 1) if pd.notna(proj) else '',
+                        'edge': edge_str,
+                        'pick': row.get('recommendation', ''),
+                        'confidence': row.get('confidence', 'LOW'),
+                        'hit_rate': f"{row['hit_rate']:.0f}%" if pd.notna(row.get('hit_rate')) else '',
+                        'cv': f"{row['cv']:.2f}" if pd.notna(row.get('cv')) else '',
+                        'composite': round(row.get('composite_score', 0), 1) if pd.notna(row.get('composite_score')) else '',
+                    })
+        except Exception as e:
+            print(f"[WNBA ARTICLES] Prop recs load failed: {e}")
+
+    return templates.TemplateResponse("articles.html", {
+        "request": request,
+        "user": user,
+        "article": article,
+        "picks": picks,
+        "analysis": analysis,
+        "has_access": has_access,
+        "pre_lock": False,
+        "prop_recs": prop_recs,
+        "grading_report": [],
+        "official_locked": False,
+        "official_locked_at_str": None,
+        "league": "wnba",
+    })
+
+
+def _render_wnba_trends(request: Request, user, db: Session):
+    """Render the shared trends.html with WNBA chart images (value/upside/DVP).
+    Charts with no WNBA data source (referee, play-types, shot-zone tracking,
+    archetype clusters) are gated off in the template via league == 'wnba'."""
+    import os as _os
+    import time as _time
+    from datetime import datetime as _dt
+    try:
+        from backend.stripe_billing import has_statpack_access
+        has_access = has_statpack_access(user, db)
+    except Exception as e:
+        print(f"[WNBA TRENDS] Stripe check failed: {e}")
+        has_access = False
+    if not has_access:
+        return templates.TemplateResponse("trends_paywall.html", {
+            "request": request, "user": user,
+        })
+
+    chart_files = [
+        "static/images/wnba_value_chart.png",
+        "static/images/wnba_upside_chart.png",
+        "static/images/wnba_dvp_heatmap.png",
+    ]
+    mtimes = [_os.path.getmtime(f) for f in chart_files if _os.path.exists(f)]
+    charts_last_updated, charts_stale = None, True
+    if mtimes:
+        charts_last_updated = _dt.fromtimestamp(max(mtimes), tz=EASTERN)
+        charts_stale = charts_last_updated.date() < get_eastern_today()
+
+    return templates.TemplateResponse("trends.html", {
+        "request": request,
+        "user": user,
+        "top_value": [],
+        "props": [],
+        "targeted": [],
+        "ref_chart_exists": False,
+        "cache_bust": int(_time.time()),
+        "explorer_players": [],
+        "headshots": {},
+        "charts_last_updated": charts_last_updated,
+        "charts_stale": charts_stale,
+        "league": "wnba",
+        "chart_pre": "wnba_",
+    })
+
+
 @app.get("/articles")
 async def articles_page(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     league = get_league(request)
     if league == "wnba":
-        ctx = build_wnba_board(
-            "WNBA Props",
-            "Live FanDuel prop lines for the upcoming WNBA slate.",
-        )
-        ctx.update({"request": request, "user": user, "league": "wnba"})
-        resp = templates.TemplateResponse("wnba_board.html", ctx)
+        resp = _render_wnba_articles(request, user, db)
         resp.set_cookie("pirtdica_league", "wnba", max_age=60 * 60 * 24 * 30, samesite="lax")
         return resp
     today = get_eastern_today()
@@ -1429,12 +1547,7 @@ async def trends(request: Request, db: Session = Depends(get_db)):
         return html_redirect("/login")
     league = get_league(request)
     if league == "wnba":
-        ctx = build_wnba_board(
-            "WNBA Chart Gallery",
-            "Live FanDuel prop board for the upcoming WNBA slate.",
-        )
-        ctx.update({"request": request, "user": user, "league": "wnba"})
-        resp = templates.TemplateResponse("wnba_board.html", ctx)
+        resp = _render_wnba_trends(request, user, db)
         resp.set_cookie("pirtdica_league", "wnba", max_age=60 * 60 * 24 * 30, samesite="lax")
         return resp
     try:
@@ -1691,6 +1804,8 @@ async def trends(request: Request, db: Session = Depends(get_db)):
         "headshots": headshots,
         "charts_last_updated": charts_last_updated,
         "charts_stale": charts_stale,
+        "league": "nba",
+        "chart_pre": "",
     })
 
 @app.get("/leaderboard")

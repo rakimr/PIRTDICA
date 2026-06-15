@@ -18,11 +18,16 @@ PIPELINE_OUTPUT_FILES = [
     "static/images/ref_foul_chart.png",
     "static/images/upside_chart.png",
     "static/images/value_chart.png",
+    "wnba_prop_recommendations.csv",
+    "static/images/wnba_value_chart.png",
+    "static/images/wnba_upside_chart.png",
+    "static/images/wnba_dvp_heatmap.png",
 ]
 
 def _find_article_headers():
     import glob
-    return glob.glob("static/images/article_header_*.png")
+    return (glob.glob("static/images/article_header_*.png")
+            + glob.glob("static/images/wnba_article_header_*.png"))
 
 SOURCE_CODE_FILES = [
     "backend/__init__.py",
@@ -43,6 +48,12 @@ SOURCE_CODE_FILES = [
     "generate_house_lineup.py",
     "generate_article.py",
     "generate_header.py",
+    "scrape_wnba_props.py",
+    "scrape_wnba_standings.py",
+    "scrape_wnba_gamelogs.py",
+    "build_wnba_projections.py",
+    "generate_wnba_charts.py",
+    "generate_wnba_article.py",
     "run_daily_update.py",
     "push_to_github.py",
     "sync_to_postgres.py",

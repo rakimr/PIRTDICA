@@ -803,6 +803,20 @@ class DailyArticle(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class WNBADailyArticle(Base):
+    __tablename__ = "wnba_daily_articles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    slate_date = Column(Date, nullable=False, unique=True, index=True)
+    header_image_path = Column(String(255))
+    picks_json = Column(Text)
+    analysis_json = Column(Text)
+    game_count = Column(Integer, default=0)
+    best_available = Column(Boolean, default=False)
+    claude_selected = Column(Boolean, default=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class DailyPickGrade(Base):
     __tablename__ = "daily_pick_grades"
     __table_args__ = (UniqueConstraint('slate_date', 'player', 'stat', name='uq_grade_date_player_stat'),)

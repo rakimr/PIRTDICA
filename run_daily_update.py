@@ -39,6 +39,8 @@ SCRIPTS = [
     ("scrape_player_props.py", "Player Prop Odds (The Odds API)"),
     ("scrape_wnba_props.py --force", "WNBA Games & Props (The Odds API)"),
     ("scrape_wnba_standings.py", "WNBA Standings (ESPN)"),
+    ("scrape_wnba_gamelogs.py", "WNBA Game Logs & Season Stats (ESPN)"),
+    ("build_wnba_projections.py", "WNBA Projections & Prop Recommendations"),
     ("scrape_fta_ownership.py", "FTA Ownership Projections"),
     ("analysis/player_value.py", "Player Value Analysis"),
     ("estimate_ownership.py --iterations 500 --update-calibration", "Ownership Estimation (with FTA calibration)"),
@@ -46,6 +48,8 @@ SCRIPTS = [
     ("score_contest.py --update-factors", "Score Yesterday's Contest + Update ML Factors"),
     ("grade_picks.py", "Grade Yesterday's Article Picks"),
     ("generate_article.py", "Generate Daily Article"),
+    ("generate_wnba_charts.py", "WNBA Chart Gallery (value/upside/DVP)"),
+    ("generate_wnba_article.py", "Generate WNBA Daily Article"),
     ("sync_to_postgres.py", "Sync Pipeline Data to PostgreSQL"),
 ]
 

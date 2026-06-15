@@ -35,6 +35,9 @@ CHART_FILES = [
     "static/images/upside_chart.png",
     "static/images/dvp_heatmap.png",
     "static/images/ref_foul_chart.png",
+    "static/images/wnba_value_chart.png",
+    "static/images/wnba_upside_chart.png",
+    "static/images/wnba_dvp_heatmap.png",
 ]
 
 
@@ -158,6 +161,16 @@ def regenerate_charts():
             print(f"     ref_foul_chart OK", flush=True)
         except Exception as e:
             print(f"     ref_foul_chart FAILED: {e}", flush=True)
+
+        try:
+            import generate_wnba_charts as wnba_charts
+            wnba_df = wnba_charts._load_value()
+            wnba_charts.generate_value_chart(wnba_df)
+            wnba_charts.generate_upside_chart(wnba_df)
+            wnba_charts.generate_dvp_heatmap()
+            print(f"     wnba value/upside/dvp OK", flush=True)
+        except Exception as e:
+            print(f"     wnba charts FAILED: {e}", flush=True)
 
         return True
     except Exception as e:
