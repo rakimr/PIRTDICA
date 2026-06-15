@@ -2,6 +2,8 @@ import sys
 import os
 import json
 import base64
+import threading
+import concurrent.futures
 import urllib.request
 from datetime import datetime
 
@@ -195,6 +197,35 @@ def create_blob(token, content_bytes, is_binary=False):
     return result["sha"]
 
 
+def create_blob_with_timeout(token, content_bytes, is_binary=False, seconds=25, retries=5):
+    # Network calls in this environment occasionally hang past urllib's own
+    # timeout (e.g. stuck in connect/DNS). Run each upload in a worker thread and
+    # use join(timeout) so the main thread always regains control and retries on a
+    # fresh connection. A hung worker is left as a daemon and dies with the process.
+    last_err = None
+    for attempt in range(1, retries + 1):
+        result = {}
+
+        def _run():
+            try:
+                result["sha"] = create_blob(token, content_bytes, is_binary=is_binary)
+            except Exception as e:
+                result["err"] = e
+
+        t = threading.Thread(target=_run, daemon=True)
+        t.start()
+        t.join(seconds)
+        if "sha" in result:
+            return result["sha"]
+        if t.is_alive():
+            last_err = TimeoutError(f"blob upload exceeded {seconds}s")
+            print(f"    retry {attempt}/{retries} (timeout)", flush=True)
+        else:
+            last_err = result.get("err")
+            print(f"    retry {attempt}/{retries} ({last_err})", flush=True)
+    raise Exception(f"blob upload failed after {retries} attempts: {last_err}")
+
+
 def should_skip(filepath):
     for prefix in NEVER_PUSH:
         if filepath.startswith(prefix):
@@ -231,22 +262,34 @@ def main():
 
     commit_sha, base_tree_sha = get_existing_tree(token)
 
-    tree_items = []
-    for filepath in existing:
+    def _make_blob(filepath):
         full = os.path.join(cwd, filepath)
         is_binary = filepath.endswith(('.png', '.jpg', '.jpeg', '.gif', '.ico', '.woff', '.woff2', '.ttf'))
-        try:
-            with open(full, 'rb') as f:
-                content = f.read()
-            blob_sha = create_blob(token, content, is_binary=is_binary)
-            tree_items.append({
-                "path": filepath,
-                "mode": "100644",
-                "type": "blob",
-                "sha": blob_sha,
-            })
-        except Exception as e:
-            print(f"  WARN: Skipping {filepath}: {e}")
+        with open(full, 'rb') as f:
+            content = f.read()
+        blob_sha = create_blob_with_timeout(token, content, is_binary=is_binary)
+        return {
+            "path": filepath,
+            "mode": "100644",
+            "type": "blob",
+            "sha": blob_sha,
+        }
+
+    # Upload blobs in parallel. Sequential round-trips for every file are too slow
+    # for this environment (the process can be reaped before completion); a small
+    # pool gets all blobs created in seconds.
+    tree_items = []
+    done = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {pool.submit(_make_blob, fp): fp for fp in existing}
+        for fut in concurrent.futures.as_completed(futures):
+            fp = futures[fut]
+            done += 1
+            try:
+                tree_items.append(fut.result())
+                print(f"  [{done}/{len(existing)}] {fp}", flush=True)
+            except Exception as e:
+                print(f"  WARN: Skipping {fp}: {e}", flush=True)
 
     if not tree_items:
         print("No files to commit")
