@@ -58,6 +58,33 @@ def get_targeted_plays():
     return pd.DataFrame()
 
 
+def _sqlite_query(query, params=None):
+    """Read directly from the SQLite staging DB (WNBA parallel tables)."""
+    import sqlite3
+    for path in ("dfs_nba.db", os.path.join(os.path.dirname(__file__), "..", "dfs_nba.db")):
+        if os.path.exists(path):
+            try:
+                conn = sqlite3.connect(path)
+                df = pd.read_sql_query(query, conn, params=params)
+                conn.close()
+                return df
+            except Exception:
+                return pd.DataFrame()
+    return pd.DataFrame()
+
+
+def get_wnba_props():
+    if _pg_table_has_data("wnba_props_live"):
+        return _pg_query("SELECT * FROM wnba_props_live")
+    return _sqlite_query("SELECT * FROM wnba_props")
+
+
+def get_wnba_games():
+    if _pg_table_has_data("wnba_games_live"):
+        return _pg_query("SELECT * FROM wnba_games_live")
+    return _sqlite_query("SELECT * FROM wnba_games")
+
+
 def get_ownership_projections():
     if use_postgres():
         return _pg_query("SELECT * FROM ownership_projections_live")

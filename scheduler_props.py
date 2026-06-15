@@ -428,14 +428,37 @@ def maybe_regen_article_for_movement():
     return True
 
 
+def run_wnba_scrape():
+    """Refresh WNBA games + props independently of the NBA slate gate, since
+    the WNBA season runs through the NBA offseason."""
+    try:
+        result = subprocess.run(
+            [sys.executable, "-u", "scrape_wnba_props.py", "--force"],
+            cwd="/home/runner/workspace",
+            text=True,
+            timeout=300,
+            env={**os.environ, "PYTHONUNBUFFERED": "1"},
+        )
+        if result.returncode == 0:
+            print(f"WNBA props refresh completed at {get_et_now().strftime('%H:%M ET')}")
+        else:
+            print(f"WNBA props refresh exited with code {result.returncode}")
+    except subprocess.TimeoutExpired:
+        print("WNBA props refresh timed out")
+    except Exception as e:
+        print(f"WNBA props refresh error: {e}")
+
+
 def run_scrape():
     now = get_et_now()
     print(f"\n{'='*50}")
     print(f"INTRA-DAY PROPS SCRAPE at {now.strftime('%Y-%m-%d %H:%M:%S ET')}")
     print(f"{'='*50}", flush=True)
 
+    run_wnba_scrape()
+
     if not has_games_today():
-        print("No games on today's slate — skipping scrape to preserve API quota")
+        print("No NBA games on today's slate — skipping NBA scrape to preserve API quota")
         return
 
     try:

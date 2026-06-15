@@ -55,6 +55,8 @@ SQLITE_TABLE_MAP = {
     "matchup_history": "matchup_history_live",
     "archetype_matchup_profiles": "archetype_matchup_profiles_live",
     "team_standings": "team_standings_live",
+    "wnba_games": "wnba_games_live",
+    "wnba_props": "wnba_props_live",
 }
 
 

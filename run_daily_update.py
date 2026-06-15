@@ -37,6 +37,7 @@ SCRIPTS = [
     ("matchup_engine.py", "Matchup Interaction Layer"),
     ("dfs_players.py", "DFS Player Projections"),
     ("scrape_player_props.py", "Player Prop Odds (The Odds API)"),
+    ("scrape_wnba_props.py --force", "WNBA Games & Props (The Odds API)"),
     ("scrape_fta_ownership.py", "FTA Ownership Projections"),
     ("analysis/player_value.py", "Player Value Analysis"),
     ("estimate_ownership.py --iterations 500 --update-calibration", "Ownership Estimation (with FTA calibration)"),

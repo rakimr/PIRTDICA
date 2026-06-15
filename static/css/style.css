@@ -6079,3 +6079,178 @@ th[data-sortable].sort-desc::after {
         gap: 0.75rem;
     }
 }
+
+/* ===== League Toggle (NBA / WNBA) ===== */
+:root {
+    --wnba-accent: #f5562a;
+    --wnba-accent-dark: #c43c16;
+}
+.league-toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px;
+    gap: 0;
+}
+.league-toggle-thumb {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 3px;
+    width: calc(50% - 3px);
+    border-radius: 999px;
+    background: var(--primary);
+    transition: transform 0.35s cubic-bezier(0.77, 0, 0.18, 1), background 0.35s ease;
+    z-index: 0;
+}
+.league-toggle[data-active="wnba"] .league-toggle-thumb {
+    transform: translateX(100%);
+    background: var(--wnba-accent);
+}
+.league-opt {
+    position: relative;
+    z-index: 1;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-family: 'Marvel', sans-serif;
+    font-weight: 700;
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    padding: 0.3rem 0.85rem;
+    border-radius: 999px;
+    transition: color 0.25s ease;
+}
+.league-opt.active {
+    color: #ffffff;
+}
+
+/* WNBA accent applied site-wide when WNBA mode is active */
+body[data-league="wnba"] .btn-register,
+body[data-league="wnba"] .btn-play {
+    background: var(--wnba-accent);
+    border-color: var(--wnba-accent);
+}
+
+/* ===== League switch transition overlay ===== */
+.league-transition {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    transform: translateX(-100%);
+    background: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    will-change: transform;
+}
+.league-transition[data-target="wnba"] {
+    background: linear-gradient(120deg, var(--wnba-accent) 0%, var(--wnba-accent-dark) 100%);
+}
+.league-transition[data-target="nba"] {
+    background: linear-gradient(120deg, #1a1a1a 0%, #000000 100%);
+}
+.league-transition.cover {
+    transform: translateX(0);
+    transition: transform 0.6s cubic-bezier(0.77, 0, 0.18, 1);
+    pointer-events: all;
+}
+.league-transition.instant-cover {
+    transform: translateX(0);
+    transition: none;
+    pointer-events: all;
+}
+.league-transition.reveal {
+    transform: translateX(100%);
+    transition: transform 0.6s cubic-bezier(0.77, 0, 0.18, 1);
+}
+.league-transition-label {
+    font-family: 'Righteous', cursive;
+    font-size: clamp(2.5rem, 9vw, 6rem);
+    color: #ffffff;
+    letter-spacing: 0.08em;
+    opacity: 0;
+    transform: scale(0.85);
+}
+.league-transition.cover .league-transition-label,
+.league-transition.instant-cover .league-transition-label {
+    opacity: 1;
+    transform: scale(1);
+    transition: opacity 0.4s ease 0.12s, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s;
+}
+
+/* ===== WNBA board page ===== */
+.wnba-board { max-width: 1100px; margin: 0 auto; padding: 1.5rem 0 4rem; }
+.wnba-hero { text-align: center; padding: 2rem 1rem 1.5rem; }
+.wnba-eyebrow {
+    display: inline-block;
+    background: var(--wnba-accent);
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    font-size: 0.72rem;
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    margin-bottom: 0.75rem;
+}
+.wnba-hero h1 {
+    font-family: 'Righteous', cursive;
+    font-size: clamp(2rem, 5vw, 3rem);
+    margin-bottom: 0.4rem;
+}
+.wnba-sub { color: var(--text-muted); margin-bottom: 0.5rem; }
+.wnba-slate-date { color: var(--wnba-accent-dark); font-weight: 700; }
+.wnba-games {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.9rem;
+    margin: 1.5rem 0 2.5rem;
+}
+.wnba-game-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--wnba-accent);
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+}
+.wnba-matchup { font-weight: 700; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.wnba-at { color: var(--text-muted); font-weight: 400; }
+.wnba-tip { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.25rem; }
+.wnba-stat-section { margin-bottom: 2.25rem; }
+.wnba-stat-title {
+    font-family: 'Righteous', cursive;
+    border-bottom: 2px solid var(--wnba-accent);
+    padding-bottom: 0.35rem;
+    margin-bottom: 0.75rem;
+}
+.wnba-table-wrap { overflow-x: auto; }
+.wnba-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+.wnba-table th {
+    text-align: left;
+    padding: 0.55rem 0.75rem;
+    background: var(--bg-input);
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.wnba-table td { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border); }
+.wnba-table tbody tr:hover { background: var(--bg-card); }
+.wnba-player { font-weight: 700; }
+.wnba-line { font-weight: 700; color: var(--wnba-accent-dark); }
+.wnba-odds { font-variant-numeric: tabular-nums; }
+.wnba-mu { color: var(--text-muted); font-size: 0.85rem; }
+.wnba-empty {
+    text-align: center;
+    padding: 4rem 1rem;
+    background: var(--bg-card);
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+}
+.wnba-empty h2 { font-family: 'Righteous', cursive; margin-bottom: 0.5rem; }
+.wnba-empty p { color: var(--text-muted); }

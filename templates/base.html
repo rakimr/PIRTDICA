@@ -19,7 +19,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Marvel:ital,wght@0,400;0,700;1,400;1,700&family=Righteous&display=swap" rel="stylesheet">
 </head>
-<body>
+<body data-league="{{ league|default('nba') }}">
+    <div class="league-transition" id="leagueTransition" aria-hidden="true">
+        <div class="league-transition-inner">
+            <span class="league-transition-label" id="leagueTransitionLabel">WNBA</span>
+        </div>
+    </div>
     <nav class="navbar">
         <div class="nav-container">
             <a href="/" class="logo"><img src="/static/images/pirtdica_logo.png" alt="PIRTDICA" class="logo-icon">PIRTDICA</a>
@@ -27,6 +32,11 @@
                 <span></span><span></span><span></span>
             </button>
             <div class="nav-links">
+                <div class="league-toggle" id="leagueToggle" role="group" aria-label="Switch league">
+                    <span class="league-toggle-thumb" aria-hidden="true"></span>
+                    <button type="button" class="league-opt" data-league="nba" onclick="switchLeague('nba')">NBA</button>
+                    <button type="button" class="league-opt" data-league="wnba" onclick="switchLeague('wnba')">WNBA</button>
+                </div>
                 {% if user %}
                     <a href="/h2h" class="btn-play">Coach vs Coach</a>
                 {% endif %}
@@ -102,6 +112,73 @@
 
     <script src="/static/js/app.js"></script>
     <script>
+    (function() {
+        function readCookie(name) {
+            var v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+            return v ? v.pop() : '';
+        }
+        function currentLeague() {
+            var c = (readCookie('pirtdica_league') || '').toLowerCase();
+            return (c === 'wnba') ? 'wnba' : 'nba';
+        }
+        function syncToggle() {
+            var league = document.body.getAttribute('data-league') || currentLeague();
+            if (league !== 'nba' && league !== 'wnba') league = 'nba';
+            document.body.setAttribute('data-league', league);
+            var toggle = document.getElementById('leagueToggle');
+            if (toggle) {
+                toggle.querySelectorAll('.league-opt').forEach(function(btn) {
+                    btn.classList.toggle('active', btn.getAttribute('data-league') === league);
+                });
+                toggle.setAttribute('data-active', league);
+            }
+        }
+        window.switchLeague = function(target) {
+            if (target !== 'nba' && target !== 'wnba') return;
+            if (currentLeague() === target && (document.body.getAttribute('data-league') === target)) return;
+            var overlay = document.getElementById('leagueTransition');
+            var label = document.getElementById('leagueTransitionLabel');
+            if (label) label.textContent = (target === 'wnba') ? 'WNBA' : 'NBA';
+            if (overlay) {
+                overlay.setAttribute('data-target', target);
+                overlay.classList.add('cover');
+            }
+            try { sessionStorage.setItem('leagueSwitchTo', target); } catch (e) {}
+            document.cookie = 'pirtdica_league=' + target + '; path=/; max-age=' + (60 * 60 * 24 * 30) + '; samesite=lax';
+            setTimeout(function() {
+                var url = new URL(window.location.href);
+                url.searchParams.set('league', target);
+                window.location.href = url.toString();
+            }, 620);
+        };
+        function playRevealIfNeeded() {
+            var target = null;
+            try { target = sessionStorage.getItem('leagueSwitchTo'); } catch (e) {}
+            if (!target) return;
+            try { sessionStorage.removeItem('leagueSwitchTo'); } catch (e) {}
+            var overlay = document.getElementById('leagueTransition');
+            var label = document.getElementById('leagueTransitionLabel');
+            if (!overlay) return;
+            if (label) label.textContent = (target === 'wnba') ? 'WNBA' : 'NBA';
+            overlay.setAttribute('data-target', target);
+            overlay.classList.add('instant-cover');
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() {
+                    overlay.classList.remove('instant-cover');
+                    overlay.classList.add('reveal');
+                    setTimeout(function() {
+                        overlay.classList.remove('reveal', 'cover');
+                        overlay.removeAttribute('style');
+                    }, 700);
+                });
+            });
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            syncToggle();
+            playRevealIfNeeded();
+        });
+        syncToggle();
+    })();
     (function() {
         function getCookie(name) {
             var v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');

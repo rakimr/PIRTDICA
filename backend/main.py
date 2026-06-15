@@ -271,9 +271,102 @@ async def chart_screenshot_route(request: Request, chart_type: str, target: str)
         "request": request, "chart_type": chart_type, "target": target
     })
 
+def get_league(request: Request) -> str:
+    """Resolve the active league: ?league= query param wins, else the
+    pirtdica_league cookie, else 'nba'."""
+    q = (request.query_params.get("league") or "").lower()
+    if q in ("nba", "wnba"):
+        return q
+    c = (request.cookies.get("pirtdica_league") or "").lower()
+    if c in ("nba", "wnba"):
+        return c
+    return "nba"
+
+
+def _american_str(odds):
+    try:
+        v = int(odds)
+    except (TypeError, ValueError):
+        return ""
+    return f"+{v}" if v > 0 else str(v)
+
+
+def build_wnba_board(page_title: str, subtitle: str):
+    """Shared WNBA view context built from real Odds API data (parallel
+    wnba_* tables). Returns games for the nearest slate plus props grouped
+    by stat. Honest empty state when no slate is live."""
+    import pandas as pd
+    games_df = data_access.get_wnba_games()
+    props_df = data_access.get_wnba_props()
+
+    slate_date = None
+    games = []
+    stat_groups = []
+    today_str = get_eastern_today().isoformat()
+
+    if games_df is not None and not games_df.empty and 'game_date' in games_df.columns:
+        upcoming = sorted([d for d in games_df['game_date'].dropna().unique() if d >= today_str])
+        all_dates = sorted([d for d in games_df['game_date'].dropna().unique()])
+        slate_date = upcoming[0] if upcoming else (all_dates[-1] if all_dates else None)
+
+    if slate_date:
+        gsel = games_df[games_df['game_date'] == slate_date].copy()
+        if 'commence_time' in gsel.columns:
+            gsel = gsel.sort_values('commence_time')
+        for _, g in gsel.iterrows():
+            tip = ''
+            try:
+                dt = datetime.fromisoformat(str(g['commence_time']).replace('Z', '+00:00'))
+                tip = dt.astimezone(EASTERN).strftime('%-I:%M %p ET')
+            except Exception:
+                tip = ''
+            games.append({
+                'away_team': g.get('away_team', ''),
+                'home_team': g.get('home_team', ''),
+                'tipoff': tip,
+            })
+
+        if props_df is not None and not props_df.empty and 'game_date' in props_df.columns:
+            psel = props_df[props_df['game_date'] == slate_date].copy()
+            stat_order = [('PTS', 'Points'), ('REB', 'Rebounds'), ('AST', 'Assists'), ('3PM', '3-Pointers')]
+            for stat_key, stat_label in stat_order:
+                rows = psel[psel['stat'] == stat_key]
+                if rows.empty:
+                    continue
+                rows = rows.sort_values('line', ascending=False)
+                lines = []
+                for _, r in rows.iterrows():
+                    lines.append({
+                        'player': r.get('player_name', ''),
+                        'line': r.get('line'),
+                        'over': _american_str(r.get('over_odds')),
+                        'under': _american_str(r.get('under_odds')),
+                        'matchup': f"{r.get('away_team', '')} @ {r.get('home_team', '')}",
+                    })
+                stat_groups.append({'key': stat_key, 'label': stat_label, 'lines': lines})
+
+    return {
+        'page_title': page_title,
+        'subtitle': subtitle,
+        'slate_date': slate_date,
+        'wnba_games': games,
+        'wnba_stat_groups': stat_groups,
+    }
+
+
 @app.get("/articles")
 async def articles_page(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
+    league = get_league(request)
+    if league == "wnba":
+        ctx = build_wnba_board(
+            "WNBA Props",
+            "Live FanDuel prop lines for the upcoming WNBA slate.",
+        )
+        ctx.update({"request": request, "user": user, "league": "wnba"})
+        resp = templates.TemplateResponse("wnba_board.html", ctx)
+        resp.set_cookie("pirtdica_league", "wnba", max_age=60 * 60 * 24 * 30, samesite="lax")
+        return resp
     today = get_eastern_today()
     try:
         article = db.query(models.DailyArticle).filter(
@@ -1277,6 +1370,16 @@ async def trends(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     if not user:
         return html_redirect("/login")
+    league = get_league(request)
+    if league == "wnba":
+        ctx = build_wnba_board(
+            "WNBA Chart Gallery",
+            "Live FanDuel prop board for the upcoming WNBA slate.",
+        )
+        ctx.update({"request": request, "user": user, "league": "wnba"})
+        resp = templates.TemplateResponse("wnba_board.html", ctx)
+        resp.set_cookie("pirtdica_league", "wnba", max_age=60 * 60 * 24 * 30, samesite="lax")
+        return resp
     try:
         from backend.stripe_billing import has_statpack_access
         has_access = has_statpack_access(user, db)

@@ -398,6 +398,34 @@ class OwnershipProjectionLive(Base):
     updated_at = Column(DateTime, server_default=func.now())
 
 
+class WNBAGameLive(Base):
+    __tablename__ = "wnba_games_live"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(String(64))
+    home_team = Column(String(60))
+    away_team = Column(String(60))
+    commence_time = Column(String(40))
+    game_date = Column(String(20), index=True)
+    scraped_at = Column(String(40))
+
+
+class WNBAPropLive(Base):
+    __tablename__ = "wnba_props_live"
+
+    id = Column(Integer, primary_key=True, index=True)
+    player_name = Column(String(100), nullable=False, index=True)
+    stat = Column(String(20))
+    line = Column(Float)
+    over_odds = Column(Integer)
+    under_odds = Column(Integer)
+    bookmaker = Column(String(30))
+    home_team = Column(String(60))
+    away_team = Column(String(60))
+    game_date = Column(String(20), index=True)
+    scraped_at = Column(String(40))
+
+
 class PlayerSalaryLive(Base):
     __tablename__ = "player_salaries_live"
 
