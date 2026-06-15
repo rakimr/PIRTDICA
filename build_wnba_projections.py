@@ -45,6 +45,14 @@ def _mean(xs):
 def build_dvp(cur):
     cur.execute("DROP TABLE IF EXISTS wnba_dvp")
     cur.execute("CREATE TABLE wnba_dvp (team TEXT, stat TEXT, factor REAL, PRIMARY KEY (team, stat))")
+    # Valid WNBA opponents = the real franchises our players play for. Preseason
+    # exhibitions vs national teams (e.g. NIGER, JPN) leak into the opp column;
+    # restricting to actual franchises keeps those out of the DVP ratings.
+    valid_teams = {
+        r[0] for r in cur.execute(
+            "SELECT DISTINCT team FROM wnba_player_game_logs WHERE team != ''"
+        ).fetchall()
+    }
     rows = cur.execute(
         "SELECT opp, pts, reb, ast, fg3m FROM wnba_player_game_logs WHERE opp != ''"
     ).fetchall()
@@ -54,6 +62,8 @@ def build_dvp(cur):
         all_vals = []
         for r in rows:
             opp = r[0]
+            if opp not in valid_teams:
+                continue
             val = r[skey_idx]
             by_team.setdefault(opp, []).append(val)
             all_vals.append(val)
