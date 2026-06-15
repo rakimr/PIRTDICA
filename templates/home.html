@@ -4,7 +4,7 @@
 
 {% block content %}
 
-{% if user %}
+{% if user and league != 'wnba' %}
 <div class="hero">
     {% if no_games_today %}
     <h1>NO CONTESTS TODAY</h1>
@@ -90,7 +90,7 @@
                     </thead>
                     <tbody>
                         {% for team in conf_teams %}
-                        <tr class="{% if team.playing %}st-playing{% else %}st-idle{% endif %}{% if loop.index == 8 %} st-playin-line{% endif %}{% if loop.index == 10 %} st-lottery-line{% endif %}">
+                        <tr class="{% if team.playing %}st-playing{% else %}st-idle{% endif %}{% if loop.index == 8 and league != 'wnba' %} st-playin-line{% endif %}{% if loop.index == 10 and league != 'wnba' %} st-lottery-line{% endif %}">
                             <td class="st-rank">{{ loop.index }}</td>
                             <td class="st-team">
                                 <img src="{{ team.logo }}" alt="{{ team.team }}" class="st-logo">

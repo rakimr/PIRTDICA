@@ -426,6 +426,22 @@ class WNBAPropLive(Base):
     scraped_at = Column(String(40))
 
 
+class WNBAStandingLive(Base):
+    __tablename__ = "wnba_standings_live"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team = Column(String(10), index=True)
+    team_name = Column(String(60))
+    conference = Column(String(10))
+    wins = Column(Integer)
+    losses = Column(Integer)
+    games_behind = Column(Float)
+    win_pct = Column(Float)
+    playoff_seed = Column(Integer)
+    logo = Column(String(200))
+    updated_at = Column(String(40))
+
+
 class PlayerSalaryLive(Base):
     __tablename__ = "player_salaries_live"
 

@@ -85,6 +85,12 @@ def get_wnba_games():
     return _sqlite_query("SELECT * FROM wnba_games")
 
 
+def get_wnba_standings():
+    if _pg_table_has_data("wnba_standings_live"):
+        return _pg_query("SELECT * FROM wnba_standings_live")
+    return _sqlite_query("SELECT * FROM wnba_standings")
+
+
 def get_ownership_projections():
     if use_postgres():
         return _pg_query("SELECT * FROM ownership_projections_live")

@@ -57,6 +57,7 @@ SQLITE_TABLE_MAP = {
     "team_standings": "team_standings_live",
     "wnba_games": "wnba_games_live",
     "wnba_props": "wnba_props_live",
+    "wnba_standings": "wnba_standings_live",
 }
 
 

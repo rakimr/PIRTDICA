@@ -354,6 +354,51 @@ def build_wnba_board(page_title: str, subtitle: str):
     }
 
 
+def build_wnba_standings():
+    """Return (east, west) WNBA standings in the same shape the home page uses
+    for NBA, so templates/home.html renders WNBA without a separate template."""
+    east, west = [], []
+    df = data_access.get_wnba_standings()
+    if df is None or df.empty:
+        return east, west
+
+    playing_names = set()
+    try:
+        games_df = data_access.get_wnba_games()
+        today_str = get_eastern_today().isoformat()
+        if games_df is not None and not games_df.empty and 'game_date' in games_df.columns:
+            todays = games_df[games_df['game_date'] == today_str]
+            for _, g in todays.iterrows():
+                playing_names.add(str(g.get('home_team', '')))
+                playing_names.add(str(g.get('away_team', '')))
+    except Exception:
+        pass
+
+    df = df.sort_values('win_pct', ascending=False)
+    for _, r in df.iterrows():
+        nickname = str(r.get('team_name', ''))
+        playing = bool(nickname) and any(nickname in pn for pn in playing_names)
+        try:
+            gb = float(r.get('games_behind', 0) or 0)
+        except (TypeError, ValueError):
+            gb = 0.0
+        entry = {
+            "team": r.get('team', ''),
+            "team_name": nickname,
+            "wins": int(r.get('wins', 0) or 0),
+            "losses": int(r.get('losses', 0) or 0),
+            "gb": gb,
+            "win_pct": f"{float(r.get('win_pct', 0) or 0):.3f}",
+            "playing": playing,
+            "logo": r.get('logo', '') or '',
+        }
+        if str(r.get('conference', '')).startswith('E'):
+            east.append(entry)
+        else:
+            west.append(entry)
+    return east, west
+
+
 @app.get("/articles")
 async def articles_page(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
@@ -878,6 +923,7 @@ async def billing_portal_redirect(request: Request, db: Session = Depends(get_db
 @app.api_route("/", methods=["GET", "POST"])
 async def home(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
+    league = get_league(request)
     today = get_eastern_today()
     
     contest = db.query(models.Contest).filter(models.Contest.slate_date == today).first()
@@ -1054,6 +1100,13 @@ async def home(request: Request, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"[Home] Standings query failed: {e}")
 
+    if league == "wnba":
+        try:
+            standings_east, standings_west = build_wnba_standings()
+        except Exception as e:
+            print(f"[Home] WNBA standings build failed: {e}")
+            standings_east, standings_west = [], []
+
     edge_insights = []
     player_count = 0
     game_count = len(slate_games)
@@ -1098,9 +1151,10 @@ async def home(request: Request, db: Session = Depends(get_db)):
         except:
             pass
 
-    return templates.TemplateResponse("home.html", {
+    resp = templates.TemplateResponse("home.html", {
         "request": request,
         "user": user,
+        "league": league,
         "contest": contest,
         "house_players": house_players,
         "user_entry": user_entry,
@@ -1116,6 +1170,9 @@ async def home(request: Request, db: Session = Depends(get_db)):
         "player_count": player_count,
         "game_count": game_count,
     })
+    if league == "wnba":
+        resp.set_cookie("pirtdica_league", "wnba", max_age=60 * 60 * 24 * 30, samesite="lax")
+    return resp
 
 @app.get("/register")
 async def register_page(request: Request):
