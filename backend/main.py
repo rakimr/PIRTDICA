@@ -505,11 +505,27 @@ def _render_wnba_trends(request: Request, user, db: Session):
         charts_last_updated = _dt.fromtimestamp(max(mtimes), tz=EASTERN)
         charts_stale = charts_last_updated.date() < get_eastern_today()
 
+    # Prop recommendations table (same columns the NBA table uses; the WNBA CSV
+    # already matches the template field names player/opponent/stat/player_avg/
+    # projected_value/book_line/vs_book_edge/confidence/hit_rate/recommendation/
+    # composite_score).
+    props = []
+    try:
+        import pandas as _pd
+        prop_csv = _os.path.join(_os.path.dirname(__file__), '..', 'wnba_prop_recommendations.csv')
+        if _os.path.exists(prop_csv):
+            pdf = _pd.read_csv(prop_csv)
+            if 'composite_score' in pdf.columns:
+                pdf = pdf.sort_values('composite_score', ascending=False)
+            props = pdf.head(15).to_dict('records')
+    except Exception as e:
+        print(f"[WNBA TRENDS] prop table load failed: {e}")
+
     return templates.TemplateResponse("trends.html", {
         "request": request,
         "user": user,
         "top_value": [],
-        "props": [],
+        "props": props,
         "targeted": [],
         "ref_chart_exists": False,
         "cache_bust": int(_time.time()),
