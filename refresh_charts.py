@@ -26,6 +26,7 @@ DATA_SCRIPTS = [
     ("scrape_injury_alerts.py", "Injury Alerts (RotoGrinders)"),
     ("scrape_espn_injuries.py", "Injury Alerts (ESPN Backup)"),
     ("scrape_referee_assignments.py", "Referee Assignments"),
+    ("scrape_wnba_referee_assignments.py", "WNBA Referee Assignments"),
     ("etl_game_foul_environment.py", "Game Foul Environment"),
     ("scrape_game_odds.py", "Game Odds"),
 ]
@@ -38,6 +39,7 @@ CHART_FILES = [
     "static/images/wnba_value_chart.png",
     "static/images/wnba_upside_chart.png",
     "static/images/wnba_dvp_heatmap.png",
+    "static/images/wnba_ref_foul_chart.png",
 ]
 
 
@@ -168,7 +170,8 @@ def regenerate_charts():
             wnba_charts.generate_value_chart(wnba_df)
             wnba_charts.generate_upside_chart(wnba_df)
             wnba_charts.generate_dvp_heatmap()
-            print(f"     wnba value/upside/dvp OK", flush=True)
+            wnba_charts.generate_ref_foul_chart()
+            print(f"     wnba value/upside/dvp/ref OK", flush=True)
         except Exception as e:
             print(f"     wnba charts FAILED: {e}", flush=True)
 

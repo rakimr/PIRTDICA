@@ -22,6 +22,7 @@ PIPELINE_OUTPUT_FILES = [
     "static/images/wnba_value_chart.png",
     "static/images/wnba_upside_chart.png",
     "static/images/wnba_dvp_heatmap.png",
+    "static/images/wnba_ref_foul_chart.png",
 ]
 
 def _find_article_headers():
@@ -52,6 +53,8 @@ SOURCE_CODE_FILES = [
     "scrape_wnba_standings.py",
     "scrape_wnba_gamelogs.py",
     "build_wnba_projections.py",
+    "scrape_wnba_referee_assignments.py",
+    "build_wnba_referee_stats.py",
     "generate_wnba_charts.py",
     "generate_wnba_article.py",
     "run_daily_update.py",

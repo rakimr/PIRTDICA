@@ -19,6 +19,8 @@ import os
 import sqlite3
 from pathlib import Path
 
+from utils.timezone import get_eastern_date_str
+
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -178,6 +180,151 @@ def generate_dvp_heatmap(output_path="static/images/wnba_dvp_heatmap.png"):
     return output_path
 
 
+def _match_ref(name, lookup):
+    """Match an assigned ref name to the ESPN stat lookup.
+
+    Sources differ slightly (e.g. assignment "Timothy Greene" vs ESPN
+    "Tim Greene"), so we try exact, then unique last-name + first-initial,
+    then unique last-name.
+    """
+    if not name:
+        return None
+    key = name.strip().lower()
+    if key in lookup:
+        return lookup[key]
+    parts = key.split()
+    if len(parts) < 2:
+        return None
+    last, first_i = parts[-1], parts[0][0]
+    li = [v for k, v in lookup.items()
+          if k.split()[-1] == last and k.split()[0][0] == first_i]
+    if len(li) == 1:
+        return li[0]
+    ln = [v for k, v in lookup.items() if k.split()[-1] == last]
+    return ln[0] if len(ln) == 1 else None
+
+
+def generate_ref_foul_chart(output_path="static/images/wnba_ref_foul_chart.png"):
+    """WNBA referee crew foul chart: crew fouls/game (X) vs home/away bias (Y).
+
+    Mirrors the NBA referee chart, but the foul tendencies are computed by us
+    from ESPN (build_wnba_referee_stats.py) and the crews come from the WNBA
+    table on official.nba.com (scrape_wnba_referee_assignments.py).
+    """
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    today = get_eastern_date_str()
+    conn = sqlite3.connect(DB)
+    try:
+        assignments = pd.read_sql_query(
+            "SELECT home_team, away_team, crew_chief, referee, umpire "
+            "FROM wnba_referee_assignments WHERE game_date = ?",
+            conn, params=[today])
+        ref_stats = pd.read_sql_query(
+            "SELECT referee, fouls_pg, foul_diff, foul_pct_home, foul_pct_road, "
+            "games_officiated FROM wnba_referee_stats", conn)
+    except Exception as e:
+        print(f"  ref chart: query failed ({e})")
+        conn.close()
+        return None
+    conn.close()
+
+    if assignments.empty or ref_stats.empty:
+        print("  ref chart: no WNBA assignments for today/stats // skipping")
+        if os.path.exists(output_path):
+            os.remove(output_path)
+        return None
+
+    assignments = assignments.drop_duplicates(subset=["home_team", "away_team"])
+    lookup = {}
+    for _, row in ref_stats.iterrows():
+        lookup[row["referee"].strip().lower()] = {
+            "fouls_pg": row["fouls_pg"], "foul_diff": row["foul_diff"]}
+
+    game_data = []
+    for _, game in assignments.iterrows():
+        crew = [game["crew_chief"], game["referee"], game["umpire"]]
+        crew = [r for r in crew if r and pd.notna(r)]
+        fouls, diffs = [], []
+        for ref_name in crew:
+            st = _match_ref(ref_name, lookup)
+            if st:
+                fouls.append(st["fouls_pg"])
+                diffs.append(st["foul_diff"])
+        if len(fouls) >= 2:
+            home = game["home_team"] or "?"
+            away = game["away_team"] or "?"
+            game_data.append({
+                "matchup": f"{away} @ {home}",
+                "crew_avg_fouls": sum(fouls) / len(fouls),
+                "crew_avg_diff": sum(diffs) / len(diffs),
+            })
+
+    if not game_data:
+        print("  ref chart: could not match any crews to stats // skipping")
+        if os.path.exists(output_path):
+            os.remove(output_path)
+        return None
+
+    gdf = pd.DataFrame(game_data)
+    league_avg_fouls = ref_stats["fouls_pg"].mean()
+
+    fig, ax = plt.subplots(figsize=(12, 8))
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("white")
+
+    f_min, f_max = gdf["crew_avg_fouls"].min(), gdf["crew_avg_fouls"].max()
+    for _, g in gdf.iterrows():
+        shade = 0.15 + 0.7 * ((g["crew_avg_fouls"] - f_min) / max(f_max - f_min, 1))
+        color = str(max(0.1, min(0.85, 1.0 - shade)))
+        marker = "^" if g["crew_avg_diff"] > 0 else "v"
+        ax.scatter(g["crew_avg_fouls"], g["crew_avg_diff"], c=color, s=220,
+                   marker=marker, edgecolors="black", linewidths=1.5, zorder=5)
+        y_off = 8 if g["crew_avg_diff"] >= 0 else -12
+        ax.annotate(g["matchup"], (g["crew_avg_fouls"], g["crew_avg_diff"]),
+                    xytext=(6, y_off), textcoords="offset points",
+                    fontsize=9, fontweight="bold", color="black", ha="left")
+
+    ax.axhline(y=0, color="black", linewidth=1.5, alpha=0.6)
+    ax.axvline(x=league_avg_fouls, color="gray", linestyle="--", linewidth=1, alpha=0.5)
+
+    x_min, x_max = ax.get_xlim()
+    y_min, y_max = ax.get_ylim()
+    y_max = max(y_max, abs(y_min)) + 0.3
+    y_min = -y_max
+    ax.set_ylim(y_min, y_max)
+    ax.fill_between([x_min, x_max], 0, y_max, color="#e8e8e8", alpha=0.3, zorder=0)
+    ax.fill_between([x_min, x_max], y_min, 0, color="#d0d0d0", alpha=0.3, zorder=0)
+    ax.text(x_max - (x_max - x_min) * 0.02, y_max * 0.88, "HOME ADVANTAGE",
+            ha="right", fontsize=8, color="#555", fontweight="bold",
+            alpha=0.7, style="italic")
+    ax.text(x_max - (x_max - x_min) * 0.02, y_min * 0.88, "ROAD ADVANTAGE",
+            ha="right", fontsize=8, color="#555", fontweight="bold",
+            alpha=0.7, style="italic")
+
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], marker="^", color="w", markerfacecolor="#555",
+               markeredgecolor="black", markersize=10, label="Home-favored crew"),
+        Line2D([0], [0], marker="v", color="w", markerfacecolor="#999",
+               markeredgecolor="black", markersize=10, label="Road-favored crew"),
+        Line2D([0], [0], color="gray", linestyle="--", linewidth=1,
+               label=f"League avg ({league_avg_fouls:.1f} fouls/g)")]
+    legend = ax.legend(handles=legend_elements, loc="upper center",
+                       bbox_to_anchor=(0.5, -0.12), ncol=3, frameon=True,
+                       edgecolor="black", facecolor="white")
+    legend.get_frame().set_linewidth(2)
+
+    _style(ax, "Tonight's WNBA Referee Crews // Foul Volume vs Home/Away Bias",
+           "Crew Avg Fouls Per Game", "Foul Differential (+ = more road fouls)")
+    plt.tight_layout()
+    plt.subplots_adjust(bottom=0.18)
+    plt.savefig(output_path, dpi=150, facecolor="white", edgecolor="black",
+                bbox_inches="tight")
+    plt.close()
+    print(f"  ref foul chart -> {output_path} ({len(gdf)} games)")
+    return output_path
+
+
 def main():
     print("=== WNBA chart generation ===")
     df = _load_value()
@@ -187,6 +334,7 @@ def main():
     generate_value_chart(df)
     generate_upside_chart(df)
     generate_dvp_heatmap()
+    generate_ref_foul_chart()
     print("Done.")
 
 

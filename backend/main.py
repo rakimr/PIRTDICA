@@ -527,7 +527,7 @@ def _render_wnba_trends(request: Request, user, db: Session):
         "top_value": [],
         "props": props,
         "targeted": [],
-        "ref_chart_exists": False,
+        "ref_chart_exists": _os.path.exists("static/images/wnba_ref_foul_chart.png"),
         "cache_bust": int(_time.time()),
         "explorer_players": [],
         "headshots": {},

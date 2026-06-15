@@ -41,6 +41,8 @@ SCRIPTS = [
     ("scrape_wnba_standings.py", "WNBA Standings (ESPN)"),
     ("scrape_wnba_gamelogs.py", "WNBA Game Logs & Season Stats (ESPN)"),
     ("build_wnba_projections.py", "WNBA Projections & Prop Recommendations"),
+    ("scrape_wnba_referee_assignments.py", "WNBA Referee Assignments (official.nba.com)"),
+    ("build_wnba_referee_stats.py", "WNBA Referee Foul Tendencies (ESPN)"),
     ("scrape_fta_ownership.py", "FTA Ownership Projections"),
     ("analysis/player_value.py", "Player Value Analysis"),
     ("estimate_ownership.py --iterations 500 --update-calibration", "Ownership Estimation (with FTA calibration)"),
