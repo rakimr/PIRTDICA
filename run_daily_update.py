@@ -54,6 +54,7 @@ SCRIPTS = [
     ("generate_article.py", "Generate Daily Article"),
     ("generate_wnba_charts.py", "WNBA Chart Gallery (value/upside/DVP)"),
     ("generate_wnba_article.py", "Generate WNBA Daily Article"),
+    ("grade_wnba_picks.py", "Grade Yesterday's WNBA Article Picks"),
     ("sync_to_postgres.py", "Sync Pipeline Data to PostgreSQL"),
 ]
 

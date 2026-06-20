@@ -460,6 +460,29 @@ def _render_wnba_articles(request: Request, user, db: Session):
         except Exception as e:
             print(f"[WNBA ARTICLES] Prop recs load failed: {e}")
 
+    grading_report = []
+    if article and has_access:
+        try:
+            from datetime import timedelta as _td
+            from utils.timezone import get_eastern_today as _get_et_today
+            yesterday = _get_et_today() - _td(days=1)
+            grades = db.query(models.WNBADailyPickGrade).filter(
+                models.WNBADailyPickGrade.slate_date == yesterday
+            ).all()
+            for g in grades:
+                grading_report.append({
+                    'player': g.player,
+                    'stat': g.stat,
+                    'book_line': g.book_line,
+                    'direction': g.direction,
+                    'projected': g.projected,
+                    'actual': g.actual,
+                    'hit': g.hit,
+                    'analysis': g.claude_analysis or '',
+                })
+        except Exception as e:
+            print(f"[WNBA ARTICLES] Grading report load failed: {e}")
+
     return templates.TemplateResponse("articles.html", {
         "request": request,
         "user": user,
@@ -469,7 +492,7 @@ def _render_wnba_articles(request: Request, user, db: Session):
         "has_access": has_access,
         "pre_lock": False,
         "prop_recs": prop_recs,
-        "grading_report": [],
+        "grading_report": grading_report,
         "official_locked": False,
         "official_locked_at_str": None,
         "league": "wnba",

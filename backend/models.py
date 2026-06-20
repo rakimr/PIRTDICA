@@ -897,6 +897,23 @@ class DailyPickGrade(Base):
     created_at = Column(DateTime, server_default=func.now())
 
 
+class WNBADailyPickGrade(Base):
+    __tablename__ = "wnba_daily_pick_grades"
+    __table_args__ = (UniqueConstraint('slate_date', 'player', 'stat', name='uq_wnba_grade_date_player_stat'),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    slate_date = Column(Date, nullable=False, index=True)
+    player = Column(String(100), nullable=False)
+    stat = Column(String(20), nullable=False)
+    book_line = Column(Float)
+    direction = Column(String(10))
+    projected = Column(Float)
+    actual = Column(Float)
+    hit = Column(Boolean)
+    claude_analysis = Column(Text)
+    created_at = Column(DateTime, server_default=func.now())
+
+
 class UserSubscription(Base):
     __tablename__ = "user_subscriptions"
 

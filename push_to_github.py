@@ -61,6 +61,7 @@ SOURCE_CODE_FILES = [
     "build_wnba_referee_stats.py",
     "generate_wnba_charts.py",
     "generate_wnba_article.py",
+    "grade_wnba_picks.py",
     "run_daily_update.py",
     "push_to_github.py",
     "sync_to_postgres.py",
