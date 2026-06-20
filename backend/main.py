@@ -182,6 +182,44 @@ async def startup_event():
                     print(f"[STARTUP] Backfilled official_picks_json for {result.rowcount} past slates (ET cutoff: {et_today})")
     except Exception as e:
         print(f"[STARTUP] daily_articles official-call migration skipped: {e}")
+
+    # Official Call Snapshot for WNBA — mirror the NBA daily_articles block so
+    # WNBA picks are graded against a pre-tipoff locked snapshot, not the
+    # mutable picks_json. Adds the columns and backfills past slates.
+    try:
+        from sqlalchemy import inspect as sa_inspect, text as sa_text
+        from backend.database import engine as _eng
+        insp = sa_inspect(_eng)
+        if 'wnba_daily_articles' in insp.get_table_names():
+            existing_cols = {c['name'] for c in insp.get_columns('wnba_daily_articles')}
+            adds = []
+            if 'official_picks_json' not in existing_cols:
+                adds.append("ADD COLUMN IF NOT EXISTS official_picks_json TEXT")
+            if 'official_locked_at' not in existing_cols:
+                adds.append("ADD COLUMN IF NOT EXISTS official_locked_at TIMESTAMP WITH TIME ZONE")
+            if adds:
+                with _eng.begin() as conn:
+                    conn.execute(sa_text(f"ALTER TABLE wnba_daily_articles {', '.join(adds)}"))
+                print(f"[STARTUP] Added columns to wnba_daily_articles: {adds}")
+            from datetime import datetime as _dt
+            from zoneinfo import ZoneInfo as _ZI
+            et_today = _dt.now(_ZI("America/New_York")).date()
+            with _eng.begin() as conn:
+                result = conn.execute(sa_text("""
+                    UPDATE wnba_daily_articles
+                    SET official_picks_json = picks_json,
+                        official_locked_at = COALESCE(updated_at, NOW())
+                    WHERE official_picks_json IS NULL
+                      AND picks_json IS NOT NULL
+                      AND picks_json <> ''
+                      AND picks_json <> '[]'
+                      AND slate_date < :et_today
+                """), {"et_today": et_today})
+                if result.rowcount:
+                    print(f"[STARTUP] Backfilled official_picks_json for {result.rowcount} past WNBA slates (ET cutoff: {et_today})")
+    except Exception as e:
+        print(f"[STARTUP] wnba_daily_articles official-call migration skipped: {e}")
+
     thread = threading.Thread(target=auto_generate_house_lineup, daemon=True)
     thread.start()
 
@@ -420,7 +458,9 @@ def _render_wnba_articles(request: Request, user, db: Session):
     picks, analysis, prop_recs = [], [], []
     if article and has_access:
         try:
-            if article.picks_json:
+            if article.official_picks_json:
+                picks = json.loads(article.official_picks_json)
+            elif article.picks_json:
                 picks = json.loads(article.picks_json)
         except (json.JSONDecodeError, TypeError):
             picks = []
@@ -483,6 +523,15 @@ def _render_wnba_articles(request: Request, user, db: Session):
         except Exception as e:
             print(f"[WNBA ARTICLES] Grading report load failed: {e}")
 
+    official_locked = bool(article and article.official_locked_at)
+    official_locked_at_str = None
+    if official_locked:
+        try:
+            from utils.timezone import EASTERN as _EASTERN
+            official_locked_at_str = article.official_locked_at.astimezone(_EASTERN).strftime('%-I:%M %p ET')
+        except Exception:
+            official_locked_at_str = article.official_locked_at.strftime('%H:%M ET')
+
     return templates.TemplateResponse("articles.html", {
         "request": request,
         "user": user,
@@ -493,8 +542,8 @@ def _render_wnba_articles(request: Request, user, db: Session):
         "pre_lock": False,
         "prop_recs": prop_recs,
         "grading_report": grading_report,
-        "official_locked": False,
-        "official_locked_at_str": None,
+        "official_locked": official_locked,
+        "official_locked_at_str": official_locked_at_str,
         "league": "wnba",
     })
 

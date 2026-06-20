@@ -162,15 +162,30 @@ def grade_picks(target_date=None):
         models.WNBADailyArticle.slate_date == target_date
     ).first()
 
-    if not article or not article.picks_json:
+    # Prefer the locked official-call snapshot over picks_json so we grade
+    # against what subscribers actually saw before tipoff (not a late-day regen
+    # that mutated picks_json after the slate started). Falls back to picks_json
+    # for legacy/unlocked rows so historical W-L still works. Mirrors grade_picks.
+    picks_source_json = None
+    picks_source_label = None
+    if article:
+        if article.official_picks_json:
+            picks_source_json = article.official_picks_json
+            picks_source_label = "official_picks_json (locked)"
+        elif article.picks_json:
+            picks_source_json = article.picks_json
+            picks_source_label = "picks_json (legacy fallback)"
+
+    if not article or not picks_source_json:
         print(f"[GRADE-WNBA] No article or picks found for {target_date}")
         db.close()
         return False
 
     try:
-        picks = json.loads(article.picks_json)
+        picks = json.loads(picks_source_json)
+        print(f"[GRADE-WNBA] Source: {picks_source_label}")
     except (json.JSONDecodeError, TypeError):
-        print(f"[GRADE-WNBA] Failed to parse picks_json for {target_date}")
+        print(f"[GRADE-WNBA] Failed to parse {picks_source_label} for {target_date}")
         db.close()
         return False
 

@@ -238,6 +238,62 @@ def _to_template_shapes(result, meta):
     return picks_data, analysis_data
 
 
+_OFFICIAL_LOCK_WINDOW_MINUTES = 60
+_OFFICIAL_LOCK_GRACE_AFTER_TIP_MINUTES = 30
+
+
+def _first_tipoff_today_et(slate_date):
+    """Return the earliest WNBA tipoff datetime in ET for `slate_date`, or None.
+
+    Uses `wnba_games.commence_time` (stored as a UTC ISO timestamp) for the
+    slate, converted to ET. Returns None on any failure or when no game times
+    exist // callers must treat that as "no lock yet". Mirrors the NBA helper in
+    generate_article.py so the lock window is consistent across both leagues.
+    """
+    try:
+        from zoneinfo import ZoneInfo
+        et_zone = ZoneInfo("America/New_York")
+        if not os.path.exists(DB):
+            return None
+        conn = sqlite3.connect(DB)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT commence_time FROM wnba_games WHERE game_date = ? AND commence_time IS NOT NULL",
+            (slate_date.isoformat(),),
+        )
+        raw = [row[0] for row in cur.fetchall()]
+        conn.close()
+        parsed = []
+        for ct in raw:
+            try:
+                ts = ct.replace("Z", "+00:00")
+                dt = datetime.fromisoformat(ts)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=ZoneInfo("UTC"))
+                parsed.append(dt.astimezone(et_zone))
+            except Exception:
+                continue
+        if not parsed:
+            return None
+        return min(parsed)
+    except Exception:
+        return None
+
+
+def _should_lock_official_call(slate_date, now_et):
+    """Return True iff we're inside the slate's lock window (mirror of NBA).
+
+    Window: from T-60min before first tip through T+30min after. One-shot //
+    caller checks official_picks_json is NULL first. If the window closes without
+    a lock firing, the grader cleanly falls back to picks_json.
+    """
+    first_tip = _first_tipoff_today_et(slate_date)
+    if first_tip is None:
+        return False
+    delta_min = (first_tip - now_et).total_seconds() / 60.0
+    return -_OFFICIAL_LOCK_GRACE_AFTER_TIP_MINUTES <= delta_min <= _OFFICIAL_LOCK_WINDOW_MINUTES
+
+
 def _save(slate_date, header_web_path, picks_data, analysis_data, game_count, claude_selected):
     from backend.database import SessionLocal
     from backend import models
@@ -261,6 +317,28 @@ def _save(slate_date, header_web_path, picks_data, analysis_data, game_count, cl
                 claude_selected=claude_selected,
             )
             db.add(row)
+
+        # Official Call Snapshot — freeze picks_json into official_picks_json the
+        # first time we save within the lock window (typically the pregame wave
+        # ~60 min before the slate's first tipoff). Once locked, later regens
+        # update picks_json only // the official snapshot is immutable until an
+        # admin re-snapshots it. Mirrors generate_article.save_to_db.
+        try:
+            from zoneinfo import ZoneInfo as _ZI
+            now_et = datetime.now(_ZI("America/New_York"))
+            if not row.official_picks_json and _should_lock_official_call(slate_date, now_et):
+                current_picks = row.picks_json or json.dumps([])
+                try:
+                    parsed_picks = json.loads(current_picks)
+                except Exception:
+                    parsed_picks = []
+                if parsed_picks:
+                    row.official_picks_json = current_picks
+                    row.official_locked_at = now_et
+                    print(f"[OFFICIAL CALL][WNBA][source=auto-lock] Locked snapshot for {slate_date} at {now_et.strftime('%Y-%m-%d %H:%M ET')} ({len(parsed_picks)} picks)")
+        except Exception as e:
+            print(f"[OFFICIAL CALL][WNBA][source=auto-lock] Lock skipped for {slate_date}: {e}")
+
         db.commit()
         print(f"Saved WNBA article for {slate_date}: {len(picks_data)} picks, claude={claude_selected}")
     finally:
@@ -274,8 +352,30 @@ def main():
         print("No WNBA prop recommendations // run build_wnba_projections.py first.")
         return
     meta, records = _player_meta()
-    slate_date_str = str(recs["game_date"].iloc[0])
-    slate_date = datetime.strptime(slate_date_str, "%Y-%m-%d").date()
+
+    # Pick the ACTIVE slate explicitly instead of trusting row order. The recs
+    # CSV can carry more than one game_date (e.g. an upcoming slate already has
+    # odds), and recs["game_date"].iloc[0] could grab a future date // that would
+    # make the official-call lock check the wrong day's tipoff and never fire.
+    # Choose the earliest slate that is today-or-later in ET (the active/upcoming
+    # slate); if every slate is in the past, fall back to the most recent one.
+    from zoneinfo import ZoneInfo as _ZI
+    et_today = datetime.now(_ZI("America/New_York")).date()
+    slate_dates = sorted({
+        datetime.strptime(str(d), "%Y-%m-%d").date()
+        for d in recs["game_date"].dropna().unique()
+    })
+    if len(slate_dates) > 1:
+        print(f"[WNBA ARTICLE] recs span {len(slate_dates)} slates: "
+              f"{[d.isoformat() for d in slate_dates]} // selecting active slate.")
+    upcoming = [d for d in slate_dates if d >= et_today]
+    slate_date = upcoming[0] if upcoming else slate_dates[-1]
+    slate_date_str = slate_date.isoformat()
+    print(f"[WNBA ARTICLE] Active slate: {slate_date_str} (ET today: {et_today})")
+    recs = recs[recs["game_date"].astype(str) == slate_date_str].reset_index(drop=True)
+    if recs.empty:
+        print(f"No WNBA recs for active slate {slate_date_str} after filtering.")
+        return
     game_count = recs[["team", "opponent"]].apply(
         lambda r: frozenset([r["team"], r["opponent"]]), axis=1).nunique()
 

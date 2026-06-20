@@ -873,6 +873,8 @@ class WNBADailyArticle(Base):
     game_count = Column(Integer, default=0)
     best_available = Column(Boolean, default=False)
     claude_selected = Column(Boolean, default=False)
+    official_picks_json = Column(Text, nullable=True)
+    official_locked_at = Column(DateTime(timezone=True), nullable=True)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
