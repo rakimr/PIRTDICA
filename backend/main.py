@@ -1207,10 +1207,17 @@ def _nba_slate_is_today():
     """True only when tonight's NBA odds were scraped today (ET). Leftover
     game_odds rows from a past slate keep a stale away/home pair around through
     the NBA offseason, so a plain row-count is not enough // we compare the
-    freshest scraped_at date to today before trusting the NBA slate."""
+    freshest scraped_at date to today before trusting the NBA slate.
+
+    scraped_at is written as naive UTC (scrape_game_odds.py uses
+    datetime.utcnow().isoformat()), so we MUST convert UTC -> ET before comparing
+    dates // a raw string slice would mark an evening-scraped fresh slate (UTC
+    date already rolled to tomorrow) as stale and wrongly fall back to WNBA."""
     try:
         from zoneinfo import ZoneInfo as _ZI
-        et_today = datetime.now(_ZI("America/New_York")).date().isoformat()
+        et = _ZI("America/New_York")
+        utc = _ZI("UTC")
+        et_today = datetime.now(et).date()
         latest = None
         if data_access.use_postgres():
             from backend.database import engine as pg_engine
@@ -1231,7 +1238,13 @@ def _nba_slate_is_today():
                 conn_g.close()
         if not latest:
             return False
-        return str(latest)[:10] == et_today
+        if isinstance(latest, datetime):
+            dt = latest
+        else:
+            dt = datetime.fromisoformat(str(latest).replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=utc)
+        return dt.astimezone(et).date() == et_today
     except Exception:
         return False
 
