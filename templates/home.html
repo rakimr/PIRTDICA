@@ -163,7 +163,7 @@
 {% if edge_insights %}
 <section class="edge-strip">
     <div class="edge-strip-inner">
-        <span class="edge-label">TONIGHT'S EDGE</span>
+        <span class="edge-label">TONIGHT'S EDGE{% if edge_league == 'wnba' %} · WNBA{% endif %}</span>
         <div class="edge-ticker">
             {% for e in edge_insights %}
             <span class="edge-item {% if loop.first %}active{% endif %}">

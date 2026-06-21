@@ -1158,6 +1158,106 @@ async def billing_portal_redirect(request: Request, db: Session = Depends(get_db
         }, status_code=503)
 
 
+def _build_edge_insights(props_df):
+    """Top-3 prop edges (by absolute edge%) for the home page 'Tonight's Edge'
+    ticker. Works for both NBA and WNBA recs // skips the salary filter when the
+    frame has no salary column (WNBA recs do not carry salary)."""
+    import math
+    insights = []
+    try:
+        if props_df is None or props_df.empty:
+            return insights
+        if 'salary' in props_df.columns:
+            props_df = props_df[props_df['salary'] > 0]
+        has_book = 'vs_book_edge' in props_df.columns and props_df['vs_book_edge'].notna().any()
+        edge_col = 'vs_book_edge' if has_book else 'edge_pct'
+        if edge_col not in props_df.columns:
+            return insights
+        valid = props_df[props_df[edge_col].notna() & props_df[edge_col].apply(
+            lambda x: not (isinstance(x, float) and math.isnan(x)))]
+        if valid.empty:
+            return insights
+        valid_abs = valid.copy()
+        valid_abs['_abs_edge'] = valid_abs[edge_col].abs()
+        for _, row in valid_abs.nlargest(3, '_abs_edge').iterrows():
+            book_line = row.get('book_line', None)
+            line_display = ''
+            if book_line is not None and not (isinstance(book_line, float) and math.isnan(book_line)):
+                line_display = str(book_line)
+            elif row.get('adjusted_avg') is not None and not (
+                    isinstance(row.get('adjusted_avg'), float) and math.isnan(row.get('adjusted_avg', 0))):
+                line_display = f"proj {row['adjusted_avg']}"
+            edge_val = row.get(edge_col, 0)
+            if isinstance(edge_val, float) and math.isnan(edge_val):
+                edge_val = 0
+            insights.append({
+                "player": row.get('player', row.get('player_name', '')),
+                "stat": row.get('stat', ''),
+                "line": line_display,
+                "edge": round(float(edge_val), 1),
+                "rec": row.get('recommendation', 'OVER'),
+                "opponent": row.get('opponent', ''),
+            })
+    except Exception:
+        return insights
+    return insights
+
+
+def _nba_slate_is_today():
+    """True only when tonight's NBA odds were scraped today (ET). Leftover
+    game_odds rows from a past slate keep a stale away/home pair around through
+    the NBA offseason, so a plain row-count is not enough // we compare the
+    freshest scraped_at date to today before trusting the NBA slate."""
+    try:
+        from zoneinfo import ZoneInfo as _ZI
+        et_today = datetime.now(_ZI("America/New_York")).date().isoformat()
+        latest = None
+        if data_access.use_postgres():
+            from backend.database import engine as pg_engine
+            from sqlalchemy import text as sa_text
+            try:
+                with pg_engine.connect() as pg_conn:
+                    latest = pg_conn.execute(sa_text("SELECT MAX(scraped_at) FROM game_odds_live")).scalar()
+            except Exception:
+                latest = None
+        if latest is None:
+            import sqlite3 as sl3
+            conn_g = sl3.connect("dfs_nba.db")
+            try:
+                latest = conn_g.execute("SELECT MAX(scraped_at) FROM game_odds").fetchone()[0]
+            except Exception:
+                latest = None
+            finally:
+                conn_g.close()
+        if not latest:
+            return False
+        return str(latest)[:10] == et_today
+    except Exception:
+        return False
+
+
+def _wnba_active_slate_recs(recs_df):
+    """Filter a WNBA recs frame to the active slate (earliest game_date that is
+    today-or-later in ET, else the most recent). The recs CSV can span multiple
+    slates, so without this the ticker could show a future day's props."""
+    try:
+        if recs_df is None or recs_df.empty or 'game_date' not in recs_df.columns:
+            return recs_df
+        from zoneinfo import ZoneInfo as _ZI
+        et_today = datetime.now(_ZI("America/New_York")).date()
+        dates = sorted({
+            datetime.strptime(str(d), "%Y-%m-%d").date()
+            for d in recs_df['game_date'].dropna().unique()
+        })
+        if not dates:
+            return recs_df
+        upcoming = [d for d in dates if d >= et_today]
+        slate = (upcoming[0] if upcoming else dates[-1]).isoformat()
+        return recs_df[recs_df['game_date'].astype(str) == slate].reset_index(drop=True)
+    except Exception:
+        return recs_df
+
+
 @app.api_route("/", methods=["GET", "POST"])
 async def home(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
@@ -1346,42 +1446,28 @@ async def home(request: Request, db: Session = Depends(get_db)):
             standings_east, standings_west = [], []
 
     edge_insights = []
+    edge_league = "nba"
     player_count = 0
     game_count = len(slate_games)
     if not user:
         try:
-            import math
-            props_df = data_access.get_prop_recommendations()
-            if not props_df.empty:
-                props_df = props_df[props_df.get('salary', props_df.get('salary', 0)) > 0] if 'salary' in props_df.columns else props_df
-                has_book = 'vs_book_edge' in props_df.columns and props_df['vs_book_edge'].notna().any()
-                edge_col = 'vs_book_edge' if has_book else 'edge_pct'
-                if edge_col in props_df.columns:
-                    valid = props_df[props_df[edge_col].notna() & props_df[edge_col].apply(lambda x: not (isinstance(x, float) and math.isnan(x)))]
-                    if not valid.empty:
-                        valid_abs = valid.copy()
-                        valid_abs['_abs_edge'] = valid_abs[edge_col].abs()
-                        top_props = valid_abs.nlargest(3, '_abs_edge')
-                        for _, row in top_props.iterrows():
-                            rec = row.get('recommendation', 'OVER')
-                            stat = row.get('stat', '')
-                            book_line = row.get('book_line', None)
-                            line_display = ''
-                            if book_line is not None and not (isinstance(book_line, float) and math.isnan(book_line)):
-                                line_display = str(book_line)
-                            elif row.get('adjusted_avg') is not None and not (isinstance(row.get('adjusted_avg'), float) and math.isnan(row.get('adjusted_avg', 0))):
-                                line_display = f"proj {row['adjusted_avg']}"
-                            edge_val = row.get(edge_col, 0)
-                            if isinstance(edge_val, float) and math.isnan(edge_val):
-                                edge_val = 0
-                            name = row.get('player', row.get('player_name', ''))
-                            opp = row.get('opponent', '')
-                            edge_insights.append({
-                                "player": name, "stat": stat, "line": line_display,
-                                "edge": round(float(edge_val), 1), "rec": rec, "opponent": opp
-                            })
-        except:
-            pass
+            edge_insights = _build_edge_insights(data_access.get_prop_recommendations())
+        except Exception:
+            edge_insights = []
+        # When there is no fresh NBA slate today (e.g. the NBA offseason), or NBA
+        # produced no edges, fall back to the active WNBA slate so 'Tonight's
+        # Edge' still shows real props. We check odds freshness (scraped today)
+        # rather than a row count, so leftover stale NBA props/odds do not keep
+        # WNBA off the ticker on a no-NBA-games night.
+        if not _nba_slate_is_today() or not edge_insights:
+            try:
+                wnba_recs = _wnba_active_slate_recs(data_access.get_wnba_prop_recommendations())
+                wnba_edges = _build_edge_insights(wnba_recs)
+                if wnba_edges:
+                    edge_insights = wnba_edges
+                    edge_league = "wnba"
+            except Exception:
+                pass
         try:
             dfs_df = data_access.get_dfs_players()
             if not dfs_df.empty:
@@ -1405,6 +1491,7 @@ async def home(request: Request, db: Session = Depends(get_db)):
         "standings_east": standings_east,
         "standings_west": standings_west,
         "edge_insights": edge_insights,
+        "edge_league": edge_league,
         "player_count": player_count,
         "game_count": game_count,
     })

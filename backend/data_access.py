@@ -50,6 +50,20 @@ def get_prop_recommendations():
     return pd.DataFrame()
 
 
+def get_wnba_prop_recommendations():
+    """WNBA prop recommendations (CSV-only // not synced to postgres). Mirrors
+    get_prop_recommendations so the home page can show WNBA edges when there are
+    no NBA games."""
+    for path in ("wnba_prop_recommendations.csv",
+                 os.path.join(os.path.dirname(__file__), "..", "wnba_prop_recommendations.csv")):
+        if os.path.exists(path):
+            try:
+                return pd.read_csv(path)
+            except Exception:
+                return pd.DataFrame()
+    return pd.DataFrame()
+
+
 def get_targeted_plays():
     if use_postgres():
         return _pg_query("SELECT * FROM targeted_plays_live")
