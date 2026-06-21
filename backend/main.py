@@ -440,10 +440,41 @@ def build_wnba_standings():
 def _render_wnba_articles(request: Request, user, db: Session):
     """Render the shared articles.html with REAL WNBA modeled content
     (Claude analysis + Pillow header + prop recs), mirroring the NBA page."""
+    # Select the article for the ACTIVE WNBA slate (nearest upcoming games, else
+    # the latest), matching build_wnba_board and the rest of the WNBA pages.
+    # Ordering purely by slate_date.desc() surfaced a far-future slate (e.g. a
+    # schedule gap jumping to 06-30) instead of tonight's games.
+    active_slate = None
     try:
-        article = db.query(models.WNBADailyArticle).order_by(
-            models.WNBADailyArticle.slate_date.desc()
-        ).first()
+        from datetime import date as _date
+        games_df = data_access.get_wnba_games()
+        if games_df is not None and not games_df.empty and 'game_date' in games_df.columns:
+            today_str = get_eastern_today().isoformat()
+            dates = sorted(str(d) for d in games_df['game_date'].dropna().unique())
+            upcoming = [d for d in dates if d >= today_str]
+            chosen = upcoming[0] if upcoming else (dates[-1] if dates else None)
+            if chosen:
+                try:
+                    active_slate = _date.fromisoformat(chosen)
+                except Exception:
+                    active_slate = None
+    except Exception as e:
+        print(f"[WNBA ARTICLES] active-slate calc failed: {e}")
+        active_slate = None
+
+    article = None
+    try:
+        q = db.query(models.WNBADailyArticle)
+        if active_slate is not None:
+            article = q.filter(models.WNBADailyArticle.slate_date == active_slate).first()
+            if not article:
+                # No article for the active slate yet // show the most recent one
+                # at or before it, never a far-future slate.
+                article = q.filter(models.WNBADailyArticle.slate_date <= active_slate).order_by(
+                    models.WNBADailyArticle.slate_date.desc()
+                ).first()
+        if not article:
+            article = q.order_by(models.WNBADailyArticle.slate_date.desc()).first()
     except Exception as e:
         print(f"[WNBA ARTICLES] DB query failed: {e}")
         article = None
@@ -474,6 +505,14 @@ def _render_wnba_articles(request: Request, user, db: Session):
             prop_csv = os.path.join(os.path.dirname(__file__), '..', 'wnba_prop_recommendations.csv')
             if os.path.exists(prop_csv):
                 df = pd.read_csv(prop_csv)
+                # Keep only props for the displayed article's slate // the recs
+                # CSV spans multiple game_dates, so without this the props table
+                # would mix in a different slate than the article header shows.
+                if article and getattr(article, 'slate_date', None) is not None and 'game_date' in df.columns:
+                    slate_str = article.slate_date.isoformat()
+                    # Strict: only the displayed slate's props // if there are none
+                    # for that slate, show an empty table rather than another slate.
+                    df = df[df['game_date'].astype(str) == slate_str]
                 if 'composite_score' in df.columns:
                     df = df.sort_values('composite_score', ascending=False)
                 for _, row in df.head(20).iterrows():
