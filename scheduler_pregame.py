@@ -77,9 +77,48 @@ def get_et_now():
         return datetime.now(timezone.utc).astimezone(ET)
 
 
+def _get_wnba_tips_today_et(cur, now):
+    """Return today's WNBA tip-off datetimes (ET) from wnba_games.commence_time.
+
+    WNBA stores commence_time as a UTC ISO instant. We convert to ET and keep
+    only games whose Eastern date matches today so the pregame waves fire T-60
+    before WNBA tips too (mirrors how player_salaries.game_time drives NBA waves).
+    Without this, the WNBA official-call lock never fires at the intended time
+    because generate_wnba_article only ran in the ~1 AM daily update.
+    """
+    tips = []
+    try:
+        cur.execute(
+            "SELECT DISTINCT commence_time FROM wnba_games WHERE commence_time IS NOT NULL"
+        )
+    except Exception:
+        return tips
+    for (ct,) in cur.fetchall():
+        if not ct:
+            continue
+        try:
+            dt = datetime.fromisoformat(str(ct).replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                from datetime import timezone as _tz
+                dt = dt.replace(tzinfo=_tz.utc)
+            et = dt.astimezone(ET)
+            if et.date() == now.date():
+                tips.append(et)
+        except Exception:
+            continue
+    return tips
+
+
 def get_all_game_times_today_et(db_path=None):
-    """Return sorted list of distinct tip-off datetimes today in ET, or []."""
+    """Return sorted list of distinct tip-off datetimes today in ET, or [].
+
+    Combines NBA tips (player_salaries.game_time) and WNBA tips
+    (wnba_games.commence_time) so a single scheduler drives pregame waves for
+    whichever league is in season.
+    """
     path = db_path or DB_PATH
+    now = get_et_now()
+    parsed = []
     try:
         conn = sqlite3.connect(path)
         cur = conn.cursor()
@@ -87,19 +126,18 @@ def get_all_game_times_today_et(db_path=None):
             "SELECT DISTINCT game_time FROM player_salaries WHERE game_time IS NOT NULL"
         )
         raw_times = [row[0] for row in cur.fetchall()]
+        for gt in raw_times:
+            try:
+                t = datetime.strptime(gt, "%I:%M%p")
+                naive = t.replace(year=now.year, month=now.month, day=now.day)
+                parsed.append(_localize_et(naive))
+            except Exception:
+                continue
+        parsed.extend(_get_wnba_tips_today_et(cur, now))
         conn.close()
     except Exception:
         return []
 
-    now = get_et_now()
-    parsed = []
-    for gt in raw_times:
-        try:
-            t = datetime.strptime(gt, "%I:%M%p")
-            naive = t.replace(year=now.year, month=now.month, day=now.day)
-            parsed.append(_localize_et(naive))
-        except Exception:
-            continue
     return sorted(set(parsed))
 
 

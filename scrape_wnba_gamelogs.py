@@ -17,12 +17,39 @@ NOT a league column. This script keeps that convention.
 """
 import sqlite3
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 import requests
 
+try:
+    import zoneinfo
+    EASTERN = zoneinfo.ZoneInfo("US/Eastern")
+except ImportError:  # pragma: no cover
+    import pytz
+    EASTERN = pytz.timezone("US/Eastern")
+
 DB = "dfs_nba.db"
 UA = {"User-Agent": "Mozilla/5.0"}
+
+
+def _espn_gamedate_to_et(raw):
+    """Convert ESPN's UTC gameDate timestamp to the Eastern calendar date.
+
+    ESPN returns gameDate as a UTC instant (e.g. '2026-06-26T02:00:00.000+00:00').
+    Late tip-offs (>= 8 PM ET) fall on the NEXT UTC day, so naively slicing the
+    first 10 chars logs them under the wrong date. The slate/props side keys on
+    the Eastern date (scrape_wnba_props._utc_to_et_date), so the game logs must
+    match or the grader can never join late games to their picks.
+    """
+    if not raw:
+        return ""
+    try:
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(EASTERN).date().isoformat()
+    except Exception:
+        return raw[:10]
 
 TEAMS_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams"
 ROSTER_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/{tid}/roster"
@@ -133,7 +160,7 @@ def fetch_gamelog(aid):
             meta = events_meta.get(ev.get("eventId"), {})
             opp = (meta.get("opponent") or {}).get("abbreviation", "")
             team = (meta.get("team") or {}).get("abbreviation", "")
-            gdate = (meta.get("gameDate") or "")[:10]
+            gdate = _espn_gamedate_to_et(meta.get("gameDate"))
             is_home = 1 if meta.get("atVs", "") == "vs" else 0
             mins = _num(stats[IDX["min"]])
             if mins <= 0:

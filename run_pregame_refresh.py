@@ -32,6 +32,14 @@ REFRESH_SCRIPTS = [
     ("analysis/player_value.py", "Player Value Analysis"),
     ("generate_house_lineup.py --force", "House Lineup Generation"),
     ("generate_article.py", "Generate Daily Article"),
+    # WNBA pre-game refresh: re-scrape props/projections and regenerate the WNBA
+    # article inside the T-60 wave so the official-call lock actually fires 60 min
+    # before tip (previously generate_wnba_article only ran in the ~1 AM daily
+    # update, so its lock window around tip-off was never hit). No-ops cleanly out
+    # of WNBA season when there are no games on the slate.
+    ("scrape_wnba_props.py --force", "WNBA Games & Props (The Odds API)"),
+    ("build_wnba_projections.py", "WNBA Projections & Prop Recommendations"),
+    ("generate_wnba_article.py", "Generate WNBA Daily Article"),
     ("sync_to_postgres.py", "Sync Pipeline Data to PostgreSQL"),
 ]
 
