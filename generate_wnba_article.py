@@ -77,7 +77,7 @@ def _zone_rank_label(rank, total):
     return "average"
 
 
-def _load_enrichment():
+def _load_enrichment(slate_date=None):
     """Load WNBA shot-zone, opponent-defense-by-zone, and DVP context once.
 
     Mirrors the NBA article enrichment so Claude leads with shot-diet vs zone
@@ -85,7 +85,8 @@ def _load_enrichment():
     usage-redistribution blocks // there is no WNBA tracking source for those.
     """
     caches = {"shot_zones": {}, "team_def": {}, "zone_ranks": {},
-              "league_avg": {}, "dvp": {}, "dvp_rank": {}}
+              "league_avg": {}, "dvp": {}, "dvp_rank": {},
+              "referee_by_game": {}, "rest": {}, "fp": {}}
     try:
         conn = sqlite3.connect(DB)
         conn.row_factory = sqlite3.Row
@@ -143,6 +144,117 @@ def _load_enrichment():
                 rows.sort(key=lambda x: x[1])  # rank 1 = toughest (lowest factor)
                 for i, (team, _f) in enumerate(rows, start=1):
                     caches["dvp_rank"][(team, stat)] = (i, len(rows))
+
+        # Per-player season fantasy-point spread, for a ceiling/floor read. We do
+        # not have a WNBA fp distribution model, so we derive an honest +/- 1 SD
+        # band around the season FP average from wnba_player_stats.
+        if _has("wnba_player_stats"):
+            for row in cur.execute(
+                "SELECT player_name, fp_avg, fp_sd, fp_l5 FROM wnba_player_stats"):
+                d = dict(row)
+                if d.get("fp_avg") is None:
+                    continue
+                caches["fp"][_norm(d["player_name"])] = {
+                    "fp_avg": d.get("fp_avg"),
+                    "fp_sd": d.get("fp_sd"),
+                    "fp_l5": d.get("fp_l5"),
+                }
+
+        # Referee crew foul environment per game (matched by the two team abbrevs).
+        if _has("wnba_referee_stats") and _has("wnba_referee_assignments"):
+            ref_stats, fpgs = {}, []
+            for name, fpg, fdiff in cur.execute(
+                "SELECT referee, fouls_pg, foul_diff FROM wnba_referee_stats"):
+                if not name:
+                    continue
+                ref_stats[name.strip()] = {"fouls_pg": fpg, "foul_diff": fdiff}
+                if fpg is not None:
+                    fpgs.append(fpg)
+            lg_fpg = (sum(fpgs) / len(fpgs)) if fpgs else None
+            # Prefer the assignments for the slate we are writing about; only fall
+            # back to the most recent date when the slate has no rows.
+            latest_date = None
+            if slate_date is not None:
+                sd = slate_date.isoformat() if hasattr(slate_date, "isoformat") else str(slate_date)
+                if cur.execute(
+                    "SELECT 1 FROM wnba_referee_assignments WHERE game_date = ? LIMIT 1",
+                    (sd,)).fetchone():
+                    latest_date = sd
+            if not latest_date:
+                latest = cur.execute(
+                    "SELECT MAX(game_date) FROM wnba_referee_assignments").fetchone()
+                latest_date = latest[0] if latest else None
+            if latest_date:
+                for home, away, chief, ref, ump in cur.execute(
+                    "SELECT home_team, away_team, crew_chief, referee, umpire "
+                    "FROM wnba_referee_assignments WHERE game_date = ?", (latest_date,)):
+                    crew = [c.strip() for c in (chief, ref, ump) if c and str(c).strip()]
+                    stats = [ref_stats[c] for c in crew if c in ref_stats]
+                    if not (home and away) or not stats:
+                        continue
+                    cf = [s["fouls_pg"] for s in stats if s.get("fouls_pg") is not None]
+                    block = {"crew": crew}
+                    if cf:
+                        avg_f = sum(cf) / len(cf)
+                        block["avg_fouls_pg"] = round(avg_f, 1)
+                        if lg_fpg:
+                            if avg_f >= lg_fpg + 1.0:
+                                block["whistle"] = "tight"
+                            elif avg_f <= lg_fpg - 1.0:
+                                block["whistle"] = "lenient"
+                            else:
+                                block["whistle"] = "average"
+                    caches["referee_by_game"][frozenset((home.strip(), away.strip()))] = block
+
+        # Team rest / back-to-back, derived the same way as build_wnba_slump_risk:
+        # most-recent played date (game logs) vs the next scheduled game (schedule).
+        if _has("wnba_games") and _has("wnba_teams") and _has("wnba_player_game_logs"):
+            name2abbr = {}
+            for abbr, nm in cur.execute("SELECT abbr, name FROM wnba_teams"):
+                if nm:
+                    name2abbr[nm.strip()] = abbr
+            # Anchor "next game" to the slate we are writing about when known, so
+            # rest/B2B reflects that slate rather than ET-today on backfill runs.
+            if slate_date is not None:
+                today = slate_date if hasattr(slate_date, "isoformat") else None
+            else:
+                today = None
+            if today is None:
+                try:
+                    from utils.timezone import get_eastern_today
+                    today = get_eastern_today()
+                except Exception:
+                    from zoneinfo import ZoneInfo
+                    today = datetime.now(ZoneInfo("America/New_York")).date()
+            prev_dates = {}
+            for team, gdate in cur.execute(
+                "SELECT team, MAX(game_date) FROM wnba_player_game_logs "
+                "WHERE team != '' GROUP BY team"):
+                if team and gdate:
+                    prev_dates[team] = gdate
+            next_games = {}
+            for gdate, home, away in cur.execute(
+                "SELECT game_date, home_team, away_team FROM wnba_games "
+                "WHERE game_date >= ? ORDER BY game_date ASC", (today.isoformat(),)):
+                h = name2abbr.get((home or "").strip())
+                a = name2abbr.get((away or "").strip())
+                if h and h not in next_games:
+                    next_games[h] = (gdate, a)
+                if a and a not in next_games:
+                    next_games[a] = (gdate, h)
+            from datetime import date as _date
+            for team, (ndate, _opp) in next_games.items():
+                prev = prev_dates.get(team)
+                if not prev:
+                    continue
+                try:
+                    rest_days = (_date.fromisoformat(ndate) - _date.fromisoformat(prev)).days
+                except Exception:
+                    continue
+                caches["rest"][team] = {
+                    "rest_days": rest_days,
+                    "back_to_back": rest_days <= 1,
+                }
         conn.close()
     except Exception as e:
         print(f"[WNBA ARTICLE] enrichment load failed ({e}) // continuing without it.")
@@ -306,6 +418,41 @@ def _build_briefing(recs, meta, records, caches=None):
             "confidence": r["confidence"],
         }
         entry.update(_enrich_pick(r["player"], r["opponent"], r["stat"], caches))
+
+        # Fantasy-point ceiling/floor band (+/- 1 SD around the season FP avg).
+        fp = caches.get("fp", {}).get(nk)
+        if fp and fp.get("fp_avg") is not None:
+            avg = float(fp["fp_avg"])
+            block = {"season_fp_pg": round(avg, 1)}
+            if fp.get("fp_l5") is not None:
+                block["last5_fp_pg"] = round(float(fp["fp_l5"]), 1)
+            if fp.get("fp_sd") is not None:
+                sd = float(fp["fp_sd"])
+                block["fp_ceiling"] = round(avg + sd, 1)
+                block["fp_floor"] = round(max(0.0, avg - sd), 1)
+            entry["fp_context"] = block
+
+        # Team rest / back-to-back (this team and the opponent, for a rest edge).
+        rest_map = caches.get("rest", {})
+        rest = rest_map.get(r["team"])
+        if rest:
+            rblock = dict(rest)
+            opp_rest = rest_map.get(r["opponent"])
+            if opp_rest:
+                rblock["opponent_rest_days"] = opp_rest.get("rest_days")
+                if (rest.get("rest_days") is not None
+                        and opp_rest.get("rest_days") is not None):
+                    if rest["rest_days"] - opp_rest["rest_days"] >= 2:
+                        rblock["rest_edge"] = "advantage"
+                    elif opp_rest["rest_days"] - rest["rest_days"] >= 2:
+                        rblock["rest_edge"] = "disadvantage"
+            entry["rest"] = rblock
+
+        # Referee crew foul environment for this game.
+        ref = caches.get("referee_by_game", {}).get(frozenset((r["team"], r["opponent"])))
+        if ref:
+            entry["referee_crew"] = ref
+
         sr = slump.get(nk)
         if sr:
             entry["slump_risk"] = sr
@@ -325,6 +472,9 @@ ANALYTICAL FRAMEWORK (this is how a sharp WNBA analyst reasons // follow it):
 3. PROJECTION EDGE: the model's projected value vs the book line (`edge_pct`).
 4. CONFIRMATION SIGNALS (secondary): hit rate, last-5 form, CV (consistency). Use these to CONFIRM a pick that the shot-diet/DVP/projection signals already support // do NOT lead with last-5 or hit rate. Lower CV is a tailwind; high CV demands a bigger edge.
 5. SLUMP RISK (caution flag when present): if a pick has `slump_risk`, our Slump Risk model has flagged this player as MODERATE or HIGH risk of cooling off, with the observable `signals` that drove it (shrinking minutes/usage, an unsustainable hot streak due for regression, tough matchup, or short rest). For an OVER, treat a HIGH flag as a real reason for caution and either avoid it or explicitly acknowledge the risk and explain why the matchup still wins. For an UNDER, a slump-risk flag REINFORCES the case. Cite the specific signal honestly. Never hide it.
+6. REST / BACK-TO-BACK (`rest` when present): `rest_days` is the days off before tonight for this player's team and `back_to_back` is true on the second night of a back-to-back. `opponent_rest_days` and `rest_edge` ('advantage'/'disadvantage') compare the two teams. A back-to-back is a real fatigue headwind (trimmed minutes, dip in efficiency) // lean it against aggressive OVERs and toward UNDERs. A clear rest advantage is a tailwind for volume OVERs. Use it as a supporting environment signal.
+7. FANTASY-POINT CONTEXT (`fp_context` when present): `season_fp_pg` is the player's season fantasy output, `last5_fp_pg` is recent form, and `fp_ceiling`/`fp_floor` are an honest +/- 1 SD band around the season average (NOT a tonight projection). A wide band means a volatile, boom-or-bust profile (demand a bigger edge); a tight band supports confidence. If recent FP is running well above the season average, pair it with the slump-risk read before chasing an OVER.
+8. REFEREE CREW (`referee_crew` when present): the officials assigned to this game with their foul environment. `avg_fouls_pg` is the crew's average fouls per game and `whistle` is tight/average/lenient vs the WNBA crew average. A `tight` whistle crew creates more free-throw and foul-out volume (supports PTS OVERs for foul-drawers, raises foul-trouble risk for bigs); a `lenient` crew suppresses FT-dependent scoring. This is a minor supporting signal, never the headline.
 
 PICK SELECTION:
 - Prioritize picks where shot-diet vs zone defense and/or DVP point the same direction as the projection edge, then confirm with form.
@@ -625,7 +775,7 @@ def main():
     game_count = recs[["team", "opponent"]].apply(
         lambda r: frozenset([r["team"], r["opponent"]]), axis=1).nunique()
 
-    prop_lines = _build_briefing(recs, meta, records, _load_enrichment())
+    prop_lines = _build_briefing(recs, meta, records, _load_enrichment(slate_date))
     result = _call_claude(prop_lines, game_count, slate_date)
     claude_selected = result is not None
     if not result:

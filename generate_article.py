@@ -28,6 +28,14 @@ def _safe_float(val, default=0):
         return default
 
 
+def _pname_key(name):
+    """Normalize a player name to an accent/punctuation-insensitive lookup key so
+    ownership rows match the prop player names even with minor spelling drift."""
+    import unicodedata
+    s = unicodedata.normalize("NFKD", str(name)).encode("ascii", "ignore").decode()
+    return "".join(ch for ch in s.lower() if ch.isalnum())
+
+
 def _get_slate_game_count(max_age_hours=36, game_date=None):
     """Return the number of games on tonight's slate from the game_odds table.
 
@@ -1018,6 +1026,7 @@ def _load_briefing_enrichment_caches():
         'hustle': {}, 'play_types_off': {}, 'play_types_def': {},
         'measurements': {}, 'pace': {}, 'zone_def_ranks': {},
         'league_avg_pace': None,
+        'ownership': {}, 'referee_agg': {}, 'referee_agg_league': {},
     }
     try:
         conn = sqlite3.connect("dfs_nba.db")
@@ -1079,9 +1088,50 @@ def _load_briefing_enrichment_caches():
                     cache['measurements'][d.get('player_name')] = d
         except Exception:
             pass
+        # Referee crew foul tendencies (per official). Game-level matching happens
+        # in _build_full_slate_briefing, which knows the slate's game_date.
+        try:
+            agg_cols = [r[1] for r in cur.execute("PRAGMA table_info(referee_stats_agg)")]
+            if agg_cols:
+                fouls, diffs, pts = [], [], []
+                for row in cur.execute(
+                    "SELECT referee, true_fouls_pg, true_foul_diff, true_total_points_pg "
+                    "FROM referee_stats_agg"):
+                    name, fpg, fdiff, tpts = row
+                    if not name:
+                        continue
+                    cache['referee_agg'][name.strip()] = {
+                        'fouls_pg': fpg, 'foul_diff': fdiff, 'total_points_pg': tpts,
+                    }
+                    if fpg is not None:
+                        fouls.append(fpg)
+                    if tpts is not None:
+                        pts.append(tpts)
+                if fouls:
+                    cache['referee_agg_league']['fouls_pg'] = sum(fouls) / len(fouls)
+                if pts:
+                    cache['referee_agg_league']['total_points_pg'] = sum(pts) / len(pts)
+        except Exception:
+            pass
         conn.close()
     except Exception as e:
         print(f"[brief] enrichment cache load failed: {e}")
+
+    # Ownership projections (DFS market consensus). Read the freshly-written CSV
+    # so the article reflects TODAY's slate, not a possibly-stale postgres mirror.
+    try:
+        if os.path.exists("ownership_projections.csv"):
+            odf = pd.read_csv("ownership_projections.csv")
+            for _, orow in odf.iterrows():
+                nm = orow.get('player_name')
+                if not nm or str(nm) == 'nan':
+                    continue
+                cache['ownership'][_pname_key(nm)] = {
+                    'projected_pct': round(_safe_float(orow.get('pown_pct', 0)), 1),
+                    'tier': str(orow.get('ownership_tier') or '').strip(),
+                }
+    except Exception as e:
+        print(f"[brief] ownership cache load failed: {e}")
     return cache
 
 
@@ -1487,6 +1537,10 @@ def _build_full_slate_briefing(props_df, dfs_df, game_date=None):
             if fp_block:
                 entry['fp_context'] = fp_block
 
+        own = enrichment.get('ownership', {}).get(_pname_key(player))
+        if own and (own.get('projected_pct') or own.get('tier')):
+            entry['ownership'] = own
+
         try:
             enrich_blocks = _enrich_pick_blocks(player, team, opponent, stat, enrichment, entry=entry)
             for k, v in enrich_blocks.items():
@@ -1590,11 +1644,74 @@ def _build_full_slate_briefing(props_df, dfs_df, game_date=None):
         print(f"[brief] game scheme blocks failed: {_sb_err}")
         scheme_blocks = {}
 
+    # Referee crew foul environment per game. Match tonight's assignments to the
+    # slate's games (by the two team abbrevs) and average the crew's tendencies.
+    referee_by_game = {}
+    try:
+        _ref_alias = {'GS': 'GSW', 'NO': 'NOP', 'NY': 'NYK', 'PHO': 'PHX', 'SA': 'SAS'}
+
+        def _ra(t):
+            t = (t or '').strip()
+            return _ref_alias.get(t, t)
+
+        ref_agg = enrichment.get('referee_agg', {})
+        lg = enrichment.get('referee_agg_league', {})
+        conn = sqlite3.connect("dfs_nba.db")
+        # Prefer assignments for the slate we are writing about; only fall back to
+        # the most recent assignment date when the slate date has no rows.
+        latest_date = None
+        if game_date:
+            slate_row = conn.execute(
+                "SELECT 1 FROM referee_assignments WHERE game_date = ? LIMIT 1",
+                (str(game_date),)).fetchone()
+            if slate_row:
+                latest_date = str(game_date)
+        if not latest_date:
+            latest = conn.execute(
+                "SELECT MAX(game_date) FROM referee_assignments").fetchone()
+            latest_date = latest[0] if latest else None
+        if latest_date:
+            for home, away, chief, ref, ump in conn.execute(
+                "SELECT home_team, away_team, crew_chief, referee, umpire "
+                "FROM referee_assignments WHERE game_date = ?", (latest_date,)):
+                crew = [c.strip() for c in (chief, ref, ump) if c and str(c).strip()]
+                stats = [ref_agg[c] for c in crew if c in ref_agg]
+                if not stats:
+                    continue
+                fpg = [s['fouls_pg'] for s in stats if s.get('fouls_pg') is not None]
+                tpts = [s['total_points_pg'] for s in stats if s.get('total_points_pg') is not None]
+                block = {'crew': crew}
+                if fpg:
+                    avg_f = sum(fpg) / len(fpg)
+                    block['avg_fouls_pg'] = round(avg_f, 1)
+                    lg_f = lg.get('fouls_pg')
+                    if lg_f:
+                        if avg_f >= lg_f + 1.0:
+                            block['whistle'] = 'tight'
+                        elif avg_f <= lg_f - 1.0:
+                            block['whistle'] = 'lenient'
+                        else:
+                            block['whistle'] = 'average'
+                if tpts:
+                    block['avg_total_points_pg'] = round(sum(tpts) / len(tpts), 1)
+                referee_by_game[frozenset((_ra(home), _ra(away)))] = block
+        conn.close()
+    except Exception as _ref_err:
+        print(f"[brief] referee crew matching failed: {_ref_err}")
+
     games_payload = []
     for k, v in sorted(game_env.items()):
         gb = {'game': k, 'implied_total': v}
         if k in scheme_blocks:
             gb['scheme'] = scheme_blocks[k]
+        try:
+            parts = [p.strip() for p in k.split('@')]
+            if len(parts) == 2:
+                ref_block = referee_by_game.get(frozenset(parts))
+                if ref_block:
+                    gb['referee_crew'] = ref_block
+        except Exception:
+            pass
         games_payload.append(gb)
 
     briefing = {
@@ -1710,6 +1827,7 @@ GAME-LEVEL (`games[i].scheme[<team>]` // applies to every player on that team in
 - `top_off_play_types` and `top_def_play_types`: the team's top 3 offensive and top 3 defensive coverages by frequency. Each entry has `play_type` (e.g. "Pick & Roll Ball Handler", "Spot Up", "Isolation"), `freq_pct` (% of possessions), `ppp` (points per possession), and a percentile on a 0-100 scale where 100 = league-best. For DEF entries, LOW `def_percentile` (< 30) means leaky in that coverage. For OFF entries, HIGH `off_percentile` means a strong offensive identity worth respecting.
 - `pace`: team pace labelled fast/avg/slow vs league average.
 - `leakiest_zones_allowed`: the opponent's 3 most-exploitable zones with allowed FG% and "X/30 (label)" rank.
+- `referee_crew` (when present): the officials assigned to this game with their historical foul environment. `avg_fouls_pg` is the crew's average total fouls per game, `whistle` is tight/average/lenient vs the league crew average, and `avg_total_points_pg` is the scoring environment they tend to produce. A `tight` whistle crew inflates free-throw volume and helps PTS OVERs for foul-drawing players (and foul-trouble risk for bigs); a `lenient` crew suppresses FT-dependent scoring. Use it as a supporting environment signal, never the headline.
 
 PER-PICK:
 - `shot_diet`: `season_fga` plus `top_zones`, the player's 3 most-used shooting zones with `share_pct` and `fg_pct`. Zones below 8% share are dropped as immaterial.
@@ -1722,6 +1840,7 @@ PER-PICK:
 - `shot_creation`: catch_shoot_pct, pull_up_pct, paint_pct. Cross-check with `out_players` to see if the player's primary creator is OUT.
 - `hustle_signals` (STL/BLK/REB only): deflections_per48, contested_shots_per48, contested_2pt_total, box_outs_per48, screen_ast_per48.
 - `fp_context`: season fantasy points per game, fp_per_min, projected fp tonight (with ceiling and floor). If `projected_fp_tonight` clears `season_fp_pg` by 3+, the entire stat line gets a tailwind. If it does not, be more conservative on aggressive OVERs.
+- `ownership` (when present): the player's projected DFS roster ownership for tonight. `projected_pct` is the share of lineups expected to roster them and `tier` labels it (Chalk = heavily owned consensus play, Popular = moderate, Contrarian = near-zero). This is a market-consensus signal: a Chalk player the public loves is the consensus read (the line is sharp, demand conviction), while a strong edge on a Contrarian, low-owned player is where you separate from the field. Treat it as leverage context, not a projection driver.
 
 WRITING DIRECTIVE: Lead each analysis with a zone, scheme, projection-driver, or usage-redistribution cue when it is present. Hit rate and last-5 average are CONFIRMATION, not the headline. Two analyses that both lead with "Hit rate of X%, last 5 is Y" are a failure of differentiation.
 
