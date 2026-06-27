@@ -39,6 +39,7 @@ REFRESH_SCRIPTS = [
     # of WNBA season when there are no games on the slate.
     ("scrape_wnba_props.py --force", "WNBA Games & Props (The Odds API)"),
     ("build_wnba_projections.py", "WNBA Projections & Prop Recommendations"),
+    ("build_wnba_slump_risk.py", "WNBA Slump Risk Engine (cool-off warning signals)"),
     ("generate_wnba_article.py", "Generate WNBA Daily Article"),
     ("sync_to_postgres.py", "Sync Pipeline Data to PostgreSQL"),
 ]

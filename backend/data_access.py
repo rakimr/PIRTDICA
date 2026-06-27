@@ -105,6 +105,16 @@ def get_wnba_standings():
     return _sqlite_query("SELECT * FROM wnba_standings")
 
 
+def get_wnba_slump_risk():
+    """WNBA Slump Risk Engine output (build_wnba_slump_risk.py). Mirrors the
+    other WNBA readers: postgres live mirror first, SQLite staging fallback."""
+    if _pg_table_has_data("wnba_slump_risk_live"):
+        return _pg_query(
+            "SELECT * FROM wnba_slump_risk_live ORDER BY overall_score DESC")
+    return _sqlite_query(
+        "SELECT * FROM wnba_slump_risk ORDER BY overall_score DESC")
+
+
 def get_ownership_projections():
     if use_postgres():
         return _pg_query("SELECT * FROM ownership_projections_live")

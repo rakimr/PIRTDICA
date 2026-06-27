@@ -242,9 +242,46 @@ def _enrich_pick(player, opponent, stat, caches):
     return out
 
 
+def _load_slump_risk():
+    """player-norm-key -> slump-risk context (build_wnba_slump_risk.py). Lets the
+    article honestly flag a featured player who is showing cool-off warning signs
+    (shrinking minutes/usage, hot-streak regression, tough matchup). Returns {} if
+    the table is absent so the article still generates cleanly."""
+    out = {}
+    if not os.path.exists(DB):
+        return out
+    try:
+        conn = sqlite3.connect(DB)
+        cur = conn.cursor()
+        has = cur.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='wnba_slump_risk'"
+        ).fetchone()
+        if not has:
+            conn.close()
+            return out
+        for name, level, score, factors_json in cur.execute(
+            "SELECT player_name, risk_level, overall_score, factors_json "
+            "FROM wnba_slump_risk WHERE risk_level IN ('HIGH','MODERATE')"
+        ):
+            try:
+                factors = json.loads(factors_json or "[]")
+            except Exception:
+                factors = []
+            out[_norm(name)] = {
+                "risk_level": level,
+                "risk_score": round(score, 0) if score is not None else None,
+                "signals": factors,
+            }
+        conn.close()
+    except Exception as e:
+        print(f"Slump-risk load failed ({e}) // continuing without it.")
+    return out
+
+
 def _build_briefing(recs, meta, records, caches=None):
     if caches is None:
         caches = _load_enrichment()
+    slump = _load_slump_risk()
     prop_lines = []
     for _, r in recs.iterrows():
         nk = _norm(r["player"])
@@ -269,6 +306,9 @@ def _build_briefing(recs, meta, records, caches=None):
             "confidence": r["confidence"],
         }
         entry.update(_enrich_pick(r["player"], r["opponent"], r["stat"], caches))
+        sr = slump.get(nk)
+        if sr:
+            entry["slump_risk"] = sr
         prop_lines.append(entry)
     return prop_lines
 
@@ -284,6 +324,7 @@ ANALYTICAL FRAMEWORK (this is how a sharp WNBA analyst reasons // follow it):
 2. DVP (defense vs the stat): `dvp.opp_allows_vs_avg_pct` is how much more/less of this stat the opponent gives up vs the WNBA average (positive = soft = supports OVER, negative = tough = supports UNDER). Cite it: "POR allows +7.1% more rebounds than average (rank 14/15)". Treat a soft/tough DVP as a primary matchup signal, not a footnote.
 3. PROJECTION EDGE: the model's projected value vs the book line (`edge_pct`).
 4. CONFIRMATION SIGNALS (secondary): hit rate, last-5 form, CV (consistency). Use these to CONFIRM a pick that the shot-diet/DVP/projection signals already support // do NOT lead with last-5 or hit rate. Lower CV is a tailwind; high CV demands a bigger edge.
+5. SLUMP RISK (caution flag when present): if a pick has `slump_risk`, our Slump Risk model has flagged this player as MODERATE or HIGH risk of cooling off, with the observable `signals` that drove it (shrinking minutes/usage, an unsustainable hot streak due for regression, tough matchup, or short rest). For an OVER, treat a HIGH flag as a real reason for caution and either avoid it or explicitly acknowledge the risk and explain why the matchup still wins. For an UNDER, a slump-risk flag REINFORCES the case. Cite the specific signal honestly. Never hide it.
 
 PICK SELECTION:
 - Prioritize picks where shot-diet vs zone defense and/or DVP point the same direction as the projection edge, then confirm with form.

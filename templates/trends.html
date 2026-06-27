@@ -32,6 +32,23 @@
     .sc-body, .esc-body { padding: 10px 12px 16px; }
     .sc-player-info h2 { font-size: 1.1rem; }
 }
+.slump-risk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-top: 8px; }
+.slump-card { border: 1px solid #e5e7eb; border-left-width: 4px; border-radius: 10px; padding: 14px 16px; background: #fff; }
+.slump-card.slump-high { border-left-color: #d72638; }
+.slump-card.slump-moderate { border-left-color: #d4af37; }
+.slump-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.slump-player { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.slump-name { font-weight: 800; font-size: 1rem; letter-spacing: -0.01em; color: #111; }
+.slump-meta { font-size: 0.74rem; color: #6b7280; font-weight: 600; }
+.slump-score-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
+.slump-score { font-weight: 800; font-size: 1.5rem; line-height: 1; color: #111; }
+.slump-level { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 7px; border-radius: 4px; }
+.slump-level-high { background: #fde8ea; color: #d72638; }
+.slump-level-moderate { background: #faf3dc; color: #9a7b15; }
+.slump-narrative { font-size: 0.84rem; color: #374151; line-height: 1.45; margin: 10px 0 6px; }
+.slump-factors { margin: 6px 0 0; padding-left: 18px; }
+.slump-factors li { font-size: 0.76rem; color: #6b7280; line-height: 1.5; }
+@media (max-width: 600px) { .slump-risk-grid { grid-template-columns: 1fr; } }
 </style>
 <div class="trends-page">
     <div class="trends-header">
@@ -190,6 +207,36 @@
             Select a team above to see where opponents like to shoot against them.
         </div>
     </div>
+
+    {% if league == 'wnba' and slump_risk is defined and slump_risk %}
+    <div class="trends-section">
+        <h2>Slump Risk Engine</h2>
+        <p class="chart-description">Rotation players most likely to <strong>cool off soon</strong>, flagged from observable leading indicators <em>before</em> it shows up in the box score: shrinking minutes, fewer touches (usage), an unsustainable hot streak due for regression, and a tough upcoming matchup or short rest. <span style="color:#d72638; font-weight:600;">HIGH</span> = strong convergence of warning signs. <span style="color:#d4af37; font-weight:600;">MODERATE</span> = worth watching. Use it to fade players the market may still be paying up for.</p>
+        <div class="slump-risk-grid">
+            {% for s in slump_risk %}
+            <div class="slump-card slump-{{ s.level|lower }}">
+                <div class="slump-card-head">
+                    <div class="slump-player">
+                        <span class="slump-name">{{ s.player }}</span>
+                        <span class="slump-meta">{{ s.team }}{% if s.position %} &middot; {{ s.position }}{% endif %}{% if s.opponent %} &middot; vs {{ s.opponent }}{% endif %}{% if s.rest_days is not none %} &middot; {{ s.rest_days }}d rest{% endif %}</span>
+                    </div>
+                    <div class="slump-score-wrap">
+                        <span class="slump-score">{{ '%.0f'|format(s.score) if s.score is not none else '—' }}</span>
+                        <span class="slump-level slump-level-{{ s.level|lower }}">{{ s.level }}</span>
+                    </div>
+                </div>
+                {% if s.narrative %}<p class="slump-narrative">{{ s.narrative }}</p>{% endif %}
+                {% if s.factors %}
+                <ul class="slump-factors">
+                    {% for f in s.factors %}<li>{{ f }}</li>{% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        <p class="chart-description" style="margin-top:10px; font-size:0.8rem; color:#9ca3af;">Signals are on-court and schedule-based only. This is a fade/monitor tool, not a guarantee.</p>
+    </div>
+    {% endif %}
 
     {% if explorer_players %}
     <div class="trends-section">

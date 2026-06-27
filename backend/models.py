@@ -426,6 +426,32 @@ class WNBAPropLive(Base):
     scraped_at = Column(String(40))
 
 
+class WNBASlumpRiskLive(Base):
+    __tablename__ = "wnba_slump_risk_live"
+
+    id = Column(Integer, primary_key=True, index=True)
+    player_name = Column(String(100), nullable=False, index=True)
+    team = Column(String(10), index=True)
+    position = Column(String(10))
+    games = Column(Integer)
+    overall_score = Column(Float)
+    risk_level = Column(String(12))
+    minutes_score = Column(Float)
+    usage_score = Column(Float)
+    regression_score = Column(Float)
+    schedule_score = Column(Float)
+    min_avg = Column(Float)
+    min_l5 = Column(Float)
+    fp_avg = Column(Float)
+    fp_l5 = Column(Float)
+    next_opponent = Column(String(10))
+    next_game_date = Column(String(20))
+    rest_days = Column(Integer)
+    factors_json = Column(Text)
+    narrative = Column(Text)
+    updated_at = Column(String(40))
+
+
 class WNBAStandingLive(Base):
     __tablename__ = "wnba_standings_live"
 

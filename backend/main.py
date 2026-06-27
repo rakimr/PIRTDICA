@@ -664,12 +664,41 @@ def _render_wnba_trends(request: Request, user, db: Session):
     except Exception as e:
         print(f"[WNBA TRENDS] explorer build failed: {e}")
 
+    # Slump Risk Engine: rotation players most likely to cool off, with the
+    # observable signals that drove the flag. WNBA-only // there is no NBA
+    # equivalent table, so the section is gated to league == 'wnba'.
+    slump_risk = []
+    try:
+        srdf = data_access.get_wnba_slump_risk()
+        if srdf is not None and not srdf.empty:
+            srdf = srdf[srdf['risk_level'].isin(['HIGH', 'MODERATE'])].head(20)
+            for _, r in srdf.iterrows():
+                try:
+                    fac = json.loads(r.get('factors_json') or '[]')
+                except (json.JSONDecodeError, TypeError):
+                    fac = []
+                rest = r.get('rest_days')
+                slump_risk.append({
+                    'player': r.get('player_name', ''),
+                    'team': r.get('team', ''),
+                    'position': r.get('position', ''),
+                    'score': r.get('overall_score'),
+                    'level': r.get('risk_level', ''),
+                    'opponent': r.get('next_opponent') or '',
+                    'rest_days': int(rest) if rest is not None and rest == rest else None,
+                    'factors': fac,
+                    'narrative': r.get('narrative') or '',
+                })
+    except Exception as e:
+        print(f"[WNBA TRENDS] slump risk load failed: {e}")
+
     return templates.TemplateResponse("trends.html", {
         "request": request,
         "user": user,
         "top_value": [],
         "props": props,
         "targeted": [],
+        "slump_risk": slump_risk,
         "ref_chart_exists": _os.path.exists("static/images/wnba_ref_foul_chart.png"),
         "cache_bust": int(_time.time()),
         "explorer_players": explorer_players,

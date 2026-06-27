@@ -57,6 +57,7 @@ SOURCE_CODE_FILES = [
     "scrape_wnba_player_shot_zones.py",
     "scrape_wnba_team_defense_zones.py",
     "build_wnba_projections.py",
+    "build_wnba_slump_risk.py",
     "scrape_wnba_referee_assignments.py",
     "build_wnba_referee_stats.py",
     "generate_wnba_charts.py",
