@@ -3302,6 +3302,29 @@ async def api_live_scores(request: Request, db: Session = Depends(get_db)):
     except Exception as e:
         return {"scores": _live_scores_cache.get("data", {}), "error": str(e)}
 
+_live_wnba_cache = {"data": {}, "timestamp": 0}
+LIVE_WNBA_CACHE_TTL = 30
+
+@app.get("/api/live-wnba-scores")
+async def api_live_wnba_scores(request: Request):
+    now = time.time()
+    if now - _live_wnba_cache["timestamp"] < LIVE_WNBA_CACHE_TTL and _live_wnba_cache["data"]:
+        cached = dict(_live_wnba_cache["data"])
+        cached["cached"] = True
+        return cached
+    try:
+        from live_wnba_scores import get_wnba_live_scoreboard
+        board = get_wnba_live_scoreboard()
+        _live_wnba_cache["data"] = board
+        _live_wnba_cache["timestamp"] = now
+        out = dict(board)
+        out["cached"] = False
+        return out
+    except Exception as e:
+        fallback = dict(_live_wnba_cache.get("data", {}) or {"has_games": False, "games": []})
+        fallback["error"] = str(e)
+        return fallback
+
 def get_game_lock_status():
     from zoneinfo import ZoneInfo
     eastern = ZoneInfo("America/New_York")

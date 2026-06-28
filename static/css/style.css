@@ -6254,3 +6254,31 @@ body[data-league="wnba"] .btn-play {
 }
 .wnba-empty h2 { font-family: 'Righteous', cursive; margin-bottom: 0.5rem; }
 .wnba-empty p { color: var(--text-muted); }
+
+/* ---- Live WNBA scoreboard (home page) ---- */
+.live-wnba-section { margin-top: 2rem; }
+.live-wnba-section .subtitle .lw-key { margin: 0 .1rem; }
+.lw-live-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #ff3b3b; margin-left: .4rem; vertical-align: middle; animation: lwPulse 1.4s ease-in-out infinite; }
+@keyframes lwPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.78); } }
+.live-wnba-games { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+.lw-game { border: 1px solid var(--border, #2a2a2a); border-radius: 10px; background: var(--card-bg, #161616); overflow: hidden; }
+.lw-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .65rem .85rem; background: rgba(255,255,255,.03); border-bottom: 1px solid var(--border, #2a2a2a); }
+.lw-team { display: inline-flex; align-items: center; gap: .35rem; font-weight: 600; font-size: .95rem; }
+.lw-team b { font-size: 1.05rem; }
+.lw-logo { width: 22px; height: 22px; object-fit: contain; }
+.lw-status { font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted, #9a9a9a); text-align: center; }
+.lw-status-live { color: #ff5a5a; font-weight: 700; }
+.lw-rows { padding: .35rem .5rem; }
+.lw-pre { padding: 1rem; text-align: center; color: var(--text-muted, #9a9a9a); font-size: .85rem; }
+.lw-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: .5rem; padding: .3rem .35rem; border-bottom: 1px solid rgba(255,255,255,.04); font-size: .85rem; }
+.lw-row:last-child { border-bottom: none; }
+.lw-has-pick { background: rgba(255, 196, 0, .07); border-radius: 6px; }
+.lw-pname { font-weight: 500; }
+.lw-temp { font-size: .9rem; }
+.lw-fp { font-weight: 700; font-variant-numeric: tabular-nums; }
+.lw-line { color: var(--text-muted, #9a9a9a); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lw-pick { display: inline-block; font-size: .68rem; font-weight: 700; padding: .08rem .4rem; border-radius: 999px; margin-left: .25rem; white-space: nowrap; }
+.lw-pick-win { background: rgba(46, 204, 113, .18); color: #4ade80; }
+.lw-pick-lose { background: rgba(231, 76, 60, .16); color: #f87171; }
+.lw-pick-even { background: rgba(255,255,255,.08); color: #cfcfcf; }
+@media (max-width: 520px) { .lw-pick { display: none; } .lw-has-pick .lw-pick { display: inline-block; } }

@@ -115,6 +115,49 @@ def get_wnba_slump_risk():
         "SELECT * FROM wnba_slump_risk ORDER BY overall_score DESC")
 
 
+def get_wnba_fp_pace():
+    """Per-player season fantasy-point pace for the live hot/cold read.
+    SQLite-only (wnba_player_value is not synced to postgres). Returns
+    player_name, fp_avg, min_avg."""
+    return _sqlite_query(
+        "SELECT player_name, fp_avg, min_avg FROM wnba_player_value")
+
+
+def get_wnba_official_picks(slate_date):
+    """Tonight's PIRTDICA official WNBA picks for the live pick-highlight layer.
+    Reads wnba_daily_articles (official_picks_json, then picks_json) for the given
+    date. Postgres first, SQLite staging fallback. Returns a list of pick dicts."""
+    import json
+    sd = str(slate_date)
+    row = None
+    try:
+        df = _pg_query(
+            "SELECT official_picks_json, picks_json FROM wnba_daily_articles "
+            "WHERE slate_date = :d", {"d": sd})
+        if df is not None and not df.empty:
+            row = df.iloc[0]
+    except Exception:
+        row = None
+    if row is None:
+        df = _sqlite_query(
+            "SELECT official_picks_json, picks_json FROM wnba_daily_articles "
+            "WHERE slate_date = ?", (sd,))
+        if df is not None and not df.empty:
+            row = df.iloc[0]
+    if row is None:
+        return []
+    for col in ("official_picks_json", "picks_json"):
+        raw = row.get(col) if hasattr(row, "get") else row[col]
+        if raw:
+            try:
+                picks = json.loads(raw)
+                if isinstance(picks, list) and picks:
+                    return picks
+            except Exception:
+                continue
+    return []
+
+
 def get_ownership_projections():
     if use_postgres():
         return _pg_query("SELECT * FROM ownership_projections_live")

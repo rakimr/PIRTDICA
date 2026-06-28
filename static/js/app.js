@@ -230,3 +230,64 @@ function trackPageView() {
         })
     }).catch(function() {});
 }
+
+// ---- Live WNBA scoreboard (home page, WNBA only) ----
+(function(){
+    var section = document.getElementById('live-wnba-section');
+    if (!section) return;
+    var league = (document.body.getAttribute('data-league') || 'nba').toLowerCase();
+    if (league !== 'wnba') return;
+
+    var gamesEl = document.getElementById('live-wnba-games');
+    var dotEl = document.getElementById('live-wnba-dot');
+
+    function esc(s){ var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML; }
+
+    function tempBadge(t){
+        if (t === 'hot') return ' <span class="lw-temp" title="Hot vs season pace">\uD83D\uDD25</span>';
+        if (t === 'cold') return ' <span class="lw-temp" title="Cold vs season pace">\u2744\uFE0F</span>';
+        return '';
+    }
+    function pickBadge(p){
+        if (!p) return '';
+        var cls = p.status === 'winning' ? 'lw-pick-win' : (p.status === 'trailing' ? 'lw-pick-lose' : 'lw-pick-even');
+        var line = (p.line === null || p.line === undefined) ? '' : p.line;
+        var label = '\uD83C\uDFAF ' + esc(p.side) + ' ' + esc(line) + ' ' + esc(p.stat);
+        return ' <span class="lw-pick ' + cls + '" title="PIRTDICA pick // currently ' + esc(p.status) + ' at ' + esc(p.current) + '">' + label + '</span>';
+    }
+
+    function renderGame(g){
+        var head = '<div class="lw-head">' +
+            '<span class="lw-team"><img src="' + esc(g.away.logo) + '" class="lw-logo" alt="">' + esc(g.away.abbr) + ' <b>' + esc(g.away.score) + '</b></span>' +
+            '<span class="lw-status' + (g.state === 'in' ? ' lw-status-live' : '') + '">' + esc(g.status) + '</span>' +
+            '<span class="lw-team"><b>' + esc(g.home.score) + '</b> ' + esc(g.home.abbr) + ' <img src="' + esc(g.home.logo) + '" class="lw-logo" alt=""></span>' +
+            '</div>';
+        var rows = '';
+        if (g.state === 'pre') {
+            rows = '<div class="lw-pre">Tips off ' + esc(g.status) + '</div>';
+        } else {
+            (g.players || []).forEach(function(p){
+                rows += '<div class="lw-row' + (p.pick ? ' lw-has-pick' : '') + '">' +
+                    '<span class="lw-pname">' + esc(p.name) + tempBadge(p.temp) + pickBadge(p.pick) + '</span>' +
+                    '<span class="lw-fp">' + esc(p.fp) + ' FP</span>' +
+                    '<span class="lw-line">' + esc(p.pts) + 'p ' + esc(p.reb) + 'r ' + esc(p.ast) + 'a</span>' +
+                    '</div>';
+            });
+        }
+        return '<div class="lw-game">' + head + '<div class="lw-rows">' + rows + '</div></div>';
+    }
+
+    function load(){
+        fetch('/api/live-wnba-scores').then(function(r){ return r.json(); }).then(function(data){
+            if (!data || !data.has_games || !(data.games && data.games.length)) {
+                section.style.display = 'none';
+                return;
+            }
+            section.style.display = '';
+            if (dotEl) dotEl.style.display = data.any_live ? 'inline-block' : 'none';
+            gamesEl.innerHTML = data.games.map(renderGame).join('');
+        }).catch(function(){ /* keep last rendered view */ });
+    }
+    load();
+    setInterval(load, 30000);
+})();
