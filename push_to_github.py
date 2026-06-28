@@ -50,6 +50,7 @@ SOURCE_CODE_FILES = [
     "score_contest.py",
     "generate_house_lineup.py",
     "generate_article.py",
+    "pick_feedback.py",
     "generate_header.py",
     "scrape_wnba_props.py",
     "scrape_wnba_standings.py",

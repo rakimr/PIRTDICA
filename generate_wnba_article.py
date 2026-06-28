@@ -476,6 +476,10 @@ ANALYTICAL FRAMEWORK (this is how a sharp WNBA analyst reasons // follow it):
 7. FANTASY-POINT CONTEXT (`fp_context` when present): `season_fp_pg` is the player's season fantasy output, `last5_fp_pg` is recent form, and `fp_ceiling`/`fp_floor` are an honest +/- 1 SD band around the season average (NOT a tonight projection). A wide band means a volatile, boom-or-bust profile (demand a bigger edge); a tight band supports confidence. If recent FP is running well above the season average, pair it with the slump-risk read before chasing an OVER.
 8. REFEREE CREW (`referee_crew` when present): the officials assigned to this game with their foul environment. `avg_fouls_pg` is the crew's average fouls per game and `whistle` is tight/average/lenient vs the WNBA crew average. A `tight` whistle crew creates more free-throw and foul-out volume (supports PTS OVERs for foul-drawers, raises foul-trouble risk for bigs); a `lenient` crew suppresses FT-dependent scoring. This is a minor supporting signal, never the headline.
 
+CORRELATION & STACKING (reason ACROSS your own picks, not just one pick at a time): picks in the SAME game share an opponent and game environment (referee whistle, rest, the pace of that matchup). When two of your picks are teammates, or fall in the same game, say so. Teammates both attacking the same leaky zone or a soft DVP, or both playing in a tight-whistle (more fouls, more free throws) game, are positively correlated and tend to rise together // that is real tournament upside, but they also bust together, so spreading picks across different games is the safer build. An OVER on one player and an UNDER on a teammate fighting for the same usage can offset // flag it. There are NO DFS ownership or implied-team-total inputs for the WNBA slate, so do not invent leverage, chalk, or Vegas-total claims.
+
+RECENT RESULTS (`recent_pick_results` at the top of the slate data, when present): our OWN graded track record on past WNBA picks. `recent` is the last N days and `overall_to_date` is the full graded history, with `recent_by_stat` and `recent_by_direction` win-loss breakdowns (each carrying `decided` graded picks and `win_pct`). Use it as honest internal calibration only: be more selective on stats or directions that have been cold over a meaningful sample, and trust the ones we have been sharp on. Weight small samples lightly. NEVER mention this track record in the published analysis // it is internal calibration only.
+
 PICK SELECTION:
 - Prioritize picks where shot-diet vs zone defense and/or DVP point the same direction as the projection edge, then confirm with form.
 - Do not write an analysis that only cites last-5 and hit rate when zone/DVP context is available. The zone matchup and DVP are why these are PIRTDICA picks.
@@ -513,6 +517,16 @@ def _call_claude(prop_lines, game_count, slate_date):
         "game_count": game_count,
         "prop_lines": prop_lines,
     }
+    try:
+        from pick_feedback import load_recent_pick_results
+        rpr = load_recent_pick_results("wnba", recent_days=14)
+        if rpr:
+            briefing["recent_pick_results"] = rpr
+            rec = rpr.get("recent", {})
+            print(f"[WNBA ARTICLE] recent pick results (last {rpr.get('window_days')}d): "
+                  f"{rec.get('record')} ({rec.get('decided')} decided)")
+    except Exception as _fb_err:
+        print(f"[WNBA ARTICLE] recent pick results load failed ({_fb_err})")
     user_prompt = (
         "Analyze the full WNBA slate and select your HIGH confidence picks.\n\n"
         "HERE IS THE COMPLETE SLATE DATA (every prop line with model context):\n\n"

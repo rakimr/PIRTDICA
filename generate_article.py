@@ -1403,6 +1403,27 @@ def _build_game_scheme_blocks(games_dict, caches):
     return out
 
 
+def _leverage_profile(tier, edge):
+    """Cash-vs-GPP framing from projected DFS ownership tier + our edge.
+
+    cash_anchor            = Chalk / heavily-owned consensus // safe floor for cash,
+                             low-leverage in GPPs (the whole field has them).
+    gpp_leverage           = low-owned / Contrarian WITH a strong edge // where you
+                             separate from the field in tournaments.
+    low_owned_speculative  = low-owned but a thinner edge // GPP dart, not a cash play.
+    balanced               = moderately owned (Popular).
+    """
+    t = (tier or "").strip().lower()
+    strong = edge is not None and edge >= 8
+    if t == "chalk":
+        return "cash_anchor"
+    if t == "contrarian":
+        return "gpp_leverage" if strong else "low_owned_speculative"
+    if t == "popular":
+        return "balanced"
+    return None
+
+
 def _build_full_slate_briefing(props_df, dfs_df, game_date=None):
     import sqlite3
     from utils.season_phase import is_playoff_window_active
@@ -1540,6 +1561,13 @@ def _build_full_slate_briefing(props_df, dfs_df, game_date=None):
         own = enrichment.get('ownership', {}).get(_pname_key(player))
         if own and (own.get('projected_pct') or own.get('tier')):
             entry['ownership'] = own
+            prof = _leverage_profile(own.get('tier'), entry['vs_book_edge'])
+            if prof:
+                entry['leverage'] = {
+                    'profile': prof,
+                    'tier': own.get('tier'),
+                    'projected_pct': own.get('projected_pct'),
+                }
 
         try:
             enrich_blocks = _enrich_pick_blocks(player, team, opponent, stat, enrichment, entry=entry)
@@ -1769,6 +1797,16 @@ def build_claude_analyst(props_df, dfs_df, game_date=None):
         return None
 
     briefing = _build_full_slate_briefing(props_df, dfs_df, game_date=game_date)
+    try:
+        from pick_feedback import load_recent_pick_results
+        rpr = load_recent_pick_results("nba", recent_days=14)
+        if rpr:
+            briefing['recent_pick_results'] = rpr
+            rec = rpr.get('recent', {})
+            print(f"  recent pick results (last {rpr.get('window_days')}d): "
+                  f"{rec.get('record')} ({rec.get('decided')} decided)")
+    except Exception as _fb_err:
+        print(f"[brief] recent pick results load failed: {_fb_err}")
     briefing_json = json.dumps(briefing, indent=2, default=str)
     n_props = len(briefing['prop_lines'])
     avg_chars = (len(briefing_json) // n_props) if n_props else 0
@@ -1841,6 +1879,15 @@ PER-PICK:
 - `hustle_signals` (STL/BLK/REB only): deflections_per48, contested_shots_per48, contested_2pt_total, box_outs_per48, screen_ast_per48.
 - `fp_context`: season fantasy points per game, fp_per_min, projected fp tonight (with ceiling and floor). If `projected_fp_tonight` clears `season_fp_pg` by 3+, the entire stat line gets a tailwind. If it does not, be more conservative on aggressive OVERs.
 - `ownership` (when present): the player's projected DFS roster ownership for tonight. `projected_pct` is the share of lineups expected to roster them and `tier` labels it (Chalk = heavily owned consensus play, Popular = moderate, Contrarian = near-zero). This is a market-consensus signal: a Chalk player the public loves is the consensus read (the line is sharp, demand conviction), while a strong edge on a Contrarian, low-owned player is where you separate from the field. Treat it as leverage context, not a projection driver.
+- `leverage` (when present): a cash-vs-GPP framing we derived from the ownership tier and your edge. `profile` is one of: `cash_anchor` (Chalk / heavily-owned consensus // a safe floor play for cash games, but low-leverage in tournaments because the whole field already has them), `gpp_leverage` (low-owned / Contrarian WITH a strong edge // this is where you separate from the field in GPPs), `low_owned_speculative` (low-owned but a thinner edge // a tournament dart, not a cash play), or `balanced` (moderately owned). Add ONE short cash-vs-GPP leverage line to each analysis using this: tell the reader whether the pick is a cash-game anchor or a GPP-leverage play and why. Do NOT let leverage change the side of the pick // it only frames how to deploy it.
+
+CORRELATION & STACKING (reason ACROSS your own picks, not just one pick at a time):
+- Picks carry a `game` label and share a game environment (`games[i].implied_total`, pace, `referee_crew`). When two or more of your picks fall in the SAME game, say so and explain the correlation.
+- Positive correlation: two OVERs on the same TEAM in a high-implied-total game tend to rise together (a shootout lifts everyone's counting stats). A usage-beneficiary's OVER (`opportunity_redistribution` / `out_players`) is reinforced by that team's elevated `implied_team_total` // call that same-game stack out explicitly.
+- Negative correlation: an OVER on one player and an UNDER on a teammate competing for the same touches/usage, or picks on opposite sides of a low-total grind, can offset. Flag it when your own picks conflict.
+- Construction note for the reader: same-game positive-correlation stacks are GPP upside (concentrated boom, but they also bust together, so they are risky for cash). Spreading picks across different games is the safer cash-game build. When your slate contains a same-game stack, give the reader this one-line construction note.
+
+RECENT RESULTS (`recent_pick_results` at the top of the briefing, when present): our OWN graded track record on previously published picks. `recent` is the last N days, `overall_to_date` is the full graded history, and the `recent_by_stat`, `recent_by_direction`, and `recent_by_signal` breakdowns show win-loss by category (each carries `decided` = graded picks and `win_pct`). Use this as honest internal calibration, NOT a mechanical filter: if a category (a stat, a direction, or a signal pattern like `usage_beneficiary` or `dva_supported`) has been running cold over a meaningful sample, demand a bigger edge there and be more selective; where we have been sharp, you can trust those signals a touch more. Weight small samples (low `decided`) lightly. NEVER mention this track record or these numbers in the published analysis // it is internal calibration only.
 
 WRITING DIRECTIVE: Lead each analysis with a zone, scheme, projection-driver, or usage-redistribution cue when it is present. Hit rate and last-5 average are CONFIRMATION, not the headline. Two analyses that both lead with "Hit rate of X%, last 5 is Y" are a failure of differentiation.
 
