@@ -67,6 +67,7 @@ def _parse_competitors(competition):
     for c in competition.get("competitors", []):
         team = c.get("team", {})
         side = {
+            "id": str(team.get("id", "")),
             "abbr": team.get("abbreviation", ""),
             "name": team.get("shortDisplayName") or team.get("displayName", ""),
             "logo": team.get("logo", ""),
@@ -82,6 +83,7 @@ def _parse_competitors(competition):
 def _parse_team_box(team_block):
     """Yield per-player live stat dicts from one team's boxscore block."""
     team_abbr = team_block.get("team", {}).get("abbreviation", "")
+    team_id = str(team_block.get("team", {}).get("id", ""))
     out = []
     for statset in team_block.get("statistics", []):
         labels = statset.get("labels", [])
@@ -116,6 +118,7 @@ def _parse_team_box(team_block):
                 "name": name,
                 "normalized": normalize_player_name(name),
                 "team": team_abbr,
+                "team_id": team_id,
                 "min": minutes,
                 "pts": pts, "reb": reb, "ast": ast,
                 "stl": stl, "blk": blk, "to": to, "threes": threes,
@@ -256,6 +259,21 @@ def get_wnba_live_scoreboard(game_date=None):
                     pl["pick"] = _pick_read(pl, picks_map)
                 players.sort(key=lambda p: p["fp"], reverse=True)
                 game["players"] = players
+                # Group every player who played onto their own team so the card can
+                # render two distinct rosters (away then home) instead of one merged
+                # list. Match on the stable ESPN team id (abbreviations can diverge
+                # between the scoreboard and summary feeds), falling back to abbr.
+                def _belongs(p, side):
+                    sid = side.get("id")
+                    if sid and p.get("team_id"):
+                        return p["team_id"] == sid
+                    return p["team"] == side.get("abbr")
+                away["players"] = sorted(
+                    [p for p in players if _belongs(p, away)],
+                    key=lambda p: p["fp"], reverse=True)
+                home["players"] = sorted(
+                    [p for p in players if _belongs(p, home)],
+                    key=lambda p: p["fp"], reverse=True)
             games.append(game)
         except Exception as e:
             print(f"[LIVE WNBA] game parse failed for {ev.get('id')} ({e})")

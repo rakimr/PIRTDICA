@@ -256,6 +256,39 @@ function trackPageView() {
         return ' <span class="lw-pick ' + cls + '" title="PIRTDICA pick // currently ' + esc(p.status) + ' at ' + esc(p.current) + '">' + label + '</span>';
     }
 
+    function statLine(p){
+        // Every stat in the FanDuel scoring formula (pts, reb, ast, stl, blk, to)
+        // plus 3PM, since we suggest props beyond PRA.
+        return '<span class="lw-stat">' + esc(p.pts) + '<i>PTS</i></span>' +
+               '<span class="lw-stat">' + esc(p.reb) + '<i>REB</i></span>' +
+               '<span class="lw-stat">' + esc(p.ast) + '<i>AST</i></span>' +
+               '<span class="lw-stat">' + esc(p.threes) + '<i>3PM</i></span>' +
+               '<span class="lw-stat">' + esc(p.stl) + '<i>STL</i></span>' +
+               '<span class="lw-stat">' + esc(p.blk) + '<i>BLK</i></span>' +
+               '<span class="lw-stat">' + esc(p.to) + '<i>TO</i></span>';
+    }
+
+    function playerRow(p){
+        return '<div class="lw-row' + (p.pick ? ' lw-has-pick' : '') + '">' +
+            '<span class="lw-pname">' + esc(p.name) + tempBadge(p.temp) + pickBadge(p.pick) + '</span>' +
+            '<span class="lw-fp">' + esc(p.fp) + '<i>FP</i></span>' +
+            '<span class="lw-stats">' + statLine(p) + '</span>' +
+            '</div>';
+    }
+
+    function teamBlock(side){
+        var players = side.players || [];
+        var header = '<div class="lw-team-head">' +
+            '<img src="' + esc(side.logo) + '" class="lw-logo" alt="">' +
+            '<span class="lw-team-name">' + esc(side.abbr) + '</span>' +
+            '<span class="lw-team-score">' + esc(side.score) + '</span>' +
+            '</div>';
+        var body = players.length
+            ? players.map(playerRow).join('')
+            : '<div class="lw-pre">No box score yet</div>';
+        return '<div class="lw-team-block">' + header + body + '</div>';
+    }
+
     function renderGame(g){
         var head = '<div class="lw-head">' +
             '<span class="lw-team"><img src="' + esc(g.away.logo) + '" class="lw-logo" alt="">' + esc(g.away.abbr) + ' <b>' + esc(g.away.score) + '</b></span>' +
@@ -266,13 +299,7 @@ function trackPageView() {
         if (g.state === 'pre') {
             rows = '<div class="lw-pre">Tips off ' + esc(g.status) + '</div>';
         } else {
-            (g.players || []).forEach(function(p){
-                rows += '<div class="lw-row' + (p.pick ? ' lw-has-pick' : '') + '">' +
-                    '<span class="lw-pname">' + esc(p.name) + tempBadge(p.temp) + pickBadge(p.pick) + '</span>' +
-                    '<span class="lw-fp">' + esc(p.fp) + ' FP</span>' +
-                    '<span class="lw-line">' + esc(p.pts) + 'p ' + esc(p.reb) + 'r ' + esc(p.ast) + 'a</span>' +
-                    '</div>';
-            });
+            rows = teamBlock(g.away) + teamBlock(g.home);
         }
         return '<div class="lw-game">' + head + '<div class="lw-rows">' + rows + '</div></div>';
     }

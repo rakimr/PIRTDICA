@@ -6304,9 +6304,23 @@ body[data-league="wnba"] .btn-play {
 .lw-status-live::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--wnba-accent, #f5562a); margin-right: .3rem; vertical-align: middle; animation: lwPulse 1.4s ease-in-out infinite; }
 .lw-rows { padding: 0; }
 .lw-pre { padding: 1.25rem 1rem; text-align: center; color: var(--text-muted); font-size: .9rem; }
+/* Per-team roster block inside a game card */
+.lw-team-block { border-bottom: 1px solid var(--border); }
+.lw-team-block:last-child { border-bottom: none; }
+.lw-team-head {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    padding: 0.4rem 1rem;
+    background: var(--bg-input);
+    border-bottom: 1px solid var(--border);
+}
+.lw-team-head .lw-logo { width: 20px; height: 20px; }
+.lw-team-name { font-weight: 700; text-transform: uppercase; letter-spacing: .05em; font-size: .82rem; color: var(--text); }
+.lw-team-score { margin-left: auto; font-weight: 700; font-size: 1rem; color: var(--text); font-variant-numeric: tabular-nums; }
 .lw-row {
     display: grid;
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: .6rem;
     padding: 0.45rem 1rem;
@@ -6314,14 +6328,40 @@ body[data-league="wnba"] .btn-play {
     font-size: .9rem;
     color: var(--text);
 }
-.lw-row:last-child { border-bottom: none; }
+.lw-team-block .lw-row:last-child { border-bottom: none; }
 .lw-row:hover { background: rgba(0, 0, 0, 0.02); }
 .lw-has-pick { background: rgba(245, 86, 42, 0.06); }
 .lw-has-pick:hover { background: rgba(245, 86, 42, 0.1); }
-.lw-pname { font-weight: 600; color: var(--text); }
+.lw-pname { font-weight: 600; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .lw-temp { font-size: .9rem; }
-.lw-fp { font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
-.lw-line { color: var(--text-muted); font-size: .82rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lw-fp { display: inline-flex; align-items: baseline; gap: .15rem; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.lw-fp i { font-style: normal; font-size: .6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
+.lw-stats {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem .55rem;
+    margin-top: .25rem;
+    padding-top: .3rem;
+    border-top: 1px dashed var(--border);
+}
+.lw-stat {
+    display: inline-flex;
+    align-items: baseline;
+    gap: .18rem;
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+.lw-stat i {
+    font-style: normal;
+    font-size: .58rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
 .lw-pick { display: inline-block; font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; padding: .1rem .45rem; border-radius: 999px; margin-left: .35rem; white-space: nowrap; vertical-align: middle; }
 .lw-pick-win { background: rgba(22, 163, 74, .12); color: #15803d; }
 .lw-pick-lose { background: rgba(220, 38, 38, .1); color: #b91c1c; }
