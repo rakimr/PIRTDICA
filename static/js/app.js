@@ -249,11 +249,11 @@ function trackPageView() {
         return '';
     }
     function pickBadge(p){
-        if (!p) return '';
-        var cls = p.status === 'winning' ? 'lw-pick-win' : (p.status === 'trailing' ? 'lw-pick-lose' : 'lw-pick-even');
+        // Only show the target once the prop has actually hit // never prematurely.
+        if (!p || !p.hit) return '';
         var line = (p.line === null || p.line === undefined) ? '' : p.line;
         var label = '\uD83C\uDFAF ' + esc(p.side) + ' ' + esc(line) + ' ' + esc(p.stat);
-        return ' <span class="lw-pick ' + cls + '" title="PIRTDICA pick // currently ' + esc(p.status) + ' at ' + esc(p.current) + '">' + label + '</span>';
+        return ' <span class="lw-pick lw-pick-win" title="PIRTDICA pick HIT // ' + esc(p.current) + '">' + label + '</span>';
     }
 
     function statLine(p){

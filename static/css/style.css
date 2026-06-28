@@ -2469,7 +2469,9 @@ tr.st-idle .st-logo {
     }
 
     .navbar {
-        position: relative;
+        position: sticky;
+        top: 0;
+        z-index: 100;
     }
 
     .nav-links {

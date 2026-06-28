@@ -148,8 +148,14 @@ def _temp_read(player, pace_map):
     return "neutral"
 
 
-def _pick_read(player, picks_map):
-    """If the player is in tonight's picks, report live progress vs the line."""
+def _pick_read(player, picks_map, game_state="in"):
+    """If the player is in tonight's picks, report live progress vs the line.
+
+    `hit` is True only once the prop has actually cashed: an OVER is hit the moment
+    the (monotonic counting) stat clears the line; an UNDER can only be confirmed
+    once the game is final. The card shows the pick badge only when `hit` is True,
+    so the target never appears prematurely.
+    """
     pick = picks_map.get(player["normalized"])
     if not pick:
         return None
@@ -161,13 +167,16 @@ def _pick_read(player, picks_map):
     line = pick.get("line")
     side = str(pick.get("side", "")).upper()
     status = "even"
+    hit = False
     if line is not None and side in ("OVER", "UNDER"):
         if side == "OVER":
             status = "winning" if current > line else ("even" if current == line else "trailing")
+            hit = current > line
         else:
             status = "winning" if current < line else ("even" if current == line else "trailing")
+            hit = game_state == "post" and current < line
     return {"stat": pick.get("stat", stat), "side": side, "line": line,
-            "current": current, "status": status}
+            "current": current, "status": status, "hit": hit}
 
 
 def _build_pace_map():
@@ -256,7 +265,7 @@ def get_wnba_live_scoreboard(game_date=None):
                     players.extend(_parse_team_box(team_block))
                 for pl in players:
                     pl["temp"] = _temp_read(pl, pace_map)
-                    pl["pick"] = _pick_read(pl, picks_map)
+                    pl["pick"] = _pick_read(pl, picks_map, state)
                 players.sort(key=lambda p: p["fp"], reverse=True)
                 game["players"] = players
                 # Group every player who played onto their own team so the card can
