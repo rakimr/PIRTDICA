@@ -708,6 +708,8 @@ def _render_wnba_trends(request: Request, user, db: Session):
         "charts_stale": charts_stale,
         "league": "wnba",
         "chart_pre": "wnba_",
+        "dvp_position_chart_exists": _os.path.exists(
+            "static/images/wnba_dvp_position_heatmap.png"),
     })
 
 
