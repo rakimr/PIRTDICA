@@ -168,10 +168,10 @@ def generate_dvp_heatmap(output_path="static/images/wnba_dvp_heatmap.png"):
         spine.set_color("black")
         spine.set_linewidth(2)
     cbar = plt.colorbar(im, ax=ax)
-    cbar.set_label("DVP Factor (Higher = Easier Matchup)", fontweight="bold", color="black")
+    cbar.set_label("Matchup Factor (Higher = Easier Matchup)", fontweight="bold", color="black")
     cbar.outline.set_color("black")
     cbar.outline.set_linewidth(2)
-    ax.set_title("WNBA Defense vs Position - Matchup Heatmap",
+    ax.set_title("WNBA Defense vs Stat - Matchup Heatmap",
                  fontsize=14, fontweight="bold", color="black")
     plt.tight_layout()
     plt.savefig(output_path, dpi=150, facecolor="white", edgecolor="black")

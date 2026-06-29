@@ -95,7 +95,7 @@
     </div>
     
     <div class="trends-section">
-        <h2>Defense vs Position Matchups</h2>
+        <h2>{% if league == 'wnba' %}Defense vs Stat Matchups{% else %}Defense vs Position Matchups{% endif %}</h2>
         <p class="chart-description">Green = soft matchup (target). Red = tough matchup (avoid).</p>
         <div class="chart-container">
             <img src="/static/images/{{ chart_pre }}dvp_heatmap.png?v={{ cache_bust }}" alt="DVP Heatmap" class="trend-chart dvp-heatmap">
