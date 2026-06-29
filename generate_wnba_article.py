@@ -85,7 +85,7 @@ def _load_enrichment(slate_date=None):
     usage-redistribution blocks // there is no WNBA tracking source for those.
     """
     caches = {"shot_zones": {}, "team_def": {}, "zone_ranks": {},
-              "league_avg": {}, "dvp": {}, "dvp_rank": {},
+              "league_avg": {}, "dvp": {}, "dvp_rank": {}, "dvp_position": {},
               "referee_by_game": {}, "rest": {}, "fp": {}}
     try:
         conn = sqlite3.connect(DB)
@@ -144,6 +144,14 @@ def _load_enrichment(slate_date=None):
                 rows.sort(key=lambda x: x[1])  # rank 1 = toughest (lowest factor)
                 for i, (team, _f) in enumerate(rows, start=1):
                     caches["dvp_rank"][(team, stat)] = (i, len(rows))
+
+        # Defense vs Position (G/F/C): how a defense treats a position group for a
+        # given stat vs the league average for that position. Built by
+        # build_wnba_projections.build_dvp_position.
+        if _has("wnba_dvp_position"):
+            for team, position, stat, factor in cur.execute(
+                    "SELECT team, position, stat, factor FROM wnba_dvp_position"):
+                caches["dvp_position"][(team, position, stat)] = factor
 
         # Per-player season fantasy-point spread, for a ceiling/floor read. We do
         # not have a WNBA fp distribution model, so we derive an honest +/- 1 SD
@@ -419,6 +427,22 @@ def _build_briefing(recs, meta, records, caches=None):
         }
         entry.update(_enrich_pick(r["player"], r["opponent"], r["stat"], caches))
 
+        # Defense vs Position: how the opponent defends this player's position group
+        # (G/F/C) for this stat, vs the league average for that position. Complements
+        # the team-vs-stat `dvp` block with a true positional read.
+        dvp_key = DVP_STAT.get(r["stat"])
+        if pos and dvp_key:
+            pf = caches.get("dvp_position", {}).get((r["opponent"], pos, dvp_key))
+            if pf is not None:
+                pct = round((pf - 1.0) * 100, 1)
+                entry["dvp_position"] = {
+                    "position": POS_LABEL.get(pos, pos),
+                    "stat": r["stat"],
+                    "opp_allows_to_pos_vs_avg_pct": pct,
+                    "factor": round(pf, 3),
+                    "read": "soft" if pct > 2 else "tough" if pct < -2 else "neutral",
+                }
+
         # Fantasy-point ceiling/floor band (+/- 1 SD around the season FP avg).
         fp = caches.get("fp", {}).get(nk)
         if fp and fp.get("fp_avg") is not None:
@@ -468,7 +492,7 @@ YOUR JOB: Independently analyze the slate and select 4-8 HIGH confidence prop pi
 
 ANALYTICAL FRAMEWORK (this is how a sharp WNBA analyst reasons // follow it):
 1. SHOT-DIET vs OPPONENT-DEFENSE-BY-ZONE (HEADLINE SIGNAL when present): If the pick has `zone_matchup_edges`, or `shot_diet` + `opp_def_zones`, LEAD with it. Cite the player's zone share and the opponent's allowed FG% and rank in that zone (e.g. "takes 35% of shots from mid // CON allows 38.4% there // def rank 13/15 // leaky"). When a player's high-frequency zones line up with the opponent's leaky zones, that is the strongest case for an OVER. This is the single most distinguishing piece of context per pick // never bury it.
-2. DVP (defense vs the stat): `dvp.opp_allows_vs_avg_pct` is how much more/less of this stat the opponent gives up vs the WNBA average (positive = soft = supports OVER, negative = tough = supports UNDER). Cite it: "POR allows +7.1% more rebounds than average (rank 14/15)". Treat a soft/tough DVP as a primary matchup signal, not a footnote.
+2. DVP (defense vs the stat): `dvp.opp_allows_vs_avg_pct` is how much more/less of this stat the opponent gives up vs the WNBA average (positive = soft = supports OVER, negative = tough = supports UNDER). Cite it: "POR allows +7.1% more rebounds than average (rank 14/15)". Treat a soft/tough DVP as a primary matchup signal, not a footnote. If a pick also has `dvp_position`, that is how the opponent defends this player's POSITION GROUP (Guard/Forward/Center) for this stat // `opp_allows_to_pos_vs_avg_pct` positive = soft for that position group. When `dvp` (team vs the stat) and `dvp_position` (team vs this position) agree, the matchup edge is stronger and more trustworthy; when they diverge, lean on the position-specific read for a player who fills a clear positional role (e.g. a center attacking a team that bleeds rebounds to forwards/centers).
 3. PROJECTION EDGE: the model's projected value vs the book line (`edge_pct`).
 4. CONFIRMATION SIGNALS (secondary): hit rate, last-5 form, CV (consistency). Use these to CONFIRM a pick that the shot-diet/DVP/projection signals already support // do NOT lead with last-5 or hit rate. Lower CV is a tailwind; high CV demands a bigger edge.
 5. SLUMP RISK (caution flag when present): if a pick has `slump_risk`, our Slump Risk model has flagged this player as MODERATE or HIGH risk of cooling off, with the observable `signals` that drove it (shrinking minutes/usage, an unsustainable hot streak due for regression, tough matchup, or short rest). For an OVER, treat a HIGH flag as a real reason for caution and either avoid it or explicitly acknowledge the risk and explain why the matchup still wins. For an UNDER, a slump-risk flag REINFORCES the case. Cite the specific signal honestly. Never hide it.
@@ -590,6 +614,14 @@ def _template_result(prop_lines):
                 f"{p['opponent']} grades as a {dvp['read']} {stat_full} matchup: they allow "
                 f"{sign}{dvp['opp_allows_vs_avg_pct']}% vs the WNBA average "
                 f"(DVP rank {dvp.get('rank','')}).\n\n"
+            )
+        dvp_pos = p.get("dvp_position")
+        if dvp_pos and dvp_pos.get("read") in ("soft", "tough"):
+            psign = "+" if dvp_pos["opp_allows_to_pos_vs_avg_pct"] >= 0 else ""
+            matchup += (
+                f"Against {dvp_pos['position'].lower()}s specifically, {p['opponent']} allows "
+                f"{psign}{dvp_pos['opp_allows_to_pos_vs_avg_pct']}% {stat_full} vs the WNBA "
+                f"average for the position.\n\n"
             )
         analysis = (
             f"**{p['player']} is our {side.lower()} look on {stat_full} tonight.** "

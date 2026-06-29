@@ -24,6 +24,7 @@ PIPELINE_OUTPUT_FILES = [
     "static/images/wnba_value_chart.png",
     "static/images/wnba_upside_chart.png",
     "static/images/wnba_dvp_heatmap.png",
+    "static/images/wnba_dvp_position_heatmap.png",
     "static/images/wnba_ref_foul_chart.png",
 ]
 

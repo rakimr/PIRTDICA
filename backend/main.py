@@ -609,6 +609,7 @@ def _render_wnba_trends(request: Request, user, db: Session):
         "static/images/wnba_value_chart.png",
         "static/images/wnba_upside_chart.png",
         "static/images/wnba_dvp_heatmap.png",
+        "static/images/wnba_dvp_position_heatmap.png",
     ]
     mtimes = [_os.path.getmtime(f) for f in chart_files if _os.path.exists(f)]
     charts_last_updated, charts_stale = None, True

@@ -10,10 +10,12 @@ hidden on the WNBA trends page.
 Inputs (SQLite dfs_nba.db, built by build_wnba_projections.py):
   - wnba_player_value : usage_proxy, fp_avg, fp_sd, min_avg, position
   - wnba_dvp          : team x stat defensive factor
+  - wnba_dvp_position : team x position (G/F/C) defensive factor by stat
 Outputs:
   - static/images/wnba_value_chart.png
   - static/images/wnba_upside_chart.png
   - static/images/wnba_dvp_heatmap.png
+  - static/images/wnba_dvp_position_heatmap.png
 """
 import os
 import sqlite3
@@ -180,6 +182,57 @@ def generate_dvp_heatmap(output_path="static/images/wnba_dvp_heatmap.png"):
     return output_path
 
 
+def generate_dvp_position_heatmap(output_path="static/images/wnba_dvp_position_heatmap.png"):
+    """Defense vs Position heatmap: fantasy points each team allows to Guards /
+    Forwards / Centers vs the league average for that position (factor; >1 = team
+    gives up more FP to that position = easier matchup). Companion to the Defense
+    vs Stat heatmap. Reads wnba_dvp_position (stat='fp')."""
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(DB)
+    dvp = pd.read_sql_query(
+        "SELECT team, position, factor FROM wnba_dvp_position WHERE stat='fp'", conn)
+    conn.close()
+    if dvp.empty:
+        print("  dvp-position heatmap: no data")
+        return None
+    pivot = dvp.pivot_table(index="team", columns="position", values="factor", aggfunc="first")
+    order = [p for p in ["G", "F", "C"] if p in pivot.columns]
+    pivot = pivot[order]
+    if pivot.empty:
+        return None
+    label = {"G": "Guards", "F": "Forwards", "C": "Centers"}
+
+    fig, ax = plt.subplots(figsize=(7, 12))
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("white")
+    im = ax.imshow(pivot.values, cmap="RdYlGn", aspect="auto", vmin=0.80, vmax=1.20)
+    ax.set_xticks(range(len(pivot.columns)))
+    ax.set_xticklabels([label.get(c, c) for c in pivot.columns], rotation=0,
+                       fontweight="bold", color="black")
+    ax.set_yticks(range(len(pivot.index)))
+    ax.set_yticklabels(pivot.index, fontweight="bold", color="black")
+    for i in range(len(pivot.index)):
+        for j in range(len(pivot.columns)):
+            val = pivot.iloc[i, j]
+            if pd.notna(val):
+                ax.text(j, i, f"{val:.2f}", ha="center", va="center", fontsize=9,
+                        fontweight="bold", color="black" if 0.92 < val < 1.08 else "white")
+    for spine in ax.spines.values():
+        spine.set_color("black")
+        spine.set_linewidth(2)
+    cbar = plt.colorbar(im, ax=ax)
+    cbar.set_label("Matchup Factor (Higher = Easier Matchup)", fontweight="bold", color="black")
+    cbar.outline.set_color("black")
+    cbar.outline.set_linewidth(2)
+    ax.set_title("WNBA Defense vs Position - FP Allowed by Position",
+                 fontsize=13, fontweight="bold", color="black")
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150, facecolor="white", edgecolor="black")
+    plt.close()
+    print(f"  dvp-position heatmap -> {output_path}")
+    return output_path
+
+
 def _match_ref(name, lookup):
     """Match an assigned ref name to the ESPN stat lookup.
 
@@ -334,6 +387,7 @@ def main():
     generate_value_chart(df)
     generate_upside_chart(df)
     generate_dvp_heatmap()
+    generate_dvp_position_heatmap()
     generate_ref_foul_chart()
     print("Done.")
 

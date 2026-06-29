@@ -102,6 +102,16 @@
         </div>
     </div>
 
+    {% if league == 'wnba' %}
+    <div class="trends-section">
+        <h2>Defense vs Position</h2>
+        <p class="chart-description">Fantasy points each defense allows to Guards, Forwards, and Centers vs the league average for that position. Green = soft matchup (target). Red = tough matchup (avoid).</p>
+        <div class="chart-container">
+            <img src="/static/images/wnba_dvp_position_heatmap.png?v={{ cache_bust }}" alt="WNBA Defense vs Position Heatmap" class="trend-chart dvp-heatmap">
+        </div>
+    </div>
+    {% endif %}
+
     {% if league != 'wnba' %}
     <div class="trends-section">
         <h2>Defense vs Archetype (DVA)</h2>

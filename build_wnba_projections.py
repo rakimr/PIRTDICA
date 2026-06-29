@@ -76,6 +76,64 @@ def build_dvp(cur):
     return factors
 
 
+def build_dvp_position(cur):
+    """Defense vs Position (G/F/C): how much of each stat a defense gives up to a
+    position group vs the league average for that position. Unlike build_dvp (which
+    is team x stat only), this buckets opponents' allowed box lines by the scoring
+    player's position, so the chart and article can read a true positional matchup.
+    Derived entirely from wnba_player_game_logs joined to the G/F/C label in
+    wnba_player_stats // there is no third-party WNBA DvP source. Stat 'fp' powers
+    the heatmap; pts/reb/ast/fg3m feed per-stat positional reads in the article."""
+    cur.execute("DROP TABLE IF EXISTS wnba_dvp_position")
+    cur.execute("CREATE TABLE wnba_dvp_position "
+                "(team TEXT, position TEXT, stat TEXT, factor REAL, "
+                "PRIMARY KEY (team, position, stat))")
+    valid_teams = {
+        r[0] for r in cur.execute(
+            "SELECT DISTINCT team FROM wnba_player_game_logs WHERE team != ''"
+        ).fetchall()
+    }
+    pos_map = {}
+    for name, pos in cur.execute(
+            "SELECT player_name, position FROM wnba_player_stats"):
+        p = (pos or "").strip().upper()
+        if name and p in ("G", "F", "C"):
+            pos_map[name] = p
+    rows = cur.execute(
+        "SELECT player_name, opp, pts, reb, ast, fg3m, fp "
+        "FROM wnba_player_game_logs WHERE opp != ''"
+    ).fetchall()
+    idx = {"pts": 2, "reb": 3, "ast": 4, "fg3m": 5, "fp": 6}
+    factors = {}
+    for stat, si in idx.items():
+        by_tp = {}     # (team, position) -> [stat values that team allowed]
+        by_pos = {}    # position -> [league-wide stat values for that position]
+        for r in rows:
+            opp = r[1]
+            if opp not in valid_teams:
+                continue
+            pos = pos_map.get(r[0])
+            if not pos:
+                continue
+            val = r[si]
+            if val is None:
+                continue
+            by_tp.setdefault((opp, pos), []).append(val)
+            by_pos.setdefault(pos, []).append(val)
+        pos_league = {p: (_mean(v) or 0.0) for p, v in by_pos.items()}
+        for (team, pos), vals in by_tp.items():
+            if len(vals) < 5:        # too few games for a stable read // stay neutral
+                factor = 1.0
+            else:
+                lg = pos_league.get(pos) or 0.0
+                factor = (_mean(vals) / lg) if lg else 1.0
+            factors[(team, pos, stat)] = round(factor, 3)
+    for (team, pos, stat), factor in factors.items():
+        cur.execute("INSERT INTO wnba_dvp_position VALUES (?,?,?,?)",
+                    (team, pos, stat, factor))
+    return factors
+
+
 def applied_factor(factors, team, skey):
     """Dampen the raw DVP factor so a soft/hard matchup nudges, not dominates."""
     raw = factors.get((team, skey), 1.0)
@@ -250,6 +308,8 @@ def main():
     cur = conn.cursor()
     factors = build_dvp(cur)
     print(f"DVP factors: {len(factors)}")
+    pos_factors = build_dvp_position(cur)
+    print(f"DVP-by-position factors: {len(pos_factors)}")
     n_proj = build_projections(cur)
     print(f"Projections: {n_proj}")
     n_val = build_player_value(cur)
