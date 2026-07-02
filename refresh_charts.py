@@ -170,8 +170,9 @@ def regenerate_charts():
             wnba_charts.generate_value_chart(wnba_df)
             wnba_charts.generate_upside_chart(wnba_df)
             wnba_charts.generate_dvp_heatmap()
+            wnba_charts.generate_dvp_position_heatmap()
             wnba_charts.generate_ref_foul_chart()
-            print(f"     wnba value/upside/dvp/ref OK", flush=True)
+            print(f"     wnba value/upside/dvp/dvp-position/ref OK", flush=True)
         except Exception as e:
             print(f"     wnba charts FAILED: {e}", flush=True)
 
