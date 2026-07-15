@@ -59,6 +59,7 @@ SOURCE_CODE_FILES = [
     "scrape_wnba_gamelogs.py",
     "scrape_wnba_player_shot_zones.py",
     "scrape_wnba_team_defense_zones.py",
+    "scrape_wnba_quarter_splits.py",
     "build_wnba_projections.py",
     "build_wnba_slump_risk.py",
     "scrape_wnba_referee_assignments.py",
@@ -151,7 +152,9 @@ def get_github_token():
         token = os.environ.get("GITHUB_TOKEN")
         return token
 
-    url = f"https://{hostname}/api/v2/connection?include_secrets=true&connector_names=github"
+    # NOTE: do NOT use the connector_names=github filter // the connectors API
+    # silently returns 0 items for it. Fetch all connections and match locally.
+    url = f"https://{hostname}/api/v2/connection?include_secrets=true"
     req = urllib.request.Request(url, headers={
         "Accept": "application/json",
         "X-Replit-Token": f"repl {identity}"
@@ -159,9 +162,15 @@ def get_github_token():
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
-            items = data.get("items", [])
-            if items:
-                return items[0]["settings"]["access_token"]
+            for item in data.get("items", []):
+                if item.get("connector_name") != "github":
+                    continue
+                settings = item.get("settings") or {}
+                tok = settings.get("access_token") or (
+                    ((settings.get("oauth") or {}).get("credentials") or {})
+                    .get("access_token"))
+                if tok:
+                    return tok
     except Exception as e:
         print(f"  Connector token failed: {e}")
 

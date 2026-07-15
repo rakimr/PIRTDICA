@@ -42,6 +42,7 @@ SCRIPTS = [
     ("scrape_wnba_gamelogs.py", "WNBA Game Logs & Season Stats (ESPN)"),
     ("scrape_wnba_player_shot_zones.py", "WNBA Player Shot Zones (Basketball Reference)"),
     ("scrape_wnba_team_defense_zones.py", "WNBA Defensive Shot Zones (ESPN play-by-play)"),
+    ("scrape_wnba_quarter_splits.py", "WNBA Quarter/Clutch Splits (ESPN play-by-play)"),
     ("build_wnba_projections.py", "WNBA Projections & Prop Recommendations"),
     ("build_wnba_slump_risk.py", "WNBA Slump Risk Engine (cool-off warning signals)"),
     ("scrape_wnba_referee_assignments.py", "WNBA Referee Assignments (official.nba.com)"),

@@ -86,7 +86,7 @@ def _load_enrichment(slate_date=None):
     """
     caches = {"shot_zones": {}, "team_def": {}, "zone_ranks": {},
               "league_avg": {}, "dvp": {}, "dvp_rank": {}, "dvp_position": {},
-              "referee_by_game": {}, "rest": {}, "fp": {}}
+              "referee_by_game": {}, "rest": {}, "fp": {}, "quarter": {}}
     try:
         conn = sqlite3.connect(DB)
         conn.row_factory = sqlite3.Row
@@ -167,6 +167,16 @@ def _load_enrichment(slate_date=None):
                     "fp_sd": d.get("fp_sd"),
                     "fp_l5": d.get("fp_l5"),
                 }
+
+        # Quarter-by-quarter scoring and late-game usage from ESPN play-by-play
+        # (scrape_wnba_quarter_splits.py). Tells Claude WHEN a player scores and
+        # whether she stays featured late in close games.
+        if _has("wnba_player_quarter_splits"):
+            for row in cur.execute(
+                "SELECT player_name, games, q1_pts, q2_pts, q3_pts, q4_pts, "
+                "q4_pts_share, q4_team_fga_share, clutch_pts_pg, clutch_fga_pg "
+                "FROM wnba_player_quarter_splits WHERE games >= 5"):
+                caches["quarter"][_norm(row["player_name"])] = dict(row)
 
         # Referee crew foul environment per game (matched by the two team abbrevs).
         if _has("wnba_referee_stats") and _has("wnba_referee_assignments"):
@@ -345,6 +355,25 @@ def _enrich_pick(player, opponent, stat, caches):
         if top:
             out["zone_matchup_edges"] = top
 
+    # Quarter/clutch profile: when she scores and whether she stays featured
+    # late. Most useful for PTS lines // included for every stat as game-flow
+    # context (a player benched in close 4th quarters has a softer ceiling).
+    qs = caches.get("quarter", {}).get(_norm(player))
+    if qs:
+        block = {
+            "pts_by_quarter": [qs.get("q1_pts"), qs.get("q2_pts"),
+                               qs.get("q3_pts"), qs.get("q4_pts")],
+        }
+        if qs.get("q4_pts_share") is not None:
+            block["q4_pts_share_pct"] = qs["q4_pts_share"]
+        if qs.get("q4_team_fga_share") is not None:
+            block["q4_team_fga_share_pct"] = qs["q4_team_fga_share"]
+        if qs.get("clutch_pts_pg") is not None:
+            block["clutch_pts_pg"] = qs["clutch_pts_pg"]
+        if qs.get("clutch_fga_pg") is not None:
+            block["clutch_fga_pg"] = qs["clutch_fga_pg"]
+        out["quarter_profile"] = block
+
     dvp_key = DVP_STAT.get(stat)
     if dvp_key:
         factor = caches["dvp"].get((opponent, dvp_key))
@@ -498,7 +527,8 @@ ANALYTICAL FRAMEWORK (this is how a sharp WNBA analyst reasons // follow it):
 5. SLUMP RISK (caution flag when present): if a pick has `slump_risk`, our Slump Risk model has flagged this player as MODERATE or HIGH risk of cooling off, with the observable `signals` that drove it (shrinking minutes/usage, an unsustainable hot streak due for regression, tough matchup, or short rest). For an OVER, treat a HIGH flag as a real reason for caution and either avoid it or explicitly acknowledge the risk and explain why the matchup still wins. For an UNDER, a slump-risk flag REINFORCES the case. Cite the specific signal honestly. Never hide it.
 6. REST / BACK-TO-BACK (`rest` when present): `rest_days` is the days off before tonight for this player's team and `back_to_back` is true on the second night of a back-to-back. `opponent_rest_days` and `rest_edge` ('advantage'/'disadvantage') compare the two teams. A back-to-back is a real fatigue headwind (trimmed minutes, dip in efficiency) // lean it against aggressive OVERs and toward UNDERs. A clear rest advantage is a tailwind for volume OVERs. Use it as a supporting environment signal.
 7. FANTASY-POINT CONTEXT (`fp_context` when present): `season_fp_pg` is the player's season fantasy output, `last5_fp_pg` is recent form, and `fp_ceiling`/`fp_floor` are an honest +/- 1 SD band around the season average (NOT a tonight projection). A wide band means a volatile, boom-or-bust profile (demand a bigger edge); a tight band supports confidence. If recent FP is running well above the season average, pair it with the slump-risk read before chasing an OVER.
-8. REFEREE CREW (`referee_crew` when present): the officials assigned to this game with their foul environment. `avg_fouls_pg` is the crew's average fouls per game and `whistle` is tight/average/lenient vs the WNBA crew average. A `tight` whistle crew creates more free-throw and foul-out volume (supports PTS OVERs for foul-drawers, raises foul-trouble risk for bigs); a `lenient` crew suppresses FT-dependent scoring. This is a minor supporting signal, never the headline.
+8. QUARTER / CLUTCH PROFILE (`quarter_profile` when present): built from play-by-play. `pts_by_quarter` is the player's average points in Q1-Q4, `q4_pts_share_pct` is the share of her scoring that comes in the 4th, `q4_team_fga_share_pct` is her share of her TEAM's 4th-quarter shots (late-game usage), and `clutch_pts_pg`/`clutch_fga_pg` are her scoring and volume in clutch time (Q4/OT, within 5 points, under 5:00). A player who keeps or grows her share late is safer for PTS OVERs (she closes games); a player whose scoring fades in the 4th or who loses late-game touches has a softer ceiling and a blowout-benching risk // that supports UNDERs on lines that need a full 40-minute run. Supporting signal, not the headline.
+9. REFEREE CREW (`referee_crew` when present): the officials assigned to this game with their foul environment. `avg_fouls_pg` is the crew's average fouls per game and `whistle` is tight/average/lenient vs the WNBA crew average. A `tight` whistle crew creates more free-throw and foul-out volume (supports PTS OVERs for foul-drawers, raises foul-trouble risk for bigs); a `lenient` crew suppresses FT-dependent scoring. This is a minor supporting signal, never the headline.
 
 CORRELATION & STACKING (reason ACROSS your own picks, not just one pick at a time): picks in the SAME game share an opponent and game environment (referee whistle, rest, the pace of that matchup). When two of your picks are teammates, or fall in the same game, say so. Teammates both attacking the same leaky zone or a soft DVP, or both playing in a tight-whistle (more fouls, more free throws) game, are positively correlated and tend to rise together // that is real tournament upside, but they also bust together, so spreading picks across different games is the safer build. An OVER on one player and an UNDER on a teammate fighting for the same usage can offset // flag it. There are NO DFS ownership or implied-team-total inputs for the WNBA slate, so do not invent leverage, chalk, or Vegas-total claims.
 
