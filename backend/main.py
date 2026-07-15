@@ -465,7 +465,14 @@ def _render_wnba_articles(request: Request, user, db: Session):
     article = None
     try:
         q = db.query(models.WNBADailyArticle)
-        if active_slate is not None:
+        # Always prefer TODAY's article when one exists // the active-slate
+        # calc reads the local SQLite wnba_games table, which can be stale
+        # (e.g. a deployment snapshot taken before the daily scrape ran) and
+        # would otherwise pin the page to an old slate even though a fresh
+        # article is already in the database.
+        today_et = get_eastern_today()
+        article = q.filter(models.WNBADailyArticle.slate_date == today_et).first()
+        if not article and active_slate is not None:
             article = q.filter(models.WNBADailyArticle.slate_date == active_slate).first()
             if not article:
                 # No article for the active slate yet // show the most recent one
