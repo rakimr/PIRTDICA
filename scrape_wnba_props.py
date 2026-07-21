@@ -51,6 +51,12 @@ def _ensure_tables(cur):
         scraped_at TEXT
     )
     """)
+    # Game odds columns (spread from the HOME team's perspective, game total).
+    # Added later than the base table, so patch older DBs in place.
+    existing = {r[1] for r in cur.execute("PRAGMA table_info(wnba_games)")}
+    for col in ("home_spread REAL", "game_total REAL"):
+        if col.split()[0] not in existing:
+            cur.execute(f"ALTER TABLE wnba_games ADD COLUMN {col}")
     cur.execute("""
     CREATE TABLE IF NOT EXISTS wnba_props (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,6 +110,43 @@ def main():
     print(f"Found {len(events)} WNBA events.")
     scraped_at = get_eastern_now().isoformat()
 
+    # Game odds (spread + total) in ONE bulk request for the whole slate.
+    # Costs a single API call and gives the models the game environment
+    # (tight game vs blowout risk) that player props alone cannot show.
+    game_odds = {}
+    try:
+        go_resp = requests.get(
+            f"{BASE_URL}/sports/{SPORT}/odds",
+            params={
+                "apiKey": API_KEY,
+                "regions": "us",
+                "markets": "spreads,totals",
+                "bookmakers": ",".join(PREFERRED_BOOKS),
+                "oddsFormat": "american",
+            },
+            timeout=25,
+        )
+        go_resp.raise_for_status()
+        for g in go_resp.json():
+            spread, total = None, None
+            books = {bm['key']: bm for bm in g.get('bookmakers', [])}
+            chosen = next((books[b] for b in PREFERRED_BOOKS if b in books), None)
+            if not chosen:
+                continue
+            for mk in chosen.get('markets', []):
+                if mk.get('key') == 'spreads':
+                    for o in mk.get('outcomes', []):
+                        if o.get('name') == g.get('home_team'):
+                            spread = o.get('point')
+                elif mk.get('key') == 'totals':
+                    for o in mk.get('outcomes', []):
+                        if (o.get('name') or '').lower() == 'over':
+                            total = o.get('point')
+            game_odds[g.get('id')] = (spread, total)
+        print(f"Game odds fetched for {len(game_odds)} events (spread/total).")
+    except Exception as e:
+        print(f"WARN: game odds fetch failed ({e}) // continuing without spreads/totals.")
+
     # Full refresh each run so the slate stays current without duplicating.
     cur.execute("DELETE FROM wnba_games")
     cur.execute("DELETE FROM wnba_props")
@@ -118,10 +161,11 @@ def main():
         commence = ev.get('commence_time', '')
         game_date = _utc_to_et_date(commence)
 
+        spread, total = game_odds.get(event_id, (None, None))
         cur.execute(
-            "INSERT INTO wnba_games (event_id, home_team, away_team, commence_time, game_date, scraped_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (event_id, home, away, commence, game_date, scraped_at),
+            "INSERT INTO wnba_games (event_id, home_team, away_team, commence_time, game_date, "
+            "scraped_at, home_spread, game_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (event_id, home, away, commence, game_date, scraped_at, spread, total),
         )
         games_saved += 1
 

@@ -198,17 +198,41 @@ def hit_rate(cur, espn_or_name, skey, line, side):
     return round(100.0 * hits / len(vals), 0)
 
 
-def composite(abs_edge, hr, cv, dva_supports):
+def composite(abs_edge, hr, cv, dva_supports, env_penalty=0.0):
     edge_c = min(abs_edge, 30.0) / 30.0 * 100.0
     cons_c = max(0.0, 1.0 - cv) * 100.0
     score = 0.40 * edge_c + 0.35 * hr + 0.25 * cons_c
     if dva_supports:
         score += 4.0
-    return round(min(score, 100.0), 1)
+    score -= env_penalty
+    return round(min(max(score, 0.0), 100.0), 1)
 
 
-def confidence(abs_edge, hr, cv, games):
-    if games >= 5 and abs_edge >= 8 and hr >= 60 and cv <= 0.6:
+# Game-environment thresholds (LENIENT by design: close games are common but
+# OTs are rare, so these only nudge the score, they never veto a pick).
+TIGHT_SPREAD = 4.0       # |spread| <= this -> tight game, minutes/OT upside
+BLOWOUT_SPREAD = 11.0    # |spread| >= this -> garbage-time benching risk
+HIGH_MINUTES = 30.0      # players who carry the extra minutes in tight games
+ENV_PENALTY = 3.0        # small composite nudge, ~worth one DVA support
+
+
+def game_env_penalty(side, spread, min_avg):
+    """Small composite penalty when the game script works against the pick.
+
+    Tight game + UNDER on a heavy-minutes player: a close 4th (or the rare
+    OT) keeps her on the floor piling up counting stats.
+    Big spread + OVER: a blowout benches starters early."""
+    if spread is None:
+        return 0.0
+    if side == "UNDER" and abs(spread) <= TIGHT_SPREAD and (min_avg or 0) >= HIGH_MINUTES:
+        return ENV_PENALTY
+    if side == "OVER" and abs(spread) >= BLOWOUT_SPREAD:
+        return ENV_PENALTY
+    return 0.0
+
+
+def confidence(abs_edge, hr, cv, games, high_edge=8.0):
+    if games >= 5 and abs_edge >= high_edge and hr >= 60 and cv <= 0.6:
         return "HIGH"
     if abs_edge >= 5 and hr >= 55 and cv <= 0.8:
         return "MEDIUM"
@@ -221,13 +245,32 @@ def build_prop_recs(cur, factors):
         player TEXT, team TEXT, opponent TEXT, stat TEXT, book_line REAL,
         player_avg REAL, last5_avg REAL, projected_value REAL, vs_book_edge REAL,
         recommendation TEXT, hit_rate REAL, cv REAL, composite_score REAL,
-        confidence TEXT, over_odds REAL, under_odds REAL, game_date TEXT)""")
+        confidence TEXT, over_odds REAL, under_odds REAL, game_date TEXT,
+        game_spread REAL, game_total REAL)""")
+
+    # Lenient data-driven HIGH gate from the edge-honesty tracker. Any failure
+    # (no network to Postgres, empty grades) falls back to the static default.
+    try:
+        from analysis.edge_calibration import get_dynamic_high_edge_threshold
+        high_edge = get_dynamic_high_edge_threshold("wnba")
+    except Exception:
+        high_edge = 8.0
+
+    # Game odds keyed by (home, away, game_date) so a rematch on a later date
+    # in the fetched window can never overwrite tonight's odds.
+    game_env = {}
+    try:
+        for home, away, gdate_g, spread, total in cur.execute(
+                "SELECT home_team, away_team, game_date, home_spread, game_total FROM wnba_games"):
+            game_env[(home, away, gdate_g)] = (spread, total)
+    except sqlite3.OperationalError:
+        pass  # pre-migration wnba_games without odds columns
 
     name_to_abbr = {r[0]: r[1] for r in cur.execute("SELECT name, abbr FROM wnba_teams").fetchall()}
     # projection lookup keyed by normalized name + stat
     proj_lookup = {}
     for r in cur.execute("""SELECT player_name, team, stat, games, season_avg,
-        last5_avg, sd, cv, projected FROM wnba_projections""").fetchall():
+        last5_avg, sd, cv, projected, min_avg FROM wnba_projections""").fetchall():
         proj_lookup[(norm(r[0]), r[2])] = r
     # exact-name lookup for game-log hit rates
     name_lookup = {norm(r[0]): r[0] for r in
@@ -245,7 +288,7 @@ def build_prop_recs(cur, factors):
         proj_row = proj_lookup.get((norm(pname), skey))
         if not proj_row:
             continue
-        _, pteam, _, games, season_avg, last5_avg, sd, cv, projected = proj_row
+        _, pteam, _, games, season_avg, last5_avg, sd, cv, projected, min_avg = proj_row
         home_abbr = name_to_abbr.get(home, "")
         away_abbr = name_to_abbr.get(away, "")
         opponent = away_abbr if pteam == home_abbr else home_abbr
@@ -260,14 +303,17 @@ def build_prop_recs(cur, factors):
         hr = hit_rate(cur, real_name, skey, line, side)
         raw_factor = factors.get((opponent, skey), 1.0)
         dva_supports = (raw_factor > 1.0 and side == "OVER") or (raw_factor < 1.0 and side == "UNDER")
-        comp = composite(abs(edge), hr, cv, dva_supports)
-        conf = confidence(abs(edge), hr, cv, games)
+        spread, total = game_env.get((home, away, gdate), (None, None))
+        env_pen = game_env_penalty(side, spread, min_avg)
+        comp = composite(abs(edge), hr, cv, dva_supports, env_pen)
+        conf = confidence(abs(edge), hr, cv, games, high_edge)
         recs.append((real_name, pteam, opponent, pstat, line, season_avg, last5_avg,
-                     adj_proj, edge, side, hr, cv, comp, conf, oo, uo, gdate))
+                     adj_proj, edge, side, hr, cv, comp, conf, oo, uo, gdate,
+                     spread, total))
 
     recs.sort(key=lambda r: r[12], reverse=True)  # by composite desc
     cur.executemany(
-        "INSERT INTO wnba_prop_recommendations VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", recs)
+        "INSERT INTO wnba_prop_recommendations VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", recs)
 
     # CSV for the header generator / charts (mirror NBA prop_recommendations.csv cols)
     with open("wnba_prop_recommendations.csv", "w", newline="") as f:
@@ -275,7 +321,7 @@ def build_prop_recs(cur, factors):
         w.writerow(["player", "team", "opponent", "stat", "book_line", "player_avg",
                     "last5_avg", "projected_value", "vs_book_edge", "recommendation",
                     "hit_rate", "cv", "composite_score", "confidence",
-                    "over_odds", "under_odds", "game_date"])
+                    "over_odds", "under_odds", "game_date", "game_spread", "game_total"])
         w.writerows(recs)
     return len(recs)
 

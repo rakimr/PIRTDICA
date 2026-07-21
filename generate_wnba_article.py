@@ -86,7 +86,8 @@ def _load_enrichment(slate_date=None):
     """
     caches = {"shot_zones": {}, "team_def": {}, "zone_ranks": {},
               "league_avg": {}, "dvp": {}, "dvp_rank": {}, "dvp_position": {},
-              "referee_by_game": {}, "rest": {}, "fp": {}, "quarter": {}}
+              "referee_by_game": {}, "rest": {}, "fp": {}, "quarter": {},
+              "game_env_by_game": {}}
     try:
         conn = sqlite3.connect(DB)
         conn.row_factory = sqlite3.Row
@@ -223,6 +224,27 @@ def _load_enrichment(slate_date=None):
                             else:
                                 block["whistle"] = "average"
                     caches["referee_by_game"][frozenset((home.strip(), away.strip()))] = block
+
+        # Game environment (spread + total) per matchup, keyed by team-abbr pair.
+        # Columns arrive via scrape_wnba_props.py; older DBs simply skip this.
+        if _has("wnba_games") and _has("wnba_teams"):
+            try:
+                n2a = {}
+                for abbr, nm in cur.execute("SELECT abbr, name FROM wnba_teams"):
+                    if nm:
+                        n2a[nm.strip()] = abbr
+                for home, away, spread, total in cur.execute(
+                        "SELECT home_team, away_team, home_spread, game_total FROM wnba_games"):
+                    h = n2a.get((home or "").strip())
+                    a = n2a.get((away or "").strip())
+                    if not h or not a or (spread is None and total is None):
+                        continue
+                    caches["game_env_by_game"][frozenset((h, a))] = {
+                        "home_abbr": h, "away_abbr": a,
+                        "home_spread": spread, "game_total": total,
+                    }
+            except sqlite3.OperationalError:
+                pass
 
         # Team rest / back-to-back, derived the same way as build_wnba_slump_risk:
         # most-recent played date (game logs) vs the next scheduled game (schedule).
@@ -506,6 +528,31 @@ def _build_briefing(recs, meta, records, caches=None):
         if ref:
             entry["referee_crew"] = ref
 
+        # Vegas game environment (spread/total) for this game, from the pick's
+        # team's perspective. Lenient read: script tags only at clear extremes.
+        ge = caches.get("game_env_by_game", {}).get(frozenset((r["team"], r["opponent"])))
+        if ge:
+            hs, gt = ge.get("home_spread"), ge.get("game_total")
+            team_spread = None
+            if hs is not None:
+                team_spread = hs if r["team"] == ge.get("home_abbr") else -hs
+            env = {}
+            if team_spread is not None:
+                env["team_spread"] = round(team_spread, 1)
+            if gt is not None:
+                env["game_total"] = gt
+                if team_spread is not None:
+                    env["implied_team_total"] = round((gt - team_spread) / 2.0, 1)
+            if team_spread is not None:
+                if abs(team_spread) <= 4:
+                    env["script"] = "tight game expected"
+                elif abs(team_spread) >= 11:
+                    env["script"] = ("heavy favorite // blowout benching risk"
+                                     if team_spread < 0 else
+                                     "big underdog // blowout benching risk")
+            if env:
+                entry["game_environment"] = env
+
         sr = slump.get(nk)
         if sr:
             entry["slump_risk"] = sr
@@ -528,9 +575,10 @@ ANALYTICAL FRAMEWORK (this is how a sharp WNBA analyst reasons // follow it):
 6. REST / BACK-TO-BACK (`rest` when present): `rest_days` is the days off before tonight for this player's team and `back_to_back` is true on the second night of a back-to-back. `opponent_rest_days` and `rest_edge` ('advantage'/'disadvantage') compare the two teams. A back-to-back is a real fatigue headwind (trimmed minutes, dip in efficiency) // lean it against aggressive OVERs and toward UNDERs. A clear rest advantage is a tailwind for volume OVERs. Use it as a supporting environment signal.
 7. FANTASY-POINT CONTEXT (`fp_context` when present): `season_fp_pg` is the player's season fantasy output, `last5_fp_pg` is recent form, and `fp_ceiling`/`fp_floor` are an honest +/- 1 SD band around the season average (NOT a tonight projection). A wide band means a volatile, boom-or-bust profile (demand a bigger edge); a tight band supports confidence. If recent FP is running well above the season average, pair it with the slump-risk read before chasing an OVER.
 8. QUARTER / CLUTCH PROFILE (`quarter_profile` when present): built from play-by-play. `pts_by_quarter` is the player's average points in Q1-Q4, `q4_pts_share_pct` is the share of her scoring that comes in the 4th, `q4_team_fga_share_pct` is her share of her TEAM's 4th-quarter shots (late-game usage), and `clutch_pts_pg`/`clutch_fga_pg` are her scoring and volume in clutch time (Q4/OT, within 5 points, under 5:00). A player who keeps or grows her share late is safer for PTS OVERs (she closes games); a player whose scoring fades in the 4th or who loses late-game touches has a softer ceiling and a blowout-benching risk // that supports UNDERs on lines that need a full 40-minute run. Supporting signal, not the headline.
-9. REFEREE CREW (`referee_crew` when present): the officials assigned to this game with their foul environment. `avg_fouls_pg` is the crew's average fouls per game and `whistle` is tight/average/lenient vs the WNBA crew average. A `tight` whistle crew creates more free-throw and foul-out volume (supports PTS OVERs for foul-drawers, raises foul-trouble risk for bigs); a `lenient` crew suppresses FT-dependent scoring. This is a minor supporting signal, never the headline.
+9. VEGAS GAME ENVIRONMENT (`game_environment` when present): `team_spread` is the pick's team's point spread (negative = favored), `game_total` is the Vegas over/under, and `implied_team_total` is the team's expected score. Use it with LENIENCE // spreads miss all the time and OTs are rare, so this is a supporting environment signal, never a veto. A tight spread (`script` = "tight game expected") keeps starters on the floor to the final whistle // that supports volume OVERs for heavy-minutes players and argues against UNDERs that need an early exit. A big spread (blowout benching risk) is a mild headwind for OVERs that need a full run. A high `implied_team_total` means Vegas expects plenty of possessions and points for that side // a tailwind for scoring OVERs; a low one leans the other way. Cite the actual numbers when you use them.
+10. REFEREE CREW (`referee_crew` when present): the officials assigned to this game with their foul environment. `avg_fouls_pg` is the crew's average fouls per game and `whistle` is tight/average/lenient vs the WNBA crew average. A `tight` whistle crew creates more free-throw and foul-out volume (supports PTS OVERs for foul-drawers, raises foul-trouble risk for bigs); a `lenient` crew suppresses FT-dependent scoring. This is a minor supporting signal, never the headline.
 
-CORRELATION & STACKING (reason ACROSS your own picks, not just one pick at a time): picks in the SAME game share an opponent and game environment (referee whistle, rest, the pace of that matchup). When two of your picks are teammates, or fall in the same game, say so. Teammates both attacking the same leaky zone or a soft DVP, or both playing in a tight-whistle (more fouls, more free throws) game, are positively correlated and tend to rise together // that is real tournament upside, but they also bust together, so spreading picks across different games is the safer build. An OVER on one player and an UNDER on a teammate fighting for the same usage can offset // flag it. There are NO DFS ownership or implied-team-total inputs for the WNBA slate, so do not invent leverage, chalk, or Vegas-total claims.
+CORRELATION & STACKING (reason ACROSS your own picks, not just one pick at a time): picks in the SAME game share an opponent and game environment (referee whistle, rest, the pace of that matchup). When two of your picks are teammates, or fall in the same game, say so. Teammates both attacking the same leaky zone or a soft DVP, or both playing in a tight-whistle (more fouls, more free throws) game, are positively correlated and tend to rise together // that is real tournament upside, but they also bust together, so spreading picks across different games is the safer build. An OVER on one player and an UNDER on a teammate fighting for the same usage can offset // flag it. There are NO DFS ownership inputs for the WNBA slate, so do not invent leverage or chalk claims. Vegas spread/total context arrives per pick in `game_environment` // only cite the numbers given there, never invent lines.
 
 RECENT RESULTS (`recent_pick_results` at the top of the slate data, when present): our OWN graded track record on past WNBA picks. `recent` is the last N days and `overall_to_date` is the full graded history, with `recent_by_stat` and `recent_by_direction` win-loss breakdowns (each carrying `decided` graded picks and `win_pct`). Use it as honest internal calibration only: be more selective on stats or directions that have been cold over a meaningful sample, and trust the ones we have been sharp on. Weight small samples lightly. NEVER mention this track record in the published analysis // it is internal calibration only.
 

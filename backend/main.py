@@ -3126,6 +3126,25 @@ async def admin_scheduler_status(request: Request, db: Session = Depends(get_db)
     return out
 
 
+@app.get("/admin/edge-calibration")
+async def admin_edge_calibration(request: Request, league: str = "wnba", db: Session = Depends(get_db)):
+    """Edge-honesty tracker: win rate by claimed edge size + projection error by
+    stat, from the graded pick history. Shows whether bigger claimed edges
+    actually win more, and whether the HIGH gate is currently tightened."""
+    user = get_current_user(request, db)
+    if not require_admin(user):
+        return {"success": False, "message": "Unauthorized"}
+    if league not in ("wnba", "nba"):
+        return {"success": False, "message": "league must be wnba or nba"}
+    try:
+        from analysis.edge_calibration import compute_calibration
+        report = compute_calibration(league)
+        report["success"] = True
+        return report
+    except Exception as e:
+        return {"success": False, "message": f"calibration failed: {e}"}
+
+
 @app.get("/admin/lookup-user")
 async def admin_lookup_user(request: Request, username: str = "", db: Session = Depends(get_db)):
     user = get_current_user(request, db)
