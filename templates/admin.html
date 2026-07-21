@@ -148,6 +148,16 @@
     </div>
 
     <div class="admin-card">
+        <h2>Edge Calibration (Honesty Tracker)</h2>
+        <p>Does a bigger claimed edge actually win more? Win rate by edge-size bucket from the graded pick history, plus projection error by stat. If the 8-15% bucket goes unprofitable over 30+ decided picks, the WNBA HIGH gate automatically tightens from 8% to 12% minimum edge.</p>
+
+        <button class="btn-refresh" onclick="loadEdgeCalibration('wnba')">WNBA</button>
+        <button class="btn-refresh" onclick="loadEdgeCalibration('nba')" style="margin-left:0.5rem;">NBA</button>
+
+        <div id="edgeCalibration" style="display:none; margin-top: 1rem;"></div>
+    </div>
+
+    <div class="admin-card">
         <h2>Manual Subscription Access</h2>
         <p>Grant complimentary access to subscriber-only features (Picks / Stat Pack / Bundle). Manually granted plans don't go through Stripe and won't trigger billing.</p>
 
@@ -643,6 +653,53 @@ function loadSchedulerStatus(toggleAuto) {
             wrap.innerHTML = html;
         })
         .catch(err => alert('Error: ' + err));
+}
+
+function loadEdgeCalibration(league) {
+    const wrap = document.getElementById('edgeCalibration');
+    wrap.style.display = 'block';
+    wrap.innerHTML = '<p style="color:var(--text-muted);">Loading ' + league.toUpperCase() + ' calibration...</p>';
+    fetch('/admin/edge-calibration?league=' + league)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                wrap.innerHTML = '<p class="status-error">' + escapeHtml(data.message || 'Failed') + '</p>';
+                return;
+            }
+            let html = '<div style="margin-bottom:0.75rem; font-size:0.9rem;">';
+            html += '<strong>' + escapeHtml(data.league.toUpperCase()) + '</strong> // ' + data.graded_picks + ' graded picks // breakeven ' + data.breakeven_win_pct + '%';
+            html += ' // HIGH gate min edge: <strong>' + data.high_edge_threshold + '%</strong>';
+            if (data.high_edge_threshold > 8) {
+                html += ' <span class="status-error">(TIGHTENED)</span>';
+            } else {
+                html += ' <span class="status-success">(default)</span>';
+            }
+            html += '</div>';
+
+            html += '<table class="standings-table" style="margin-bottom:1rem;"><thead><tr><th>Edge Size</th><th>W</th><th>L</th><th>Push</th><th>Win %</th><th>Read</th></tr></thead><tbody>';
+            data.edge_buckets.forEach(b => {
+                let read = '-';
+                let cls = '';
+                if (b.win_pct !== null) {
+                    if (!b.sample_ok) { read = 'small sample'; }
+                    else if (b.profitable) { read = 'profitable'; cls = 'status-success'; }
+                    else { read = 'unprofitable'; cls = 'status-error'; }
+                }
+                html += '<tr><td>' + escapeHtml(b.bucket) + '</td><td>' + b.wins + '</td><td>' + b.losses + '</td><td>' + b.pushes + '</td>';
+                html += '<td>' + (b.win_pct === null ? '-' : b.win_pct + '%') + '</td><td class="' + cls + '">' + read + '</td></tr>';
+            });
+            html += '</tbody></table>';
+
+            html += '<table class="standings-table"><thead><tr><th>Stat</th><th>Picks</th><th>MAE</th><th>Bias</th><th>Win %</th></tr></thead><tbody>';
+            data.by_stat.forEach(s => {
+                html += '<tr><td>' + escapeHtml(s.stat) + '</td><td>' + s.n + '</td><td>' + (s.mae === null ? '-' : s.mae) + '</td>';
+                html += '<td>' + (s.bias === null ? '-' : (s.bias > 0 ? '+' : '') + s.bias) + '</td><td>' + (s.win_pct === null ? '-' : s.win_pct + '%') + '</td></tr>';
+            });
+            html += '</tbody></table>';
+            html += '<p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem;">MAE = average miss size (actual vs projected). Bias positive = we project too LOW for that stat, negative = too HIGH.</p>';
+            wrap.innerHTML = html;
+        })
+        .catch(err => { wrap.innerHTML = '<p class="status-error">Error: ' + escapeHtml(String(err)) + '</p>'; });
 }
 
 let _lookupUsername = '';
