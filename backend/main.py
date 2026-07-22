@@ -547,14 +547,26 @@ def _render_wnba_articles(request: Request, user, db: Session):
             print(f"[WNBA ARTICLES] Prop recs load failed: {e}")
 
     grading_report = []
+    grading_date_str = None
     if article and has_access:
         try:
             from datetime import timedelta as _td
             from utils.timezone import get_eastern_today as _get_et_today
             yesterday = _get_et_today() - _td(days=1)
-            grades = db.query(models.WNBADailyPickGrade).filter(
-                models.WNBADailyPickGrade.slate_date == yesterday
-            ).all()
+            # Prefer yesterday's grades; if that slate was never graded (off
+            # day, missed article, pipeline gap), fall back to the most recent
+            # graded slate within the last 7 days so the report never vanishes.
+            from sqlalchemy import func as _func
+            latest = db.query(_func.max(models.WNBADailyPickGrade.slate_date)).filter(
+                models.WNBADailyPickGrade.slate_date <= yesterday,
+                models.WNBADailyPickGrade.slate_date >= yesterday - _td(days=6),
+            ).scalar()
+            grades = []
+            if latest:
+                grading_date_str = latest.strftime('%B %-d, %Y')
+                grades = db.query(models.WNBADailyPickGrade).filter(
+                    models.WNBADailyPickGrade.slate_date == latest
+                ).all()
             for g in grades:
                 grading_report.append({
                     'player': g.player,
@@ -588,6 +600,7 @@ def _render_wnba_articles(request: Request, user, db: Session):
         "pre_lock": False,
         "prop_recs": prop_recs,
         "grading_report": grading_report,
+        "grading_date_str": grading_date_str,
         "official_locked": official_locked,
         "official_locked_at_str": official_locked_at_str,
         "league": "wnba",
@@ -823,13 +836,25 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
             except Exception as e:
                 print(f"[ARTICLES] Prop recs load failed: {e}")
     grading_report = []
+    grading_date_str = None
     if article and has_access and not pre_lock:
         try:
             from datetime import timedelta as _td
             yesterday = today - _td(days=1)
-            grades = db.query(models.DailyPickGrade).filter(
-                models.DailyPickGrade.slate_date == yesterday
-            ).all()
+            # Prefer yesterday's grades; fall back to the most recent graded
+            # slate within the last 7 days (off days / missed slates) so the
+            # report never vanishes.
+            from sqlalchemy import func as _func
+            latest = db.query(_func.max(models.DailyPickGrade.slate_date)).filter(
+                models.DailyPickGrade.slate_date <= yesterday,
+                models.DailyPickGrade.slate_date >= yesterday - _td(days=6),
+            ).scalar()
+            grades = []
+            if latest:
+                grading_date_str = latest.strftime('%B %-d, %Y')
+                grades = db.query(models.DailyPickGrade).filter(
+                    models.DailyPickGrade.slate_date == latest
+                ).all()
             for g in grades:
                 grading_report.append({
                     'player': g.player,
@@ -865,6 +890,7 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
         "pre_lock": pre_lock,
         "prop_recs": prop_recs,
         "grading_report": grading_report,
+        "grading_date_str": grading_date_str,
         "official_locked": official_locked,
         "official_locked_at_str": official_locked_at_str,
     })

@@ -108,7 +108,7 @@
 
     {% if grading_report %}
     <div class="article-section grading-section">
-        <h2>PIRTDICA'S GRADING REPORT</h2>
+        <h2>PIRTDICA'S GRADING REPORT{% if grading_date_str %} <span class="grading-report-date">// {{ grading_date_str }}</span>{% endif %}</h2>
         <div class="table-wrap grading-table-wrap">
             <table class="props-table article-table grading-table">
                 <thead>

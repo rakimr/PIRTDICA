@@ -4869,6 +4869,12 @@ th[data-sortable].sort-desc::after {
     margin-bottom: 1rem;
 }
 
+.grading-report-date {
+    color: var(--text-muted);
+    font-size: 0.85em;
+    letter-spacing: 0.04em;
+}
+
 .grading-table tr.grade-hit {
     background: rgba(15, 157, 88, 0.05);
 }
