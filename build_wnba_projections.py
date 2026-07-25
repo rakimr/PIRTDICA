@@ -28,6 +28,15 @@ DB = "dfs_nba.db"
 # prop stat code -> the column family we computed in wnba_player_stats / logs
 STAT_MAP = {"PTS": "pts", "REB": "reb", "AST": "ast", "3PM": "fg3m"}
 
+# The real WNBA franchises (ESPN abbreviations as they appear in the game
+# logs). Exhibition opponents around All-Star weekend (national teams like
+# JPN, NIGER) leak into the logs' team AND opp columns, so any whitelist
+# derived from the data itself gets poisoned // keep this list explicit.
+WNBA_FRANCHISES = (
+    "ATL", "CHI", "CON", "DAL", "GS", "IND", "LA", "LV",
+    "MIN", "NY", "PHX", "POR", "SEA", "TOR", "WSH",
+)
+
 
 def norm(name):
     s = unicodedata.normalize("NFKD", str(name)).encode("ascii", "ignore").decode()
@@ -45,16 +54,16 @@ def _mean(xs):
 def build_dvp(cur):
     cur.execute("DROP TABLE IF EXISTS wnba_dvp")
     cur.execute("CREATE TABLE wnba_dvp (team TEXT, stat TEXT, factor REAL, PRIMARY KEY (team, stat))")
-    # Valid WNBA opponents = the real franchises our players play for. Preseason
-    # exhibitions vs national teams (e.g. NIGER, JPN) leak into the opp column;
-    # restricting to actual franchises keeps those out of the DVP ratings.
-    valid_teams = {
-        r[0] for r in cur.execute(
-            "SELECT DISTINCT team FROM wnba_player_game_logs WHERE team != ''"
-        ).fetchall()
-    }
+    # Valid WNBA opponents = the real franchises only. Exhibitions vs national
+    # teams (e.g. NIGER, JPN around All-Star weekend) leak into BOTH the team
+    # and opp columns of the game logs, so deriving the whitelist from the data
+    # self-poisons (JPN showed up as a "team" in the DVP heatmaps with garbage
+    # factors). Use the explicit franchise list instead.
+    valid_teams = WNBA_FRANCHISES
     rows = cur.execute(
-        "SELECT opp, pts, reb, ast, fg3m FROM wnba_player_game_logs WHERE opp != ''"
+        "SELECT opp, pts, reb, ast, fg3m FROM wnba_player_game_logs "
+        "WHERE opp != '' AND team IN (%s)" % ",".join("?" * len(WNBA_FRANCHISES)),
+        tuple(WNBA_FRANCHISES),
     ).fetchall()
     factors = {}
     for skey_idx, skey in enumerate(["pts", "reb", "ast", "fg3m"], start=1):
@@ -88,11 +97,8 @@ def build_dvp_position(cur):
     cur.execute("CREATE TABLE wnba_dvp_position "
                 "(team TEXT, position TEXT, stat TEXT, factor REAL, "
                 "PRIMARY KEY (team, position, stat))")
-    valid_teams = {
-        r[0] for r in cur.execute(
-            "SELECT DISTINCT team FROM wnba_player_game_logs WHERE team != ''"
-        ).fetchall()
-    }
+    # Same explicit whitelist as build_dvp // see the exhibition-leak note there.
+    valid_teams = WNBA_FRANCHISES
     pos_map = {}
     for name, pos in cur.execute(
             "SELECT player_name, position FROM wnba_player_stats"):
@@ -101,7 +107,9 @@ def build_dvp_position(cur):
             pos_map[name] = p
     rows = cur.execute(
         "SELECT player_name, opp, pts, reb, ast, fg3m, fp "
-        "FROM wnba_player_game_logs WHERE opp != ''"
+        "FROM wnba_player_game_logs "
+        "WHERE opp != '' AND team IN (%s)" % ",".join("?" * len(WNBA_FRANCHISES)),
+        tuple(WNBA_FRANCHISES),
     ).fetchall()
     idx = {"pts": 2, "reb": 3, "ast": 4, "fg3m": 5, "fp": 6}
     factors = {}
