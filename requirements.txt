@@ -7,13 +7,13 @@ beautifulsoup4==4.14.3
 pandas==3.0.0
 pulp==3.3.0
 scikit-learn==1.8.0
-python-multipart==0.0.22
+python-multipart==0.0.32
 psycopg2-binary==2.9.11
 passlib==1.7.4
 bcrypt==4.0.1
 pydantic==2.12.5
 itsdangerous==2.2.0
-aiohttp==3.11.16
+aiohttp==3.14.3
 nba-api
 numpy
 playwright
