@@ -437,6 +437,30 @@ def build_wnba_standings():
     return east, west
 
 
+def _resolve_header_image(path, league="nba"):
+    """Return a header-image web path whose file actually exists on disk.
+
+    The daily article headers are generated at runtime on the prod VM, so a
+    redeploy hands out a fresh filesystem while the DB row still points at a
+    PNG the new container doesn't have yet (broken <img> on /articles).
+    Fall back to the newest header PNG we DO have for the league."""
+    import glob
+    import os as _os
+    import re as _re
+    prefix = "wnba_article_header_" if league == "wnba" else "article_header_"
+    # Only trust canonical generated filenames (static/images/<prefix>YYYY-MM-DD.png);
+    # anything else (traversal-shaped or foreign paths) falls through to the fallback.
+    canonical = _re.compile(
+        r"^/?static/images/" + _re.escape(prefix) + r"\d{4}-\d{2}-\d{2}\.png$")
+    if path and canonical.match(path) and _os.path.exists(path.lstrip("/")):
+        return "/" + path.lstrip("/")
+    pattern = f"static/images/{prefix}[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].png"
+    candidates = sorted(glob.glob(pattern), reverse=True)
+    if candidates:
+        return "/" + candidates[0]
+    return None
+
+
 def _render_wnba_articles(request: Request, user, db: Session):
     """Render the shared articles.html with REAL WNBA modeled content
     (Claude analysis + Pillow header + prop recs), mirroring the NBA page."""
@@ -603,6 +627,8 @@ def _render_wnba_articles(request: Request, user, db: Session):
         "grading_date_str": grading_date_str,
         "official_locked": official_locked,
         "official_locked_at_str": official_locked_at_str,
+        "header_image": _resolve_header_image(
+            article.header_image_path if article else None, league="wnba"),
         "league": "wnba",
     })
 
@@ -893,6 +919,8 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
         "grading_date_str": grading_date_str,
         "official_locked": official_locked,
         "official_locked_at_str": official_locked_at_str,
+        "header_image": _resolve_header_image(
+            article.header_image_path if article else None, league="nba"),
     })
 
 @app.get("/subscribe")

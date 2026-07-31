@@ -6,8 +6,8 @@
 <section class="articles-page">
     {% if article %}
     <div class="article-header-wrap">
-        {% if article.header_image_path %}
-        <img src="{{ article.header_image_path }}" alt="PIRTDICA Picks" class="article-header-img">
+        {% if header_image %}
+        <img src="{{ header_image }}" alt="PIRTDICA Picks" class="article-header-img">
         {% endif %}
         <div class="article-meta">
             <h1>{% if article.best_available %}TOP PICKS OF THE DAY{% else %}HIGH CONFIDENCE PROPS{% endif %}</h1>
