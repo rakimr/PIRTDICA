@@ -221,14 +221,10 @@ def sync_sqlite_table(sqlite_table, pg_table):
                 col_defs_str = ", ".join(col_defs)
                 conn.execute(text(f'CREATE TABLE {pg_table} (id SERIAL PRIMARY KEY, {col_defs_str})'))
                 conn.execute(text(f'ALTER TABLE {pg_table} ENABLE ROW LEVEL SECURITY'))
-                anon_exists = conn.execute(text(
-                    "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon')"
-                )).scalar()
-                if anon_exists:
-                    conn.execute(text(
-                        f'CREATE POLICY "anon_read_{pg_table}" ON {pg_table} FOR SELECT TO anon USING (true)'
-                    ))
-                print(f"  CREATED: {pg_table} table in PostgreSQL (RLS enabled, anon read-only)")
+                # No anon policy: the app reads only through the FastAPI
+                # backend (table owner, bypasses RLS). Anon PostgREST access
+                # is intentionally blocked (see migrations/drop_anon_policies.sql).
+                print(f"  CREATED: {pg_table} table in PostgreSQL (RLS enabled, no anon access)")
 
             conn.execute(text(f"DELETE FROM {pg_table}"))
 
