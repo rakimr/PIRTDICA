@@ -14,6 +14,49 @@ returns {} so the article still generates cleanly.
 """
 from datetime import timedelta
 
+# Pattern-level miss taxonomy (Task #64). Graders classify each MISS into one of
+# these buckets; the feedback here only ever surfaces bucket-level counts, never
+# "player X burned us on date Y".
+MISS_REASONS = (
+    "role_usage_shift",    # unexpected role/usage volatility (hub nights, promotions)
+    "game_script",         # blowout / foul trouble / rotation cut short
+    "shooting_variance",   # clean process, cold/hot shooting night
+    "matchup_model_gap",   # playstyle-vs-defense read our DVP/matchup inputs missed
+    "other",
+)
+
+# matchup_model_gap misses are model INPUT gaps (fix the DVP/matchup tables),
+# not pick-type biases — they are logged as model_gap_notes and intentionally
+# excluded from the Claude-facing miss-pattern buckets.
+_CLAUDE_FACING_REASONS = tuple(r for r in MISS_REASONS if r != "matchup_model_gap")
+
+
+def ensure_miss_reason_schema():
+    """Idempotent, deployment-safe migration: add miss_reason to both existing
+    grade tables and create model_gap_notes. Called by the graders/backfill
+    before any read/write and mirrored in the app startup migration, so a
+    pre-existing production database upgrades itself on first use."""
+    try:
+        from sqlalchemy import inspect as sa_inspect, text as sa_text
+        from backend.database import Base, engine
+        from backend import models  # noqa: F401 (registers ModelGapNote)
+        Base.metadata.create_all(bind=engine)
+        insp = sa_inspect(engine)
+        for table in ("daily_pick_grades", "wnba_daily_pick_grades"):
+            if table not in insp.get_table_names():
+                continue
+            cols = {c["name"] for c in insp.get_columns(table)}
+            if "miss_reason" not in cols:
+                with engine.begin() as conn:
+                    conn.execute(sa_text(
+                        f"ALTER TABLE {table} "
+                        "ADD COLUMN IF NOT EXISTS miss_reason VARCHAR(40)"))
+                print(f"[pick_feedback] Added miss_reason to {table}")
+        return True
+    except Exception as e:
+        print(f"[pick_feedback] miss_reason schema ensure failed: {e}")
+        return False
+
 
 def _agg(rows):
     wins = sum(1 for r in rows if r["hit"] is True)
@@ -91,6 +134,7 @@ def load_recent_pick_results(league="nba", recent_days=14,
                     "composite_score": getattr(g, "composite_score", None),
                     "dva_edge": getattr(g, "dva_edge", None),
                     "usage_boost": getattr(g, "usage_boost", None),
+                    "miss_reason": getattr(g, "miss_reason", None),
                 })
         finally:
             db.close()
@@ -149,4 +193,60 @@ def load_recent_pick_results(league="nba", recent_days=14,
             if signal:
                 result["recent_by_signal"] = signal
 
+    if result["recent"]["decided"] >= min_window_decided:
+        patterns = _miss_patterns(recent)
+        if patterns:
+            result["recent_miss_patterns"] = patterns
+
     return result
+
+
+def _miss_patterns(recent, min_misses=3):
+    """Gated, bucket-level miss-reason records for the recent window.
+
+    Guardrails (Task #64):
+    - Pattern-level only: buckets are (reason) and (reason x stat) counts. No
+      player names, no dates, no per-pick detail ever leaves this function.
+    - Sample gates: a bucket only surfaces once it has >= min_misses classified
+      misses. One game creates zero signal.
+    - Avoidance/sizing, not steering: the note instructs Claude to demand a
+      bigger edge on fragile categories, never to flip sides or target players.
+    - matchup_model_gap is excluded (model input gap, logged separately as
+      model_gap_notes for pipeline fixes, not a Claude nudge).
+    """
+    misses = [r for r in recent
+              if r["hit"] is False and r.get("miss_reason") in _CLAUDE_FACING_REASONS]
+    if not misses:
+        return None
+    total_misses = sum(1 for r in recent if r["hit"] is False)
+
+    by_reason = {}
+    by_reason_stat = {}
+    for r in misses:
+        by_reason[r["miss_reason"]] = by_reason.get(r["miss_reason"], 0) + 1
+        if r.get("stat"):
+            k = f"{r['miss_reason']}|{r['stat']}"
+            by_reason_stat[k] = by_reason_stat.get(k, 0) + 1
+
+    by_reason = {k: {"misses": v,
+                     "share_of_recent_misses_pct": round(100.0 * v / total_misses, 1)}
+                 for k, v in by_reason.items() if v >= min_misses}
+    by_reason_stat = {k: v for k, v in by_reason_stat.items() if v >= min_misses}
+    if not by_reason and not by_reason_stat:
+        return None
+
+    out = {
+        "note": ("Internal calibration only. These are pattern-level miss buckets "
+                 "from recent graded picks. Use them ONLY to demand a larger edge / "
+                 "downgrade confidence on fragile pick categories (e.g. assist props "
+                 "on volatile-role players). NEVER flip a pick's side because of "
+                 "this, never avoid or target a specific player, and never cite "
+                 "this in the published analysis."),
+        "classified_misses": len(misses),
+        "total_recent_misses": total_misses,
+    }
+    if by_reason:
+        out["by_reason"] = by_reason
+    if by_reason_stat:
+        out["by_reason_and_stat"] = by_reason_stat
+    return out

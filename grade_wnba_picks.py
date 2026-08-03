@@ -95,6 +95,14 @@ def _generate_claude_analyses(graded_picks):
 
 For each pick below, write a brief 1-2 sentence analysis explaining WHY the pick hit or missed. Focus on specific game events: blowouts, foul trouble, injuries mid-game, unexpected usage changes, pace of play, or defensive adjustments. Be concise and analytical — no filler.
 
+Additionally, for each MISS (hit=false) only, classify the PRIMARY reason into exactly one of:
+- "role_usage_shift": the player's role/usage unexpectedly changed (became the offensive hub, ran point, promotion, teammate absence changed her job)
+- "game_script": blowout, foul trouble, early benching, or a rotation cut that capped minutes/opportunity
+- "shooting_variance": the process was fine but the shots simply didn't (or did) fall
+- "matchup_model_gap": the miss traces to a playstyle-vs-defense dynamic our matchup/DVP data should have captured but didn't (e.g. interior scorer vs interior-weak defense)
+- "other": none of the above clearly applies
+If (and only if) the reason is "matchup_model_gap", also include a "model_gap_note": one sentence describing the playstyle-vs-defense dynamic the model missed, phrased about the matchup pattern (not a prediction about the player's next game).
+
 Yesterday's picks and results:
 {json.dumps(picks_summary, indent=2)}
 
@@ -102,6 +110,8 @@ Return ONLY a JSON array where each element has:
 - "player": the player name (must match exactly)
 - "stat": the stat type
 - "analysis": your 1-2 sentence explanation
+- "miss_reason": (misses only) one of the five categories above
+- "model_gap_note": (only when miss_reason is "matchup_model_gap")
 
 Example:
 [{{"player": "A'ja Wilson", "stat": "PTS", "analysis": "Hit comfortably as Las Vegas leaned on her in the post against a thin Dallas frontcourt. Wilson logged 34 minutes with a heavy usage rate in a competitive game script."}}]"""
@@ -126,7 +136,11 @@ Example:
         result = {}
         for a in analyses:
             key = (a.get('player', ''), a.get('stat', ''))
-            result[key] = a.get('analysis', '')
+            result[key] = {
+                'analysis': a.get('analysis', ''),
+                'miss_reason': a.get('miss_reason'),
+                'model_gap_note': a.get('model_gap_note'),
+            }
         print(f"[GRADE-WNBA] Claude returned {len(result)} analyses")
         return result
     except Exception as e:
@@ -140,6 +154,8 @@ Example:
 
 def grade_picks(target_date=None):
     Base.metadata.create_all(bind=engine)
+    from pick_feedback import ensure_miss_reason_schema
+    ensure_miss_reason_schema()
     Session = sessionmaker(bind=engine)
     db = Session()
 
@@ -258,10 +274,18 @@ def grade_picks(target_date=None):
 
     claude_analyses = _generate_claude_analyses(graded)
 
+    from pick_feedback import MISS_REASONS
+
     saved = 0
+    gap_notes = 0
     for g in graded:
         key = (g['player'], g['stat'])
-        analysis = claude_analyses.get(key, '')
+        ca = claude_analyses.get(key) or {}
+        analysis = ca.get('analysis', '')
+        miss_reason = None
+        if g['hit'] is False:
+            mr = (ca.get('miss_reason') or '').strip().lower()
+            miss_reason = mr if mr in MISS_REASONS else ('other' if ca else None)
         if not analysis:
             if g['hit'] is None:
                 analysis = f"Landed exactly on the line at {g['actual']} — a push."
@@ -290,13 +314,28 @@ def grade_picks(target_date=None):
             actual=g['actual'],
             hit=g['hit'],
             claude_analysis=analysis,
+            miss_reason=miss_reason,
         )
         db.add(grade)
         saved += 1
 
+        # Matchup-driven misses are model INPUT gaps: store a pipeline
+        # improvement note (for the DVP/matchup tables), never a Claude nudge.
+        gap_note = (ca.get('model_gap_note') or '').strip()
+        if miss_reason == 'matchup_model_gap' and gap_note:
+            db.add(models.ModelGapNote(
+                league='wnba',
+                slate_date=target_date,
+                stat=g['stat'],
+                note=gap_note,
+            ))
+            gap_notes += 1
+
     try:
         db.commit()
         print(f"[GRADE-WNBA] Saved {saved} grades to database ({len(graded)} total graded)")
+        if gap_notes:
+            print(f"[GRADE-WNBA] Logged {gap_notes} model-gap note(s) for pipeline review")
     except Exception as e:
         db.rollback()
         print(f"[GRADE-WNBA] Error saving grades: {e}")

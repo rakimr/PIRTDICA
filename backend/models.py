@@ -922,6 +922,9 @@ class DailyPickGrade(Base):
     dva_edge = Column(Float, nullable=True)
     usage_boost = Column(Float, nullable=True)
     claude_analysis = Column(Text)
+    # Pattern-level miss taxonomy (Task guardrails: bucket-level feedback only).
+    # One of: role_usage_shift, game_script, shooting_variance, matchup_model_gap, other.
+    miss_reason = Column(String(40), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
 
@@ -939,6 +942,23 @@ class WNBADailyPickGrade(Base):
     actual = Column(Float)
     hit = Column(Boolean)
     claude_analysis = Column(Text)
+    # Pattern-level miss taxonomy (see DailyPickGrade.miss_reason).
+    miss_reason = Column(String(40), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class ModelGapNote(Base):
+    """Pipeline-improvement notes for matchup-driven misses (playstyle-vs-defense
+    gaps the DVP/matchup tables failed to capture). These are developer-facing
+    input-gap notes for improving the model — they are NEVER fed to the Claude
+    analyst and never published."""
+    __tablename__ = "model_gap_notes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    league = Column(String(10), nullable=False, index=True)  # 'nba' | 'wnba'
+    slate_date = Column(Date, nullable=False, index=True)
+    stat = Column(String(20), nullable=True)
+    note = Column(Text, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
 
 

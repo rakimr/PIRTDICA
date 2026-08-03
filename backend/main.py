@@ -131,10 +131,21 @@ async def startup_event():
                 adds.append("ADD COLUMN IF NOT EXISTS dva_edge DOUBLE PRECISION")
             if 'usage_boost' not in existing_cols:
                 adds.append("ADD COLUMN IF NOT EXISTS usage_boost DOUBLE PRECISION")
+            if 'miss_reason' not in existing_cols:
+                # Task #64: pattern-level miss taxonomy for pick-feedback calibration.
+                adds.append("ADD COLUMN IF NOT EXISTS miss_reason VARCHAR(40)")
             if adds:
                 with _eng.begin() as conn:
                     conn.execute(sa_text(f"ALTER TABLE daily_pick_grades {', '.join(adds)}"))
                 print(f"[STARTUP] Added columns to daily_pick_grades: {adds}")
+        if 'wnba_daily_pick_grades' in insp.get_table_names():
+            existing_cols = {c['name'] for c in insp.get_columns('wnba_daily_pick_grades')}
+            if 'miss_reason' not in existing_cols:
+                with _eng.begin() as conn:
+                    conn.execute(sa_text(
+                        "ALTER TABLE wnba_daily_pick_grades "
+                        "ADD COLUMN IF NOT EXISTS miss_reason VARCHAR(40)"))
+                print("[STARTUP] Added miss_reason to wnba_daily_pick_grades")
     except Exception as e:
         print(f"[STARTUP] daily_pick_grades migration skipped: {e}")
 
