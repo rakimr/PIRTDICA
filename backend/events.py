@@ -110,8 +110,9 @@ def emit_promotion_result(db: Session, user_id: int, promoted: bool,
     )
 
 
-def emit_subscription_activated(db: Session, user_id: int, username: str, plan_key: str):
-    from backend.stripe_billing import PLAN_DISPLAY_NAMES
+def emit_subscription_activated(db: Session, user_id: int, username: str, plan_key: str,
+                                trial_end=None):
+    from backend.stripe_billing import PLAN_DISPLAY_NAMES, PLANS
 
     plan_name = PLAN_DISPLAY_NAMES.get(plan_key, plan_key)
 
@@ -128,22 +129,66 @@ def emit_subscription_activated(db: Session, user_id: int, username: str, plan_k
         "bundle": "/articles",
     }
 
+    plan_info = PLANS.get(plan_key, {})
+    price_str = f"${plan_info.get('amount', 0) / 100:.0f}/{plan_info.get('interval', 'month')}" if plan_info.get("amount") else ""
+    trial_end_str = trial_end.strftime("%B %-d, %Y") if trial_end else None
+
+    if trial_end_str:
+        title = f"{plan_name} free trial started"
+        body = (f"Your free trial of {plan_name} is active. You have access to: {access_desc}. "
+                f"First charge of {price_str} on {trial_end_str} — cancel anytime before then.")
+    else:
+        title = f"{plan_name} activated"
+        body = f"Your {plan_name} subscription is now active. You have access to: {access_desc}."
+
     create_notification(
         db, user_id,
         type="subscription",
         priority=1,
-        title=f"{plan_name} activated",
-        body=f"Your {plan_name} subscription is now active. You have access to: {access_desc}.",
+        title=title,
+        body=body,
         action_url=action_map.get(plan_key, "/"),
     )
 
     try:
         from backend.email_service import queue_email
-        from backend.email_templates import subscription_activated_email
-        subject, html = subscription_activated_email(username, plan_name, access_desc)
-        queue_email(db, user_id, "subscription_activated", subject, html)
+        from backend.email_templates import subscription_activated_email, trial_started_email
+        if trial_end_str:
+            subject, html = trial_started_email(username, plan_name, access_desc, trial_end_str, price_str)
+            queue_email(db, user_id, "trial_started", subject, html)
+        else:
+            subject, html = subscription_activated_email(username, plan_name, access_desc)
+            queue_email(db, user_id, "subscription_activated", subject, html)
     except Exception as e:
         print(f"[Email] Failed to queue subscription email for user {user_id}: {e}")
+
+
+def emit_trial_ending(db: Session, user_id: int, username: str, plan_key: str,
+                      trial_end=None):
+    from backend.stripe_billing import PLAN_DISPLAY_NAMES, PLANS
+
+    plan_name = PLAN_DISPLAY_NAMES.get(plan_key, plan_key)
+    plan_info = PLANS.get(plan_key, {})
+    price_str = f"${plan_info.get('amount', 0) / 100:.0f}/{plan_info.get('interval', 'month')}" if plan_info.get("amount") else ""
+    trial_end_str = trial_end.strftime("%B %-d, %Y") if trial_end else "soon"
+
+    create_notification(
+        db, user_id,
+        type="subscription",
+        priority=1,
+        title="Your free trial ends soon",
+        body=(f"Your {plan_name} trial ends on {trial_end_str}. Your card will be charged "
+              f"{price_str} then — cancel before that from the Billing page if it's not for you."),
+        action_url="/billing",
+    )
+
+    try:
+        from backend.email_service import queue_email
+        from backend.email_templates import trial_ending_email
+        subject, html = trial_ending_email(username, plan_name, trial_end_str, price_str)
+        queue_email(db, user_id, "trial_ending", subject, html)
+    except Exception as e:
+        print(f"[Email] Failed to queue trial-ending email for user {user_id}: {e}")
 
 
 def emit_welcome(db: Session, user_id: int, username: str):

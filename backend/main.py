@@ -632,6 +632,7 @@ def _render_wnba_articles(request: Request, user, db: Session):
         "picks": picks,
         "analysis": analysis,
         "has_access": has_access,
+        "trial_eligible": _trial_eligible_ctx(db, user, has_access),
         "pre_lock": False,
         "prop_recs": prop_recs,
         "grading_report": grading_report,
@@ -660,6 +661,7 @@ def _render_wnba_trends(request: Request, user, db: Session):
     if not has_access:
         return templates.TemplateResponse("trends_paywall.html", {
             "request": request, "user": user,
+            "trial_eligible": _trial_eligible_ctx(db, user),
         })
 
     chart_files = [
@@ -924,6 +926,7 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
         "picks": picks,
         "analysis": analysis,
         "has_access": has_access,
+        "trial_eligible": _trial_eligible_ctx(db, user, has_access),
         "pre_lock": pre_lock,
         "prop_recs": prop_recs,
         "grading_report": grading_report,
@@ -934,9 +937,22 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
             article.header_image_path if article else None, league="nba"),
     })
 
+def _trial_eligible_ctx(db, user, has_access=False):
+    """Template-context helper: is this viewer eligible for the free trial?
+    Used by paywall pages so pricing cards can advertise the trial honestly."""
+    if has_access or not user:
+        return False
+    try:
+        from backend.stripe_billing import is_trial_eligible
+        return is_trial_eligible(db, user)
+    except Exception:
+        return False
+
+
 @app.get("/subscribe")
 async def subscribe_page(request: Request, db: Session = Depends(get_db)):
-    from backend.stripe_billing import create_checkout_session, has_any_subscription, _load_stripe_keys
+    from backend.stripe_billing import (create_checkout_session, has_any_subscription,
+                                         _load_stripe_keys, is_trial_eligible, TRIAL_DAYS)
     user = get_current_user(request, db)
     if not user:
         return html_redirect("/login")
@@ -955,12 +971,16 @@ async def subscribe_page(request: Request, db: Session = Depends(get_db)):
     base_url = str(request.base_url).rstrip("/")
     if base_url.startswith("http://") and request.headers.get("x-forwarded-proto") == "https":
         base_url = base_url.replace("http://", "https://", 1)
+    trial_days = TRIAL_DAYS if is_trial_eligible(db, user) else None
+    if trial_days:
+        print(f"[Stripe] User {user.id} ({user.username}) is trial-eligible — {trial_days}-day free trial on {plan_key}")
     try:
         session, customer_id = create_checkout_session(
             user,
             success_url=f"{base_url}/subscribe/success?session_id={{CHECKOUT_SESSION_ID}}&plan={plan_key}",
             cancel_url=f"{base_url}{cancel_map.get(plan_key, '/')}",
             plan_key=plan_key,
+            trial_days=trial_days,
         )
     except Exception as e:
         import traceback
@@ -1015,9 +1035,11 @@ async def subscribe_success(request: Request, db: Session = Depends(get_db)):
             cancel_individual_subs_for_bundle(db, user.id, sub.id)
         if is_new:
             from backend.events import emit_subscription_activated
-            emit_subscription_activated(db, user.id, user.username, plan_key)
+            trial_end_ts = _so_get(sub, "trial_end")
+            emit_subscription_activated(db, user.id, user.username, plan_key,
+                                        trial_end=datetime.fromtimestamp(trial_end_ts) if trial_end_ts else None)
         db.commit()
-        print(f"[Stripe] SUCCESS: Activated {plan_key} for user {user.id} ({user.username}), is_new={is_new}")
+        print(f"[Stripe] SUCCESS: Activated {plan_key} for user {user.id} ({user.username}), is_new={is_new}, status={sub.status}")
         if is_new:
             from backend.email_service import process_email_queue
             try:
@@ -1082,9 +1104,11 @@ async def stripe_webhook(request: Request):
                         cancel_individual_subs_for_bundle(db, user.id, subscription_id)
                     if is_new:
                         from backend.events import emit_subscription_activated
-                        emit_subscription_activated(db, user.id, user.username, plan_key)
+                        trial_end_ts = _so_get(sub, "trial_end")
+                        emit_subscription_activated(db, user.id, user.username, plan_key,
+                                                    trial_end=datetime.fromtimestamp(trial_end_ts) if trial_end_ts else None)
                     db.commit()
-                    print(f"[Stripe Webhook] SUCCESS: Activated {plan_key} for user {user.id} ({user.username})")
+                    print(f"[Stripe Webhook] SUCCESS: Activated {plan_key} for user {user.id} ({user.username}), status={sub.status}")
             else:
                 print(f"[Stripe Webhook] checkout.session.completed missing customer_id or subscription_id")
 
@@ -1120,6 +1144,38 @@ async def stripe_webhook(request: Request):
                     sync_user_subscription_fields(db, user, plan_key, subscription_id, sub.status, period_end_ts)
                     db.commit()
                     print(f"[Stripe Webhook] SUCCESS: Updated {plan_key} for user {user.id} ({user.username})")
+
+        elif event.type == "customer.subscription.trial_will_end":
+            # Fires ~3 days before a trial converts to a paid subscription.
+            sub_data = event.data.object
+            subscription_id = _so_get(sub_data, "id")
+            customer_id = _so_get(sub_data, "customer")
+            trial_end_ts = _so_get(sub_data, "trial_end")
+            print(f"[Stripe Webhook] trial_will_end: sub={subscription_id}, customer={customer_id}, trial_end={trial_end_ts}")
+            if subscription_id:
+                from backend.models import UserSubscription
+                user_sub = db.query(UserSubscription).filter(
+                    UserSubscription.stripe_subscription_id == subscription_id
+                ).first()
+                user = None
+                if user_sub:
+                    user = db.query(models.User).filter(models.User.id == user_sub.user_id).first()
+                if not user and customer_id:
+                    user = db.query(models.User).filter(models.User.stripe_customer_id == customer_id).first()
+                if user:
+                    plan_key = user_sub.plan if user_sub else (user.subscription_plan or "picks")
+                    from backend.events import emit_trial_ending
+                    emit_trial_ending(db, user.id, user.username, plan_key,
+                                      trial_end=datetime.fromtimestamp(trial_end_ts) if trial_end_ts else None)
+                    db.commit()
+                    from backend.email_service import process_email_queue
+                    try:
+                        process_email_queue(db)
+                    except Exception:
+                        pass
+                    print(f"[Stripe Webhook] Queued trial-ending reminder for user {user.id} ({user.username})")
+                else:
+                    print(f"[Stripe Webhook] WARNING: No user found for trial_will_end sub={subscription_id}")
 
         elif event.type == "customer.subscription.deleted":
             sub_data = event.data.object
@@ -1164,7 +1220,7 @@ async def stripe_webhook(request: Request):
 async def billing_recover(request: Request, db: Session = Depends(get_db)):
     from backend.stripe_billing import (get_stripe_client, resolve_plan_from_subscription,
                                          upsert_user_subscription, sync_user_subscription_fields,
-                                         get_subscription_period_end)
+                                         get_subscription_period_end, ENTITLED_STATUSES)
     user = get_current_user(request, db)
     if not user:
         return JSONResponse({"error": "Not logged in"}, status_code=401)
@@ -1172,9 +1228,11 @@ async def billing_recover(request: Request, db: Session = Depends(get_db)):
         return JSONResponse({"error": "No Stripe customer on file", "recovered": False})
     try:
         client = get_stripe_client()
-        subs = client.Subscription.list(customer=user.stripe_customer_id, status="active", limit=10)
+        subs = client.Subscription.list(customer=user.stripe_customer_id, status="all", limit=20)
         recovered = []
         for stripe_sub in subs.data:
+            if stripe_sub.status not in ENTITLED_STATUSES:
+                continue
             sub, plan_key = resolve_plan_from_subscription(client, stripe_sub.id)
             period_end_ts = get_subscription_period_end(sub)
             period_end = datetime.fromtimestamp(period_end_ts) if period_end_ts else None
@@ -1192,7 +1250,7 @@ async def billing_recover(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/billing")
 async def billing_page(request: Request, db: Session = Depends(get_db)):
-    from backend.stripe_billing import PLANS, PLAN_DISPLAY_NAMES
+    from backend.stripe_billing import PLANS, PLAN_DISPLAY_NAMES, is_trial_eligible, TRIAL_DAYS
     from backend.models import UserSubscription
     user = get_current_user(request, db)
     if not user:
@@ -1200,18 +1258,20 @@ async def billing_page(request: Request, db: Session = Depends(get_db)):
 
     subs_db = db.query(UserSubscription).filter(
         UserSubscription.user_id == user.id,
-        UserSubscription.status.in_(["active", "canceled"]),
+        UserSubscription.status.in_(["active", "trialing", "canceled"]),
     ).order_by(UserSubscription.created_at.desc()).all()
 
-    active_subs = [s for s in subs_db if s.status == "active"]
+    active_subs = [s for s in subs_db if s.status in ("active", "trialing")]
     if not active_subs and user.stripe_customer_id:
         try:
             from backend.stripe_billing import (get_stripe_client, resolve_plan_from_subscription,
                                                  upsert_user_subscription, sync_user_subscription_fields,
-                                                 get_subscription_period_end)
+                                                 get_subscription_period_end, ENTITLED_STATUSES)
             client = get_stripe_client()
-            stripe_subs = client.Subscription.list(customer=user.stripe_customer_id, status="active", limit=10)
+            stripe_subs = client.Subscription.list(customer=user.stripe_customer_id, status="all", limit=20)
             for stripe_sub in stripe_subs.data:
+                if stripe_sub.status not in ENTITLED_STATUSES:
+                    continue
                 sub, plan_key = resolve_plan_from_subscription(client, stripe_sub.id)
                 period_end_ts = get_subscription_period_end(sub)
                 period_end = datetime.fromtimestamp(period_end_ts) if period_end_ts else None
@@ -1220,7 +1280,7 @@ async def billing_page(request: Request, db: Session = Depends(get_db)):
             db.commit()
             subs_db = db.query(UserSubscription).filter(
                 UserSubscription.user_id == user.id,
-                UserSubscription.status.in_(["active", "canceled"]),
+                UserSubscription.status.in_(["active", "trialing", "canceled"]),
             ).order_by(UserSubscription.created_at.desc()).all()
             print(f"[Stripe Recovery] Auto-recovered subscriptions for user {user.id} on billing page")
         except Exception as e:
@@ -1259,6 +1319,8 @@ async def billing_page(request: Request, db: Session = Depends(get_db)):
         "user": user,
         "subscriptions": subscriptions,
         "available_plans": available_plans,
+        "trial_eligible": is_trial_eligible(db, user),
+        "trial_days": TRIAL_DAYS,
     })
 
 
@@ -1923,6 +1985,7 @@ async def trends(request: Request, db: Session = Depends(get_db)):
         return templates.TemplateResponse("trends_paywall.html", {
             "request": request,
             "user": user,
+            "trial_eligible": _trial_eligible_ctx(db, user),
         })
     import pandas as pd
     import time
@@ -3228,7 +3291,7 @@ async def admin_lookup_user(request: Request, username: str = "", db: Session = 
 
     subs = db.query(UserSubscription).filter(
         UserSubscription.user_id == target.id,
-        UserSubscription.status.in_(["active", "canceled"]),
+        UserSubscription.status.in_(["active", "trialing", "canceled"]),
     ).order_by(UserSubscription.created_at.desc()).all()
 
     sub_list = []

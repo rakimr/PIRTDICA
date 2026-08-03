@@ -40,8 +40,8 @@
                 {% if user %}
                     <a href="/h2h" class="btn-play">Coach vs Coach</a>
                 {% endif %}
-                <a href="/articles">Articles {% if user and user.subscription_status == 'active' and user.subscription_plan in ['picks', 'bundle', 'pro'] %}<svg class="nav-lock-icon unlocked" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 5-5 5 5 0 0 1 5 5"/></svg>{% else %}<svg class="nav-lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>{% endif %}</a>
-                <a href="/trends">Chart Gallery {% if user and user.subscription_status == 'active' and user.subscription_plan in ['statpack', 'bundle'] %}<svg class="nav-lock-icon unlocked" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 5-5 5 5 0 0 1 5 5"/></svg>{% else %}<svg class="nav-lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>{% endif %}</a>
+                <a href="/articles">Articles {% if user and user.subscription_status in ['active', 'trialing'] and user.subscription_plan in ['picks', 'bundle', 'pro'] %}<svg class="nav-lock-icon unlocked" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 5-5 5 5 0 0 1 5 5"/></svg>{% else %}<svg class="nav-lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>{% endif %}</a>
+                <a href="/trends">Chart Gallery {% if user and user.subscription_status in ['active', 'trialing'] and user.subscription_plan in ['statpack', 'bundle'] %}<svg class="nav-lock-icon unlocked" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 5-5 5 5 0 0 1 5 5"/></svg>{% else %}<svg class="nav-lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>{% endif %}</a>
                 <a href="/leaderboard">Leaderboard</a>
                 {% if user and user.username == "data" %}
                 <a href="/admin">Admin</a>
@@ -195,7 +195,8 @@
             overlay.innerHTML = '<div class="subscribe-modal subscribe-modal-wide">'
                 + '<button class="subscribe-modal-close" onclick="document.getElementById(\'subscribeModal\').remove()">&times;</button>'
                 + '<h2 style="text-align:center;font-family:Righteous,cursive;margin-bottom:0.25rem;">Unlock PIRTDICA</h2>'
-                + '<p style="text-align:center;color:#6b7280;margin-bottom:1.25rem;">Choose the plan that fits your game.</p>'
+                + '<p style="text-align:center;color:#6b7280;margin-bottom:0.4rem;">Choose the plan that fits your game.</p>'
+                + '<p style="text-align:center;color:#0F9D58;font-weight:600;font-size:0.9rem;margin-bottom:1.25rem;">New members: first 7 days free on any plan &mdash; cancel anytime.</p>'
                 + '<div class="pricing-grid">'
                 + '<div class="pricing-card">'
                 +   '<div class="pricing-card-header"><h3>PIRTDICA Picks</h3><p class="pricing-tagline">Daily prop analysis &amp; betting edges</p></div>'

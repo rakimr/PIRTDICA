@@ -95,6 +95,28 @@ PLAN_DISPLAY_NAMES = {
     "bundle": "PIRTDICA Bundle",
 }
 
+# Free trial: card collected up front, Stripe auto-bills when the trial ends.
+TRIAL_DAYS = 7
+
+# Subscription statuses that grant paid access. "trialing" is Stripe's status
+# for a subscription inside its free-trial window — treat it as entitled.
+ENTITLED_STATUSES = ("active", "trialing")
+
+
+def is_trial_eligible(db, user):
+    """One free trial per account: only users with no subscription history
+    (Stripe-managed OR manually granted, any status) get a trial. Existing and
+    returning subscribers go straight to paid billing."""
+    if not user:
+        return False
+    if getattr(user, "stripe_subscription_id", None) or getattr(user, "subscription_status", None):
+        return False
+    from backend.models import UserSubscription
+    prior = db.query(UserSubscription.id).filter(
+        UserSubscription.user_id == user.id
+    ).first()
+    return prior is None
+
 
 def ensure_product_and_price(plan_key="picks"):
     client = get_stripe_client()
@@ -142,7 +164,7 @@ def ensure_product_and_price(plan_key="picks"):
     return target_price.id
 
 
-def create_checkout_session(user, success_url, cancel_url, plan_key="picks"):
+def create_checkout_session(user, success_url, cancel_url, plan_key="picks", trial_days=None):
     client = get_stripe_client()
     price_id = ensure_product_and_price(plan_key)
 
@@ -161,7 +183,7 @@ def create_checkout_session(user, success_url, cancel_url, plan_key="picks"):
         )
         customer_id = customer.id
 
-    session = client.checkout.Session.create(
+    session_kwargs = dict(
         customer=customer_id,
         payment_method_types=["card"],
         line_items=[{"price": price_id, "quantity": 1}],
@@ -170,6 +192,12 @@ def create_checkout_session(user, success_url, cancel_url, plan_key="picks"):
         cancel_url=cancel_url,
         metadata={"user_id": str(user.id), "plan": plan_key},
     )
+    if trial_days:
+        session_kwargs["subscription_data"] = {
+            "trial_period_days": int(trial_days),
+            "metadata": {"user_id": str(user.id), "plan": plan_key},
+        }
+    session = client.checkout.Session.create(**session_kwargs)
     return session, customer_id
 
 
@@ -268,7 +296,7 @@ def cancel_individual_subs_for_bundle(db, user_id, bundle_subscription_id):
     individual_subs = db.query(UserSubscription).filter(
         UserSubscription.user_id == user_id,
         UserSubscription.plan.in_(["picks", "statpack"]),
-        UserSubscription.status == "active",
+        UserSubscription.status.in_(ENTITLED_STATUSES),
         UserSubscription.stripe_subscription_id != bundle_subscription_id,
     ).all()
 
@@ -291,7 +319,7 @@ def get_user_active_plans(db, user_id):
     from backend.models import UserSubscription
     subs = db.query(UserSubscription).filter(
         UserSubscription.user_id == user_id,
-        UserSubscription.status == "active",
+        UserSubscription.status.in_(ENTITLED_STATUSES),
     ).all()
     return [s.plan for s in subs]
 
@@ -299,7 +327,7 @@ def get_user_active_plans(db, user_id):
 def _legacy_check(user, allowed_plans):
     status = getattr(user, 'subscription_status', None)
     plan = getattr(user, 'subscription_plan', None)
-    if status != 'active':
+    if status not in ENTITLED_STATUSES:
         return False
     return plan in allowed_plans
 
@@ -331,7 +359,7 @@ def has_any_subscription(user, db=None):
         plans = get_user_active_plans(db, user.id)
         if plans:
             return True
-    return getattr(user, 'subscription_status', None) == 'active'
+    return getattr(user, 'subscription_status', None) in ENTITLED_STATUSES
 
 
 def is_subscriber(user, db=None):
