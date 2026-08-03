@@ -213,8 +213,7 @@ def create_checkout_session(user, success_url, cancel_url, plan_key="picks", tri
         session_kwargs["custom_text"] = {
             "submit": {
                 "message": (f"Your {int(trial_days)}-day free trial converts to a paid "
-                            "subscription automatically. No refunds — cancel before "
-                            "the trial ends to avoid the charge.")
+                            "subscription automatically. All charges are final — no refunds.")
             }
         }
     session = client.checkout.Session.create(**session_kwargs)
