@@ -105,30 +105,10 @@ def trial_started_email(username: str, plan_name: str, access_description: str,
 <div style="text-align: center; margin: 24px 0;">
 <div class="stat-label">PLAN</div>
 <div class="stat" style="font-size: 24px;">{plan_name}</div>
-<div class="stat-label" style="margin-top: 12px;">FIRST CHARGE</div>
-<div class="stat" style="font-size: 20px;">{trial_end_str}</div>
 </div>
 <p>{username}, your free trial is live. Here's what you've unlocked:</p>
 <p><strong>{access_description}</strong></p>
-<p>You won't be charged today. On <strong>{trial_end_str}</strong> your card will be billed <strong>{price_str}</strong> automatically. Cancel anytime before then from the billing page and you won't pay a cent.</p>
-<a href="https://pirtdica.com/billing" class="cta">MANAGE SUBSCRIPTION</a>
-"""
-    return subject, _base_template(content)
-
-
-def trial_ending_email(username: str, plan_name: str, trial_end_str: str,
-                       price_str: str) -> tuple[str, str]:
-    subject = f"Your {plan_name} free trial ends {trial_end_str}"
-    content = f"""
-<h2>Your Trial Ends Soon</h2>
-<div style="text-align: center; margin: 24px 0;">
-<div class="stat-label">PLAN</div>
-<div class="stat" style="font-size: 24px;">{plan_name}</div>
-<div class="stat-label" style="margin-top: 12px;">TRIAL ENDS</div>
-<div class="stat" style="font-size: 20px;">{trial_end_str}</div>
-</div>
-<p>{username}, your free trial of {plan_name} ends on <strong>{trial_end_str}</strong>. After that, your card will be charged <strong>{price_str}</strong> automatically and your access continues uninterrupted.</p>
-<p>Not for you? Cancel before {trial_end_str} and you won't be charged.</p>
+<p>Cancel anytime from your billing page. All subscription charges are final &mdash; no refunds.</p>
 <a href="https://pirtdica.com/billing" class="cta">MANAGE SUBSCRIPTION</a>
 """
     return subject, _base_template(content)

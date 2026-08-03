@@ -193,9 +193,29 @@ def create_checkout_session(user, success_url, cancel_url, plan_key="picks", tri
         metadata={"user_id": str(user.id), "plan": plan_key},
     )
     if trial_days:
+        # Belt-and-suspenders against races: if this Stripe customer already
+        # has ANY subscription (even one our DB hasn't heard about yet via
+        # webhook lag), don't attach a trial to the new session.
+        try:
+            existing = client.Subscription.list(customer=customer_id, status="all", limit=3)
+            if existing.data:
+                logger.warning(f"Customer {customer_id} already has {len(existing.data)} subscription(s) — dropping trial from checkout")
+                trial_days = None
+        except Exception as e:
+            logger.error(f"Trial pre-check failed for customer {customer_id}: {e}")
+    if trial_days:
         session_kwargs["subscription_data"] = {
             "trial_period_days": int(trial_days),
             "metadata": {"user_id": str(user.id), "plan": plan_key},
+        }
+        # No-refund disclosure shown on the Stripe Checkout page itself,
+        # right above the submit button — the one required trial disclosure.
+        session_kwargs["custom_text"] = {
+            "submit": {
+                "message": (f"Your {int(trial_days)}-day free trial converts to a paid "
+                            "subscription automatically. No refunds — cancel before "
+                            "the trial ends to avoid the charge.")
+            }
         }
     session = client.checkout.Session.create(**session_kwargs)
     return session, customer_id
@@ -309,6 +329,36 @@ def cancel_individual_subs_for_bundle(db, user_id, bundle_subscription_id):
             logger.info(f"Canceled {sub.plan} subscription {sub.stripe_subscription_id} for user {user_id} (upgraded to bundle)")
         except Exception as e:
             logger.error(f"Failed to cancel {sub.plan} sub {sub.stripe_subscription_id}: {e}")
+
+    if canceled:
+        db.flush()
+    return canceled
+
+
+def cancel_duplicate_plan_subs(db, user_id, plan_key, keep_subscription_id):
+    """If parallel checkouts slipped through, a user can end up with two live
+    subscriptions for the SAME plan (double billing). Keep the newest one and
+    cancel the other Stripe-managed duplicates. Manual grants are left alone."""
+    from backend.models import UserSubscription
+    client = get_stripe_client()
+
+    dupes = db.query(UserSubscription).filter(
+        UserSubscription.user_id == user_id,
+        UserSubscription.plan == plan_key,
+        UserSubscription.status.in_(ENTITLED_STATUSES),
+        UserSubscription.stripe_subscription_id != keep_subscription_id,
+        UserSubscription.stripe_subscription_id.like("sub_%"),
+    ).all()
+
+    canceled = []
+    for dupe in dupes:
+        try:
+            client.Subscription.cancel(dupe.stripe_subscription_id)
+            dupe.status = "canceled"
+            canceled.append(dupe.stripe_subscription_id)
+            logger.warning(f"Canceled duplicate {plan_key} subscription {dupe.stripe_subscription_id} for user {user_id} (kept {keep_subscription_id})")
+        except Exception as e:
+            logger.error(f"Failed to cancel duplicate {plan_key} sub {dupe.stripe_subscription_id}: {e}")
 
     if canceled:
         db.flush()

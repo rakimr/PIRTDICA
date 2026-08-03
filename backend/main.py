@@ -967,6 +967,15 @@ async def subscribe_page(request: Request, db: Session = Depends(get_db)):
     plan_key = request.query_params.get("plan", "picks")
     if plan_key not in ("picks", "statpack", "bundle"):
         plan_key = "picks"
+    # Don't let a user start a second checkout for a plan they already have
+    # (or that their bundle already covers) — prevents duplicate billing.
+    from backend.stripe_billing import get_user_active_plans
+    covered = set(get_user_active_plans(db, user.id))
+    if "bundle" in covered:
+        covered.update({"picks", "statpack"})
+    if plan_key in covered:
+        print(f"[Stripe] User {user.id} ({user.username}) already covered for {plan_key} — redirecting to /billing")
+        return html_redirect("/billing")
     cancel_map = {"picks": "/articles", "statpack": "/trends", "bundle": "/"}
     base_url = str(request.base_url).rstrip("/")
     if base_url.startswith("http://") and request.headers.get("x-forwarded-proto") == "https":
@@ -1033,6 +1042,8 @@ async def subscribe_success(request: Request, db: Session = Depends(get_db)):
         sync_user_subscription_fields(db, user, plan_key, sub.id, sub.status, period_end_ts)
         if plan_key == "bundle":
             cancel_individual_subs_for_bundle(db, user.id, sub.id)
+        from backend.stripe_billing import cancel_duplicate_plan_subs
+        cancel_duplicate_plan_subs(db, user.id, plan_key, sub.id)
         if is_new:
             from backend.events import emit_subscription_activated
             trial_end_ts = _so_get(sub, "trial_end")
@@ -1102,6 +1113,8 @@ async def stripe_webhook(request: Request):
                     sync_user_subscription_fields(db, user, plan_key, subscription_id, sub.status, period_end_ts)
                     if plan_key == "bundle":
                         cancel_individual_subs_for_bundle(db, user.id, subscription_id)
+                    from backend.stripe_billing import cancel_duplicate_plan_subs
+                    cancel_duplicate_plan_subs(db, user.id, plan_key, subscription_id)
                     if is_new:
                         from backend.events import emit_subscription_activated
                         trial_end_ts = _so_get(sub, "trial_end")
@@ -1144,38 +1157,6 @@ async def stripe_webhook(request: Request):
                     sync_user_subscription_fields(db, user, plan_key, subscription_id, sub.status, period_end_ts)
                     db.commit()
                     print(f"[Stripe Webhook] SUCCESS: Updated {plan_key} for user {user.id} ({user.username})")
-
-        elif event.type == "customer.subscription.trial_will_end":
-            # Fires ~3 days before a trial converts to a paid subscription.
-            sub_data = event.data.object
-            subscription_id = _so_get(sub_data, "id")
-            customer_id = _so_get(sub_data, "customer")
-            trial_end_ts = _so_get(sub_data, "trial_end")
-            print(f"[Stripe Webhook] trial_will_end: sub={subscription_id}, customer={customer_id}, trial_end={trial_end_ts}")
-            if subscription_id:
-                from backend.models import UserSubscription
-                user_sub = db.query(UserSubscription).filter(
-                    UserSubscription.stripe_subscription_id == subscription_id
-                ).first()
-                user = None
-                if user_sub:
-                    user = db.query(models.User).filter(models.User.id == user_sub.user_id).first()
-                if not user and customer_id:
-                    user = db.query(models.User).filter(models.User.stripe_customer_id == customer_id).first()
-                if user:
-                    plan_key = user_sub.plan if user_sub else (user.subscription_plan or "picks")
-                    from backend.events import emit_trial_ending
-                    emit_trial_ending(db, user.id, user.username, plan_key,
-                                      trial_end=datetime.fromtimestamp(trial_end_ts) if trial_end_ts else None)
-                    db.commit()
-                    from backend.email_service import process_email_queue
-                    try:
-                        process_email_queue(db)
-                    except Exception:
-                        pass
-                    print(f"[Stripe Webhook] Queued trial-ending reminder for user {user.id} ({user.username})")
-                else:
-                    print(f"[Stripe Webhook] WARNING: No user found for trial_will_end sub={subscription_id}")
 
         elif event.type == "customer.subscription.deleted":
             sub_data = event.data.object
