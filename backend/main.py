@@ -581,40 +581,6 @@ def _render_wnba_articles(request: Request, user, db: Session):
         except Exception as e:
             print(f"[WNBA ARTICLES] Prop recs load failed: {e}")
 
-    grading_report = []
-    grading_date_str = None
-    if article and has_access:
-        try:
-            from datetime import timedelta as _td
-            from utils.timezone import get_eastern_today as _get_et_today
-            yesterday = _get_et_today() - _td(days=1)
-            # Prefer yesterday's grades; if that slate was never graded (off
-            # day, missed article, pipeline gap), fall back to the most recent
-            # graded slate within the last 7 days so the report never vanishes.
-            from sqlalchemy import func as _func
-            latest = db.query(_func.max(models.WNBADailyPickGrade.slate_date)).filter(
-                models.WNBADailyPickGrade.slate_date <= yesterday,
-                models.WNBADailyPickGrade.slate_date >= yesterday - _td(days=6),
-            ).scalar()
-            grades = []
-            if latest:
-                grading_date_str = latest.strftime('%B %-d, %Y')
-                grades = db.query(models.WNBADailyPickGrade).filter(
-                    models.WNBADailyPickGrade.slate_date == latest
-                ).all()
-            for g in grades:
-                grading_report.append({
-                    'player': g.player,
-                    'stat': g.stat,
-                    'book_line': g.book_line,
-                    'direction': g.direction,
-                    'projected': g.projected,
-                    'actual': g.actual,
-                    'hit': g.hit,
-                    'analysis': g.claude_analysis or '',
-                })
-        except Exception as e:
-            print(f"[WNBA ARTICLES] Grading report load failed: {e}")
 
     official_locked = bool(article and article.official_locked_at)
     official_locked_at_str = None
@@ -635,8 +601,6 @@ def _render_wnba_articles(request: Request, user, db: Session):
         "trial_eligible": _trial_eligible_ctx(db, user, has_access),
         "pre_lock": False,
         "prop_recs": prop_recs,
-        "grading_report": grading_report,
-        "grading_date_str": grading_date_str,
         "official_locked": official_locked,
         "official_locked_at_str": official_locked_at_str,
         "header_image": _resolve_header_image(
@@ -874,40 +838,6 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
                         })
             except Exception as e:
                 print(f"[ARTICLES] Prop recs load failed: {e}")
-    grading_report = []
-    grading_date_str = None
-    if article and has_access and not pre_lock:
-        try:
-            from datetime import timedelta as _td
-            yesterday = today - _td(days=1)
-            # Prefer yesterday's grades; fall back to the most recent graded
-            # slate within the last 7 days (off days / missed slates) so the
-            # report never vanishes.
-            from sqlalchemy import func as _func
-            latest = db.query(_func.max(models.DailyPickGrade.slate_date)).filter(
-                models.DailyPickGrade.slate_date <= yesterday,
-                models.DailyPickGrade.slate_date >= yesterday - _td(days=6),
-            ).scalar()
-            grades = []
-            if latest:
-                grading_date_str = latest.strftime('%B %-d, %Y')
-                grades = db.query(models.DailyPickGrade).filter(
-                    models.DailyPickGrade.slate_date == latest
-                ).all()
-            for g in grades:
-                grading_report.append({
-                    'player': g.player,
-                    'stat': g.stat,
-                    'book_line': g.book_line,
-                    'direction': g.direction,
-                    'projected': g.projected,
-                    'actual': g.actual,
-                    'hit': g.hit,
-                    'analysis': g.claude_analysis or '',
-                })
-        except Exception as e:
-            print(f"[ARTICLES] Grading report load failed: {e}")
-
     # Task #45: surface the official-call lock state for the badge + hint above
     # the picks card. `official_locked_at` is stored as TIMESTAMPTZ so it comes
     # back as an aware UTC datetime // convert to ET for display.
@@ -929,8 +859,6 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
         "trial_eligible": _trial_eligible_ctx(db, user, has_access),
         "pre_lock": pre_lock,
         "prop_recs": prop_recs,
-        "grading_report": grading_report,
-        "grading_date_str": grading_date_str,
         "official_locked": official_locked,
         "official_locked_at_str": official_locked_at_str,
         "header_image": _resolve_header_image(

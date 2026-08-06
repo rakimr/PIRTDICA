@@ -32,6 +32,8 @@ from datetime import datetime
 
 import requests
 
+from utils.espn_fetch import espn_get_json
+
 DB = "dfs_nba.db"
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                     "AppleWebKit/537.36 Chrome/120 Safari/537.36"}
@@ -46,16 +48,7 @@ ZONE_KEYS = ["ra", "paint", "mid", "corner3", "atb3"]
 
 
 def _get(url, tries=3):
-    for attempt in range(tries):
-        try:
-            r = requests.get(url, headers=UA, timeout=20)
-            if r.status_code == 200:
-                return r.json()
-        except Exception as e:
-            if attempt == tries - 1:
-                print(f"  [WARN] GET failed {url}: {e}")
-        time.sleep(0.5 * (attempt + 1))
-    return None
+    return espn_get_json(url, tries=tries, timeout=20)
 
 
 def _classify(x, y, is_three):

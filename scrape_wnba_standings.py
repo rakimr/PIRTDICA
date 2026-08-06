@@ -9,6 +9,8 @@ home page layout renders cleanly.
 
 import sqlite3
 import requests
+
+from utils.espn_fetch import espn_get_json
 from utils.timezone import get_eastern_now
 
 ESPN_STANDINGS_URL = "https://site.api.espn.com/apis/v2/sports/basketball/wnba/standings"
@@ -24,9 +26,9 @@ def _stat(entry, type_name):
 
 def scrape_wnba_standings():
     """Return a list of standings dicts from the ESPN WNBA API."""
-    resp = requests.get(ESPN_STANDINGS_URL, headers=HEADERS, timeout=30)
-    resp.raise_for_status()
-    data = resp.json()
+    data = espn_get_json(ESPN_STANDINGS_URL, timeout=30)
+    if not data:
+        raise RuntimeError("ESPN WNBA standings fetch failed (requests + curl fallback)")
 
     standings = []
     for conf in data.get("children", []):

@@ -21,6 +21,8 @@ from datetime import datetime, timezone
 
 import requests
 
+from utils.espn_fetch import espn_get_json
+
 try:
     import zoneinfo
     EASTERN = zoneinfo.ZoneInfo("US/Eastern")
@@ -61,16 +63,7 @@ IDX = {"min": 0, "pts": 1, "reb": 2, "ast": 3, "stl": 4, "blk": 5, "tov": 6, "fg
 
 
 def _get(url, tries=3):
-    for attempt in range(tries):
-        try:
-            r = requests.get(url, headers=UA, timeout=20)
-            if r.status_code == 200:
-                return r.json()
-        except Exception as e:
-            if attempt == tries - 1:
-                print(f"  [WARN] GET failed {url}: {e}")
-        time.sleep(0.6 * (attempt + 1))
-    return None
+    return espn_get_json(url, tries=tries, timeout=20)
 
 
 def _num(val):
@@ -107,16 +100,35 @@ def _sd(xs):
 def fetch_teams():
     data = _get(TEAMS_URL)
     teams = []
-    if not data:
-        return teams
-    for t in data["sports"][0]["leagues"][0]["teams"]:
-        team = t["team"]
-        teams.append({
-            "espn_id": team["id"],
-            "abbr": team.get("abbreviation", ""),
-            "name": team.get("displayName", ""),
-            "logo": (team.get("logos") or [{}])[0].get("href", ""),
-        })
+    if data:
+        try:
+            for t in data["sports"][0]["leagues"][0]["teams"]:
+                team = t["team"]
+                teams.append({
+                    "espn_id": team["id"],
+                    "abbr": team.get("abbreviation", ""),
+                    "name": team.get("displayName", ""),
+                    "logo": (team.get("logos") or [{}])[0].get("href", ""),
+                })
+        except (KeyError, IndexError, TypeError) as e:
+            print(f"  [WARN] ESPN teams response shape changed: {e}")
+            teams = []
+    if not teams:
+        # ESPN fetch failed — reuse the last good franchise list so one
+        # blocked endpoint can't abort the whole ingestion (and with it
+        # pick grading). Mid-season the league's teams never change.
+        try:
+            con = sqlite3.connect(DB)
+            rows = con.execute(
+                "SELECT espn_id, abbr, name, logo FROM wnba_teams").fetchall()
+            con.close()
+            teams = [{"espn_id": r[0], "abbr": r[1], "name": r[2],
+                      "logo": r[3]} for r in rows]
+            if teams:
+                print(f"  [WARN] ESPN teams fetch failed — using "
+                      f"{len(teams)} cached teams from wnba_teams")
+        except sqlite3.Error as e:
+            print(f"  [WARN] cached-teams fallback failed: {e}")
     return teams
 
 

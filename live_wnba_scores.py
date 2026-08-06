@@ -15,6 +15,7 @@ import requests
 from scrape_live_scores import calc_fanduel_fp
 from utils.name_normalize import normalize_player_name
 from utils.timezone import get_eastern_date_str
+from utils.espn_fetch import espn_get_json
 
 SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard"
 SUMMARY_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/summary"
@@ -51,15 +52,17 @@ def _minutes_to_int(value):
 
 
 def _fetch_scoreboard():
-    resp = requests.get(SCOREBOARD_URL, timeout=12)
-    resp.raise_for_status()
-    return resp.json().get("events", [])
+    data = espn_get_json(SCOREBOARD_URL, timeout=12)
+    if data is None:
+        raise RuntimeError("ESPN WNBA scoreboard fetch failed (requests + curl fallback)")
+    return data.get("events", [])
 
 
 def _fetch_summary(event_id):
-    resp = requests.get(SUMMARY_URL, params={"event": event_id}, timeout=12)
-    resp.raise_for_status()
-    return resp.json()
+    data = espn_get_json(f"{SUMMARY_URL}?event={event_id}", timeout=12)
+    if data is None:
+        raise RuntimeError(f"ESPN WNBA summary fetch failed for event {event_id}")
+    return data
 
 
 def _parse_competitors(competition):
