@@ -71,6 +71,7 @@ SOURCE_CODE_FILES = [
     "push_to_github.py",
     "sync_to_postgres.py",
     "utils/nba_api_helpers.py",
+    "utils/espn_fetch.py",
     "scrape_bref_gamelogs.py",
     "refresh_nba_data.py",
     "scrape_nba_gamelogs.py",

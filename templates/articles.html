@@ -32,7 +32,7 @@
     <div class="article-section">
         <h2>{% if article.best_available %}Today's Top Picks{% else %}Today's HIGH Confidence Picks{% endif %}</h2>
         {% if official_locked %}
-        <div class="official-call-pill official-call-locked" title="These picks are PIRTDICA's official call for this slate. They were frozen pre-tipoff and are what the next-day grading report grades against.">
+        <div class="official-call-pill official-call-locked" title="These picks are PIRTDICA's official call for this slate. They were frozen pre-tipoff.">
             <span class="official-call-icon">&#x1F512;</span>
             <span class="official-call-label">OFFICIAL CALL</span>
             <span class="official-call-meta">Locked at {{ official_locked_at_str }}</span>
@@ -103,82 +103,6 @@
             </div>
         </div>
         {% endfor %}
-    </div>
-    {% endif %}
-
-    {% if grading_report %}
-    <div class="article-section grading-section">
-        <h2>PIRTDICA'S GRADING REPORT{% if grading_date_str %} <span class="grading-report-date">// {{ grading_date_str }}</span>{% endif %}</h2>
-        <div class="table-wrap grading-table-wrap">
-            <table class="props-table article-table grading-table">
-                <thead>
-                    <tr>
-                        <th>Player</th>
-                        <th>Stat</th>
-                        <th>Line</th>
-                        <th>Pick</th>
-                        <th>Proj</th>
-                        <th>Actual</th>
-                        <th>Result</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for g in grading_report %}
-                    <tr class="{% if g.hit is true %}grade-hit{% elif g.hit is false %}grade-miss{% else %}grade-push{% endif %}">
-                        <td class="player-name-cell">{{ g.player }}</td>
-                        <td>{{ g.stat }}</td>
-                        <td>{{ g.book_line }}</td>
-                        <td><span class="pick-badge pick-{{ g.direction|lower }}">{{ g.direction }}</span></td>
-                        <td>{{ g.projected }}</td>
-                        <td class="grade-actual">{{ g.actual }}</td>
-                        <td><span class="grade-badge {% if g.hit is true %}grade-badge-hit{% elif g.hit is false %}grade-badge-miss{% else %}grade-badge-push{% endif %}">{% if g.hit is true %}HIT{% elif g.hit is false %}MISS{% else %}PUSH{% endif %}</span></td>
-                    </tr>
-                    {% if g.analysis %}
-                    <tr class="grade-analysis-row">
-                        <td colspan="7">
-                            <p class="grade-analysis-text">{{ g.analysis }}</p>
-                        </td>
-                    </tr>
-                    {% endif %}
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <div class="grading-cards">
-            {% for g in grading_report %}
-            <div class="grade-card {% if g.hit is true %}grade-card-hit{% elif g.hit is false %}grade-card-miss{% else %}grade-card-push{% endif %}">
-                <div class="grade-card-header">
-                    <span class="grade-card-player">{{ g.player }}</span>
-                    <span class="grade-badge {% if g.hit is true %}grade-badge-hit{% elif g.hit is false %}grade-badge-miss{% else %}grade-badge-push{% endif %}">{% if g.hit is true %}HIT{% elif g.hit is false %}MISS{% else %}PUSH{% endif %}</span>
-                </div>
-                <div class="grade-card-stats">
-                    <div class="grade-card-stat">
-                        <span class="grade-card-label">Stat</span>
-                        <span class="grade-card-value">{{ g.stat }}</span>
-                    </div>
-                    <div class="grade-card-stat">
-                        <span class="grade-card-label">Line</span>
-                        <span class="grade-card-value">{{ g.book_line }}</span>
-                    </div>
-                    <div class="grade-card-stat">
-                        <span class="grade-card-label">Pick</span>
-                        <span class="grade-card-value"><span class="pick-badge pick-{{ g.direction|lower }}">{{ g.direction }}</span></span>
-                    </div>
-                    <div class="grade-card-stat">
-                        <span class="grade-card-label">Proj</span>
-                        <span class="grade-card-value">{{ g.projected }}</span>
-                    </div>
-                    <div class="grade-card-stat">
-                        <span class="grade-card-label">Actual</span>
-                        <span class="grade-card-value grade-actual">{{ g.actual }}</span>
-                    </div>
-                </div>
-                {% if g.analysis %}
-                <p class="grade-card-analysis">{{ g.analysis }}</p>
-                {% endif %}
-            </div>
-            {% endfor %}
-        </div>
     </div>
     {% endif %}
 

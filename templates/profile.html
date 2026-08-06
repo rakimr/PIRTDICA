@@ -89,7 +89,8 @@
             <p style="font-size: 1.1rem; font-weight: 700; margin: 0; color: #0F9D58;">{{ plan_display }}</p>
             <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
                 {% if profile.subscription_current_period_end %}
-                Renews {{ profile.subscription_current_period_end.strftime('%B %-d, %Y') }}
+                {% if profile.subscription_status == 'trialing' %}Free trial &mdash; renews{% else %}Renews{% endif %}
+                {{ profile.subscription_current_period_end.strftime('%B %-d, %Y') }}
                 {% endif %}
             </p>
             <a href="/billing" class="btn btn-secondary" style="margin-top: 0.75rem; display: inline-block; font-size: 0.85rem;">Manage Billing</a>

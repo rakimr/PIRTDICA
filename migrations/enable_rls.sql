@@ -1,3 +1,8 @@
+-- HISTORICAL. The anon SELECT policies below were dropped in Aug 2026 by
+-- drop_anon_policies.sql: the app reads only through the FastAPI backend
+-- (table owner, bypasses RLS), so anon PostgREST access is intentionally
+-- blocked. Do not re-run the CREATE POLICY statements.
+
 BEGIN;
 
 ALTER TABLE public.achievements ENABLE ROW LEVEL SECURITY;
