@@ -1293,6 +1293,13 @@ def _build_edge_insights(props_df):
             return insights
         valid_abs = valid.copy()
         valid_abs['_abs_edge'] = valid_abs[edge_col].abs()
+        # Teaser shows player-only (no stat/line), so keep just each player's
+        # single strongest edge // duplicate names with different percentages
+        # would look broken to logged-out visitors.
+        _pcol = 'player' if 'player' in valid_abs.columns else (
+            'player_name' if 'player_name' in valid_abs.columns else None)
+        if _pcol:
+            valid_abs = valid_abs.sort_values('_abs_edge', ascending=False).drop_duplicates(subset=[_pcol])
         for _, row in valid_abs.nlargest(3, '_abs_edge').iterrows():
             book_line = row.get('book_line', None)
             line_display = ''
