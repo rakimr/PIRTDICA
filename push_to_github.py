@@ -121,6 +121,7 @@ SOURCE_CODE_FILES = [
     "templates/trends.html",
     "templates/trends_paywall.html",
     "templates/pricing_cards.html",
+    "templates/billing.html",
     "templates/no_contest.html",
     "templates/play.html",
     "templates/entry.html",

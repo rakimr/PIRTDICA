@@ -908,9 +908,14 @@ async def subscribe_page(request: Request, db: Session = Depends(get_db)):
     base_url = str(request.base_url).rstrip("/")
     if base_url.startswith("http://") and request.headers.get("x-forwarded-proto") == "https":
         base_url = base_url.replace("http://", "https://", 1)
-    trial_days = TRIAL_DAYS if is_trial_eligible(db, user) else None
+    # trial=0 lets a trial-eligible user deliberately skip the free trial and
+    # pay from day one (the pricing cards offer both buttons side by side).
+    skip_trial = request.query_params.get("trial") == "0"
+    trial_days = TRIAL_DAYS if (not skip_trial and is_trial_eligible(db, user)) else None
     if trial_days:
         print(f"[Stripe] User {user.id} ({user.username}) is trial-eligible — {trial_days}-day free trial on {plan_key}")
+    elif skip_trial:
+        print(f"[Stripe] User {user.id} ({user.username}) chose to skip the trial — immediate paid checkout on {plan_key}")
     try:
         session, customer_id = create_checkout_session(
             user,
@@ -1619,6 +1624,7 @@ async def home(request: Request, db: Session = Depends(get_db)):
         "headshots": headshots,
         "no_games_today": no_games_today,
         "is_todays_contest": is_todays_contest,
+        "trial_eligible": _trial_eligible_ctx(db, user),
         "next_game_iso": next_game_iso,
         "games_started": games_started,
         "slate_games": slate_games,
@@ -2369,6 +2375,8 @@ async def profile(request: Request, username: str, db: Session = Depends(get_db)
         "entries": entries,
         "stats": stats,
         "badge_groups": ordered_badge_groups,
+        "trial_eligible": (_trial_eligible_ctx(db, current_user)
+                           if (current_user and current_user.id == profile_user.id) else False),
         "h2h_stats": {"wins": h2h_wins, "losses": h2h_losses, "ties": h2h_ties, "total": len(h2h_completed), "earnings": h2h_earnings},
         "h2h_history": h2h_history,
         "coin_transactions": coin_transactions,
