@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Subscription - PIRTDICA{% endblock %}
+
+{% block content %}
+<div class="billing-page" style="max-width: 720px; margin: 0 auto; padding: 2rem 1rem;">
+    <h1 style="font-family: 'Righteous', cursive; font-size: 1.8rem; margin-bottom: 0.5rem;">Subscription Management</h1>
+    <p style="color: var(--text-muted); margin-bottom: 2rem;">View, modify, or cancel your current plan.</p>
+
+    {% if subscriptions %}
+    <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem;">
+        {% for sub in subscriptions %}
+        <div class="billing-sub-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+                <div style="min-width: 0; flex: 1;">
+                    <h3 style="font-family: 'Marvel', sans-serif; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem; letter-spacing: 0.05em;">PLAN</h3>
+                    <p style="font-size: 1.15rem; font-weight: 700; margin: 0; color: #0F9D58;">{{ sub.display_name }}</p>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">{{ sub.description }}</p>
+                </div>
+                <div style="text-align: right;">
+                    <span style="display: inline-block; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;
+                        {% if sub.status == 'active' %}
+                        background: rgba(15, 157, 88, 0.15); color: #0F9D58;
+                        {% elif sub.status == 'trialing' %}
+                        background: rgba(37, 99, 235, 0.15); color: #2563eb;
+                        {% elif sub.status == 'canceled' %}
+                        background: rgba(215, 38, 56, 0.15); color: #D72638;
+                        {% else %}
+                        background: rgba(107, 114, 128, 0.15); color: #6b7280;
+                        {% endif %}
+                    ">{% if sub.status == 'trialing' %}FREE TRIAL{% else %}{{ sub.status|upper }}{% endif %}</span>
+                    {% if sub.period_end %}
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                        {% if sub.status in ('active', 'trialing') %}Renews{% else %}Access until{% endif %}
+                        {{ sub.period_end }}
+                    </p>
+                    {% endif %}
+                    <p style="font-size: 0.85rem; font-weight: 600; margin-top: 0.25rem;">{{ sub.price }}</p>
+                    {% if not sub.is_stripe_managed %}
+                    <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.4rem; font-style: italic;">Complimentary / manually granted</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if any_stripe_managed %}
+    <div class="billing-actions" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <a href="/billing/portal" class="btn btn-secondary" style="flex: 1; min-width: 0; text-align: center;">Change Plan</a>
+        <a href="/billing/portal?action=cancel" class="btn billing-cancel-btn" style="flex: 1; min-width: 0; text-align: center; background: rgba(215, 38, 56, 0.1); color: #D72638; border: 1px solid rgba(215, 38, 56, 0.3); font-weight: 600; border-radius: 8px; padding: 0.6rem 1.2rem; text-decoration: none;">Cancel Subscription</a>
+    </div>
+    {% else %}
+    <div style="background: rgba(15, 157, 88, 0.08); border: 1px solid rgba(15, 157, 88, 0.25); border-radius: 8px; padding: 1rem; font-size: 0.85rem; color: var(--text-muted); text-align: center;">
+        Your access was granted directly by PIRTDICA, so there's no Stripe billing record to edit. Contact support if you need to make changes.
+    </div>
+    {% endif %}
+
+    {% else %}
+
+    <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 2rem; text-align: center;">
+        <p style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">No Active Subscriptions</p>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">Unlock daily HIGH Confidence Props analysis and the full Chart Gallery.</p>
+
+        <div class="billing-plans-grid" style="display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; margin-bottom: 1.5rem;">
+            {% for plan in available_plans %}
+            <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; flex: 1; min-width: 160px; max-width: 240px;">
+                <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.25rem;">{{ plan.name }}</h3>
+                <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem;">{{ plan.description }}</p>
+                <p style="font-size: 1.1rem; font-weight: 700; color: #0F9D58; margin-bottom: 0.75rem;">{{ plan.price }}</p>
+                <a href="/subscribe?plan={{ plan.key }}" class="btn btn-primary" style="display: block; font-size: 0.85rem;">{% if trial_eligible %}Start {{ trial_days }}-Day Free Trial{% else %}Subscribe{% endif %}</a>
+                {% if trial_eligible %}<p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.5rem;">$0 today &middot; no refunds</p>
+                <a href="/subscribe?plan={{ plan.key }}&amp;trial=0" class="btn btn-secondary" style="display: block; font-size: 0.8rem; margin-top: 0.45rem;">Subscribe Now &mdash; Skip Trial</a>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% endif %}
+
+    <div style="margin-top: 2rem; text-align: center;">
+        <a href="/profile/{{ user.username }}" style="color: var(--text-muted); font-size: 0.85rem; text-decoration: none;">&larr; Back to Profile</a>
+    </div>
+</div>
+{% endblock %}

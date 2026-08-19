@@ -9,6 +9,24 @@ mkdir -p "$LOG_DIR"
 # How long to wait before restarting a scheduler that exited/crashed.
 RESTART_DELAY="${SCHEDULER_RESTART_DELAY:-15}"
 
+# Web port (prod default 5000; overridable for local testing).
+PORT="${PORT:-5000}"
+
+# Max seconds to wait for the web tier to answer before starting schedulers
+# anyway. The gate exists to keep boot CPU free for uvicorn so the
+# deployment readiness probe passes quickly; it must never permanently
+# block the schedulers.
+WEB_READY_TIMEOUT="${WEB_READY_TIMEOUT:-180}"
+# Harden: must be a non-negative integer — anything else (e.g. "180s") would
+# crash the (( )) arithmetic under set -u and the schedulers would never
+# start. Fall back to the default instead.
+case "$WEB_READY_TIMEOUT" in
+    ''|*[!0-9]*)
+        echo "!! invalid WEB_READY_TIMEOUT='$WEB_READY_TIMEOUT' — using 180"
+        WEB_READY_TIMEOUT=180
+        ;;
+esac
+
 # Task #34: Schedulers are env-gated so dev workspaces don't double-fire
 # alongside this production deployment. The gate is set HERE so the
 # deployment is the single source of truth for live scheduler runs.
@@ -71,21 +89,59 @@ start_bg() {
     echo "     pid $pid (logs: $LOG_DIR/${name}.log)"
 }
 
-start_bg "chart_refresh"     "scheduler_charts.py"
-start_bg "pregame_refresh"   "scheduler_pregame.py"
-start_bg "postgame_pipeline" "scheduler_postgame.py"
-start_bg "props_refresh"     "scheduler_props.py"
-
-echo "  -> launching web app (uvicorn :5000)"
+# BOOT ORDER MATTERS: uvicorn starts FIRST and must be answering HTTP before
+# any scheduler is allowed to boot. Previously all 4 schedulers launched
+# before the web app; five python processes cold-importing pandas on the
+# 0.5-vCPU VM pushed readiness to ~2m45s and the 2026-08-07 publish failed
+# the health probe outright, taking the site down. Schedulers can wait a
+# minute; the readiness probe cannot.
+echo "  -> launching web app (uvicorn :$PORT)"
 python -u -m uvicorn backend.main:app \
     --host 0.0.0.0 \
-    --port 5000 \
+    --port "$PORT" \
     --workers 1 \
     --proxy-headers \
     --forwarded-allow-ips '*' &
 WEB_PID=$!
 PIDS+=("$WEB_PID")
 echo "     pid $WEB_PID"
+
+# Gate: wait until the web tier answers 200 on / (same path the platform
+# probes), a bounded wait so schedulers always start eventually.
+web_gate_start=$(date +%s)
+if command -v curl >/dev/null 2>&1; then
+    echo "  -> waiting for web tier to answer on :$PORT (max ${WEB_READY_TIMEOUT}s)..."
+    while true; do
+        if ! kill -0 "$WEB_PID" 2>/dev/null; then
+            echo "  !! web tier died during boot — skipping scheduler launch; supervisor will exit for platform restart"
+            break
+        fi
+        if curl -sf -o /dev/null --max-time 5 "http://127.0.0.1:$PORT/"; then
+            echo "  -> web tier is up ($(( $(date +%s) - web_gate_start ))s) — starting schedulers"
+            break
+        fi
+        if (( $(date +%s) - web_gate_start >= WEB_READY_TIMEOUT )); then
+            echo "  !! web tier not confirmed after ${WEB_READY_TIMEOUT}s — starting schedulers anyway"
+            break
+        fi
+        sleep 2
+    done
+else
+    echo "  !! curl not found — falling back to fixed 45s head start for the web tier"
+    # 1s increments so a SIGTERM trap fires promptly and a dead web tier
+    # cuts the wait short (matching the curl path's behavior).
+    for _ in $(seq 1 45); do
+        kill -0 "$WEB_PID" 2>/dev/null || break
+        sleep 1
+    done
+fi
+
+if kill -0 "$WEB_PID" 2>/dev/null; then
+    start_bg "chart_refresh"     "scheduler_charts.py"
+    start_bg "pregame_refresh"   "scheduler_pregame.py"
+    start_bg "postgame_pipeline" "scheduler_postgame.py"
+    start_bg "props_refresh"     "scheduler_props.py"
+fi
 
 echo "All processes launched. Waiting on web tier (pid $WEB_PID)..."
 # The deployment's health is tied to the WEB SERVER only. Schedulers are

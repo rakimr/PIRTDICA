@@ -15,7 +15,8 @@
         </div>
         {% if user %}
         <a href="/subscribe?plan=picks" class="btn btn-primary pricing-btn">{% if trial_eligible %}Start 7-Day Free Trial{% else %}Subscribe{% endif %}</a>
-        {% if trial_eligible %}<p class="pricing-trial-note" style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: 0.5rem;">$0 today &middot; no refunds</p>{% endif %}
+        {% if trial_eligible %}<p class="pricing-trial-note" style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: 0.5rem;">$0 today &middot; no refunds</p>
+        <a href="/subscribe?plan=picks&amp;trial=0" class="btn btn-secondary pricing-btn" style="margin-top: 0.45rem; font-size: 0.85rem;">Subscribe Now &mdash; Skip Trial</a>{% endif %}
         {% else %}
         <a href="/register" class="btn btn-primary pricing-btn">Sign Up</a>
         <p class="pricing-trial-note" style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: 0.5rem;">New members get their first 7 days free</p>
@@ -38,7 +39,8 @@
         </div>
         {% if user %}
         <a href="/subscribe?plan=statpack" class="btn btn-primary pricing-btn">{% if trial_eligible %}Start 7-Day Free Trial{% else %}Subscribe{% endif %}</a>
-        {% if trial_eligible %}<p class="pricing-trial-note" style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: 0.5rem;">$0 today &middot; no refunds</p>{% endif %}
+        {% if trial_eligible %}<p class="pricing-trial-note" style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: 0.5rem;">$0 today &middot; no refunds</p>
+        <a href="/subscribe?plan=statpack&amp;trial=0" class="btn btn-secondary pricing-btn" style="margin-top: 0.45rem; font-size: 0.85rem;">Subscribe Now &mdash; Skip Trial</a>{% endif %}
         {% else %}
         <a href="/register" class="btn btn-primary pricing-btn">Sign Up</a>
         <p class="pricing-trial-note" style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: 0.5rem;">New members get their first 7 days free</p>
@@ -66,7 +68,8 @@
         </div>
         {% if user %}
         <a href="/subscribe?plan=bundle" class="btn btn-primary pricing-btn">{% if trial_eligible %}Start 7-Day Free Trial{% else %}Subscribe{% endif %}</a>
-        {% if trial_eligible %}<p class="pricing-trial-note" style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: 0.5rem;">$0 today &middot; no refunds</p>{% endif %}
+        {% if trial_eligible %}<p class="pricing-trial-note" style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: 0.5rem;">$0 today &middot; no refunds</p>
+        <a href="/subscribe?plan=bundle&amp;trial=0" class="btn btn-secondary pricing-btn" style="margin-top: 0.45rem; font-size: 0.85rem;">Subscribe Now &mdash; Skip Trial</a>{% endif %}
         {% else %}
         <a href="/register" class="btn btn-primary pricing-btn">Sign Up</a>
         <p class="pricing-trial-note" style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: 0.5rem;">New members get their first 7 days free</p>

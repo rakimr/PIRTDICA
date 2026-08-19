@@ -97,7 +97,9 @@
             {% else %}
             <p style="font-size: 1.1rem; font-weight: 700; margin: 0; color: #6b7280;">Not Subscribed</p>
             <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Unlock Articles &amp; Chart Gallery access.</p>
-            <a href="/subscribe?plan=bundle" class="btn btn-primary" style="margin-top: 0.75rem; display: inline-block; font-size: 0.85rem;">Subscribe</a>
+            <a href="/subscribe?plan=bundle" class="btn btn-primary" style="margin-top: 0.75rem; display: inline-block; font-size: 0.85rem;">{% if trial_eligible %}Start 7-Day Free Trial{% else %}Subscribe{% endif %}</a>
+            {% if trial_eligible %}<p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.4rem;">$0 today &middot; no refunds</p>
+            <a href="/subscribe?plan=bundle&amp;trial=0" class="btn btn-secondary" style="display: inline-block; font-size: 0.8rem; margin-top: 0.35rem;">Subscribe Now &mdash; Skip Trial</a>{% endif %}
             {% endif %}
         </div>
     </div>
