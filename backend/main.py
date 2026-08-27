@@ -12,7 +12,11 @@ import json
 import threading
 import subprocess
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+STATIC_DIR = os.path.join(PROJECT_ROOT, "static")
+TEMPLATE_DIR = os.path.join(PROJECT_ROOT, "templates")
+
+sys.path.insert(0, PROJECT_ROOT)
 from utils.timezone import get_eastern_today, get_eastern_now, EASTERN
 
 from backend.database import engine, get_db, Base
@@ -69,8 +73,19 @@ class NoCacheMiddleware:
 
 app.add_middleware(NoCacheMiddleware)
 from backend.static_handler import CachedStaticFiles
-app.mount("/static", CachedStaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+app.mount("/static", CachedStaticFiles(directory=STATIC_DIR), name="static")
+templates = Jinja2Templates(directory=TEMPLATE_DIR)
+# Stable cache-buster for long-lived logo/favicon browser caches. It changes
+# when either brand asset changes, but unlike the stylesheet's per-request
+# token it does not force a fresh download on every page view.
+_brand_assets = (
+    os.path.join(STATIC_DIR, "images", "pirtdica_logo.png"),
+    os.path.join(STATIC_DIR, "favicon.png"),
+)
+templates.env.globals["brand_asset_version"] = max(
+    (int(os.path.getmtime(path)) for path in _brand_assets if os.path.exists(path)),
+    default=1,
+)
 
 _house_lineup_lock = threading.Lock()
 

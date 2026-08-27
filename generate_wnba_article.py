@@ -15,6 +15,7 @@ so the page never goes blank.
 """
 import json
 import os
+import re
 import sqlite3
 import time
 import unicodedata
@@ -608,6 +609,87 @@ CRITICAL MATCHING RULES:
 Return ONLY the JSON object. Order picks by edge strength (strongest first)."""
 
 
+WNBA_ANALYST_PATTERNS = """
+ANALYSIS QUALITY PATTERNS
+- Matchup convergence: Lead with the most player-specific zone or positional DVP mismatch. Then connect it to the projection and use form only as confirmation.
+- Role and volume: Explain what creates the opportunities needed to clear or stay below the line. Use rest, quarter usage, and game script only when the supplied numbers materially affect that opportunity.
+- Honest tension: Name the strongest counter-signal for every pick. Explain why the primary signals still outweigh it, or do not select the pick.
+- Distinctive reasoning: Each analysis must have a different lead insight tied to that player's supplied context. Repeating a generic projection/last-five/hit-rate formula is a failure.
+- Evidence discipline: Never invent an injury, role change, lineup fact, pace, spread, total, referee trend, or matchup number. If a field is absent, omit that angle.
+"""
+
+
+WNBA_ANALYSIS_BLUEPRINT = """
+STRUCTURE EACH ANALYSIS LIKE THIS
+Paragraph 1: A bold, player-specific matchup or role hook using supplied numbers.
+Paragraph 2: Connect that signal to the model projection and the volume or efficiency needed relative to the line.
+Paragraph 3: Give confirmation plus the strongest risk or conflicting signal. Be explicit about volatility instead of selling certainty.
+Final paragraph: State why the evidence still supports the side, then use the required **The Call:** sentence with the exact line, projection, edge, and composite score.
+
+Do not copy this wording. It is a reasoning structure, not a prose template.
+"""
+
+
+def _analysis_word_count(text):
+    """Count prose words without treating Markdown punctuation as content."""
+    return len(re.findall(r"\b[\w%+.']+\b", str(text)))
+
+
+def _validate_claude_result(result, prop_lines):
+    """Reject shallow, mismatched, or repetitive output before it is published."""
+    if not isinstance(result, dict):
+        return False, "response is not an object"
+    picks = result.get("picks")
+    analyses = result.get("analyses")
+    if not isinstance(picks, list) or not isinstance(analyses, list):
+        return False, "picks/analyses are not arrays"
+
+    minimum = min(4, len(prop_lines))
+    if len(picks) < minimum or len(picks) > 8:
+        return False, f"expected {minimum}-8 picks, received {len(picks)}"
+    if len(analyses) != len(picks):
+        return False, f"pick/analysis count mismatch ({len(picks)} vs {len(analyses)})"
+
+    available = {
+        (_norm(p.get("player")), str(p.get("stat", "")).upper(), str(p.get("model_side", "")).upper())
+        for p in prop_lines
+    }
+    fingerprints = set()
+    for idx, (pick, analysis) in enumerate(zip(picks, analyses), start=1):
+        pick_key = (
+            _norm(pick.get("player")),
+            str(pick.get("stat", "")).upper(),
+            str(pick.get("pick", "")).upper(),
+        )
+        analysis_key = (
+            _norm(analysis.get("player")),
+            str(analysis.get("stat", "")).upper(),
+            str(analysis.get("call", "")).upper(),
+        )
+        if pick_key not in available:
+            return False, f"pick {idx} does not match an available player/stat/side"
+        if analysis_key != pick_key:
+            return False, f"analysis {idx} does not match its pick"
+
+        text = str(analysis.get("analysis", "")).strip()
+        words = _analysis_word_count(text)
+        paragraphs = [p for p in re.split(r"\n\s*\n", text) if p.strip()]
+        if words < 140 or words > 300:
+            return False, f"analysis {idx} has {words} words (expected 140-300)"
+        if len(paragraphs) < 3:
+            return False, f"analysis {idx} has fewer than 3 paragraphs"
+        if "**The Call:" not in text:
+            return False, f"analysis {idx} is missing the required call line"
+        if len(re.findall(r"\d+(?:\.\d+)?%?", text)) < 4:
+            return False, f"analysis {idx} lacks specific numerical evidence"
+
+        fingerprint = re.sub(r"\W+", "", text.lower())[:180]
+        if fingerprint in fingerprints:
+            return False, f"analysis {idx} repeats another analysis"
+        fingerprints.add(fingerprint)
+    return True, "ok"
+
+
 def _call_claude(prop_lines, game_count, slate_date):
     api_key = os.environ.get("AI_INTEGRATIONS_ANTHROPIC_API_KEY")
     base_url = os.environ.get("AI_INTEGRATIONS_ANTHROPIC_BASE_URL")
@@ -631,11 +713,15 @@ def _call_claude(prop_lines, game_count, slate_date):
         print(f"[WNBA ARTICLE] recent pick results load failed ({_fb_err})")
     user_prompt = (
         "Analyze the full WNBA slate and select your HIGH confidence picks.\n\n"
+        f"{WNBA_ANALYST_PATTERNS}\n\n"
+        f"{WNBA_ANALYSIS_BLUEPRINT}\n\n"
         "HERE IS THE COMPLETE SLATE DATA (every prop line with model context):\n\n"
         f"{json.dumps(briefing, indent=2, default=str)}\n\n"
-        "Remember: select 4-8 picks with the strongest convergence of signals, cite "
-        "specific numbers, end each analysis with a bold **The Call:** line, and NEVER "
-        "use em-dashes. Return ONLY a JSON object with \"picks\" and \"analyses\" keys."
+        "Remember: select 4-8 picks with the strongest convergence of signals. Every "
+        "analysis must be 3-4 substantive paragraphs and 150-250 words, cite supplied "
+        "numbers, include a real counter-signal, end with a bold **The Call:** line, "
+        "and NEVER use em-dashes. Return ONLY a JSON object with \"picks\" and "
+        "\"analyses\" keys."
     )
     try:
         from anthropic import Anthropic
@@ -656,20 +742,20 @@ def _call_claude(prop_lines, game_count, slate_date):
                 text = text[:-3]
             text = text.strip()
         result = json.loads(text)
-        if not isinstance(result, dict) or "picks" not in result or "analyses" not in result:
-            print("Claude returned unexpected format // template fallback.")
+        valid, reason = _validate_claude_result(result, prop_lines)
+        if not valid:
+            print(f"[WNBA ARTICLE][QUALITY REJECTED] {reason} // using visible template fallback.")
             return None
-        if not isinstance(result["picks"], list) or len(result["picks"]) < 2:
-            print("Claude returned too few picks // template fallback.")
-            return None
+        print(f"[WNBA ARTICLE][QUALITY PASSED] {len(result['picks'])} picks with matched, substantive analyses.")
         return result
     except Exception as e:
-        print(f"Claude error ({e}) // template fallback.")
+        print(f"[WNBA ARTICLE][CLAUDE ERROR] {e} // using visible template fallback.")
         return None
 
 
 def _template_result(prop_lines):
-    """Data-driven fallback when Claude is unavailable."""
+    """Data-driven fallback when Claude is unavailable or fails quality checks."""
+    print("[WNBA ARTICLE][FALLBACK ACTIVE] Publishing deterministic data-driven analysis; claude_selected=false.")
     highs = [p for p in prop_lines if p["confidence"] in ("HIGH", "MEDIUM")][:6]
     if not highs:
         highs = prop_lines[:5]
