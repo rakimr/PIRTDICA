@@ -644,6 +644,8 @@ def _validate_claude_result(result, prop_lines):
     if not isinstance(picks, list) or not isinstance(analyses, list):
         return False, "picks/analyses are not arrays"
 
+    if len(prop_lines) < 2:
+        return False, "fewer than 2 available prop lines"
     minimum = min(4, len(prop_lines))
     if len(picks) < minimum or len(picks) > 8:
         return False, f"expected {minimum}-8 picks, received {len(picks)}"
@@ -651,10 +653,11 @@ def _validate_claude_result(result, prop_lines):
         return False, f"pick/analysis count mismatch ({len(picks)} vs {len(analyses)})"
 
     available = {
-        (_norm(p.get("player")), str(p.get("stat", "")).upper(), str(p.get("model_side", "")).upper())
+        (_norm(p.get("player")), str(p.get("stat", "")).upper(), str(p.get("model_side", "")).upper()): p
         for p in prop_lines
     }
     fingerprints = set()
+    selected = set()
     for idx, (pick, analysis) in enumerate(zip(picks, analyses), start=1):
         pick_key = (
             _norm(pick.get("player")),
@@ -668,18 +671,41 @@ def _validate_claude_result(result, prop_lines):
         )
         if pick_key not in available:
             return False, f"pick {idx} does not match an available player/stat/side"
+        if pick_key in selected:
+            return False, f"pick {idx} duplicates another selected player/stat/side"
+        selected.add(pick_key)
         if analysis_key != pick_key:
             return False, f"analysis {idx} does not match its pick"
 
         text = str(analysis.get("analysis", "")).strip()
+        call_match = re.search(
+            r"\*\*The Call:\s*(OVER|UNDER)\s+(-?\d+(?:\.\d+)?)\s+([A-Za-z0-9]+)\*\*",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if not call_match:
+            return False, f"analysis {idx} is missing a parseable call line"
+        if re.search(r"\n\s*\n", text[call_match.end():]):
+            return False, f"analysis {idx} places prose after the final call paragraph"
+        visible_side, visible_line, visible_stat = call_match.groups()
+        source = available[pick_key]
+        if visible_side.upper() != pick_key[2] or visible_stat.upper() != pick_key[1]:
+            return False, f"analysis {idx} visible call contradicts its pick"
+        try:
+            if abs(float(visible_line) - float(source.get("book_line"))) > 0.001:
+                return False, f"analysis {idx} visible call uses the wrong book line"
+        except (TypeError, ValueError):
+            return False, f"analysis {idx} has an invalid book line"
+
         words = _analysis_word_count(text)
         paragraphs = [p for p in re.split(r"\n\s*\n", text) if p.strip()]
-        if words < 140 or words > 300:
-            return False, f"analysis {idx} has {words} words (expected 140-300)"
+        # Claude's word-count estimates are approximate. Keep the writing
+        # target at 150-250, but allow a modest overrun so a strong 300-word
+        # analysis is not replaced by the much less useful template fallback.
+        if words < 140 or words > 350:
+            return False, f"analysis {idx} has {words} words (expected 140-350)"
         if len(paragraphs) < 3:
             return False, f"analysis {idx} has fewer than 3 paragraphs"
-        if "**The Call:" not in text:
-            return False, f"analysis {idx} is missing the required call line"
         if len(re.findall(r"\d+(?:\.\d+)?%?", text)) < 4:
             return False, f"analysis {idx} lacks specific numerical evidence"
 
@@ -687,6 +713,49 @@ def _validate_claude_result(result, prop_lines):
         if fingerprint in fingerprints:
             return False, f"analysis {idx} repeats another analysis"
         fingerprints.add(fingerprint)
+
+        # Persist source-of-truth pick fields and a canonical visible call line.
+        # Claude supplies the reasoning, but it never gets the final say on the
+        # number, direction, or score subscribers see.
+        pick.update({
+            "player": source.get("player"),
+            "team": source.get("team"),
+            "opponent": source.get("opponent"),
+            "stat": source.get("stat"),
+            "book_line": source.get("book_line"),
+            "projected": source.get("projected"),
+            "avg": source.get("season_avg"),
+            "edge": _edge_str(source.get("edge_pct")),
+            "pick": source.get("model_side"),
+            "composite_score": source.get("composite_score"),
+        })
+        canonical_call = (
+            f"**The Call: {source.get('model_side')} {source.get('book_line')} {source.get('stat')}** "
+            f"// We project {source.get('player')} at {source.get('projected')} "
+            f"{source.get('stat')} tonight ({_edge_str(source.get('edge_pct'))} edge vs. the book). "
+            f"Composite score: {source.get('composite_score')}."
+        )
+        canonical_text = re.sub(
+            r"\*\*The Call:.*$",
+            canonical_call,
+            text,
+            count=1,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        canonical_words = _analysis_word_count(canonical_text)
+        canonical_paragraphs = [
+            p for p in re.split(r"\n\s*\n", canonical_text) if p.strip()
+        ]
+        if canonical_words < 140 or canonical_words > 350:
+            return False, (
+                f"analysis {idx} has {canonical_words} words after canonical call "
+                "replacement (expected 140-350)"
+            )
+        if len(canonical_paragraphs) < 3:
+            return False, f"analysis {idx} has fewer than 3 paragraphs after canonicalization"
+        if len(re.findall(r"\d+(?:\.\d+)?%?", canonical_text)) < 4:
+            return False, f"analysis {idx} lacks numerical evidence after canonicalization"
+        analysis["analysis"] = canonical_text
     return True, "ok"
 
 
