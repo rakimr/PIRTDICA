@@ -209,6 +209,8 @@ def _create_tables(cur):
         pts_avg REAL, pts_sd REAL, pts_l5 REAL,
         reb_avg REAL, reb_sd REAL, reb_l5 REAL,
         ast_avg REAL, ast_sd REAL, ast_l5 REAL,
+        stl_avg REAL, stl_sd REAL, stl_l5 REAL,
+        blk_avg REAL, blk_sd REAL, blk_l5 REAL,
         fg3m_avg REAL, fg3m_sd REAL, fg3m_l5 REAL,
         fp_avg REAL, fp_sd REAL, fp_l5 REAL,
         updated_at TEXT)""")
@@ -262,17 +264,26 @@ def main():
             pts = _agg(logs, "pts")
             reb = _agg(logs, "reb")
             ast = _agg(logs, "ast")
+            stl = _agg(logs, "stl")
+            blk = _agg(logs, "blk")
             fg3 = _agg(logs, "fg3m")
             mn = _agg(logs, "min")
             fp = _agg(logs, "fp")
             cur.execute(
-                "INSERT OR REPLACE INTO wnba_player_stats VALUES "
-                "(?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?, ?)",
+                "INSERT OR REPLACE INTO wnba_player_stats "
+                "(player_name, espn_id, team, position, games, "
+                "min_avg, min_sd, min_l5, pts_avg, pts_sd, pts_l5, "
+                "reb_avg, reb_sd, reb_l5, ast_avg, ast_sd, ast_l5, "
+                "stl_avg, stl_sd, stl_l5, blk_avg, blk_sd, blk_l5, "
+                "fg3m_avg, fg3m_sd, fg3m_l5, fp_avg, fp_sd, fp_l5, updated_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (pl["name"], aid, t["abbr"], pl["pos"], len(logs),
                  mn[0], mn[1], mn[2],
                  pts[0], pts[1], pts[2],
                  reb[0], reb[1], reb[2],
                  ast[0], ast[1], ast[2],
+                  stl[0], stl[1], stl[2],
+                  blk[0], blk[1], blk[2],
                  fg3[0], fg3[1], fg3[2],
                  fp[0], fp[1], fp[2],
                  now))

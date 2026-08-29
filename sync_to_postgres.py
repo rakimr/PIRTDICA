@@ -61,6 +61,7 @@ SQLITE_TABLE_MAP = {
     "wnba_slump_risk": "wnba_slump_risk_live",
     "wnba_player_shot_zones": "wnba_player_shot_zones_live",
     "wnba_team_defense_shot_zones": "wnba_team_defense_shot_zones_live",
+    "wnba_team_offense_shot_zones": "wnba_team_offense_shot_zones_live",
 }
 
 

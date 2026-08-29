@@ -5,7 +5,7 @@ Self-contained WNBA ingestion that writes to parallel tables in dfs_nba.db
 web tier reads these via the *_live mirror tables created by sync_to_postgres.
 
 Verified source: The Odds API sport key `basketball_wnba` (FanDuel + DraftKings
-player props: points / rebounds / assists / threes).
+player props: points / rebounds / assists / threes / steals / blocks).
 """
 import os
 import sys
@@ -21,12 +21,17 @@ BASE_URL = 'https://api.the-odds-api.com/v4'
 SPORT = 'basketball_wnba'
 EASTERN = ZoneInfo("America/New_York")
 
-MARKETS = ['player_points', 'player_rebounds', 'player_assists', 'player_threes']
+MARKETS = [
+    'player_points', 'player_rebounds', 'player_assists', 'player_threes',
+    'player_steals', 'player_blocks',
+]
 MARKET_TO_STAT = {
     'player_points': 'PTS',
     'player_rebounds': 'REB',
     'player_assists': 'AST',
     'player_threes': '3PM',
+    'player_steals': 'STL',
+    'player_blocks': 'BLK',
 }
 PREFERRED_BOOKS = ['fanduel', 'draftkings']
 

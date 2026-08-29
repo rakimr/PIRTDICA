@@ -577,7 +577,7 @@ def _render_wnba_articles(request: Request, user, db: Session):
                     proj = row.get('projected_value', row.get('player_avg', 0))
                     avg = row.get('player_avg', 0)
                     edge = row.get('vs_book_edge')
-                    edge_str = f"+{edge}%" if edge and edge > 0 else f"{edge}%" if edge else ""
+                    edge_str = f"{edge:+.1f}%" if edge else ""
                     prop_recs.append({
                         'player': row.get('player', ''),
                         'team': row.get('team', ''),

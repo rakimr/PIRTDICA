@@ -808,6 +808,47 @@ class WNBATeamDefenseShotZoneLive(Base):
     updated_at = Column(DateTime, server_default=func.now())
 
 
+class WNBATeamOffenseShotZoneLive(Base):
+    __tablename__ = "wnba_team_offense_shot_zones_live"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team = Column(String(10), nullable=False, index=True)
+    team_name = Column(String(50))
+    team_id = Column(Integer)
+    total_fga = Column(Integer)
+    total_fgm = Column(Integer)
+    total_misses = Column(Integer)
+    ra_fga = Column(Integer)
+    ra_fgm = Column(Integer)
+    ra_misses = Column(Integer)
+    paint_fga = Column(Integer)
+    paint_fgm = Column(Integer)
+    paint_misses = Column(Integer)
+    mid_fga = Column(Integer)
+    mid_fgm = Column(Integer)
+    mid_misses = Column(Integer)
+    corner3_fga = Column(Integer)
+    corner3_fgm = Column(Integer)
+    corner3_misses = Column(Integer)
+    atb3_fga = Column(Integer)
+    atb3_fgm = Column(Integer)
+    atb3_misses = Column(Integer)
+    ra_freq = Column(Float)
+    paint_freq = Column(Float)
+    mid_freq = Column(Float)
+    corner3_freq = Column(Float)
+    atb3_freq = Column(Float)
+    ra_miss_freq = Column(Float)
+    paint_miss_freq = Column(Float)
+    mid_miss_freq = Column(Float)
+    corner3_miss_freq = Column(Float)
+    atb3_miss_freq = Column(Float)
+    long_rebound_miss_proxy = Column(Integer)
+    long_rebound_miss_proxy_pct = Column(Float)
+    scraped_at = Column(String(50))
+    updated_at = Column(DateTime, server_default=func.now())
+
+
 class TeamPlayTypeLive(Base):
     __tablename__ = "team_play_types_live"
 
