@@ -95,27 +95,9 @@ PLAN_DISPLAY_NAMES = {
     "bundle": "PIRTDICA Bundle",
 }
 
-# Free trial: card collected up front, Stripe auto-bills when the trial ends.
-TRIAL_DAYS = 7
-
 # Subscription statuses that grant paid access. "trialing" is Stripe's status
 # for a subscription inside its free-trial window — treat it as entitled.
 ENTITLED_STATUSES = ("active", "trialing")
-
-
-def is_trial_eligible(db, user):
-    """One free trial per account: only users with no subscription history
-    (Stripe-managed OR manually granted, any status) get a trial. Existing and
-    returning subscribers go straight to paid billing."""
-    if not user:
-        return False
-    if getattr(user, "stripe_subscription_id", None) or getattr(user, "subscription_status", None):
-        return False
-    from backend.models import UserSubscription
-    prior = db.query(UserSubscription.id).filter(
-        UserSubscription.user_id == user.id
-    ).first()
-    return prior is None
 
 
 def ensure_product_and_price(plan_key="picks"):
@@ -164,7 +146,7 @@ def ensure_product_and_price(plan_key="picks"):
     return target_price.id
 
 
-def create_checkout_session(user, success_url, cancel_url, plan_key="picks", trial_days=None):
+def create_checkout_session(user, success_url, cancel_url, plan_key="picks"):
     client = get_stripe_client()
     price_id = ensure_product_and_price(plan_key)
 
@@ -192,30 +174,6 @@ def create_checkout_session(user, success_url, cancel_url, plan_key="picks", tri
         cancel_url=cancel_url,
         metadata={"user_id": str(user.id), "plan": plan_key},
     )
-    if trial_days:
-        # Belt-and-suspenders against races: if this Stripe customer already
-        # has ANY subscription (even one our DB hasn't heard about yet via
-        # webhook lag), don't attach a trial to the new session.
-        try:
-            existing = client.Subscription.list(customer=customer_id, status="all", limit=3)
-            if existing.data:
-                logger.warning(f"Customer {customer_id} already has {len(existing.data)} subscription(s) — dropping trial from checkout")
-                trial_days = None
-        except Exception as e:
-            logger.error(f"Trial pre-check failed for customer {customer_id}: {e}")
-    if trial_days:
-        session_kwargs["subscription_data"] = {
-            "trial_period_days": int(trial_days),
-            "metadata": {"user_id": str(user.id), "plan": plan_key},
-        }
-        # No-refund disclosure shown on the Stripe Checkout page itself,
-        # right above the submit button — the one required trial disclosure.
-        session_kwargs["custom_text"] = {
-            "submit": {
-                "message": (f"Your {int(trial_days)}-day free trial converts to a paid "
-                            "subscription automatically. All charges are final — no refunds.")
-            }
-        }
     session = client.checkout.Session.create(**session_kwargs)
     return session, customer_id
 

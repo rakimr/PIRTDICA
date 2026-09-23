@@ -72,6 +72,8 @@ class NoCacheMiddleware:
         await self.app(scope, receive, send_with_no_cache)
 
 app.add_middleware(NoCacheMiddleware)
+from backend.probe_guard import ProbeGuardMiddleware
+app.add_middleware(ProbeGuardMiddleware)
 from backend.static_handler import CachedStaticFiles
 app.mount("/static", CachedStaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=TEMPLATE_DIR)
@@ -613,7 +615,6 @@ def _render_wnba_articles(request: Request, user, db: Session):
         "picks": picks,
         "analysis": analysis,
         "has_access": has_access,
-        "trial_eligible": _trial_eligible_ctx(db, user, has_access),
         "pre_lock": False,
         "prop_recs": prop_recs,
         "official_locked": official_locked,
@@ -640,7 +641,6 @@ def _render_wnba_trends(request: Request, user, db: Session):
     if not has_access:
         return templates.TemplateResponse("trends_paywall.html", {
             "request": request, "user": user,
-            "trial_eligible": _trial_eligible_ctx(db, user),
         })
 
     chart_files = [
@@ -871,7 +871,6 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
         "picks": picks,
         "analysis": analysis,
         "has_access": has_access,
-        "trial_eligible": _trial_eligible_ctx(db, user, has_access),
         "pre_lock": pre_lock,
         "prop_recs": prop_recs,
         "official_locked": official_locked,
@@ -880,22 +879,9 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
             article.header_image_path if article else None, league="nba"),
     })
 
-def _trial_eligible_ctx(db, user, has_access=False):
-    """Template-context helper: is this viewer eligible for the free trial?
-    Used by paywall pages so pricing cards can advertise the trial honestly."""
-    if has_access or not user:
-        return False
-    try:
-        from backend.stripe_billing import is_trial_eligible
-        return is_trial_eligible(db, user)
-    except Exception:
-        return False
-
-
 @app.get("/subscribe")
 async def subscribe_page(request: Request, db: Session = Depends(get_db)):
-    from backend.stripe_billing import (create_checkout_session, has_any_subscription,
-                                         _load_stripe_keys, is_trial_eligible, TRIAL_DAYS)
+    from backend.stripe_billing import create_checkout_session, _load_stripe_keys
     user = get_current_user(request, db)
     if not user:
         return html_redirect("/login")
@@ -923,21 +909,12 @@ async def subscribe_page(request: Request, db: Session = Depends(get_db)):
     base_url = str(request.base_url).rstrip("/")
     if base_url.startswith("http://") and request.headers.get("x-forwarded-proto") == "https":
         base_url = base_url.replace("http://", "https://", 1)
-    # trial=0 lets a trial-eligible user deliberately skip the free trial and
-    # pay from day one (the pricing cards offer both buttons side by side).
-    skip_trial = request.query_params.get("trial") == "0"
-    trial_days = TRIAL_DAYS if (not skip_trial and is_trial_eligible(db, user)) else None
-    if trial_days:
-        print(f"[Stripe] User {user.id} ({user.username}) is trial-eligible — {trial_days}-day free trial on {plan_key}")
-    elif skip_trial:
-        print(f"[Stripe] User {user.id} ({user.username}) chose to skip the trial — immediate paid checkout on {plan_key}")
     try:
         session, customer_id = create_checkout_session(
             user,
             success_url=f"{base_url}/subscribe/success?session_id={{CHECKOUT_SESSION_ID}}&plan={plan_key}",
             cancel_url=f"{base_url}{cancel_map.get(plan_key, '/')}",
             plan_key=plan_key,
-            trial_days=trial_days,
         )
     except Exception as e:
         import traceback
@@ -1179,7 +1156,7 @@ async def billing_recover(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/billing")
 async def billing_page(request: Request, db: Session = Depends(get_db)):
-    from backend.stripe_billing import PLANS, PLAN_DISPLAY_NAMES, is_trial_eligible, TRIAL_DAYS
+    from backend.stripe_billing import PLANS, PLAN_DISPLAY_NAMES
     from backend.models import UserSubscription
     user = get_current_user(request, db)
     if not user:
@@ -1248,8 +1225,6 @@ async def billing_page(request: Request, db: Session = Depends(get_db)):
         "user": user,
         "subscriptions": subscriptions,
         "available_plans": available_plans,
-        "trial_eligible": is_trial_eligible(db, user),
-        "trial_days": TRIAL_DAYS,
     })
 
 
@@ -1639,7 +1614,6 @@ async def home(request: Request, db: Session = Depends(get_db)):
         "headshots": headshots,
         "no_games_today": no_games_today,
         "is_todays_contest": is_todays_contest,
-        "trial_eligible": _trial_eligible_ctx(db, user),
         "next_game_iso": next_game_iso,
         "games_started": games_started,
         "slate_games": slate_games,
@@ -1922,7 +1896,6 @@ async def trends(request: Request, db: Session = Depends(get_db)):
         return templates.TemplateResponse("trends_paywall.html", {
             "request": request,
             "user": user,
-            "trial_eligible": _trial_eligible_ctx(db, user),
         })
     import pandas as pd
     import time
@@ -2390,8 +2363,6 @@ async def profile(request: Request, username: str, db: Session = Depends(get_db)
         "entries": entries,
         "stats": stats,
         "badge_groups": ordered_badge_groups,
-        "trial_eligible": (_trial_eligible_ctx(db, current_user)
-                           if (current_user and current_user.id == profile_user.id) else False),
         "h2h_stats": {"wins": h2h_wins, "losses": h2h_losses, "ties": h2h_ties, "total": len(h2h_completed), "earnings": h2h_earnings},
         "h2h_history": h2h_history,
         "coin_transactions": coin_transactions,
