@@ -490,6 +490,52 @@ def _resolve_header_image(path, league="nba"):
     return None
 
 
+def _article_visible_content(article, picks, analysis, league):
+    """Keep unlocked editorial calls tied to a verified model-HIGH source."""
+    if not isinstance(picks, list):
+        return [], []
+    if not isinstance(analysis, list):
+        analysis = []
+    if not (article.official_picks_json or article.official_locked_at):
+        legacy = {}
+        if league == "wnba" and any(
+            isinstance(p, dict) and p.get("confidence") is None for p in picks
+        ):
+            try:
+                from backend.parlays import _legacy_highs
+                legacy = _legacy_highs(
+                    picks, league, article.slate_date.isoformat(),
+                    os.path.join(PROJECT_ROOT, "dfs_nba.db"),
+                    os.path.join(PROJECT_ROOT, "wnba_prop_recommendations.csv"),
+                )
+            except (OSError, ValueError, sqlite3.Error) as e:
+                print(f"[ARTICLES] Legacy HIGH verification unavailable: {e}")
+        visible = []
+        for p in picks:
+            if not isinstance(p, dict):
+                continue
+            if p.get("confidence") == "HIGH":
+                visible.append(p)
+            elif p.get("confidence") is None and league == "wnba":
+                from backend.parlays import _key
+                matched = legacy.get(_key(p))
+                if matched:
+                    visible.append({**p, "confidence": "HIGH",
+                                    "team": matched["team"], "opponent": matched["opponent"]})
+        picks = visible
+    selected = {
+        (str(p.get("player", "")).strip().casefold(),
+         str(p.get("stat", "")).upper(), str(p.get("pick", "")).upper())
+        for p in picks if isinstance(p, dict)
+    }
+    analysis = [
+        a for a in analysis if isinstance(a, dict) and
+        (str(a.get("player", "")).strip().casefold(),
+         str(a.get("stat", "")).upper(), str(a.get("call", "")).upper()) in selected
+    ]
+    return picks, analysis
+
+
 def _render_wnba_articles(request: Request, user, db: Session):
     """Render the shared articles.html with REAL WNBA modeled content
     (Claude analysis + Pillow header + prop recs), mirroring the NBA page."""
@@ -560,6 +606,7 @@ def _render_wnba_articles(request: Request, user, db: Session):
                 analysis = json.loads(article.analysis_json)
         except (json.JSONDecodeError, TypeError):
             analysis = []
+        picks, analysis = _article_visible_content(article, picks, analysis, "wnba")
         try:
             import pandas as pd
             prop_csv = os.path.join(os.path.dirname(__file__), '..', 'wnba_prop_recommendations.csv')
@@ -568,14 +615,16 @@ def _render_wnba_articles(request: Request, user, db: Session):
                 # Keep only props for the displayed article's slate // the recs
                 # CSV spans multiple game_dates, so without this the props table
                 # would mix in a different slate than the article header shows.
-                if article and getattr(article, 'slate_date', None) is not None and 'game_date' in df.columns:
+                if 'game_date' not in df.columns:
+                    df = df.iloc[0:0]
+                elif article and getattr(article, 'slate_date', None) is not None:
                     slate_str = article.slate_date.isoformat()
                     # Strict: only the displayed slate's props // if there are none
                     # for that slate, show an empty table rather than another slate.
                     df = df[df['game_date'].astype(str) == slate_str]
                 if 'composite_score' in df.columns:
                     df = df.sort_values('composite_score', ascending=False)
-                for _, row in df.head(20).iterrows():
+                for _, row in df.iterrows():
                     book_line = row.get('book_line')
                     proj = row.get('projected_value', row.get('player_avg', 0))
                     avg = row.get('player_avg', 0)
@@ -838,15 +887,22 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
                     analysis = json.loads(article.analysis_json)
             except (json.JSONDecodeError, TypeError):
                 analysis = []
+            picks, analysis = _article_visible_content(article, picks, analysis, "nba")
             try:
                 import pandas as pd
                 prop_csv = os.path.join(os.path.dirname(__file__), '..', 'prop_recommendations.csv')
                 if os.path.exists(prop_csv):
                     df = pd.read_csv(prop_csv)
+                    # This NBA CSV has no slate date. Its write date is the only
+                    # available provenance; never attach it to an older article.
+                    if 'game_date' in df.columns:
+                        df = df[df['game_date'].astype(str) == article.slate_date.isoformat()]
+                    elif (article.slate_date != today or
+                          datetime.fromtimestamp(os.path.getmtime(prop_csv), EASTERN).date() != today):
+                        df = df.iloc[0:0]
                     if 'composite_score' in df.columns:
                         df = df.sort_values('composite_score', ascending=False)
-                    top = df.head(20)
-                    for _, row in top.iterrows():
+                    for _, row in df.iterrows():
                         book_line = row.get('book_line')
                         proj = row.get('projected_value', row.get('adjusted_avg', 0))
                         avg = row.get('player_avg', 0)

@@ -2090,6 +2090,12 @@ Remember:
             if slate_key not in slate_lookup:
                 print(f"  Skipping {player} {stat}: not found in slate data (hallucinated?)")
                 continue
+            source_row = slate_lookup[slate_key]
+            recommendation = str(source_row.get('recommendation', '')).upper()
+            model_side = "OVER" if "OVER" in recommendation else "UNDER" if "UNDER" in recommendation else None
+            if str(source_row.get('confidence', '')).upper() != 'HIGH' or call != model_side:
+                print(f"  Skipping {player} {stat} {call}: not the model's HIGH recommended side")
+                continue
             resolved_call = str(resolved.get('call', '')).strip().upper()
             if resolved_call and resolved_call != call:
                 print(f"  Skipping {player} {stat} {call}: matched analysis argues {resolved_call}, refusing to publish a contradictory article")
@@ -2370,6 +2376,17 @@ def generate_article(target_date=None):
 
     props = pd.read_csv(props_path)
     dfs_df = pd.read_csv(dfs_path)
+    # NBA recommendation exports are undated. Do not publish a different day's
+    # file as this slate's featured picks (including historical re-runs).
+    if 'game_date' in props.columns:
+        props = props[props['game_date'].astype(str) == target_date.isoformat()].copy()
+    else:
+        from zoneinfo import ZoneInfo as _ZI
+        export_date = datetime.fromtimestamp(
+            os.path.getmtime(props_path), _ZI("America/New_York")).date()
+        if export_date != target_date:
+            print(f"Recommendations were written {export_date}, not {target_date}; leaving article unchanged.")
+            return False
 
     if 'confidence' not in props.columns:
         print("ERROR: No 'confidence' column in prop_recommendations.csv")
@@ -2379,6 +2396,9 @@ def generate_article(target_date=None):
     props = props[props['book_line'].notna() & (props['book_line'] > 0)].reset_index(drop=True)
     if pre_filter != len(props):
         print(f"  Filtered {pre_filter - len(props)} props without book lines ({len(props)} remaining)")
+    if props.empty:
+        print("No quoted recommendations; leaving any existing article unchanged.")
+        return False
 
     games = set()
     for _, row in dfs_df.iterrows():
@@ -2404,7 +2424,12 @@ def generate_article(target_date=None):
         print(f"  Slate game count: using odds table ({slate_game_count}) over dfs-derived ({game_count}).")
         game_count = slate_game_count
 
-    claude_result = build_claude_analyst(props, dfs_df, game_date=target_date)
+    high = props[props['confidence'].astype(str).str.upper() == 'HIGH'].copy()
+    if high.empty:
+        print(f"No model-HIGH recommendations for {target_date}; saving a zero-pick article.")
+        save_to_db(target_date, None, [], [], game_count, clear_unlocked=True)
+        return True
+    claude_result = build_claude_analyst(high, dfs_df, game_date=target_date)
 
     if claude_result:
         print("Claude Analyst mode: picks selected by Claude from full slate analysis")
@@ -2416,41 +2441,7 @@ def generate_article(target_date=None):
         print("Claude Analyst unavailable — falling back to statistical model picks")
         claude_selected = False
 
-        high = props[props['confidence'] == 'HIGH'].copy()
         using_best_available = False
-
-        if high.empty:
-            print("No HIGH confidence picks — selecting best available picks...")
-            if 'gate_fail_count' not in props.columns:
-                props['gate_fail_count'] = props['confidence_reasons'].apply(
-                    lambda x: len(str(x).split(';')) if pd.notna(x) and str(x).strip() else 0
-                )
-            props['composite_score'] = pd.to_numeric(props['composite_score'], errors='coerce').fillna(0)
-            props['gate_fail_count'] = pd.to_numeric(props['gate_fail_count'], errors='coerce').fillna(99)
-            best = props[props['gate_fail_count'] <= 2].copy()
-            if best.empty:
-                best = props.copy()
-            best = best.sort_values(
-                ['gate_fail_count', 'composite_score'],
-                ascending=[True, False]
-            ).drop_duplicates(subset='player').head(6)
-            if best.empty:
-                print(f"No picks available — saving placeholder article for {game_count} game(s) on slate.")
-                fallback_header = f'static/images/article_header_{target_date.strftime("%Y-%m-%d")}.png'
-                try:
-                    from generate_header import generate as gen_header
-                    gen_header(target_date, out_path=fallback_header, player_data=[])
-                except Exception as e:
-                    print(f"Fallback header generation failed: {e}")
-                header_arg = fallback_header if os.path.exists(fallback_header) else None
-                save_to_db(target_date, header_arg, [], [], game_count)
-                print(f"Saved placeholder article: {game_count} game(s), 0 picks, header={'yes' if header_arg else 'no'}.")
-                return False
-            high = best
-            using_best_available = True
-            for _, r in high.iterrows():
-                fails = int(r['gate_fail_count'])
-                print(f"  {r['player']:20s} {r['stat']:4s}  gates_failed={fails}  composite={r['composite_score']:.1f}  reasons: {r.get('confidence_reasons', '')}")
 
         edge_col = 'vs_book_edge' if 'vs_book_edge' in high.columns else 'edge_pct'
         high[edge_col] = pd.to_numeric(high[edge_col], errors='coerce').fillna(0)
@@ -2465,7 +2456,10 @@ def generate_article(target_date=None):
                 continue
             seen_players.add(player)
             game_label = build_game_label(player, row.get('team', ''), row.get('opponent', ''), dfs_df)
-            call = "OVER" if "OVER" in str(row.get('recommendation', '')).upper() else "UNDER"
+            recommendation = str(row.get('recommendation', '')).upper()
+            call = "OVER" if "OVER" in recommendation else "UNDER" if "UNDER" in recommendation else None
+            if call is None:
+                continue
             edge_val = _safe_float(row.get('vs_book_edge', row.get('edge_pct', 0)))
             edge_sign = "+" if edge_val > 0 else ""
             picks_data.append({
@@ -2504,7 +2498,10 @@ def generate_article(target_date=None):
                 analysis_text = claude_analyses[player]
             else:
                 analysis_text = build_analysis_text_template(row, dfs_df, game_date=target_date)
-            call = "OVER" if "OVER" in str(row.get('recommendation', '')).upper() else "UNDER"
+            recommendation = str(row.get('recommendation', '')).upper()
+            call = "OVER" if "OVER" in recommendation else "UNDER" if "UNDER" in recommendation else None
+            if call is None:
+                continue
             analysis_data.append({
                 'player': player,
                 'stat': row.get('stat', ''),
@@ -2648,7 +2645,7 @@ def _should_lock_official_call(target_date, now_et):
 
 
 def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_count,
-               best_available=False, claude_selected=False):
+               best_available=False, claude_selected=False, clear_unlocked=False):
     from backend.database import engine
     from backend.models import Base
     Base.metadata.create_all(bind=engine)
@@ -2661,6 +2658,12 @@ def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_c
     existing = session.query(DailyArticle).filter(
         DailyArticle.slate_date == target_date
     ).first()
+    if existing and clear_unlocked and not picks_data and (
+        existing.official_picks_json or existing.official_locked_at
+    ):
+        print(f"PRESERVE OFFICIAL CALL: zero-HIGH refresh left locked {target_date} unchanged.")
+        session.close()
+        return
 
     new_web_path = None
     if header_image_path and os.path.exists(header_image_path):
@@ -2680,19 +2683,22 @@ def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_c
         except Exception:
             existing_picks = []
         new_picks = picks_data or []
-        if existing_picks and not new_picks:
+        locked = bool(existing.official_picks_json or existing.official_locked_at)
+        if existing_picks and not new_picks and (locked or not clear_unlocked):
             print(f"PRESERVE PICKS: existing has {len(existing_picks)} picks, new is empty — keeping existing picks/analysis.")
             # Still correct the slate size: game_count is derived from the live
             # odds source, not from the picks, so a later run must be able to fix
             # a stale count (e.g. the '0 games on the slate' bug) even when it has
             # no new picks to write.
-            if game_count and game_count != existing.game_count:
+            if game_count and (not existing.game_count or game_count > existing.game_count):
                 print(f"  Updating game_count {existing.game_count} -> {game_count} while preserving picks.")
                 existing.game_count = game_count
         else:
             existing.picks_json = json.dumps(new_picks)
             existing.analysis_json = json.dumps(analysis_data)
             existing.game_count = game_count
+            if clear_unlocked and not new_picks:
+                existing.header_image_path = None
         existing.best_available = best_available
         existing.claude_selected = claude_selected
         article_row = existing

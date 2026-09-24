@@ -1143,12 +1143,12 @@ def _build_briefing(recs, meta, records, caches=None):
     return prop_lines
 
 
-SYSTEM_PROMPT = """You are an elite WNBA DFS analyst for PIRTDICA SPORTS CO. You are given the full WNBA slate with model projections and a typed pregame evidence ledger.
+SYSTEM_PROMPT = """You are an elite WNBA DFS analyst for PIRTDICA SPORTS CO. You are given model-HIGH recommendations and a typed pregame evidence ledger.
 
 You are competing against the sharpest analysts at FanDuel who set these player prop lines. Respect the lines. Only attack when you have genuine conviction backed by multiple converging signals.
 
-YOUR JOB: Independently analyze the slate and select 1-8 HIGH confidence prop picks. You are NOT limited to what the model labeled HIGH; evaluate every safety-eligible prop line and find the sharpest edges yourself. Select as many as the evidence supports, and never force four.
-Only supplied HIGH/MEDIUM candidates have passed the mandatory safety gate. Never infer a role change, injury redistribution, or postseason status from a book line alone. A large market disagreement requires verified role information; otherwise do not publish it as a high-confidence pick.
+YOUR JOB: Analyze only the supplied model-HIGH recommendations and select up to 8 supported prop picks. Never promote MEDIUM or LOW recommendations into featured article picks. Select as many as the evidence supports, and never force four.
+Only supplied HIGH candidates have passed the mandatory safety gate. Never infer a role change, injury redistribution, or postseason status from a book line alone. A large market disagreement requires verified role information; otherwise do not publish it as a high-confidence pick.
 
 ANALYTICAL FRAMEWORK (this is how a sharp WNBA analyst reasons // follow it):
 1. SHOT-DIET vs OPPONENT-DEFENSE-BY-ZONE (conversion signal when present): After establishing opportunity, use `zone_matchup_edges`, or `shot_diet` + `opp_def_zones`, as conversion context. Cite the player's historical zone share and the opponent's aggregate allowed FG% and rank. This is an association between separate historical aggregates, not tracking evidence, a defender assignment, or proof that the matchup causes tonight's result.
@@ -1247,7 +1247,7 @@ def _validate_claude_result(result, prop_lines):
 
     available = {
         (_norm(p.get("player")), str(p.get("stat", "")).upper(), str(p.get("model_side", "")).upper()): p
-        for p in prop_lines
+        for p in prop_lines if p.get("confidence") == "HIGH"
     }
     fingerprints = set()
     selected = set()
@@ -1367,6 +1367,9 @@ def _recent_pick_results_before_slate(slate_date):
 
 
 def _call_claude(prop_lines, game_count, slate_date):
+    prop_lines = [p for p in prop_lines if p.get("confidence") == "HIGH"]
+    if not prop_lines:
+        return None
     api_key = os.environ.get("AI_INTEGRATIONS_ANTHROPIC_API_KEY")
     base_url = os.environ.get("AI_INTEGRATIONS_ANTHROPIC_BASE_URL")
     if not api_key or not base_url:
@@ -1463,7 +1466,7 @@ def _template_result(prop_lines):
         number = float(value)
         return f"{number:+.0f}" if abs(number) >= 100 else _num(number, 2)
 
-    highs = [p for p in prop_lines if p["confidence"] in ("HIGH", "MEDIUM")][:6]
+    highs = [p for p in prop_lines if p.get("confidence") == "HIGH"][:6]
     picks, analyses = [], []
     for p in highs:
         side = p["model_side"]
@@ -1610,9 +1613,9 @@ def _template_result(prop_lines):
 
 
 def _eligible_prop_lines(prop_lines):
-    """Enforce the model's safety gate for BOTH Claude and fallback selection."""
+    """Only model-HIGH, safety-cleared rows may become featured article picks."""
     return [p for p in prop_lines
-            if p["confidence"] in ("HIGH", "MEDIUM")
+            if p.get("confidence") == "HIGH"
             and not p.get("role_risk", {}).get("review_required")
             and p.get("slate_season_type") in ("REGULAR", "PLAYOFF")]
 
@@ -1629,8 +1632,10 @@ def _to_template_shapes(result, meta, eligible=None):
             (_norm(pk.get("player")), str(pk.get("stat", "")).upper(),
              str(pk.get("pick", "")).upper(), float(pk.get("book_line")))
         ) if _present(pk.get("book_line")) else None
+        if not original or original.get("confidence") != "HIGH":
+            continue
         picks_data.append({
-            "rank": i,
+            "rank": len(picks_data) + 1,
             "player": pk.get("player", ""),
             "game": f"{pk.get('team','')} vs {pk.get('opponent','')}",
             "stat": pk.get("stat", ""),
@@ -1643,7 +1648,12 @@ def _to_template_shapes(result, meta, eligible=None):
             "opponent": original.get("opponent") if original else pk.get("opponent", ""),
             "confidence": original.get("confidence") if original else None,
         })
+    selected = {(_norm(p["player"]), p["stat"].upper(), p["pick"])
+                for p in picks_data}
     for a in result["analyses"]:
+        if (_norm(a.get("player")), str(a.get("stat", "")).upper(),
+                str(a.get("call", "")).upper()) not in selected:
+            continue
         nk = _norm(a.get("player", ""))
         pos = meta.get(nk, {}).get("pos", "")
         analysis_data.append({
@@ -1721,6 +1731,10 @@ def _save(slate_date, header_web_path, picks_data, analysis_data, game_count, cl
     try:
         row = db.query(models.WNBADailyArticle).filter(
             models.WNBADailyArticle.slate_date == slate_date).first()
+        # Do not replace a frozen official call with an empty working article.
+        if row and not picks_data and (row.official_picks_json or row.official_locked_at):
+            print(f"[WNBA ARTICLE] Preserving locked article for {slate_date}.")
+            return
         if row:
             row.header_image_path = header_web_path
             row.picks_json = json.dumps(picks_data)
@@ -1799,8 +1813,7 @@ def main():
         lambda r: frozenset([r["team"], r["opponent"]]), axis=1).nunique()
 
     prop_lines = _build_briefing(recs, meta, records, _load_enrichment(slate_date))
-    # This is a safety gate, not a writing suggestion: neither Claude nor the
-    # deterministic fallback may promote a review-required or unknown-phase row.
+    # Neither writer may promote MEDIUM or review-required rows to article picks.
     eligible = _eligible_prop_lines(prop_lines)
     print(f"[WNBA ARTICLE] {len(eligible)}/{len(prop_lines)} candidates passed the safety gate.")
     # Call Claude for every non-empty safety-eligible set, including 1-3
@@ -1843,6 +1856,9 @@ def main():
         except Exception as e:
             print(f"Header generation failed ({e}) // continuing without header.")
 
+    if not picks_data and slate_date < et_today:
+        print(f"[WNBA ARTICLE] Historical zero-pick article {slate_date} left unchanged.")
+        return
     _save(slate_date, header_web_path, picks_data, analysis_data, game_count, claude_selected)
     print("Done.")
 
