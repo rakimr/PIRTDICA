@@ -1177,6 +1177,13 @@ PICK SELECTION:
 - Use `same_player_cross_stat_comparison` before selecting. Compare the chosen stat with alternatives for that player and say whether another stat has a cleaner edge. If none is available, state that the cross-stat check is unavailable.
 
 WRITING STYLE:
+- Write like a sharp basketball analyst talking to a subscriber, not like a model audit. Lead with the most interesting *different* basketball angle for each player and stat. Explain the path to clearing this particular book line in plain basketball language.
+- Use available matchup, shot-diet, rest, role, and game-script numbers to make each case specific. If a signal is missing, briefly acknowledge the uncertainty only where it matters; do not devote a paragraph to what the data cannot measure.
+- Vary the opening and the reasoning across picks. Do not reuse a "projected minutes / historical rate / modeled distribution" lead or repeat the same caveat and closing paragraph for every player.
+- Never call a realized per-minute rate an attempt rate, an aggregate zone a defender assignment, or a projection a guaranteed outcome.
+- A spread does not tell you that starters WILL stay on the floor or play late; it only suggests a possible game script. A total does NOT establish a number or volume of possessions. Projected minutes are not guaranteed minutes. Do not claim any of these as tonight's facts.
+- A generic matchup factor is not proof that an opponent allows more of this specific stat unless the supplied factor is explicitly stat-specific. Describe it as a model matchup adjustment, not opponent three-point allowance or a tracked matchup.
+- Avoid technical labels in published prose such as "conversion physics", "opportunity component", "evidence ledger", or "inferred proxy". Translate the supported insight into sports language without inventing a possession or matchup.
 - Talk to a sharp friend. Conversational, direct, confident.
 - NEVER use em-dashes or double hyphens. Use periods, commas, colons, or "//" instead.
 - Use "you" and "your". Short paragraphs (2-4 lines). One idea per paragraph.
@@ -1212,10 +1219,10 @@ ANALYSIS QUALITY PATTERNS
 
 WNBA_ANALYSIS_BLUEPRINT = """
 STRUCTURE EACH ANALYSIS LIKE THIS
-Paragraph 1: A bold, player-specific opportunity hook using supplied numbers, or explicitly say opportunity evidence is unavailable.
-Paragraph 2: Move from opportunity to conversion and then the modeled outcome relative to the line. Label association-level proxies honestly.
-Paragraph 3: Name the single strongest counter-signal, then compare alternative stats for the same player. If no alternative was supplied, say that check is unavailable.
-Final paragraph: State why the evidence still supports the side, then use the required **The Call:** sentence with the exact line, projection, edge, and composite score.
+Paragraph 1: A bold, player-and-stat-specific basketball hook: where is the bet won or lost relative to this line? Use supplied numbers, not invented role or shot-volume claims. Start each pick differently.
+Paragraph 2: Build the case with the strongest *available* matchup, shooting-zone, game environment, or historical scoring context, then connect it to the model's projection. If no matchup evidence exists, do not fake it or repeat a long disclaimer.
+Paragraph 3: Name the strongest counter-signal and compare any supplied alternative stat for the same player. If no alternative is supplied, a brief honest note suffices.
+Final paragraph: Make the decision in natural sports-analyst language, then finish with the required **The Call:** sentence using the exact line, projection, edge, and composite score. Avoid a stock closing sentence shared by other picks.
 
 Do not copy this wording. It is a reasoning structure, not a prose template.
 """
@@ -1271,6 +1278,15 @@ def _validate_claude_result(result, prop_lines):
             return False, f"analysis {idx} does not match its pick"
 
         text = str(analysis.get("analysis", "")).strip()
+        if "--" in text or "\u2014" in text:
+            return False, f"analysis {idx} uses a prohibited dash style"
+        if re.search(
+            r"\b(?:keeps?|guarantees?|ensures?)\b.{0,85}\b(?:starters?\s+on\s+(?:the\s+)?floor|"
+            r"late.game\s+(?:run|minutes)|volume\s+of\s+possessions)\b|"
+            r"\b(?:gets?|gives?)\b.{0,55}\bvolume\s+of\s+possessions\b",
+            text, flags=re.IGNORECASE,
+        ):
+            return False, f"analysis {idx} treats game script or possessions as guaranteed"
         call_match = re.search(
             r"\*\*The Call:\s*(OVER|UNDER)\s+(-?\d+(?:\.\d+)?)\s+([A-Za-z0-9]+)\*\*",
             text,
@@ -1396,7 +1412,7 @@ def _call_claude(prop_lines, game_count, slate_date):
         "Analyze the full WNBA slate and select your HIGH confidence picks.\n\n"
         f"{WNBA_ANALYST_PATTERNS}\n\n"
         f"{WNBA_ANALYSIS_BLUEPRINT}\n\n"
-        "HERE IS THE COMPLETE SLATE DATA (every prop line with model context):\n\n"
+        "HERE ARE THE MODEL-HIGH CANDIDATES (do not add other picks):\n\n"
         f"{json.dumps(briefing, indent=2, default=str)}\n\n"
         f"Remember: select 1-{min(8, len(prop_lines))} picks with the strongest convergence of signals; "
         "do not force four. Every "
@@ -1408,31 +1424,49 @@ def _call_claude(prop_lines, game_count, slate_date):
     try:
         from anthropic import Anthropic
         client = Anthropic(api_key=api_key, base_url=base_url)
-        print("Calling Claude for WNBA pick selection + analysis...")
-        t0 = time.time()
-        msg = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=8192,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_prompt}],
-        )
-        text = msg.content[0].text.strip()
-        print(f"Claude responded in {time.time() - t0:.1f}s ({len(text)} chars)")
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-            if text.endswith("```"):
-                text = text[:-3]
-            text = text.strip()
-        result = json.loads(text)
-        valid, reason = _validate_claude_result(result, prop_lines)
-        if not valid:
-            print(f"[WNBA ARTICLE][QUALITY REJECTED] {reason} // using visible template fallback.")
-            return None
-        print(f"[WNBA ARTICLE][QUALITY PASSED] {len(result['picks'])} picks with matched, substantive analyses.")
-        return result
     except Exception as e:
-        print(f"[WNBA ARTICLE][CLAUDE ERROR] {e} // using visible template fallback.")
+        print(f"[WNBA ARTICLE][CLAUDE SETUP ERROR] {e} // using visible template fallback.")
         return None
+    for attempt in range(2):
+        try:
+            print(f"Calling Claude for WNBA pick selection + analysis (attempt {attempt + 1}/2)...")
+            t0 = time.time()
+            msg = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=8192,
+                system=SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+            text = msg.content[0].text.strip()
+            print(f"Claude responded in {time.time() - t0:.1f}s ({len(text)} chars)")
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+                if text.endswith("```"):
+                    text = text[:-3]
+                text = text.strip()
+            result = json.loads(text)
+            valid, reason = _validate_claude_result(result, prop_lines)
+            if valid:
+                print(f"[WNBA ARTICLE][QUALITY PASSED] {len(result['picks'])} picks with matched, substantive analyses.")
+                return result
+            print(f"[WNBA ARTICLE][QUALITY REJECTED] attempt {attempt + 1}: {reason}")
+            user_prompt += (
+                f"\n\nYour previous response did not pass publication checks: {reason}. "
+                "Rewrite the entire JSON with exactly matched pick/analysis player, stat, "
+                "side and book line; each analysis must be substantive, distinct, and end "
+                "with the exact bold call. Keep all facts grounded in the supplied data."
+            )
+        except (ValueError, KeyError, IndexError) as e:
+            # Malformed response can be corrected on a second generation.
+            print(f"[WNBA ARTICLE][CLAUDE RESPONSE ERROR] attempt {attempt + 1}: {e}")
+            user_prompt += (
+                "\n\nThe previous response could not be parsed. Return only a valid JSON "
+                "object with picks and analyses arrays; no Markdown wrapper."
+            )
+        except Exception as e:
+            print(f"[WNBA ARTICLE][CLAUDE ERROR] attempt {attempt + 1}: {e}")
+    print("[WNBA ARTICLE] Claude unavailable or rejected twice // using visible template fallback.")
+    return None
 
 
 def _template_result(prop_lines):
