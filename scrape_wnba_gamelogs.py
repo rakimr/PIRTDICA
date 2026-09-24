@@ -146,50 +146,103 @@ def fetch_roster(tid):
     return out
 
 
+def _season_type_name(block):
+    """Return our stable season label for an ESPN season/type block."""
+    text = " ".join(str(block.get(k, "")) for k in
+                    ("displayName", "name", "abbreviation", "slug")).lower()
+    # ESPN calls the play-in a postseason type in some responses.  It belongs
+    # with playoff data for consumers which weight meaningful postseason games.
+    if any(word in text for word in ("playoff", "postseason", "play-in",
+                                     "play in", "elimination")) or \
+            text.strip() in ("post", "po"):
+        return "PLAYOFF"
+    if "regular" in text or text.strip() in ("reg", "rs"):
+        return "REGULAR"
+    return None
+
+
+def _season_blocks(data):
+    """Yield ESPN gamelog season-type blocks, across response variants.
+
+    The common API has historically returned either ``seasonTypes`` directly
+    or nested it below a season object.  Do not assume the first block is the
+    current season: retaining every labelled block prevents a new season
+    response from deleting last year's playoff games.
+    """
+    found = set()
+
+    def walk(value):
+        if isinstance(value, dict):
+            blocks = value.get("seasonTypes")
+            if isinstance(blocks, list):
+                for block in blocks:
+                    if isinstance(block, dict):
+                        key = id(block)
+                        if key not in found and block.get("categories"):
+                            found.add(key)
+                            yield block
+            for child in value.values():
+                yield from walk(child)
+        elif isinstance(value, list):
+            for child in value:
+                yield from walk(child)
+
+    yield from walk(data)
+
+
 def fetch_gamelog(aid):
-    """Return a list of per-game dicts for the most recent regular season."""
+    """Return all labelled regular-season and playoff games ESPN provides."""
     data = _get(GAMELOG_URL.format(aid=aid))
     if not data:
         return []
     events_meta = data.get("events", {})
-    season_types = data.get("seasonTypes", [])
-    # Prefer the first "Regular Season" block (most recent season first).
-    season = None
-    for st in season_types:
-        if "Regular Season" in (st.get("displayName") or ""):
-            season = st
-            break
-    if season is None and season_types:
-        season = season_types[0]
-    if not season:
+    seasons = list(_season_blocks(data))
+    if not seasons:
         return []
     rows = []
-    for cat in season.get("categories", []):
-        for ev in cat.get("events", []):
-            stats = ev.get("stats") or []
-            if len(stats) <= IDX["fg3"]:
+    seen = set()
+    for season in seasons:
+        season_type = _season_type_name(season)
+        for cat in season.get("categories", []):
+            # Some older responses put the year on the season block and the
+            # actual "Regular Season"/"Playoffs" label on each category.
+            category_type = season_type or _season_type_name(cat)
+            if category_type is None:
                 continue
-            meta = events_meta.get(ev.get("eventId"), {})
-            opp = (meta.get("opponent") or {}).get("abbreviation", "")
-            team = (meta.get("team") or {}).get("abbreviation", "")
-            gdate = _espn_gamedate_to_et(meta.get("gameDate"))
-            is_home = 1 if meta.get("atVs", "") == "vs" else 0
-            mins = _num(stats[IDX["min"]])
-            if mins <= 0:
-                continue  # DNP
-            pts = _num(stats[IDX["pts"]])
-            reb = _num(stats[IDX["reb"]])
-            ast = _num(stats[IDX["ast"]])
-            stl = _num(stats[IDX["stl"]])
-            blk = _num(stats[IDX["blk"]])
-            tov = _num(stats[IDX["tov"]])
-            fg3 = _made(stats[IDX["fg3"]])
-            rows.append({
-                "game_date": gdate, "team": team, "opp": opp, "is_home": is_home,
-                "min": mins, "pts": pts, "reb": reb, "ast": ast, "stl": stl,
-                "blk": blk, "tov": tov, "fg3m": fg3,
-                "fp": round(fanduel_fp(pts, reb, ast, stl, blk, tov), 2),
-            })
+            for ev in cat.get("events", []):
+                event_id = ev.get("eventId") or ev.get("id")
+                # A few ESPN payloads repeat an event in a totals and splits
+                # category.  Keep one box line, not one line per category.
+                key = (category_type, event_id) if event_id else (
+                    category_type, ev.get("gameDate"), str(ev.get("stats")))
+                if key in seen:
+                    continue
+                seen.add(key)
+                stats = ev.get("stats") or []
+                if len(stats) <= IDX["fg3"]:
+                    continue
+                meta = events_meta.get(str(event_id), events_meta.get(event_id, {}))
+                opp = (meta.get("opponent") or {}).get("abbreviation", "")
+                team = (meta.get("team") or {}).get("abbreviation", "")
+                gdate = _espn_gamedate_to_et(meta.get("gameDate") or ev.get("gameDate"))
+                is_home = 1 if meta.get("atVs", "") == "vs" else 0
+                mins = _num(stats[IDX["min"]])
+                if mins <= 0:
+                    continue  # DNP
+                pts = _num(stats[IDX["pts"]])
+                reb = _num(stats[IDX["reb"]])
+                ast = _num(stats[IDX["ast"]])
+                stl = _num(stats[IDX["stl"]])
+                blk = _num(stats[IDX["blk"]])
+                tov = _num(stats[IDX["tov"]])
+                fg3 = _made(stats[IDX["fg3"]])
+                rows.append({
+                    "game_date": gdate, "season_type": category_type,
+                    "team": team, "opp": opp, "is_home": is_home,
+                    "min": mins, "pts": pts, "reb": reb, "ast": ast, "stl": stl,
+                    "blk": blk, "tov": tov, "fg3m": fg3,
+                    "fp": round(fanduel_fp(pts, reb, ast, stl, blk, tov), 2),
+                })
     return rows
 
 
@@ -197,11 +250,20 @@ def _create_tables(cur):
     cur.execute("DROP TABLE IF EXISTS wnba_teams")
     cur.execute("""CREATE TABLE wnba_teams (
         espn_id TEXT PRIMARY KEY, abbr TEXT, name TEXT, logo TEXT)""")
-    cur.execute("DROP TABLE IF EXISTS wnba_player_game_logs")
-    cur.execute("""CREATE TABLE wnba_player_game_logs (
+    cur.execute("""CREATE TABLE IF NOT EXISTS wnba_player_game_logs (
         player_name TEXT, espn_id TEXT, team TEXT, opp TEXT, game_date TEXT,
         is_home INTEGER, min REAL, pts REAL, reb REAL, ast REAL, stl REAL,
-        blk REAL, tov REAL, fg3m REAL, fp REAL)""")
+        blk REAL, tov REAL, fg3m REAL, fp REAL, season_type TEXT)""")
+    # Keep existing logs: ESPN's current response can omit completed prior
+    # postseason blocks when a new season starts.
+    cols = {row[1] for row in cur.execute(
+        "PRAGMA table_info(wnba_player_game_logs)").fetchall()}
+    if "season_type" not in cols:
+        cur.execute("ALTER TABLE wnba_player_game_logs ADD COLUMN season_type TEXT")
+        # Old rows have no source phase. Do not fabricate REGULAR: ESPN may
+        # later identify a preserved row as a playoff game.
+        cur.execute("UPDATE wnba_player_game_logs SET season_type='UNKNOWN' "
+                    "WHERE season_type IS NULL OR season_type=''")
     cur.execute("DROP TABLE IF EXISTS wnba_player_stats")
     cur.execute("""CREATE TABLE wnba_player_stats (
         player_name TEXT PRIMARY KEY, espn_id TEXT, team TEXT, position TEXT,
@@ -220,6 +282,42 @@ def _agg(logs, key):
     vals = [g[key] for g in logs]
     last5 = vals[:5] if len(vals) >= 1 else vals  # logs come newest-first
     return round(_mean(vals), 2), round(_sd(vals), 2), round(_mean(last5), 2)
+
+
+def _current_regular_logs(logs):
+    """Season snapshots exclude both playoffs and earlier regular seasons."""
+    regular = sorted((g for g in logs if g["season_type"] == "REGULAR"
+                      and g.get("game_date")), key=lambda g: g["game_date"], reverse=True)
+    return ([g for g in regular if g["game_date"][:4] == regular[0]["game_date"][:4]]
+            if regular else [])
+
+
+def _upsert_gamelog(cur, player, aid, g, fallback_team):
+    """Reconcile a source-labelled ESPN game with a legacy UNKNOWN row."""
+    team = g["team"] or fallback_team
+    identity = (player, aid, g["game_date"])
+    old = cur.execute(
+        "SELECT 1 FROM wnba_player_game_logs "
+        "WHERE player_name=? AND espn_id=? AND game_date=? LIMIT 1", identity,
+    ).fetchone()
+    if old:
+        cur.execute(
+            "UPDATE wnba_player_game_logs SET team=?,opp=?,is_home=?,"
+            "min=?,pts=?,reb=?,ast=?,stl=?,blk=?,tov=?,fg3m=?,fp=?,"
+            "season_type=? WHERE player_name=? AND espn_id=? AND game_date=?",
+            (team, g["opp"], g["is_home"], g["min"], g["pts"], g["reb"],
+             g["ast"], g["stl"], g["blk"], g["tov"], g["fg3m"], g["fp"],
+             g["season_type"], *identity),
+        )
+    else:
+        cur.execute(
+            "INSERT INTO wnba_player_game_logs "
+            "(player_name,espn_id,team,opp,game_date,is_home,min,pts,reb,ast,"
+            "stl,blk,tov,fg3m,fp,season_type) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (player, aid, team, g["opp"], g["game_date"], g["is_home"],
+             g["min"], g["pts"], g["reb"], g["ast"], g["stl"], g["blk"],
+             g["tov"], g["fg3m"], g["fp"], g["season_type"]),
+        )
 
 
 def main():
@@ -253,22 +351,21 @@ def main():
             if not logs:
                 continue
             for g in logs:
-                team = g["team"] or t["abbr"]
-                cur.execute(
-                    "INSERT INTO wnba_player_game_logs VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (pl["name"], aid, team, g["opp"], g["game_date"], g["is_home"],
-                     g["min"], g["pts"], g["reb"], g["ast"], g["stl"], g["blk"],
-                     g["tov"], g["fg3m"], g["fp"]))
+                _upsert_gamelog(cur, pl["name"], aid, g, t["abbr"])
             total_logs += len(logs)
-            # Season aggregates (logs are newest-first from ESPN).
-            pts = _agg(logs, "pts")
-            reb = _agg(logs, "reb")
-            ast = _agg(logs, "ast")
-            stl = _agg(logs, "stl")
-            blk = _agg(logs, "blk")
-            fg3 = _agg(logs, "fg3m")
-            mn = _agg(logs, "min")
-            fp = _agg(logs, "fp")
+            # Aggregate only regular-season games.  Playoff rows are retained
+            # for confidence/trend consumers but must not alter season baselines.
+            regular_logs = _current_regular_logs(logs)
+            if not regular_logs:
+                continue
+            pts = _agg(regular_logs, "pts")
+            reb = _agg(regular_logs, "reb")
+            ast = _agg(regular_logs, "ast")
+            stl = _agg(regular_logs, "stl")
+            blk = _agg(regular_logs, "blk")
+            fg3 = _agg(regular_logs, "fg3m")
+            mn = _agg(regular_logs, "min")
+            fp = _agg(regular_logs, "fp")
             cur.execute(
                 "INSERT OR REPLACE INTO wnba_player_stats "
                 "(player_name, espn_id, team, position, games, "
@@ -277,7 +374,7 @@ def main():
                 "stl_avg, stl_sd, stl_l5, blk_avg, blk_sd, blk_l5, "
                 "fg3m_avg, fg3m_sd, fg3m_l5, fp_avg, fp_sd, fp_l5, updated_at) "
                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                (pl["name"], aid, t["abbr"], pl["pos"], len(logs),
+                 (pl["name"], aid, t["abbr"], pl["pos"], len(regular_logs),
                  mn[0], mn[1], mn[2],
                  pts[0], pts[1], pts[2],
                  reb[0], reb[1], reb[2],

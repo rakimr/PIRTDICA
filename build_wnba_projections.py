@@ -23,6 +23,7 @@ import json
 import sqlite3
 import unicodedata
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 DB = "dfs_nba.db"
 
@@ -31,10 +32,12 @@ STAT_MAP = {
     "PTS": "pts", "REB": "reb", "AST": "ast", "3PM": "fg3m",
     "STL": "stl", "BLK": "blk",
 }
-MODEL_VERSION = "wnba_empirical_minutes_rates_v1"
+MODEL_VERSION = "wnba_empirical_minutes_rates_v2"
 POSITION_DVP_MIN = 10
 TEAM_DVP_MIN = 20
 UNAVAILABLE_COMPONENT = "unavailable_no_direct_evidence"
+PLAYOFF_GATE = 3
+PLAYOFF_WEIGHT = 2.5
 
 # The real WNBA franchises (ESPN abbreviations as they appear in the game
 # logs). Exhibition opponents around All-Star weekend (national teams like
@@ -198,7 +201,72 @@ def _quantile(values, q):
     return ordered[lo] + (ordered[hi] - ordered[lo]) * (at - lo)
 
 
-def empirical_profile(cur, player_name, skey, cutoff=None, model_mean=None):
+def _log_has_phase(cur):
+    return any(row[1] == "season_type" for row in
+               cur.execute("PRAGMA table_info(wnba_player_game_logs)").fetchall())
+
+
+def slate_phase(cur, home, away, game_date):
+    """Only an explicitly matched, source-labelled game can be a playoff slate."""
+    try:
+        row = cur.execute(
+            "SELECT season_type FROM wnba_games WHERE home_team=? AND away_team=? "
+            "AND game_date=? LIMIT 1", (home, away, game_date)).fetchone()
+        if row and row[0] in ("REGULAR", "PLAYOFF"):
+            return row[0]
+    except sqlite3.OperationalError:
+        pass
+    return "UNKNOWN"
+
+
+def projection_slate(cur, cutoff=None):
+    """Return the active exclusive cutoff and source-labelled phase if known."""
+    try:
+        if cutoff:
+            game_date = cutoff
+        else:
+            today = datetime.now(ZoneInfo("America/New_York")).date().isoformat()
+            row = cur.execute(
+                "SELECT MIN(game_date) FROM wnba_games WHERE game_date >= ?", (today,)
+            ).fetchone()
+            game_date = row[0] if row else None
+        if game_date:
+            phases = {row[0] for row in cur.execute(
+                "SELECT season_type FROM wnba_games WHERE game_date=?", (game_date,))}
+            if len(phases) == 1 and phases <= {"REGULAR", "PLAYOFF"}:
+                return game_date, phases.pop()
+            return game_date, "UNKNOWN"
+    except sqlite3.OperationalError:
+        pass
+    return cutoff, "UNKNOWN"
+
+
+def role_risk(profile, line, market_probability, side):
+    """Conservative pregame risk signals, not a claim that a role changed.
+
+    A large market/model disagreement with no verified role evidence requires
+    human review; a historical hit rate alone cannot make that a HIGH pick.
+    """
+    reasons = []
+    values = profile["observed_values"]
+    mins = profile["observed_minutes"]
+    avg = _mean(values)
+    if (len(values) >= 5 and avg > 0
+            and (line >= 1.6 * avg if side == "UNDER" else line <= 0.6 * avg)):
+        reasons.append("book_line_far_from_historical_average_without_verified_role")
+    if len(mins) >= 8:
+        recent, prior = _mean(mins[:3]), _mean(mins[3:8])
+        if abs(recent - prior) >= 6 and abs(recent - prior) / max(prior, 1) >= 0.20:
+            reasons.append("recent_minutes_shift")
+    return {"review_required": bool(reasons), "reasons": reasons,
+            "market_selected_side_probability": market_probability,
+            "recent_3_minutes": round(_mean(mins[:3]), 2) if mins else None,
+            "prior_5_minutes": round(_mean(mins[3:8]), 2) if len(mins) >= 8 else None,
+            "role_verified": False}
+
+
+def empirical_profile(cur, player_name, skey, cutoff=None, model_mean=None,
+                      season_type="REGULAR"):
     """Build a reproducible minutes x per-minute-rate predictive distribution.
 
     ``cutoff`` is exclusive, ensuring a slate can only use games completed
@@ -213,32 +281,55 @@ def empirical_profile(cur, player_name, skey, cutoff=None, model_mean=None):
     if cutoff:
         where += " AND game_date < ?"
         params.append(cutoff)
+    has_phase = _log_has_phase(cur)
     try:
         rows = cur.execute(
-            f"SELECT game_date, min, {skey} FROM wnba_player_game_logs "
+            f"SELECT game_date, min, {skey}"
+            + (", season_type" if has_phase else "") + " FROM wnba_player_game_logs "
             f"WHERE {where} AND {skey} IS NOT NULL ORDER BY game_date DESC",
             tuple(params),
         ).fetchall()
     except sqlite3.OperationalError:
         rows = []
-    rows = [r for r in rows if r[1] is not None and r[1] > 0 and r[2] is not None]
+    rows = [r for r in rows if r[1] is not None and r[1] > 0 and r[2] is not None
+            and (not has_phase or r[3] in ("REGULAR", "PLAYOFF"))]
+    # Archived seasons are retained by ingestion, but a previous season's
+    # rotation is not evidence for the present season's minutes projection.
+    season_year = cutoff[:4] if cutoff else rows[0][0][:4] if rows else None
+    rows = [r for r in rows if r[0][:4] == season_year]
+    playoff_rows = [r for r in rows if has_phase and r[3] == "PLAYOFF"
+                    and cutoff and r[0][:4] == cutoff[:4]]
+    # Do not allow last year's playoff rotation to drive a new year's slate.
+    if season_type == "PLAYOFF":
+        rows = [r for r in rows if not has_phase or r[3] == "REGULAR"
+                or r in playoff_rows]
+    else:
+        rows = [r for r in rows if not has_phase or r[3] == "REGULAR"]
     if not rows:
         return None
     minutes = [float(r[1]) for r in rows]
     rates = [max(0.0, float(r[2])) / float(r[1]) for r in rows]
-    recent_minutes = minutes[:5]
-    recent_rates = rates[:5]
-    projected_minutes = 0.6 * _mean(recent_minutes) + 0.4 * _mean(minutes)
+    playoff_n = len(playoff_rows) if season_type == "PLAYOFF" else 0
+    weighted = season_type == "PLAYOFF" and playoff_n >= PLAYOFF_GATE
+    weights = [PLAYOFF_WEIGHT if weighted and has_phase and r[3] == "PLAYOFF" else 1.0
+               for r in rows]
+    def wmean(items, item_weights):
+        return sum(v * w for v, w in zip(items, item_weights)) / sum(item_weights)
+    projected_minutes = 0.6 * _mean(minutes[:5]) + 0.4 * wmean(minutes, weights)
     # This is a realized box-score outcome rate, not a physical opportunity
     # (touch, shot, potential assist, etc.) rate. We do not have tracking
     # inputs that would support splitting opportunity from conversion.
-    outcome_rate = 0.6 * _mean(recent_rates) + 0.4 * _mean(rates)
+    outcome_rate = 0.6 * _mean(rates[:5]) + 0.4 * wmean(rates, weights)
     target = (float(model_mean) if model_mean is not None
               else projected_minutes * outcome_rate)
     raw = [m * rate for m in minutes for rate in rates]
-    raw_mean = _mean(raw)
+    scenario_weights = [mw * rw for mw in weights for rw in weights]
+    raw_mean = wmean(raw, scenario_weights)
     scale = target / raw_mean if raw_mean > 0 else 0.0
-    distribution = [float(round(max(0.0, value * scale))) for value in raw]
+    # 2.5x playoff weighting represented exactly by 5:2 discrete repetitions.
+    distribution = [float(round(max(0.0, value * scale)))
+                    for value, weight in zip(raw, scenario_weights)
+                    for _ in range(int(weight * 4) if weighted else 1)]
     n = len(rows)
     confidence = "HIGH" if n >= 20 else ("MEDIUM" if n >= 10 else "LOW")
     return {
@@ -260,6 +351,9 @@ def empirical_profile(cur, player_name, skey, cutoff=None, model_mean=None):
         "cutoff": cutoff,
         "observed_values": [float(r[2]) for r in rows],
         "observed_minutes": minutes,
+        "season_type": season_type,
+        "playoff_games": playoff_n,
+        "playoff_weight_applied": weighted,
     }
 
 
@@ -413,6 +507,10 @@ def _matchup_factor(cur, opponent, position, skey, cutoff=None):
 
 
 def build_projections(cur, cutoff=None):
+    active_cutoff, phase = projection_slate(cur, cutoff)
+    # Even a regular/unknown slate must not ingest same-day completed games
+    # or a later refreshed aggregate as its pregame projection.
+    effective_cutoff = active_cutoff
     cur.execute("DROP TABLE IF EXISTS wnba_projections")
     cur.execute("""CREATE TABLE wnba_projections (
         player_name TEXT, team TEXT, stat TEXT, games INTEGER,
@@ -434,14 +532,15 @@ def build_projections(cur, cutoff=None):
     out = []
     for p in players:
         name, team, games, min_avg, min_l5 = p[0], p[1], p[2], p[3], p[4]
-        if cutoff:
-            team = latest_player_team(cur, name, cutoff)
+        if effective_cutoff:
+            team = latest_player_team(cur, name, effective_cutoff)
         for skey, (ia, il, isd) in cols.items():
-            if cutoff:
+            if effective_cutoff:
                 # Every core input is reconstructed as-of cutoff. Current
                 # aggregate rows must not leak later production into a
                 # historical projection or become a rescaling target.
-                profile = empirical_profile(cur, name, skey, cutoff)
+                profile = empirical_profile(cur, name, skey, effective_cutoff,
+                                            season_type=phase)
                 if profile:
                     observed = profile["observed_values"]
                     observed_minutes = profile["observed_minutes"]
@@ -471,7 +570,10 @@ def build_projections(cur, cutoff=None):
                     profile["profile_confidence"],
                     json.dumps({"source": "player_game_logs",
                                 "sample_games": profile["sample_games"],
-                                "pregame_cutoff": cutoff,
+                                "pregame_cutoff": effective_cutoff,
+                                "season_type": phase,
+                                "playoff_games": profile["playoff_games"],
+                                "playoff_weight_applied": profile["playoff_weight_applied"],
                                 "model_mean_definition": "mean of discrete empirical scenarios",
                                 "opportunity_component": {
                                     "status": UNAVAILABLE_COMPONENT,
@@ -484,7 +586,7 @@ def build_projections(cur, cutoff=None):
                 extra = (None,) * 11 + (UNAVAILABLE_COMPONENT, UNAVAILABLE_COMPONENT,
                                          "UNAVAILABLE", json.dumps(
                     {"error": "historical player minutes/rates unavailable",
-                     "pregame_cutoff": cutoff,
+                      "pregame_cutoff": effective_cutoff,
                      "opportunity_component": {"status": UNAVAILABLE_COMPONENT},
                      "conversion_component": {"status": UNAVAILABLE_COMPONENT}},
                     sort_keys=True))
@@ -492,16 +594,11 @@ def build_projections(cur, cutoff=None):
         # STL/BLK are intentionally derived from authentic logs because the
         # legacy aggregate table predates those columns.
         for skey in ("stl", "blk"):
-            profile = empirical_profile(cur, name, skey, cutoff)
+            profile = empirical_profile(cur, name, skey, effective_cutoff,
+                                        season_type=phase)
             if not profile:
                 continue
-            vals = cur.execute(
-                f"SELECT {skey} FROM wnba_player_game_logs WHERE player_name = ?"
-                + (" AND game_date < ?" if cutoff else "")
-                + " ORDER BY game_date DESC",
-                (name, cutoff) if cutoff else (name,),
-            ).fetchall()
-            vals = [float(v[0]) for v in vals if v[0] is not None]
+            vals = profile["observed_values"]
             avg = _mean(vals)
             last5 = _mean(vals[:5])
             sd = (sum((v - avg) ** 2 for v in vals) / (len(vals) - 1)) ** 0.5 if len(vals) > 1 else 0.0
@@ -510,7 +607,10 @@ def build_projections(cur, cutoff=None):
             evidence = json.dumps({
                 "source": "player_game_logs",
                 "sample_games": profile["sample_games"],
-                "pregame_cutoff": cutoff,
+                "pregame_cutoff": effective_cutoff,
+                "season_type": phase,
+                "playoff_games": profile["playoff_games"],
+                "playoff_weight_applied": profile["playoff_weight_applied"],
                 "model_mean_definition": "mean of discrete empirical scenarios",
                 "opportunity_component": {
                     "status": UNAVAILABLE_COMPONENT,
@@ -586,8 +686,11 @@ def game_env_penalty(side, spread, min_avg):
     return 0.0
 
 
-def confidence(probability_edge_pp, hr, cv, games, high_edge=8.0):
+def confidence(probability_edge_pp, hr, cv, games, high_edge=8.0,
+               review_required=False, phase_known=True):
     """Confidence gates never promote a negative no-vig probability edge."""
+    if review_required or not phase_known:
+        return "LOW"
     if games >= 5 and probability_edge_pp >= high_edge and hr >= 60 and cv <= 0.6:
         return "HIGH"
     if probability_edge_pp >= 5 and hr >= 55 and cv <= 0.8:
@@ -673,7 +776,9 @@ def build_prop_recs(cur, factors):
             continue
         opponent = away_abbr if pteam == home_abbr else home_abbr
         # Rebuild from only information available before this game's date.
-        profile = empirical_profile(cur, real_name, skey, gdate)
+        phase = slate_phase(cur, home, away, gdate)
+        profile = empirical_profile(cur, real_name, skey, gdate,
+                                    season_type=phase if phase == "PLAYOFF" else "REGULAR")
         if not profile:
             continue
         observed = profile["observed_values"]
@@ -700,19 +805,27 @@ def build_prop_recs(cur, factors):
         # versus the book line. Probability edge remains an internal field used
         # for side selection, scoring, and confidence.
         edge = round(((adj_proj - line) / line) * 100, 1) if line else 0.0
-        hr = hit_rate(cur, real_name, skey, line, side, gdate)
+        hr = round(100.0 * sum((v > line if side == "OVER" else v < line)
+                                for v in observed) / len(observed), 0)
         dva_supports = ((af > 1.0 and side == "OVER")
                         or (af < 1.0 and side == "UNDER"))
         spread, total = game_env.get((home, away, gdate), (None, None))
         env_pen = game_env_penalty(side, spread, min_avg)
         score_edge = max(0.0, probability_edge or 0.0)
         comp = composite(score_edge, hr, cv, dva_supports, env_pen)
-        conf = confidence(score_edge, hr, cv, games, high_edge)
+        risk = role_risk(profile, line, side_price["market_no_vig_probability"], side)
+        conf = confidence(score_edge, hr, cv, games, high_edge,
+                          review_required=risk["review_required"],
+                          phase_known=phase != "UNKNOWN")
         quantiles = [_quantile(adjusted_distribution, q)
                      for q in (0.10, 0.25, 0.50, 0.75, 0.90)]
         evidence = {
             "source": "wnba_player_game_logs",
             "pregame_cutoff": gdate,
+            "slate_season_type": phase,
+            "playoff_games": profile["playoff_games"],
+            "playoff_weight_applied": profile["playoff_weight_applied"],
+            "role_risk": risk,
             "sample_games": profile["sample_games"],
             "outcome_per_minute_is_box_score_derived": True,
             "model_mean_definition": "mean of discrete empirical scenarios",

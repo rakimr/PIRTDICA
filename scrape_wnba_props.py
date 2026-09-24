@@ -10,16 +10,22 @@ player props: points / rebounds / assists / threes / steals / blocks).
 import os
 import sys
 import sqlite3
+import re
 import requests
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from utils.timezone import get_eastern_date_str, get_eastern_now
+from utils.espn_fetch import espn_get_json
 
 API_KEY = os.environ.get('THE_ODDS_API_KEY', '')
 BASE_URL = 'https://api.the-odds-api.com/v4'
 SPORT = 'basketball_wnba'
 EASTERN = ZoneInfo("America/New_York")
+ESPN_SCOREBOARD_URL = (
+    "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard"
+)
+SEASON_TYPE_NAMES = {"2": "REGULAR", "3": "PLAYOFF"}
 
 MARKETS = [
     'player_points', 'player_rebounds', 'player_assists', 'player_threes',
@@ -41,7 +47,79 @@ def _utc_to_et_date(commence_time):
         dt = datetime.fromisoformat(commence_time.replace('Z', '+00:00'))
         return dt.astimezone(EASTERN).date().isoformat()
     except Exception:
-        return get_eastern_date_str()
+        # A guessed date can associate a game with the wrong ESPN phase.
+        return ""
+
+
+def _normalized_team_name(name):
+    """Return a comparison form shared by Odds API and ESPN team names."""
+    return re.sub(r"[^a-z0-9]", "", (name or "").casefold())
+
+
+def _espn_season_type(event):
+    """Translate ESPN's numeric event season type to our persisted value."""
+    season = event.get("season")
+    if not isinstance(season, dict):
+        return "UNKNOWN"
+    season_type = season.get("type") or {}
+    value = season_type.get("id") if isinstance(season_type, dict) else season_type
+    return SEASON_TYPE_NAMES.get(str(value), "UNKNOWN")
+
+
+def _fetch_espn_season_types(odds_events, fetch_json=None):
+    """Build (ET date, home, away) -> phase from dated ESPN scoreboards.
+
+    Matching deliberately uses the teams and Eastern calendar date rather than
+    either provider's event ID.  A missing feed, malformed event, or unknown
+    ESPN phase remains UNKNOWN; calendar dates are never used to infer phase.
+    """
+    dates = {_utc_to_et_date(ev.get("commence_time", "")) for ev in odds_events}
+    dates.discard("")
+    fetch_json = fetch_json or espn_get_json
+    result = {}
+    for game_date in dates:
+        try:
+            data = fetch_json(
+                f"{ESPN_SCOREBOARD_URL}?dates={game_date.replace('-', '')}"
+            )
+        except Exception:
+            data = None
+        if not isinstance(data, dict):
+            continue
+        for event in data.get("events", []):
+            if not isinstance(event, dict):
+                continue
+            event_date = _utc_to_et_date(event.get("date", ""))
+            if event_date != game_date:
+                continue
+            competitions = event.get("competitions") or []
+            if not isinstance(competitions, list) or not competitions:
+                continue
+            competition = competitions[0]
+            if not isinstance(competition, dict):
+                continue
+            competitors = competition.get("competitors", [])
+            if not isinstance(competitors, list):
+                continue
+            teams = {}
+            for competitor in competitors:
+                if not isinstance(competitor, dict):
+                    continue
+                team = competitor.get("team") or {}
+                if not isinstance(team, dict):
+                    continue
+                name = team.get("displayName") or team.get("name") or ""
+                if competitor.get("homeAway") in ("home", "away"):
+                    teams[competitor["homeAway"]] = name
+            if "home" not in teams or "away" not in teams:
+                continue
+            key = (
+                game_date,
+                _normalized_team_name(teams["home"]),
+                _normalized_team_name(teams["away"]),
+            )
+            result[key] = _espn_season_type(event)
+    return result
 
 
 def _ensure_tables(cur):
@@ -62,6 +140,11 @@ def _ensure_tables(cur):
     for col in ("home_spread REAL", "game_total REAL"):
         if col.split()[0] not in existing:
             cur.execute(f"ALTER TABLE wnba_games ADD COLUMN {col}")
+    # Idempotent schema migration for databases created before phase metadata.
+    if "season_type" not in existing:
+        cur.execute(
+            "ALTER TABLE wnba_games ADD COLUMN season_type TEXT DEFAULT 'UNKNOWN'"
+        )
     cur.execute("""
     CREATE TABLE IF NOT EXISTS wnba_props (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -114,6 +197,7 @@ def main():
 
     print(f"Found {len(events)} WNBA events.")
     scraped_at = get_eastern_now().isoformat()
+    season_types = _fetch_espn_season_types(events)
 
     # Game odds (spread + total) in ONE bulk request for the whole slate.
     # Costs a single API call and gives the models the game environment
@@ -165,12 +249,18 @@ def main():
         away = ev.get('away_team', '')
         commence = ev.get('commence_time', '')
         game_date = _utc_to_et_date(commence)
+        season_type = season_types.get(
+            (game_date, _normalized_team_name(home), _normalized_team_name(away)),
+            "UNKNOWN",
+        )
 
         spread, total = game_odds.get(event_id, (None, None))
         cur.execute(
             "INSERT INTO wnba_games (event_id, home_team, away_team, commence_time, game_date, "
-            "scraped_at, home_spread, game_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (event_id, home, away, commence, game_date, scraped_at, spread, total),
+            "scraped_at, home_spread, game_total, season_type) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (event_id, home, away, commence, game_date, scraped_at, spread, total,
+             season_type),
         )
         games_saved += 1
 

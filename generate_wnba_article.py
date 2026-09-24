@@ -187,6 +187,17 @@ def _build_evidence_ledger(entry, alternatives):
         "pregame_book_line", _field_reference("book_line"),
         "Pregame market threshold the modeled outcome must clear.",
         side.lower() if side else "neutral", confidence="market observation"))
+    if entry.get("slate_season_type") in ("REGULAR", "PLAYOFF"):
+        ledger["observed"].append(_evidence_item(
+            "slate_season_type", _field_reference("slate_season_type"),
+            "Source-labelled schedule phase, not a calendar inference.",
+            "neutral", confidence="ESPN event metadata"))
+    if entry.get("slate_season_type") == "PLAYOFF":
+        ledger["derived"].append(_evidence_item(
+            "playoff_weight", {"prior_playoff_games": entry.get("playoff_games", 0),
+                               "weight_applied": entry.get("playoff_weight_applied", False)},
+            "Playoff minutes and rates are emphasized only after three prior playoff games.",
+            "role context", confidence="historical sample"))
     for signal, key, sample in (
         ("season_average", "season_avg", "season-to-date games"),
         ("last_five_average", "last5_avg", "last 5 games"),
@@ -1008,6 +1019,10 @@ def _build_briefing(recs, meta, records, caches=None):
                         value = {"status": "unavailable", "error": "invalid evidence_json"}
                 entry[field] = value
                 if field == "evidence_json" and isinstance(value, dict):
+                    for name in ("slate_season_type", "playoff_games",
+                                 "playoff_weight_applied", "role_risk"):
+                        if name in value:
+                            entry[name] = value[name]
                     proxy = {key: value.get(key) for key in (
                         "matchup_source", "applied_matchup_factor", "matchup_sample")
                         if _present(value.get(key))}
@@ -1113,6 +1128,11 @@ def _build_briefing(recs, meta, records, caches=None):
             and str(other.get("stat")) != str(entry.get("stat"))
         ]
         entry["evidence_ledger"] = _build_evidence_ledger(entry, alternatives)
+        if entry.get("role_risk", {}).get("review_required"):
+            entry["evidence_ledger"]["unavailable"].append(_evidence_item(
+                "role_review_required", entry["role_risk"],
+                "Market and historical role disagree; no verified role evidence is supplied.",
+                "avoid high confidence", confidence="unverified"))
         # evidence_json is parsed solely for its cutoff-safe matchup fields.
         # The raw payload can be large and is not a second source of truth once
         # the structured ledger has been assembled.
@@ -1128,6 +1148,7 @@ SYSTEM_PROMPT = """You are an elite WNBA DFS analyst for PIRTDICA SPORTS CO. You
 You are competing against the sharpest analysts at FanDuel who set these player prop lines. Respect the lines. Only attack when you have genuine conviction backed by multiple converging signals.
 
 YOUR JOB: Independently analyze the slate and select 4-8 HIGH confidence prop picks. You are NOT limited to what the model labeled HIGH; evaluate every prop line and find the sharpest edges yourself.
+Only supplied HIGH/MEDIUM candidates have passed the mandatory safety gate. Never infer a role change, injury redistribution, or postseason status from a book line alone. A large market disagreement requires verified role information; otherwise do not publish it as a high-confidence pick.
 
 ANALYTICAL FRAMEWORK (this is how a sharp WNBA analyst reasons // follow it):
 1. SHOT-DIET vs OPPONENT-DEFENSE-BY-ZONE (conversion signal when present): After establishing opportunity, use `zone_matchup_edges`, or `shot_diet` + `opp_def_zones`, as conversion context. Cite the player's historical zone share and the opponent's aggregate allowed FG% and rank. This is an association between separate historical aggregates, not tracking evidence, a defender assignment, or proof that the matchup causes tonight's result.
@@ -1140,6 +1161,7 @@ For an explicit as-of slate, do not use any DVP table. Only `cutoff_matchup_prox
 7. FANTASY-POINT CONTEXT (`fp_context` when present): `season_fp_pg` is the player's season fantasy output, `last5_fp_pg` is recent form, and `fp_ceiling`/`fp_floor` are an honest +/- 1 SD band around the season average (NOT a tonight projection). A wide band means a volatile, boom-or-bust profile (demand a bigger edge); a tight band supports confidence. If recent FP is running well above the season average, pair it with the slump-risk read before chasing an OVER.
 8. QUARTER / CLUTCH PROFILE (`quarter_profile` when present): built from play-by-play. `pts_by_quarter` is the player's average points in Q1-Q4, `q4_pts_share_pct` is the share of her scoring that comes in the 4th, `q4_team_fga_share_pct` is her share of her TEAM's 4th-quarter shots (late-game usage), and `clutch_pts_pg`/`clutch_fga_pg` are her scoring and volume in clutch time (Q4/OT, within 5 points, under 5:00). A player who keeps or grows her share late is safer for PTS OVERs (she closes games); a player whose scoring fades in the 4th or who loses late-game touches has a softer ceiling and a blowout-benching risk // that supports UNDERs on lines that need a full 40-minute run. Supporting signal, not the headline.
 9. VEGAS GAME ENVIRONMENT (`game_environment` when present): `team_spread` is the pick's team's point spread (negative = favored), `game_total` is the Vegas over/under, and `implied_team_total` is the team's expected score. Use it with LENIENCE // spreads miss all the time and OTs are rare, so this is a supporting environment signal, never a veto. A tight spread (`script` = "tight game expected") keeps starters on the floor to the final whistle // that supports volume OVERs for heavy-minutes players and argues against UNDERs that need an early exit. A big spread (blowout benching risk) is a mild headwind for OVERs that need a full run. A high total or implied team total signals a scoring environment only: it may reflect pace, efficiency, or both, so never claim it proves possessions. Cite the actual numbers when you use them.
+For a PLAYOFF slate, inspect `playoff_games` and `playoff_weight_applied`: with fewer than three prior playoff games, do not describe the projection as playoff-weighted. Never assume a playoff player will play extra minutes without evidence.
 10. REFEREE CREW (`referee_crew` when present): the officials assigned to this game with their foul environment. `avg_fouls_pg` is the crew's average fouls per game and `whistle` is tight/average/lenient vs the WNBA crew average. A `tight` whistle crew creates more free-throw and foul-out volume (supports PTS OVERs for foul-drawers, raises foul-trouble risk for bigs); a `lenient` crew suppresses FT-dependent scoring. This is a minor supporting signal, never the headline.
 
 CORRELATION & STACKING (reason ACROSS your own picks, not just one pick at a time): picks in the SAME game share an opponent and game environment (referee whistle, rest, and the market scoring environment). When two of your picks are teammates, or fall in the same game, say so. Teammates both attacking the same leaky zone or a soft DVP, or both playing in a tight-whistle (more fouls, more free throws) game, are positively correlated and tend to rise together // that is real tournament upside, but they also bust together, so spreading picks across different games is the safer build. An OVER on one player and an UNDER on a teammate fighting for the same usage can offset // flag it. There are NO DFS ownership inputs for the WNBA slate, so do not invent leverage or chalk claims. Vegas spread/total context arrives per pick in `game_environment` // only cite the numbers given there, never invent lines.
@@ -1439,8 +1461,6 @@ def _template_result(prop_lines):
         return f"{number:+.0f}" if abs(number) >= 100 else _num(number, 2)
 
     highs = [p for p in prop_lines if p["confidence"] in ("HIGH", "MEDIUM")][:6]
-    if not highs:
-        highs = prop_lines[:5]
     picks, analyses = [], []
     for p in highs:
         side = p["model_side"]
@@ -1559,6 +1579,14 @@ def _template_result(prop_lines):
             "analysis": analysis,
         })
     return {"picks": picks, "analyses": analyses}
+
+
+def _eligible_prop_lines(prop_lines):
+    """Enforce the model's safety gate for BOTH Claude and fallback selection."""
+    return [p for p in prop_lines
+            if p["confidence"] in ("HIGH", "MEDIUM")
+            and not p.get("role_risk", {}).get("review_required")
+            and p.get("slate_season_type") in ("REGULAR", "PLAYOFF")]
 
 
 def _to_template_shapes(result, meta):
@@ -1731,10 +1759,14 @@ def main():
         lambda r: frozenset([r["team"], r["opponent"]]), axis=1).nunique()
 
     prop_lines = _build_briefing(recs, meta, records, _load_enrichment(slate_date))
-    result = _call_claude(prop_lines, game_count, slate_date)
+    # This is a safety gate, not a writing suggestion: neither Claude nor the
+    # deterministic fallback may promote a review-required or unknown-phase row.
+    eligible = _eligible_prop_lines(prop_lines)
+    print(f"[WNBA ARTICLE] {len(eligible)}/{len(prop_lines)} candidates passed the safety gate.")
+    result = _call_claude(eligible, game_count, slate_date) if len(eligible) >= 4 else None
     claude_selected = result is not None
     if not result:
-        result = _template_result(prop_lines)
+        result = _template_result(eligible)
 
     picks_data, analysis_data = _to_template_shapes(result, meta)
 
@@ -1758,15 +1790,16 @@ def main():
 
     out_path = f"static/images/wnba_article_header_{slate_date.isoformat()}.png"
     header_web_path = None
-    try:
-        sub = f"{slate_date.strftime('%B %-d, %Y').upper()} \u2014 WNBA HIGH CONFIDENCE PICKS"
-        generate_header.generate(
-            target_date=slate_date, out_path=out_path, player_data=header_players,
-            subtitle_override=sub, espn_ids=espn_ids, league="wnba")
-        if os.path.exists(out_path):
-            header_web_path = "/" + out_path
-    except Exception as e:
-        print(f"Header generation failed ({e}) // continuing without header.")
+    if header_players:
+        try:
+            sub = f"{slate_date.strftime('%B %-d, %Y').upper()} \u2014 WNBA HIGH CONFIDENCE PICKS"
+            generate_header.generate(
+                target_date=slate_date, out_path=out_path, player_data=header_players,
+                subtitle_override=sub, espn_ids=espn_ids, league="wnba")
+            if os.path.exists(out_path):
+                header_web_path = "/" + out_path
+        except Exception as e:
+            print(f"Header generation failed ({e}) // continuing without header.")
 
     _save(slate_date, header_web_path, picks_data, analysis_data, game_count, claude_selected)
     print("Done.")
