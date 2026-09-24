@@ -11,6 +11,7 @@ import time
 import json
 import threading
 import subprocess
+import sqlite3
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC_DIR = os.path.join(PROJECT_ROOT, "static")
@@ -599,6 +600,19 @@ def _render_wnba_articles(request: Request, user, db: Session):
             print(f"[WNBA ARTICLES] Prop recs load failed: {e}")
 
 
+    parlay_cards = []
+    parlay_status = "No same-game pair of HIGH article picks cleared the historical sample and risk checks."
+    if article and has_access and picks:
+        if article.slate_date >= get_eastern_today():
+            try:
+                from backend.parlays import for_article
+                parlay_cards = for_article(picks, "wnba", article.slate_date.isoformat(), PROJECT_ROOT)
+            except (OSError, ValueError, sqlite3.Error) as e:
+                print(f"[WNBA PARLAYS] research inputs unavailable: {e}")
+                parlay_status = "Historical data is unavailable; no parlay scenario can be estimated."
+        else:
+            parlay_status = "The displayed article is from a prior slate. New scenarios appear with the next article."
+
     official_locked = bool(article and article.official_locked_at)
     official_locked_at_str = None
     if official_locked:
@@ -617,6 +631,8 @@ def _render_wnba_articles(request: Request, user, db: Session):
         "has_access": has_access,
         "pre_lock": False,
         "prop_recs": prop_recs,
+        "parlay_cards": parlay_cards,
+        "parlay_status": parlay_status,
         "official_locked": official_locked,
         "official_locked_at_str": official_locked_at_str,
         "header_image": _resolve_header_image(
@@ -853,6 +869,18 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
                         })
             except Exception as e:
                 print(f"[ARTICLES] Prop recs load failed: {e}")
+    parlay_cards = []
+    parlay_status = "No same-game pair of HIGH article picks cleared the historical sample and risk checks."
+    if article and has_access and not pre_lock and picks:
+        if article.slate_date >= today:
+            try:
+                from backend.parlays import for_article
+                parlay_cards = for_article(picks, "nba", article.slate_date.isoformat(), PROJECT_ROOT)
+            except (OSError, ValueError, sqlite3.Error) as e:
+                print(f"[NBA PARLAYS] research inputs unavailable: {e}")
+                parlay_status = "Historical data is unavailable; no parlay scenario can be estimated."
+        else:
+            parlay_status = "The displayed article is from a prior slate. New scenarios appear with the next article."
     # Task #45: surface the official-call lock state for the badge + hint above
     # the picks card. `official_locked_at` is stored as TIMESTAMPTZ so it comes
     # back as an aware UTC datetime // convert to ET for display.
@@ -873,6 +901,8 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
         "has_access": has_access,
         "pre_lock": pre_lock,
         "prop_recs": prop_recs,
+        "parlay_cards": parlay_cards,
+        "parlay_status": parlay_status,
         "official_locked": official_locked,
         "official_locked_at_str": official_locked_at_str,
         "header_image": _resolve_header_image(

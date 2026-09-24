@@ -2128,6 +2128,13 @@ Remember:
                 'rank': idx + 1,
                 'player': player,
                 'game': game_label,
+                'team': str(source_row.get('team', '')),
+                'opponent': str(source_row.get('opponent', '')),
+                # HIGH applies to the model's recommended side, not to an
+                # arbitrary opposite side Claude might select for this stat.
+                'confidence': str(source_row.get('confidence', '')) if (
+                    call in str(source_row.get('recommendation', '')).upper()
+                ) else 'UNVERIFIED_SIDE',
                 'stat': str(source_row.get('stat', '')),
                 'avg': round(player_avg, 1),
                 'line': round(book_line, 1),
@@ -2465,6 +2472,9 @@ def generate_article(target_date=None):
                 'rank': len(picks_data) + 1,
                 'player': player,
                 'game': game_label,
+                'team': str(row.get('team', '')),
+                'opponent': str(row.get('opponent', '')),
+                'confidence': str(row.get('confidence', '')),
                 'stat': row.get('stat', ''),
                 'avg': round(_safe_float(row.get('player_avg', 0)), 1),
                 'line': round(_safe_float(row.get('book_line', 0)), 1),

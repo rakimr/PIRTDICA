@@ -1617,9 +1617,18 @@ def _eligible_prop_lines(prop_lines):
             and p.get("slate_season_type") in ("REGULAR", "PLAYOFF")]
 
 
-def _to_template_shapes(result, meta):
+def _to_template_shapes(result, meta, eligible=None):
     picks_data, analysis_data = [], []
+    source = {
+        (_norm(p.get("player")), str(p.get("stat", "")).upper(),
+         str(p.get("model_side", "")).upper(), float(p.get("book_line"))): p
+        for p in (eligible or []) if _present(p.get("book_line"))
+    }
     for i, pk in enumerate(result["picks"], start=1):
+        original = source.get(
+            (_norm(pk.get("player")), str(pk.get("stat", "")).upper(),
+             str(pk.get("pick", "")).upper(), float(pk.get("book_line")))
+        ) if _present(pk.get("book_line")) else None
         picks_data.append({
             "rank": i,
             "player": pk.get("player", ""),
@@ -1630,6 +1639,9 @@ def _to_template_shapes(result, meta):
             "projected": pk.get("projected", ""),
             "edge": pk.get("edge") if isinstance(pk.get("edge"), str) else _edge_str(pk.get("edge")),
             "pick": str(pk.get("pick", "OVER")).upper(),
+            "team": original.get("team") if original else pk.get("team", ""),
+            "opponent": original.get("opponent") if original else pk.get("opponent", ""),
+            "confidence": original.get("confidence") if original else None,
         })
     for a in result["analyses"]:
         nk = _norm(a.get("player", ""))
@@ -1798,7 +1810,7 @@ def main():
     if not result:
         result = _template_result(eligible)
 
-    picks_data, analysis_data = _to_template_shapes(result, meta)
+    picks_data, analysis_data = _to_template_shapes(result, meta, eligible)
 
     # Header image: featured players (dedup, top 6 by order) -> static/images.
     seen, header_players, espn_ids = set(), [], {}
@@ -1822,7 +1834,7 @@ def main():
     header_web_path = None
     if header_players:
         try:
-            sub = f"{slate_date.strftime('%B %-d, %Y').upper()} \u2014 WNBA HIGH CONFIDENCE PICKS"
+            sub = f"{slate_date.strftime('%B %-d, %Y').upper()} \u2014 WNBA ARTICLE PICKS"
             generate_header.generate(
                 target_date=slate_date, out_path=out_path, player_data=header_players,
                 subtitle_override=sub, espn_ids=espn_ids, league="wnba")
