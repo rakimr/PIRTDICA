@@ -428,6 +428,27 @@ def build_analysis_text_template(row, dfs_df, game_date=None):
         opener += f", and the books have his {stat_label} line set at {book_line}."
         paragraphs.append(opener)
 
+    # Give the deterministic path a player-specific analytical anchor before
+    # its shared matchup/reliability language.  These are already model inputs,
+    # not inferred narrative, so two fallback analyses do not collapse into the
+    # same projection/last-five paragraph when their evidence differs.
+    signature_parts = []
+    if usage_boost:
+        signature_parts.append(f"the model assigns him a {usage_boost:.1f}% usage boost")
+    if projected_min:
+        signature_parts.append(f"his projected workload is {projected_min:.1f} minutes")
+    if opportunity_index:
+        signature_parts.append(f"his opportunity index is {opportunity_index:.1f}")
+    if out_player_details:
+        signature_parts.append(f"the supplied availability note is {out_player_details}")
+    if signature_parts:
+        paragraphs.append(
+            f"**The player-specific driver:** {last_name} has "
+            + "; ".join(signature_parts)
+            + ". Those inputs are the reason this line is evaluated on its own terms, "
+              "rather than treated as a generic slate pick."
+        )
+
     matchup_parts = []
     if archetype:
         if call == "OVER":

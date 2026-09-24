@@ -1147,7 +1147,7 @@ SYSTEM_PROMPT = """You are an elite WNBA DFS analyst for PIRTDICA SPORTS CO. You
 
 You are competing against the sharpest analysts at FanDuel who set these player prop lines. Respect the lines. Only attack when you have genuine conviction backed by multiple converging signals.
 
-YOUR JOB: Independently analyze the slate and select 4-8 HIGH confidence prop picks. You are NOT limited to what the model labeled HIGH; evaluate every prop line and find the sharpest edges yourself.
+YOUR JOB: Independently analyze the slate and select 1-8 HIGH confidence prop picks. You are NOT limited to what the model labeled HIGH; evaluate every safety-eligible prop line and find the sharpest edges yourself. Select as many as the evidence supports, and never force four.
 Only supplied HIGH/MEDIUM candidates have passed the mandatory safety gate. Never infer a role change, injury redistribution, or postseason status from a book line alone. A large market disagreement requires verified role information; otherwise do not publish it as a high-confidence pick.
 
 ANALYTICAL FRAMEWORK (this is how a sharp WNBA analyst reasons // follow it):
@@ -1235,9 +1235,11 @@ def _validate_claude_result(result, prop_lines):
     if not isinstance(picks, list) or not isinstance(analyses, list):
         return False, "picks/analyses are not arrays"
 
-    if len(prop_lines) < 2:
-        return False, "fewer than 2 available prop lines"
-    minimum = min(4, len(prop_lines))
+    if not prop_lines:
+        return False, "no available prop lines"
+    # Small safe slates are still worth an authored call. The safety gate
+    # determines the candidate set; never pad it to reach four.
+    minimum = 1
     if len(picks) < minimum or len(picks) > 8:
         return False, f"expected {minimum}-8 picks, received {len(picks)}"
     if len(analyses) != len(picks):
@@ -1393,7 +1395,8 @@ def _call_claude(prop_lines, game_count, slate_date):
         f"{WNBA_ANALYSIS_BLUEPRINT}\n\n"
         "HERE IS THE COMPLETE SLATE DATA (every prop line with model context):\n\n"
         f"{json.dumps(briefing, indent=2, default=str)}\n\n"
-        "Remember: select 4-8 picks with the strongest convergence of signals. Every "
+        f"Remember: select 1-{min(8, len(prop_lines))} picks with the strongest convergence of signals; "
+        "do not force four. Every "
         "analysis must be 3-4 substantive paragraphs and 150-250 words, cite supplied "
         "numbers, include a real counter-signal, end with a bold **The Call:** line, "
         "and NEVER use em-dashes. Return ONLY a JSON object with \"picks\" and "
@@ -1484,6 +1487,20 @@ def _template_result(prop_lines):
         if _present(p.get("outcome_rate")):
             opportunity += (f" The historical outcome rate is {_num(p['outcome_rate'], 3)} per "
                             "minute; it is not a count of chances.")
+        fp_context = p.get("fp_context") or {}
+        if isinstance(fp_context, dict) and _present(fp_context.get("season_fp_pg")):
+            opportunity += (
+                f" Fantasy context puts her season output at {_num(fp_context.get('season_fp_pg'))} "
+                "FP per game"
+                + (f", with {_num(fp_context.get('last5_fp_pg'))} over the last five"
+                   if _present(fp_context.get("last5_fp_pg")) else "")
+                + "."
+            )
+        rest = p.get("rest") or {}
+        if isinstance(rest, dict) and rest.get("back_to_back"):
+            opportunity += " The supplied rest ledger flags a back-to-back, a fatigue headwind."
+        elif isinstance(rest, dict) and _present(rest.get("rest_days")):
+            opportunity += f" The rest ledger supplies {rest.get('rest_days')} days off."
 
         conversion_component = _num(p.get("conversion_component"), 2)
         if conversion_component is not None:
@@ -1512,6 +1529,17 @@ def _template_result(prop_lines):
             else:
                 conversion += (f" Opponent turnovers are {_num(value.get('turnovers_per_played_game'))} per "
                                "played game; turnover types and steal credit are unknown.")
+        shot_diet = p.get("shot_diet") or {}
+        if isinstance(shot_diet, dict) and shot_diet.get("top_zones"):
+            zones = shot_diet.get("top_zones")
+            if isinstance(zones, list) and zones and isinstance(zones[0], dict):
+                zone = zones[0]
+                if zone.get("zone") and _present(zone.get("share_pct")):
+                    conversion += (
+                        f" Her largest supplied shot-zone share is {zone.get('share_pct')}% "
+                        f"in {zone.get('zone')}, historical conversion context rather than a "
+                        "guaranteed attempt profile."
+                    )
 
         probability = p.get("selected_probability")
         market = p.get("market_no_vig_probability")
@@ -1763,7 +1791,9 @@ def main():
     # deterministic fallback may promote a review-required or unknown-phase row.
     eligible = _eligible_prop_lines(prop_lines)
     print(f"[WNBA ARTICLE] {len(eligible)}/{len(prop_lines)} candidates passed the safety gate.")
-    result = _call_claude(eligible, game_count, slate_date) if len(eligible) >= 4 else None
+    # Call Claude for every non-empty safety-eligible set, including 1-3
+    # candidates. Never widen the set to satisfy a writing minimum.
+    result = _call_claude(eligible, game_count, slate_date) if eligible else None
     claude_selected = result is not None
     if not result:
         result = _template_result(eligible)
