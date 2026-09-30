@@ -258,10 +258,13 @@ def _parse_game_zones(s):
     return defense, offense
 
 
-def _fetch_game_profiles(game_id):
+def _fetch_game_profiles(game_id, conn=None, game_date=None):
     s = _get(SUMMARY.format(e=game_id))
     if not s:
         return None, None
+    if conn is not None and game_date:
+        from wnba_rebound_context import ingest_summary
+        ingest_summary(conn, s, game_id, game_date)
     return _parse_game_zones(s)
 
 
@@ -284,7 +287,7 @@ def refresh_cache(conn):
         for gid in _completed_game_ids(date_str):
             if gid in cached:
                 continue
-            zones, offense_zones = _fetch_game_profiles(gid)
+            zones, offense_zones = _fetch_game_profiles(gid, conn, date_str)
             if not zones or not offense_zones:
                 continue
             cur.execute(

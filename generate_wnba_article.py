@@ -316,6 +316,17 @@ def _build_evidence_ledger(entry, alternatives):
             f"supports {side.lower()}" if side else "neutral",
             confidence="model evidence", stage="conversion"))
     offense = entry.get("opponent_rebound_miss_profile")
+    if entry.get("stat") == "REB" and entry.get("rebound_context"):
+        from wnba_rebound_context import narrative
+        ledger["inferred_proxy"].append(_evidence_item(
+            "historical_frontcourt_spacing", entry["rebound_context"],
+            narrative(entry["rebound_context"]), "DREB context; OREB unchanged",
+            confidence=entry["rebound_context"].get("inference_confidence", "low"),
+            counter_signals=["Historical starters are not confirmed lineups or defensive assignments."],
+            stage="opportunity"))
+        # Preserve the quantitative basketball explanation; generic evidence
+        # compression otherwise cuts this off at the first decimal point.
+        ledger["inferred_proxy"][-1]["mechanism"] = narrative(entry["rebound_context"])
     if entry.get("stat") == "REB" and offense:
         ledger["inferred_proxy"].append(_evidence_item(
             "opponent_miss_supply_proxy", offense,
@@ -1020,7 +1031,7 @@ def _build_briefing(recs, meta, records, caches=None):
                 entry[field] = value
                 if field == "evidence_json" and isinstance(value, dict):
                     for name in ("slate_season_type", "playoff_games",
-                                 "playoff_weight_applied", "role_risk"):
+                                 "playoff_weight_applied", "role_risk", "rebound_context"):
                         if name in value:
                             entry[name] = value[name]
                     proxy = {key: value.get(key) for key in (
@@ -1521,6 +1532,9 @@ def _template_result(prop_lines):
         opportunity += (f" Her season result is {_num(season)} {p['stat']} per game and the "
                         f"last-five result is {_num(p.get('last5_avg'))}. These are descriptive "
                         "box-score outcomes, not evidence of tonight's role or defensive context.")
+        if p.get("stat") == "REB" and p.get("rebound_context"):
+            from wnba_rebound_context import narrative
+            opportunity += " " + narrative(p["rebound_context"])
         if _present(p.get("outcome_rate")):
             opportunity += (f" The historical outcome rate is {_num(p['outcome_rate'], 3)} per "
                             "minute; it is not a count of chances.")

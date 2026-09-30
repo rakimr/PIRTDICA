@@ -797,6 +797,18 @@ def build_prop_recs(cur, factors):
             cur, opponent, matchup_position, skey, gdate)
         adjusted_distribution = [
             float(round(max(0.0, value * af))) for value in profile["distribution"]]
+        if skey == "reb":
+            from wnba_rebound_context import context, adjust_distribution
+            rebound_context = context(
+                cur.connection, real_name, opponent, gdate, phase,
+                profile["projected_minutes"])
+            rebound_context["baseline_total_rebound_mean"] = _mean(adjusted_distribution)
+            adjusted_distribution = adjust_distribution(
+                adjusted_distribution, rebound_context)
+            rebound_context["adjusted_total_rebound_mean"] = _mean(adjusted_distribution)
+            rebound_context["realized_distribution_delta"] = (
+                _mean(adjusted_distribution) - rebound_context["baseline_total_rebound_mean"])
+            matchup_evidence["rebound_context"] = rebound_context
         adj_proj = round(_mean(adjusted_distribution), 1)
         priced = priced_distribution_sides(adjusted_distribution, line, oo, uo)
         p_over, p_under, p_push, side, side_price = priced
