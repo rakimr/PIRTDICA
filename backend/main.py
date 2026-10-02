@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
+from markupsafe import Markup, escape
 from datetime import datetime, date, timedelta
 import os
 import sys
@@ -89,6 +90,9 @@ templates.env.globals["brand_asset_version"] = max(
     (int(os.path.getmtime(path)) for path in _brand_assets if os.path.exists(path)),
     default=1,
 )
+templates.env.globals["app_js_version"] = int(os.path.getmtime(
+    os.path.join(STATIC_DIR, "js", "app.js")
+)) if os.path.exists(os.path.join(STATIC_DIR, "js", "app.js")) else 1
 
 _house_lineup_lock = threading.Lock()
 
@@ -298,39 +302,93 @@ def html_redirect(url: str, token: str = None, extra_cookies: dict = None):
 def normalize_name(name):
     import unicodedata
     import re
-    name = unicodedata.normalize('NFKD', name).encode('ASCII', 'ignore').decode('ASCII')
+    name = unicodedata.normalize('NFKD', str(name or '')).encode('ASCII', 'ignore').decode('ASCII')
     name = re.sub(r'\s+(Jr\.?|Sr\.?|II|III|IV)$', '', name, flags=re.IGNORECASE)
     return name.strip()
 
-def get_player_headshots():
+_player_headshot_cache = {}
+_player_headshot_cache_expiry = {}
+_player_headshot_cache_lock = threading.Lock()
+_PLAYER_HEADSHOT_CACHE_SECONDS = 900
+
+def _headshot_name_keys(name):
+    import re
+    value = str(name or '').strip()
+    if not value:
+        return ()
+    normalized = normalize_name(value)
+    suffixless = re.sub(r'\s+(Jr\.?|Sr\.?|II|III|IV)$', '', value, flags=re.IGNORECASE).strip()
+    return tuple(dict.fromkeys(
+        key.casefold() for key in (value, normalized, suffixless, normalize_name(suffixless)) if key
+    ))
+
+def get_player_headshots(league="nba"):
+    league = "wnba" if str(league or "").strip().lower() == "wnba" else "nba"
+    now = time.monotonic()
+    with _player_headshot_cache_lock:
+        if now < _player_headshot_cache_expiry.get(league, 0):
+            return _player_headshot_cache[league]
+
     headshots = {}
-    name_aliases = {
-        "Luka Doncic": "doncilu01",
-        "Nikola Jokic": "jokicni01",
-        "Bogdan Bogdanovic": "bogdabo01",
-        "Bojan Bogdanovic": "bogdabo02",
-        "Nikola Vucevic": "vlovenucevo01",
-        "Jonas Valanciunas": "valanjo01",
-        "Domantas Sabonis": "sabondo01",
-        "Kristaps Porzingis": "paborni01",
-    }
-    for name, bbref_id in name_aliases.items():
-        headshots[name] = f"https://www.basketball-reference.com/req/202106291/images/headshots/{bbref_id}.jpg"
+    if league == "nba":
+        name_aliases = {
+            "Luka Doncic": "doncilu01",
+            "Nikola Jokic": "jokicni01",
+            "Bogdan Bogdanovic": "bogdabo01",
+            "Bojan Bogdanovic": "bogdabo02",
+            "Nikola Vucevic": "vlovenucevo01",
+            "Jonas Valanciunas": "valanjo01",
+            "Domantas Sabonis": "sabondo01",
+            "Kristaps Porzingis": "paborni01",
+        }
+        for name, bbref_id in name_aliases.items():
+            url = f"https://www.basketball-reference.com/req/202106291/images/headshots/{bbref_id}.jpg"
+            for key in _headshot_name_keys(name):
+                headshots[key] = url
     try:
-        rows = data_access.get_player_headshots()
+        rows = data_access.get_player_headshots(league)
         for row in rows:
-            original_name = row[0]
-            url = row[1]
-            headshots[original_name] = url
-            normalized = normalize_name(original_name)
-            if normalized != original_name:
-                headshots[normalized] = url
-            base_name = original_name.replace(" Jr.", "").replace(" Sr.", "").replace(" III", "").replace(" II", "").replace(" IV", "").strip()
-            if base_name != original_name:
-                headshots[base_name] = url
-    except:
-        pass
+            original_name, url = row[0], row[1]
+            if not url:
+                continue
+            for key in _headshot_name_keys(original_name):
+                headshots[key] = url
+    except Exception as exc:
+        print(f"[headshots] Could not load {league} headshots: {exc}")
+
+    with _player_headshot_cache_lock:
+        _player_headshot_cache[league] = headshots
+        _player_headshot_cache_expiry[league] = time.monotonic() + _PLAYER_HEADSHOT_CACHE_SECONDS
     return headshots
+
+def get_player_headshot_url(name, league="nba"):
+    for key in _headshot_name_keys(name):
+        url = get_player_headshots(league).get(key)
+        if url:
+            return url
+    return ""
+
+def render_player_name(name, league="nba", size="sm", extra_class=""):
+    player = str(name or "").strip()
+    if not player:
+        return Markup("")
+    css_size = size if size in {"sm", "md", "lg"} else "sm"
+    extra = f" {escape(extra_class)}" if extra_class else ""
+    image_url = get_player_headshot_url(player, league)
+    image = ""
+    if image_url:
+        image = (
+            f'<img class="player-headshot" src="{escape(image_url)}" alt="" '
+            'aria-hidden="true" loading="lazy" decoding="async" '
+            'onerror="this.style.display=\'none\'">'
+        )
+    return Markup(
+        f'<span class="player-identity player-identity-{css_size}{extra}">'
+        f'{image}<span class="player-identity-name">{escape(player)}</span></span>'
+    )
+
+templates.env.filters["player_name"] = render_player_name
+templates.env.globals["player_headshot_url"] = get_player_headshot_url
 
 @app.get("/chart-screenshot/{chart_type}/{target}")
 async def chart_screenshot_route(request: Request, chart_type: str, target: str):

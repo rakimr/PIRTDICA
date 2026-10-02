@@ -1185,6 +1185,7 @@ PICK SELECTION:
 - A soft opponent in that stat/zone supports OVERs, a tough one supports UNDERs.
 - For every pick, reason in order: OPPORTUNITY (separately supplied minutes/volume only) -> CONVERSION (separately supplied efficiency only) -> OUTCOME (distribution relative to the line). `outcome_rate` is a realized box-score outcome-per-minute rate, not opportunities or chances. Legacy `opportunity_rate` is unavailable. If a stage is unavailable, say so rather than filling the gap.
 - Read `evidence_ledger` classifications literally. `inferred_proxy` supports an association only, not causation. Never turn team aggregates, zones, DVP, spread, rest, referee data, or quarter splits into claims about tracking, defensive assignments, play calls, role changes, or guaranteed minutes.
+- When `rebound_context` is supplied, explain the observed opponent shot mix and historical frontcourt/starter exposure as an estimated spacing environment, not a known matchup. `shadow_dreb_delta` is an unvalidated research estimate: never present it as an applied adjustment, use it to justify HIGH confidence, or add it to the supplied projection. Only `dreb_delta` records an applied adjustment; offensive rebounds remain separate. Missing current-season context is unavailable, not evidence of no spacing effect.
 - Use `same_player_cross_stat_comparison` before selecting. Compare the chosen stat with alternatives for that player and say whether another stat has a cleaner edge. If none is available, state that the cross-stat check is unavailable.
 
 WRITING STYLE:

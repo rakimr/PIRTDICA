@@ -763,7 +763,25 @@ def get_team_play_types():
         return None, None
 
 
-def get_player_headshots():
+def get_player_headshots(league="nba"):
+    if (league or "nba").strip().lower() == "wnba":
+        rows = _sqlite_query(
+            "SELECT player_name, espn_id FROM wnba_player_stats "
+            "WHERE espn_id IS NOT NULL AND TRIM(espn_id) != ''"
+        )
+        headshots = []
+        for _, row in rows.iterrows():
+            player_name = str(row.get("player_name") or "").strip()
+            espn_id = str(row.get("espn_id") or "").strip()
+            if player_name and espn_id.isdigit():
+                headshots.append((
+                    player_name,
+                    "https://a.espncdn.com/combiner/i"
+                    f"?img=/i/headshots/wnba/players/full/{espn_id}.png"
+                    "&h=200&w=200&scale=crop",
+                ))
+        return headshots
+
     if use_postgres():
         try:
             with engine.connect() as conn:
