@@ -3526,6 +3526,10 @@ async def api_live_wnba_scores(request: Request):
     try:
         from live_wnba_scores import get_wnba_live_scoreboard
         board = get_wnba_live_scoreboard()
+        for game in board.get("games", []):
+            for player in game.get("players", []):
+                player["headshot_url"] = get_player_headshot_url(
+                    player.get("name", ""), "wnba")
         _live_wnba_cache["data"] = board
         _live_wnba_cache["timestamp"] = now
         out = dict(board)
