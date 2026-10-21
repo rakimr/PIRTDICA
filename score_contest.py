@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from backend.database import Base, engine
 from backend import models
 from utils.timezone import get_eastern_today
+from utils.nba_season import nba_api_season
 
 def fetch_actual_stats_nba(game_date: date) -> pd.DataFrame:
     """Fetch actual player stats from NBA.com stats API (primary source).
@@ -39,7 +40,7 @@ def fetch_actual_stats_nba(game_date: date) -> pd.DataFrame:
                 headers = get_nba_headers()
                 timeout = NBA_TIMEOUT_FIRST if attempt == 0 else NBA_TIMEOUT_RETRY
                 logs = PlayerGameLogs(
-                    season_nullable='2025-26',
+                    season_nullable=nba_api_season(game_date),
                     season_type_nullable='Regular Season',
                     date_from_nullable=date_str,
                     date_to_nullable=date_str,

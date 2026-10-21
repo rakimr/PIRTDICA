@@ -493,6 +493,7 @@ class InjuryAlertLive(Base):
     reason = Column(Text)
     alert_title = Column(Text)
     scraped_at = Column(String(50))
+    alert_timestamp = Column(String(50))
     updated_at = Column(DateTime, server_default=func.now())
 
 
