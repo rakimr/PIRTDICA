@@ -1,3 +1,5 @@
 player_name,team,opponent,position,salary,stat,player_avg,opp_allows,league_avg,extra_fp,edge_pct,recommendation
-Karl-Anthony Towns,NY,SA,C,16000,Assists,3.0,4.8,4.0,1.2,19.3,SA gives up +1.2 FP in Assists to Cs
-Karl-Anthony Towns,NY,SA,C,16000,Points,20.1,22.6,21.8,0.8,3.9,SA gives up +0.8 FP in Points to Cs
+Jalen Williams,OKC,DEN,SF,6800,Points,12.0,23.8,22.7,1.1,4.9,DEN gives up +1.1 FP in Points to SFs
+Joel Embiid,PHI,CLE,C,8300,Steals,2.0,1.7,1.4,0.9,21.4,CLE gives up +0.9 FP in Steals to Cs
+Joel Embiid,PHI,CLE,C,8300,Rebounds,11.0,15.1,14.4,0.8,4.5,CLE gives up +0.8 FP in Rebounds to Cs
+Tyrese Maxey,PHI,CLE,PG,8500,Assists,5.0,8.7,8.3,0.5,4.4,CLE gives up +0.5 FP in Assists to PGs
