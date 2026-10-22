@@ -309,7 +309,17 @@ def normalize_name(name):
 _player_headshot_cache = {}
 _player_headshot_cache_expiry = {}
 _player_headshot_cache_lock = threading.Lock()
-_PLAYER_HEADSHOT_CACHE_SECONDS = 900
+_player_headshot_refresh_lock = threading.Lock()
+_PLAYER_HEADSHOT_CACHE_SECONDS = 21600
+
+_ESPN_NBA_TEAM_IDS = {
+    "ATL": 1, "BOS": 2, "BKN": 17, "BRK": 17, "CHA": 30, "CHO": 30,
+    "CHI": 4, "CLE": 5, "DAL": 6, "DEN": 7, "DET": 8, "GS": 9, "GSW": 9,
+    "HOU": 10, "IND": 11, "LAC": 12, "LAL": 13, "MEM": 29, "MIA": 14,
+    "MIL": 15, "MIN": 16, "NO": 3, "NOP": 3, "NY": 18, "NYK": 18,
+    "OKC": 25, "ORL": 19, "PHI": 20, "PHO": 21, "PHX": 21, "POR": 22,
+    "SAC": 23, "SA": 24, "SAS": 24, "TOR": 28, "UTA": 26, "WAS": 27,
+}
 
 def _headshot_name_keys(name):
     import re
@@ -322,44 +332,118 @@ def _headshot_name_keys(name):
         key.casefold() for key in (value, normalized, suffixless, normalize_name(suffixless)) if key
     ))
 
+def _headshot_match_key(name):
+    import re
+    return re.sub(r"[^a-z0-9]", "", normalize_name(name).casefold())
+
+def _get_current_espn_headshots():
+    """Use ESPN's transparent PNG cutouts for players on the current NBA slate."""
+    try:
+        players = data_access.get_dfs_players()
+        if players.empty or not {"player_name", "team"}.issubset(players.columns):
+            return {}
+
+        current_players = players[["player_name", "team"]].dropna().drop_duplicates()
+        team_ids = {
+            str(team).strip().upper(): _ESPN_NBA_TEAM_IDS[str(team).strip().upper()]
+            for team in current_players["team"].unique()
+            if str(team).strip().upper() in _ESPN_NBA_TEAM_IDS
+        }
+        if not team_ids:
+            return {}
+
+        import requests
+        from concurrent.futures import ThreadPoolExecutor
+
+        def fetch_roster(team_id):
+            response = requests.get(
+                f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/{team_id}/roster",
+                timeout=6,
+            )
+            response.raise_for_status()
+            return response.json().get("athletes", [])
+
+        rosters = {}
+        with ThreadPoolExecutor(max_workers=min(8, len(team_ids))) as executor:
+            futures = {
+                team: executor.submit(fetch_roster, team_id)
+                for team, team_id in team_ids.items()
+            }
+            for team, future in futures.items():
+                try:
+                    rosters[team] = future.result()
+                except Exception as exc:
+                    print(f"[headshots] ESPN roster unavailable for {team}: {exc}")
+
+        overrides = {}
+        for _, row in current_players.iterrows():
+            player_name = str(row["player_name"]).strip()
+            team = str(row["team"]).strip().upper()
+            if not player_name or team not in rosters:
+                continue
+            name_key = _headshot_match_key(player_name)
+            matches = [
+                athlete for athlete in rosters[team]
+                if _headshot_match_key(athlete.get("displayName", "")) == name_key
+            ]
+            if len(matches) != 1:
+                continue
+            athlete_id = str(matches[0].get("id", ""))
+            if not athlete_id.isdigit():
+                continue
+            url = f"https://a.espncdn.com/i/headshots/nba/players/full/{athlete_id}.png"
+            for key in _headshot_name_keys(player_name):
+                overrides[key] = url
+        return overrides
+    except Exception as exc:
+        print(f"[headshots] Could not load current ESPN headshots: {exc}")
+        return {}
+
 def get_player_headshots(league="nba"):
     league = "wnba" if str(league or "").strip().lower() == "wnba" else "nba"
-    now = time.monotonic()
     with _player_headshot_cache_lock:
-        if now < _player_headshot_cache_expiry.get(league, 0):
+        if time.monotonic() < _player_headshot_cache_expiry.get(league, 0):
             return _player_headshot_cache[league]
 
-    headshots = {}
-    if league == "nba":
-        name_aliases = {
-            "Luka Doncic": "doncilu01",
-            "Nikola Jokic": "jokicni01",
-            "Bogdan Bogdanovic": "bogdabo01",
-            "Bojan Bogdanovic": "bogdabo02",
-            "Nikola Vucevic": "vlovenucevo01",
-            "Jonas Valanciunas": "valanjo01",
-            "Domantas Sabonis": "sabondo01",
-            "Kristaps Porzingis": "paborni01",
-        }
-        for name, bbref_id in name_aliases.items():
-            url = f"https://www.basketball-reference.com/req/202106291/images/headshots/{bbref_id}.jpg"
-            for key in _headshot_name_keys(name):
-                headshots[key] = url
-    try:
-        rows = data_access.get_player_headshots(league)
-        for row in rows:
-            original_name, url = row[0], row[1]
-            if not url:
-                continue
-            for key in _headshot_name_keys(original_name):
-                headshots[key] = url
-    except Exception as exc:
-        print(f"[headshots] Could not load {league} headshots: {exc}")
+    with _player_headshot_refresh_lock:
+        with _player_headshot_cache_lock:
+            if time.monotonic() < _player_headshot_cache_expiry.get(league, 0):
+                return _player_headshot_cache[league]
 
-    with _player_headshot_cache_lock:
-        _player_headshot_cache[league] = headshots
-        _player_headshot_cache_expiry[league] = time.monotonic() + _PLAYER_HEADSHOT_CACHE_SECONDS
-    return headshots
+        headshots = {}
+        if league == "nba":
+            name_aliases = {
+                "Luka Doncic": "doncilu01",
+                "Nikola Jokic": "jokicni01",
+                "Bogdan Bogdanovic": "bogdabo01",
+                "Bojan Bogdanovic": "bogdabo02",
+                "Nikola Vucevic": "vlovenucevo01",
+                "Jonas Valanciunas": "valanjo01",
+                "Domantas Sabonis": "sabondo01",
+                "Kristaps Porzingis": "paborni01",
+            }
+            for name, bbref_id in name_aliases.items():
+                url = f"https://www.basketball-reference.com/req/202106291/images/headshots/{bbref_id}.jpg"
+                for key in _headshot_name_keys(name):
+                    headshots[key] = url
+        try:
+            rows = data_access.get_player_headshots(league)
+            for row in rows:
+                original_name, url = row[0], row[1]
+                if not url:
+                    continue
+                for key in _headshot_name_keys(original_name):
+                    headshots[key] = url
+        except Exception as exc:
+            print(f"[headshots] Could not load {league} headshots: {exc}")
+
+        if league == "nba":
+            headshots.update(_get_current_espn_headshots())
+
+        with _player_headshot_cache_lock:
+            _player_headshot_cache[league] = headshots
+            _player_headshot_cache_expiry[league] = time.monotonic() + _PLAYER_HEADSHOT_CACHE_SECONDS
+        return headshots
 
 def get_player_headshot_url(name, league="nba"):
     for key in _headshot_name_keys(name):
@@ -368,6 +452,10 @@ def get_player_headshot_url(name, league="nba"):
             return url
     return ""
 
+def _player_headshot_initials(name):
+    parts = [part for part in str(name or "").strip().split() if part]
+    return "".join(part[0] for part in parts[:2]).upper() or "?"
+
 def render_player_name(name, league="nba", size="sm", extra_class=""):
     player = str(name or "").strip()
     if not player:
@@ -375,16 +463,24 @@ def render_player_name(name, league="nba", size="sm", extra_class=""):
     css_size = size if size in {"sm", "md", "lg"} else "sm"
     extra = f" {escape(extra_class)}" if extra_class else ""
     image_url = get_player_headshot_url(player, league)
+    avatar_class = "player-avatar"
     image = ""
     if image_url:
         image = (
             f'<img class="player-headshot" src="{escape(image_url)}" alt="" '
             'aria-hidden="true" loading="lazy" decoding="async" '
-            'onerror="this.style.display=\'none\'">'
+            'onerror="this.parentElement.classList.add(\'is-fallback\')">'
         )
+    else:
+        avatar_class += " is-fallback"
+    avatar = (
+        f'<span class="{avatar_class}" aria-hidden="true">'
+        f'{image}<span class="player-headshot-fallback">'
+        f'{escape(_player_headshot_initials(player))}</span></span>'
+    )
     return Markup(
         f'<span class="player-identity player-identity-{css_size}{extra}">'
-        f'{image}<span class="player-identity-name">{escape(player)}</span></span>'
+        f'{avatar}<span class="player-identity-name">{escape(player)}</span></span>'
     )
 
 templates.env.filters["player_name"] = render_player_name
