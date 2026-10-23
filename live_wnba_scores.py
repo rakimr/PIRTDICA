@@ -117,8 +117,14 @@ def _parse_team_box(team_block):
             name = athlete.get("displayName", "")
             if not name:
                 continue
+            athlete_id = str(athlete.get("id", ""))
+            headshot_url = (
+                f"https://a.espncdn.com/i/headshots/wnba/players/full/{athlete_id}.png"
+                if athlete_id.isdigit() else ""
+            )
             out.append({
                 "name": name,
+                "headshot_url": headshot_url,
                 "normalized": normalize_player_name(name),
                 "team": team_abbr,
                 "team_id": team_id,

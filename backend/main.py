@@ -3612,6 +3612,33 @@ async def api_live_scores(request: Request, db: Session = Depends(get_db)):
 _live_wnba_cache = {"data": {}, "timestamp": 0}
 LIVE_WNBA_CACHE_TTL = 30
 
+_live_nba_cache = {"data": {}, "timestamp": 0}
+LIVE_NBA_CACHE_TTL = 30
+
+@app.get("/api/live-nba-scores")
+async def api_live_nba_scores(request: Request):
+    now = time.time()
+    if now - _live_nba_cache["timestamp"] < LIVE_NBA_CACHE_TTL and _live_nba_cache["data"]:
+        cached = dict(_live_nba_cache["data"])
+        cached["cached"] = True
+        return cached
+    try:
+        from live_nba_scores import get_nba_live_scoreboard
+        board = get_nba_live_scoreboard()
+        for game in board.get("games", []):
+            for player in game.get("players", []):
+                player["headshot_url"] = player.get("headshot_url") or get_player_headshot_url(
+                    player.get("name", ""), "nba")
+        _live_nba_cache["data"] = board
+        _live_nba_cache["timestamp"] = now
+        out = dict(board)
+        out["cached"] = False
+        return out
+    except Exception as exc:
+        fallback = dict(_live_nba_cache.get("data", {}) or {"has_games": False, "any_live": False, "games": []})
+        fallback["error"] = str(exc)
+        return fallback
+
 @app.get("/api/live-wnba-scores")
 async def api_live_wnba_scores(request: Request):
     now = time.time()
@@ -3624,7 +3651,7 @@ async def api_live_wnba_scores(request: Request):
         board = get_wnba_live_scoreboard()
         for game in board.get("games", []):
             for player in game.get("players", []):
-                player["headshot_url"] = get_player_headshot_url(
+                player["headshot_url"] = player.get("headshot_url") or get_player_headshot_url(
                     player.get("name", ""), "wnba")
         _live_wnba_cache["data"] = board
         _live_wnba_cache["timestamp"] = now
