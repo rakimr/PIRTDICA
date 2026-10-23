@@ -4,13 +4,16 @@
 
 {% block content %}
 <section class="articles-page">
+    {% set verified_high_picks = picks and (picks|selectattr('confidence', 'equalto', 'HIGH')|list|length == picks|length) %}
     {% if article %}
     <div class="article-header-wrap">
-        {% if header_image %}
+        {# Older WNBA headers can contain "HIGH CONFIDENCE" even when the saved
+           article does not establish that status for every pick. #}
+        {% if header_image and picks and (league != 'wnba' or verified_high_picks) %}
         <img src="{{ header_image }}" alt="PIRTDICA Picks" class="article-header-img">
         {% endif %}
         <div class="article-meta">
-            <h1>{% if article.best_available %}TOP PICKS OF THE DAY{% else %}HIGH CONFIDENCE PROPS{% endif %}</h1>
+            <h1>{% if picks and article.best_available %}TOP PICKS OF THE DAY{% elif verified_high_picks %}HIGH CONFIDENCE PROPS{% else %}ARTICLE PICKS{% endif %}</h1>
             <p class="article-date">{{ article.slate_date.strftime('%B %-d, %Y') }} &mdash; {{ article.game_count }} Game{{ 's' if article.game_count != 1 else '' }} on the Slate</p>
         </div>
     </div>
@@ -30,7 +33,7 @@
     {% else %}
     {% if picks %}
     <div class="article-section">
-        <h2>{% if article.best_available %}Today's Top Picks{% else %}Today's HIGH Confidence Picks{% endif %}</h2>
+        <h2>{% if article.best_available %}Today's Top Picks{% elif verified_high_picks %}Today's HIGH Confidence Picks{% else %}Today's Article Picks{% endif %}</h2>
         {% if official_locked %}
         <div class="official-call-pill official-call-locked" title="These picks are PIRTDICA's official call for this slate. They were frozen pre-tipoff.">
             <span class="official-call-icon">&#x1F512;</span>
@@ -64,10 +67,10 @@
                     {% for p in picks %}
                     <tr>
                         <td>{{ p.rank }}</td>
-                        <td class="player-name-cell">{{ p.player }}</td>
+                        <td class="player-name-cell">{{ p.player|player_name(league|default('nba')) }}</td>
                         <td>{{ p.game }}</td>
                         <td>{{ p.stat }}</td>
-                        <td>{{ p.avg }}</td>
+                        <td>{{ '%.1f'|format(p.avg|float) if p.avg is not none and p.avg != '' else '—' }}</td>
                         <td>{{ p.line }}</td>
                         <td>{{ p.projected }}</td>
                         <td class="{% if p.edge.startswith('+') %}edge-positive{% else %}edge-negative{% endif %}">{{ p.edge }}</td>
@@ -78,16 +81,63 @@
             </table>
         </div>
     </div>
+    {% else %}
+    <div class="article-section">
+        <h2>No verified HIGH-confidence picks for this slate</h2>
+        <p>The model did not clear its featured-pick requirements. The full recommendations table below is available for research, not as official calls.</p>
+    </div>
+    {% endif %}
+
+    {% if picks %}
+    <div class="article-section parlay-section">
+        <h2>PIRTDICA PARLAYS</h2>
+        <p class="parlay-intro">Two HIGH-confidence article picks from one game, each moved to an easier hypothetical line. The historical joint estimate uses only games before this slate and keeps the players' same-game results together.</p>
+        {% if parlay_cards %}
+        <div class="parlay-grid">
+            {% for card in parlay_cards %}
+            <article class="parlay-card">
+                <div class="parlay-card-head">
+                    <span>2-LEG SCENARIO</span>
+                    <span>{{ card.matchup }} &middot; {{ card.group }}</span>
+                </div>
+                <div class="parlay-card-body">
+                    {% for leg in card.legs %}
+                    <div class="parlay-leg">
+                        <div class="parlay-leg-name">{{ leg.player|player_name(league|default('nba')) }} <span>{{ leg.stat }}</span></div>
+                        <div class="parlay-leg-lines">
+                            <span class="parlay-original">{{ leg.side }} {{ '%.1f'|format(leg.original_line) }}</span>
+                            <span aria-hidden="true">&rarr;</span>
+                            <strong>{{ leg.side }} {{ '%.1f'|format(leg.adjusted_line) }}</strong>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    <div class="parlay-estimate">
+                        <div><strong>{{ '%.1f'|format(card.joint_pct) }}%</strong><span>historical modeled co-hit</span></div>
+                        <p>At the original lines: {{ '%.1f'|format(card.original_pair_pct) }}% modeled co-hit. The adjusted pair meets or exceeds the stronger original leg's {{ '%.1f'|format(card.original_single_pct) }}% historical rate in this same sample.</p>
+                        <p>{{ card.sample_games }} aligned prior games &middot; unadjusted 95% Wilson interval {{ '%.1f'|format(card.lower_pct) }}&ndash;{{ '%.1f'|format(card.upper_pct) }}%</p>
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="parlay-empty">{{ parlay_status }}</p>
+        {% endif %}
+        <p class="parlay-caution">Research scenarios, not verified sportsbook offers or calibrated betting probabilities. Estimates are descriptive and conditional on both players appearing in recorded games; absences and void risk are not modeled. The interval reflects finite-history sampling only, not choosing the best of several thresholds, role changes, or other model error. Alternate lines and combined payout are not supplied by our odds feed; check your sportsbook for both exact lines, parlay eligibility, and final odds before considering a wager. No payout or positive expected value is implied.</p>
+    </div>
     {% endif %}
 
     {% if analysis %}
     <div class="article-section">
         <h2>Key Analysis</h2>
+        {% if league == 'wnba' and not article.claude_selected %}
+        <p class="picks-disclaimer">This analysis was written by the data-driven fallback, not Claude. Some model explanations may repeat when picks share the same matchup and evidence.</p>
+        {% endif %}
         {% for a in analysis %}
         <div class="analysis-card">
             <div class="analysis-header">
                 <div class="analysis-player-info">
-                    <h3>{{ a.player }}</h3>
+                    <h3>{{ a.player|player_name(league|default('nba'), 'md') }}</h3>
                     <span class="analysis-meta">{{ a.archetype }} &middot; {{ a.team }} vs {{ a.opponent }} &middot; {{ a.stat }}</span>
                 </div>
                 <span class="pick-badge pick-{{ a.call|lower }}">{{ a.call }}</span>
@@ -111,9 +161,9 @@
         <h2>Full Prop Recommendations</h2>
         <div class="prop-recs-blurb">
             {% if not picks %}
-            <p>Today's slate did not produce any HIGH confidence picks that passed all of our model's strict filters &mdash; hit rate, consistency, matchup alignment, and game environment gates must all clear. Rather than force weak calls, we're showing you the top analytics-driven prop recommendations ranked by composite score. These are lower-confidence plays, so use them as a research starting point alongside your own analysis.</p>
+            <p>This slate did not produce verified HIGH confidence picks that passed all of our model's strict filters. Rather than force weak calls, we're showing the complete slate's analytics-driven prop recommendations ranked by composite score. These are research suggestions, not featured picks.</p>
             {% else %}
-            <p>Beyond today's top picks, here are additional analytics-driven prop recommendations ranked by composite score. These didn't clear every confidence gate but still show meaningful model edges &mdash; use them as supplementary research for your own builds.</p>
+            <p>All available recommendations for this slate, ranked by composite score. Use them as supplementary research for your own builds.</p>
             {% endif %}
         </div>
         <div class="table-wrap">
@@ -136,10 +186,10 @@
                 <tbody>
                     {% for p in prop_recs %}
                     <tr class="{% if p.confidence == 'HIGH' %}prop-rec-high{% endif %}">
-                        <td class="player-name-cell">{{ p.player }}</td>
+                        <td class="player-name-cell">{{ p.player|player_name(league|default('nba')) }}</td>
                         <td>{{ p.team }} vs {{ p.opponent }}</td>
                         <td>{{ p.stat }}</td>
-                        <td>{{ p.avg }}</td>
+                        <td>{{ '%.1f'|format(p.avg|float) if p.avg is not none and p.avg != '' else '—' }}</td>
                         <td>{{ p.line }}</td>
                         <td>{{ p.projected }}</td>
                         <td class="{% if p.edge.startswith('+') %}edge-positive{% else %}edge-negative{% endif %}">{{ p.edge }}</td>
@@ -153,6 +203,8 @@
             </table>
         </div>
     </div>
+    {% elif not picks %}
+    <div class="article-section"><h2>Full Prop Recommendations</h2><p>No recommendations are available for the displayed slate.</p></div>
     {% endif %}
     {% endif %}
 

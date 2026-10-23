@@ -7,6 +7,50 @@ document.addEventListener('DOMContentLoaded', function() {
     initCookieConsent();
 });
 
+function playerHeadshotInitials(name) {
+    return String(name || '').trim().split(/\s+/).filter(Boolean)
+        .slice(0, 2).map(function(part) { return part.charAt(0); })
+        .join('').toUpperCase() || '?';
+}
+
+window.renderPlayerIdentity = function(container, playerName, headshotUrl, size) {
+    if (!container) return;
+    const safeName = String(playerName || '');
+    const wrapper = document.createElement('span');
+    const allowedSize = ['sm', 'md', 'lg'].includes(size) ? size : 'sm';
+    wrapper.className = `player-identity player-identity-${allowedSize}`;
+
+    const avatar = document.createElement('span');
+    avatar.className = 'player-avatar';
+    avatar.setAttribute('aria-hidden', 'true');
+
+    const fallback = document.createElement('span');
+    fallback.className = 'player-headshot-fallback';
+    fallback.textContent = playerHeadshotInitials(safeName);
+    avatar.appendChild(fallback);
+
+    if (headshotUrl) {
+        const image = document.createElement('img');
+        image.className = 'player-headshot';
+        image.src = headshotUrl;
+        image.alt = '';
+        image.setAttribute('aria-hidden', 'true');
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        image.onerror = function() { avatar.classList.add('is-fallback'); };
+        avatar.appendChild(image);
+    } else {
+        avatar.classList.add('is-fallback');
+    }
+    wrapper.appendChild(avatar);
+
+    const label = document.createElement('span');
+    label.className = 'player-identity-name';
+    label.textContent = safeName;
+    wrapper.appendChild(label);
+    container.replaceChildren(wrapper);
+};
+
 function initTableSorting() {
     document.querySelectorAll('th[data-sortable]').forEach(header => {
         header.style.cursor = 'pointer';
@@ -231,23 +275,20 @@ function trackPageView() {
     }).catch(function() {});
 }
 
-// ---- Live WNBA scoreboard (home page, WNBA only) ----
+// ---- Live league scoreboards (home page) ----
 (function(){
-    var section = document.getElementById('live-wnba-section');
-    if (!section) return;
     var league = (document.body.getAttribute('data-league') || 'nba').toLowerCase();
-    if (league !== 'wnba') return;
+    if (league !== 'wnba' && league !== 'nba') return;
+    var isNba = league === 'nba';
+    var section = document.getElementById(isNba ? 'live-nba-section' : 'live-wnba-section');
+    if (!section) return;
 
-    var gamesEl = document.getElementById('live-wnba-games');
-    var dotEl = document.getElementById('live-wnba-dot');
+    var gamesEl = document.getElementById(isNba ? 'live-nba-games' : 'live-wnba-games');
+    var dotEl = document.getElementById(isNba ? 'live-nba-dot' : 'live-wnba-dot');
+    var endpoint = isNba ? '/api/live-nba-scores' : '/api/live-wnba-scores';
 
     function esc(s){ var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML; }
 
-    function tempBadge(t){
-        if (t === 'hot') return ' <span class="lw-temp" title="Hot vs season pace">\uD83D\uDD25</span>';
-        if (t === 'cold') return ' <span class="lw-temp" title="Cold vs season pace">\u2744\uFE0F</span>';
-        return '';
-    }
     function pickBadge(p){
         // Only show the target once the prop has actually hit // never prematurely.
         if (!p || !p.hit) return '';
@@ -269,8 +310,22 @@ function trackPageView() {
     }
 
     function playerRow(p){
+        var playerName = String(p.name || '');
+        var avatar = '<span class="player-avatar' +
+            (p.headshot_url ? '' : ' is-fallback') + '" aria-hidden="true">' +
+            '<span class="player-headshot-fallback">' +
+            esc(playerHeadshotInitials(playerName)) + '</span>';
+        if (p.headshot_url) {
+            avatar += `<img class="player-headshot" src="${esc(p.headshot_url)}" ` +
+                `alt="" aria-hidden="true" loading="lazy" decoding="async" ` +
+                `onerror="this.parentElement.classList.add('is-fallback')">`;
+        }
+        avatar += '</span>';
+        var identity = '<span class="player-identity player-identity-sm">' +
+            avatar + '<span class="player-identity-name">' + esc(playerName) +
+            '</span></span>';
         return '<div class="lw-row' + (p.pick ? ' lw-has-pick' : '') + '">' +
-            '<span class="lw-pname">' + esc(p.name) + tempBadge(p.temp) + pickBadge(p.pick) + '</span>' +
+            '<span class="lw-pname">' + identity + pickBadge(p.pick) + '</span>' +
             '<span class="lw-fp">' + esc(p.fp) + '<i>FP</i></span>' +
             '<span class="lw-stats">' + statLine(p) + '</span>' +
             '</div>';
@@ -305,7 +360,7 @@ function trackPageView() {
     }
 
     function load(){
-        fetch('/api/live-wnba-scores').then(function(r){ return r.json(); }).then(function(data){
+        fetch(endpoint).then(function(r){ return r.json(); }).then(function(data){
             if (!data || !data.has_games || !(data.games && data.games.length)) {
                 section.style.display = 'none';
                 return;

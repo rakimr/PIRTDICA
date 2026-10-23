@@ -100,7 +100,7 @@
                         <tbody>
                             {% for p in players %}
                             <tr>
-                                <td>{{ p.player_name }}</td>
+                                <td>{{ p.player_name|player_name('nba') }}</td>
                                 <td>{{ p.position }}</td>
                                 <td>{{ p.team }}</td>
                                 <td>${{ "{:,}".format(p.salary) }}</td>
@@ -146,7 +146,7 @@
                         <tbody>
                             {% for p in house_players %}
                             <tr>
-                                <td>{{ p.player_name if p is mapping else p.player_name }}</td>
+                                <td>{{ p.player_name|player_name('nba') }}</td>
                                 <td>{{ p.position if p is mapping else p.position }}</td>
                                 <td>{{ p.team if p is mapping else p.team }}</td>
                                 <td>${{ "{:,}".format((p.salary if p is mapping else p.salary)|int) }}</td>

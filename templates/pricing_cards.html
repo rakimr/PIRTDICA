@@ -5,7 +5,7 @@
             <p class="pricing-tagline">Daily prop analysis &amp; betting edges</p>
         </div>
         <div class="pricing-card-features">
-            <div class="pricing-feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg><span>HIGH Confidence prop picks</span></div>
+            <div class="pricing-feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg><span>Daily researched prop picks</span></div>
             <div class="pricing-feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg><span>Matchup &amp; archetype analysis</span></div>
             <div class="pricing-feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg><span>Composite scoring &amp; edges</span></div>
         </div>
@@ -14,12 +14,9 @@
             <span class="pricing-interval">/week</span>
         </div>
         {% if user %}
-        <a href="/subscribe?plan=picks" class="btn btn-primary pricing-btn">{% if trial_eligible %}Start 7-Day Free Trial{% else %}Subscribe{% endif %}</a>
-        {% if trial_eligible %}<p class="pricing-trial-note" style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: 0.5rem;">$0 today &middot; no refunds</p>
-        <a href="/subscribe?plan=picks&amp;trial=0" class="btn btn-secondary pricing-btn" style="margin-top: 0.45rem; font-size: 0.85rem;">Subscribe Now &mdash; Skip Trial</a>{% endif %}
+        <a href="/subscribe?plan=picks" class="btn btn-primary pricing-btn">Subscribe</a>
         {% else %}
         <a href="/register" class="btn btn-primary pricing-btn">Sign Up</a>
-        <p class="pricing-trial-note" style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: 0.5rem;">New members get their first 7 days free</p>
         {% endif %}
     </div>
 
@@ -38,12 +35,9 @@
             <span class="pricing-interval">/week</span>
         </div>
         {% if user %}
-        <a href="/subscribe?plan=statpack" class="btn btn-primary pricing-btn">{% if trial_eligible %}Start 7-Day Free Trial{% else %}Subscribe{% endif %}</a>
-        {% if trial_eligible %}<p class="pricing-trial-note" style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: 0.5rem;">$0 today &middot; no refunds</p>
-        <a href="/subscribe?plan=statpack&amp;trial=0" class="btn btn-secondary pricing-btn" style="margin-top: 0.45rem; font-size: 0.85rem;">Subscribe Now &mdash; Skip Trial</a>{% endif %}
+        <a href="/subscribe?plan=statpack" class="btn btn-primary pricing-btn">Subscribe</a>
         {% else %}
         <a href="/register" class="btn btn-primary pricing-btn">Sign Up</a>
-        <p class="pricing-trial-note" style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: 0.5rem;">New members get their first 7 days free</p>
         {% endif %}
     </div>
 
@@ -67,12 +61,9 @@
             <span class="pricing-interval">/month</span>
         </div>
         {% if user %}
-        <a href="/subscribe?plan=bundle" class="btn btn-primary pricing-btn">{% if trial_eligible %}Start 7-Day Free Trial{% else %}Subscribe{% endif %}</a>
-        {% if trial_eligible %}<p class="pricing-trial-note" style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: 0.5rem;">$0 today &middot; no refunds</p>
-        <a href="/subscribe?plan=bundle&amp;trial=0" class="btn btn-secondary pricing-btn" style="margin-top: 0.45rem; font-size: 0.85rem;">Subscribe Now &mdash; Skip Trial</a>{% endif %}
+        <a href="/subscribe?plan=bundle" class="btn btn-primary pricing-btn">Subscribe</a>
         {% else %}
         <a href="/register" class="btn btn-primary pricing-btn">Sign Up</a>
-        <p class="pricing-trial-note" style="font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: 0.5rem;">New members get their first 7 days free</p>
         {% endif %}
     </div>
 </div>

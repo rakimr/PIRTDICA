@@ -195,7 +195,15 @@ df = df.merge(
     how="left"
 )
 
-injury_alerts = pd.read_sql("SELECT * FROM injury_alerts WHERE status IN ('OUT', 'Doubtful')", conn)
+from utils.timezone import get_eastern_date_str
+injury_today = get_eastern_date_str()
+injury_alerts = pd.read_sql(
+    """SELECT * FROM injury_alerts
+       WHERE status IN ('OUT', 'DOUBTFUL')
+       AND ((alert_timestamp IS NOT NULL AND substr(alert_timestamp, 1, 10) = ?)
+            OR (alert_timestamp IS NULL AND substr(scraped_at, 1, 10) = ?))""",
+    conn, params=(injury_today, injury_today)
+)
 injury_alerts["norm_name"] = injury_alerts["player_name"].apply(normalize_name)
 
 injury_alerts = injury_alerts.merge(

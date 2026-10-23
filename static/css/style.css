@@ -737,10 +737,79 @@ tr.st-idle .st-logo {
 
 .player-image img {
     width: 72px;
-    height: 72px;
-    border-radius: 8px;
-    border: 2px solid var(--primary);
-    object-fit: cover;
+    height: 96px;
+    object-fit: contain;
+    background: transparent;
+    mix-blend-mode: multiply;
+}
+
+.player-identity {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    max-width: 100%;
+    vertical-align: middle;
+    line-height: 1.2;
+}
+
+.player-identity-sm .player-avatar {
+    width: 38px;
+    height: 28px;
+}
+
+.player-identity-md .player-avatar {
+    width: 46px;
+    height: 34px;
+}
+
+.player-identity-lg .player-avatar {
+    width: 56px;
+    height: 42px;
+}
+
+.player-avatar {
+    position: relative;
+    display: inline-grid;
+    flex: 0 0 auto;
+    place-items: center;
+    overflow: visible;
+    background: transparent;
+}
+
+.player-headshot {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+    background: transparent;
+}
+
+.player-headshot-fallback {
+    display: none;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.player-avatar.is-fallback .player-headshot {
+    display: none;
+}
+
+.player-avatar.is-fallback .player-headshot-fallback {
+    display: flex;
+}
+
+.player-identity-name {
+    min-width: 0;
 }
 
 .player-position {
@@ -1649,6 +1718,25 @@ tr.st-idle .st-logo {
     overflow-y: auto;
     border: 1px solid var(--border);
     border-radius: 8px;
+}
+
+.explorer-table-wrapper .player-identity {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+}
+
+.explorer-table-wrapper .player-avatar {
+    width: 38px;
+    height: 28px;
+}
+
+.explorer-table-wrapper .player-headshot {
+    width: 100%;
+    height: 100%;
+    max-width: 38px;
+    max-height: 28px;
+    mix-blend-mode: multiply;
 }
 
 .explorer-table-wrapper .player-table thead th {
@@ -4697,6 +4785,62 @@ th[data-sortable].sort-desc::after {
     margin-bottom: 1rem;
 }
 
+.parlay-intro, .parlay-caution, .parlay-empty {
+    color: var(--text-muted);
+    line-height: 1.5;
+    font-size: 0.9rem;
+}
+.parlay-intro { margin: 0 0 1rem; }
+.parlay-caution { margin: 0.85rem 0 0; font-size: 0.82rem; }
+.parlay-empty {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+}
+.parlay-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 285px), 1fr)); gap: 1rem; }
+.parlay-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    font-family: 'Marvel', sans-serif;
+}
+.parlay-card-head {
+    background: var(--primary);
+    color: #fff;
+    padding: 0.7rem 0.9rem;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+}
+.parlay-card-head span + span { font-weight: 400; letter-spacing: 0; }
+.parlay-card-body { padding: 0 0.9rem; }
+.parlay-leg {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.8rem;
+    align-items: center;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    padding: 0.85rem 0;
+    color: var(--text);
+}
+.parlay-leg-name { font-weight: 700; }
+.parlay-leg-name span { color: var(--text-muted); font-weight: 400; margin-left: 0.25rem; }
+.parlay-leg-lines { display: inline-flex; gap: 0.5rem; align-items: center; font-variant-numeric: tabular-nums; }
+.parlay-original { color: var(--text-muted); text-decoration: line-through; }
+.parlay-leg-lines strong { font-size: 1.15rem; }
+.parlay-estimate { padding: 0.9rem 0; }
+.parlay-estimate div { display: flex; align-items: baseline; gap: 0.55rem; flex-wrap: wrap; }
+.parlay-estimate strong { font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+.parlay-estimate span, .parlay-estimate p { color: var(--text-muted); }
+.parlay-estimate p { margin: 0.25rem 0 0; font-size: 0.85rem; }
+
 .picks-disclaimer {
     color: #999;
     font-size: 0.82rem;
@@ -6116,6 +6260,8 @@ body[data-league="wnba"] .btn-play {
 .live-wnba-section .subtitle { color: var(--text-muted); }
 .live-wnba-section .subtitle .lw-key { margin: 0 .15rem; }
 .lw-live-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--wnba-accent, #f5562a); margin-left: .4rem; vertical-align: middle; animation: lwPulse 1.4s ease-in-out infinite; }
+.live-nba-section .lw-live-dot,
+.live-nba-section .lw-status-live::before { background: #16a34a; }
 @keyframes lwPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .3; transform: scale(.75); } }
 .live-wnba-games {
     display: grid;

@@ -5,6 +5,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from utils.timezone import get_eastern_now
+from utils.nba_season import nba_api_season
 import unicodedata
 import re
 import warnings
@@ -72,7 +73,7 @@ def fetch_player_heights():
         df = nba_api_call_with_retry(
             leaguedashplayerbiostats.LeagueDashPlayerBioStats,
             "player bio stats",
-            season='2024-25'
+            season=nba_api_season()
         )
         if df is None:
             print("  WARNING: Could not fetch height data from NBA.com")

@@ -8,6 +8,7 @@ from nba_api.stats.endpoints import synergyplaytypes
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from utils.nba_api_helpers import MAX_RETRIES, RETRY_DELAYS, NBA_TIMEOUT_FIRST, NBA_TIMEOUT_RETRY, get_nba_headers, inter_call_delay, is_circuit_open, trip_circuit
+from utils.nba_season import nba_api_season
 
 PLAY_TYPES = [
     "Isolation", "Transition", "PRBallHandler", "PRRollman",
@@ -28,7 +29,7 @@ PLAY_TYPE_LABELS = {
     "Misc": "Miscellaneous",
 }
 
-SEASON_YEAR = "2025-26"
+SEASON_YEAR = nba_api_season()
 
 NBA_ABBREV_MAP = {
     "ATL": "ATL", "BOS": "BOS", "BKN": "BKN", "CHA": "CHA",

@@ -1,5 +1,6 @@
 import requests
 import pandas as pd
+from utils.nba_season import nba_season_full_years
 from bs4 import BeautifulSoup
 from datetime import datetime
 import sqlite3
@@ -38,7 +39,8 @@ conn.commit()
 # 2. SCRAPE HTML
 # ============================
 
-url = "https://www.nbastuffer.com/2025-2026-nba-referee-stats/"
+season = nba_season_full_years()
+url = f"https://www.nbastuffer.com/{season}-nba-referee-stats/"
 html = requests.get(url).text
 soup = BeautifulSoup(html, "html.parser")
 
@@ -93,7 +95,7 @@ pct_cols = ["home_win_pct", "foul_pct_road", "foul_pct_home"]
 for col in pct_cols:
     df[col] = pd.to_numeric(df[col], errors="coerce")
 
-df["season"] = "2025-2026"
+df["season"] = season
 df["scraped_at"] = datetime.utcnow().isoformat()
 
 # ============================

@@ -7,6 +7,7 @@ Zones: Restricted Area, Paint (Non-RA), Mid-Range, Above Break 3, Corner 3
 """
 
 import sqlite3
+from utils.nba_season import nba_api_season
 import pandas as pd
 import numpy as np
 import time
@@ -18,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from utils.nba_api_helpers import MAX_RETRIES, NBA_TIMEOUT_FIRST, NBA_TIMEOUT_RETRY, get_nba_headers, is_circuit_open, trip_circuit
 
 DB_PATH = 'dfs_nba.db'
-SEASON = '2025-26'
+SEASON = nba_api_season()
 
 
 TEAM_NAME_TO_ABBR = {

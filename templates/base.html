@@ -7,13 +7,13 @@
     <meta name="description" content="PIRTDICA Sports Co. — Basketball Analysis">
     <meta property="og:title" content="PIRTDICA Sports Co. — Basketball Analysis">
     <meta property="og:description" content="Advanced basketball analytics and competitive fantasy sports.">
-    <meta property="og:image" content="{{ request.url_for('static', path='images/pirtdica_logo.png') }}">
+    <meta property="og:image" content="{{ request.url_for('static', path='images/pirtdica_logo.png') }}?v={{ brand_asset_version }}">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="PIRTDICA Sports Co. — Basketball Analysis">
     <meta name="twitter:description" content="Advanced basketball analytics and competitive fantasy sports.">
-    <meta name="twitter:image" content="{{ request.url_for('static', path='images/pirtdica_logo.png') }}">
-    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <meta name="twitter:image" content="{{ request.url_for('static', path='images/pirtdica_logo.png') }}?v={{ brand_asset_version }}">
+    <link rel="icon" type="image/png" href="/static/favicon.png?v={{ brand_asset_version }}">
     <link rel="stylesheet" href="/static/css/style.css?v={{ range(1, 99999) | random }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,7 +27,7 @@
     </div>
     <nav class="navbar">
         <div class="nav-container">
-            <a href="/" class="logo"><img src="/static/images/pirtdica_logo.png" alt="PIRTDICA" class="logo-icon">PIRTDICA</a>
+            <a href="/" class="logo"><img src="/static/images/pirtdica_logo.png?v={{ brand_asset_version }}" alt="PIRTDICA" class="logo-icon" width="38" height="38">PIRTDICA</a>
             <button class="hamburger" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">
                 <span></span><span></span><span></span>
             </button>
@@ -110,7 +110,7 @@
         </div>
     </div>
 
-    <script src="/static/js/app.js"></script>
+    <script src="/static/js/app.js?v={{ app_js_version }}"></script>
     <script>
     (function() {
         function readCookie(name) {
@@ -196,7 +196,6 @@
                 + '<button class="subscribe-modal-close" onclick="document.getElementById(\'subscribeModal\').remove()">&times;</button>'
                 + '<h2 style="text-align:center;font-family:Righteous,cursive;margin-bottom:0.25rem;">Unlock PIRTDICA</h2>'
                 + '<p style="text-align:center;color:#6b7280;margin-bottom:0.4rem;">Choose the plan that fits your game.</p>'
-                + '{% if trial_eligible %}<p style="text-align:center;color:#0F9D58;font-weight:600;font-size:0.9rem;margin-bottom:1.25rem;">New members: first 7 days free on any plan &mdash; cancel anytime.</p>{% endif %}'
                 + '<div class="pricing-grid">'
                 + '<div class="pricing-card">'
                 +   '<div class="pricing-card-header"><h3>PIRTDICA Picks</h3><p class="pricing-tagline">Daily prop analysis &amp; betting edges</p></div>'
@@ -206,7 +205,7 @@
                 +     '<div class="pricing-feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg><span>Composite scoring &amp; edges</span></div>'
                 +   '</div>'
                 +   '<div class="pricing-card-price"><span class="pricing-amount">$9</span><span class="pricing-interval">/week</span></div>'
-                +   '{% if trial_eligible %}<a href="/subscribe?plan=picks" class="btn btn-primary pricing-btn">Start 7-Day Free Trial</a><p class="pricing-trial-note" style="font-size:0.72rem;color:var(--text-muted);text-align:center;margin-top:0.5rem;">$0 today &middot; no refunds</p><a href="/subscribe?plan=picks&amp;trial=0" class="btn btn-secondary pricing-btn" style="margin-top:0.45rem;font-size:0.85rem;">Subscribe Now &mdash; Skip Trial</a>{% else %}<a href="/subscribe?plan=picks" class="btn btn-primary pricing-btn">Subscribe</a>{% endif %}'
+                +   '<a href="/subscribe?plan=picks" class="btn btn-primary pricing-btn">Subscribe</a>'
                 + '</div>'
                 + '<div class="pricing-card">'
                 +   '<div class="pricing-card-header"><h3>PIRTDICA Stat Pack</h3><p class="pricing-tagline">Full Chart Gallery access</p></div>'
@@ -216,7 +215,7 @@
                 +     '<div class="pricing-feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg><span>Team schemes &amp; DVA tables</span></div>'
                 +   '</div>'
                 +   '<div class="pricing-card-price"><span class="pricing-amount">$16</span><span class="pricing-interval">/week</span></div>'
-                +   '{% if trial_eligible %}<a href="/subscribe?plan=statpack" class="btn btn-primary pricing-btn">Start 7-Day Free Trial</a><p class="pricing-trial-note" style="font-size:0.72rem;color:var(--text-muted);text-align:center;margin-top:0.5rem;">$0 today &middot; no refunds</p><a href="/subscribe?plan=statpack&amp;trial=0" class="btn btn-secondary pricing-btn" style="margin-top:0.45rem;font-size:0.85rem;">Subscribe Now &mdash; Skip Trial</a>{% else %}<a href="/subscribe?plan=statpack" class="btn btn-primary pricing-btn">Subscribe</a>{% endif %}'
+                +   '<a href="/subscribe?plan=statpack" class="btn btn-primary pricing-btn">Subscribe</a>'
                 + '</div>'
                 + '<div class="pricing-card pricing-card-featured">'
                 +   '<div class="pricing-badge">BEST VALUE</div>'
@@ -227,7 +226,7 @@
                 +     '<div class="pricing-feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg><span>Complete analytics suite</span></div>'
                 +   '</div>'
                 +   '<div class="pricing-card-price"><div class="pricing-savings"><span class="pricing-original">$100</span><span class="pricing-discount">40% OFF</span></div><span class="pricing-amount">$60</span><span class="pricing-interval">/month</span></div>'
-                +   '{% if trial_eligible %}<a href="/subscribe?plan=bundle" class="btn btn-primary pricing-btn">Start 7-Day Free Trial</a><p class="pricing-trial-note" style="font-size:0.72rem;color:var(--text-muted);text-align:center;margin-top:0.5rem;">$0 today &middot; no refunds</p><a href="/subscribe?plan=bundle&amp;trial=0" class="btn btn-secondary pricing-btn" style="margin-top:0.45rem;font-size:0.85rem;">Subscribe Now &mdash; Skip Trial</a>{% else %}<a href="/subscribe?plan=bundle" class="btn btn-primary pricing-btn">Subscribe</a>{% endif %}'
+                +   '<a href="/subscribe?plan=bundle" class="btn btn-primary pricing-btn">Subscribe</a>'
                 + '</div>'
                 + '</div>'
                 + '<button class="modal-dismiss" onclick="document.getElementById(\'subscribeModal\').remove()">Maybe later</button>'

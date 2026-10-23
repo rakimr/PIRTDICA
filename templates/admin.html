@@ -74,7 +74,7 @@
                 {% for p in house_players %}
                 <tr>
                     <td>{{ p.position }}</td>
-                    <td>{{ p.player_name }}</td>
+                    <td>{{ p.player_name|player_name('nba') }}</td>
                     <td>{{ p.team }}</td>
                     <td>${{ "{:,}".format(p.salary) }}</td>
                     <td>{{ "%.1f"|format(p.proj_fp or 0) }}</td>

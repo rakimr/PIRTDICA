@@ -64,15 +64,13 @@
                     {% set game_started = team in locked_teams %}
                     <tr class="{% if is_live and not game_started %}game-pending{% endif %}" 
                         data-team="{{ team }}"
-                        data-game-time="{{ team_game_times.get(team, '') }}">
+                        data-game-time="{{ team_game_times.get(team, '') }}"
+                        data-headshot="{{ player_headshot_url(p.player_name, 'nba') }}">
                         <td>
                             {% if is_live and not game_started %}
                             <span class="hidden-player">{{ p.position }} - Upcoming</span>
                             {% else %}
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <img src="{{ headshots.get(p.player_name, '') }}" alt="" style="width: 28px; height: 28px; border-radius: 0; object-fit: contain; flex-shrink: 0; mix-blend-mode: multiply;" onerror="this.style.display='none'">
-                                <span>{{ p.player_name }}</span>
-                            </div>
+                            {{ p.player_name|player_name('nba') }}
                             {% endif %}
                         </td>
                         <td>{{ team }}</td>
@@ -145,15 +143,13 @@
                     {% set game_started = team in locked_teams %}
                     <tr class="{% if is_live and not game_started %}game-pending{% endif %}"
                         data-team="{{ team }}"
-                        data-game-time="{{ team_game_times.get(team, '') }}">
+                        data-game-time="{{ team_game_times.get(team, '') }}"
+                        data-headshot="{{ player_headshot_url(p.player_name, 'nba') }}">
                         <td>
                             {% if is_live and not game_started %}
                             <span class="hidden-player">{{ (p.position if p is mapping else p.position) }} - Upcoming</span>
                             {% else %}
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <img src="{{ headshots.get(p.player_name if p is mapping else p.player_name, '') }}" alt="" style="width: 28px; height: 28px; border-radius: 0; object-fit: contain; flex-shrink: 0; mix-blend-mode: multiply;" onerror="this.style.display='none'">
-                                <span>{{ p.player_name if p is mapping else p.player_name }}</span>
-                            </div>
+                            {{ p.player_name|player_name('nba') }}
                             {% endif %}
                         </td>
                         <td>{{ team }}</td>
@@ -287,7 +283,7 @@ async function fetchLiveScores() {
                         if (row && row.classList.contains('game-pending')) {
                             row.classList.remove('game-pending');
                             const nameCell = row.querySelector('td:first-child');
-                            if (nameCell) nameCell.textContent = p.player_name;
+                            if (nameCell) window.renderPlayerIdentity(nameCell, p.player_name, row.dataset.headshot, 'sm');
                             const salaryCell = row.querySelectorAll('td')[2];
                             if (salaryCell) salaryCell.textContent = '$' + p.salary.toLocaleString();
                             const projCell = row.querySelectorAll('td')[3];
@@ -308,7 +304,7 @@ async function fetchLiveScores() {
                         if (row && row.classList.contains('game-pending')) {
                             row.classList.remove('game-pending');
                             const nameCell = row.querySelector('td:first-child');
-                            if (nameCell) nameCell.textContent = p.player_name;
+                            if (nameCell) window.renderPlayerIdentity(nameCell, p.player_name, row.dataset.headshot, 'sm');
                             const salaryCell = row.querySelectorAll('td')[2];
                             if (salaryCell) salaryCell.textContent = '$' + p.salary.toLocaleString();
                             const projCell = row.querySelectorAll('td')[3];

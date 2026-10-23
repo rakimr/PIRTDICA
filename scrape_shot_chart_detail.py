@@ -1,4 +1,5 @@
 import sqlite3
+from utils.nba_season import nba_api_season
 import time
 import pandas as pd
 from datetime import datetime
@@ -6,7 +7,7 @@ from nba_api.stats.endpoints import shotchartdetail
 from nba_api.stats.static import players as nba_players
 
 DB_PATH = "dfs_nba.db"
-SEASON = "2025-26"
+SEASON = nba_api_season()
 HEADERS = {
     "User-Agent": "Mozilla/5.0",
     "Referer": "https://www.nba.com/",

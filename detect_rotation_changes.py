@@ -2,6 +2,7 @@ import sqlite3
 import pandas as pd
 import re
 import unicodedata
+from datetime import datetime, timedelta
 from baseline_minutes import get_baseline_minutes, project_minutes, get_game_context_label, clip_minutes, get_minutes_bounds
 from physical_matchups import get_opposing_physical_modifier
 
@@ -9,6 +10,14 @@ conn = sqlite3.connect("dfs_nba.db")
 
 depth = pd.read_sql("SELECT * FROM depth_charts", conn)
 salaries = pd.read_sql("SELECT * FROM player_salaries", conn)
+
+# ESPN depth charts are useful only while fresh. Rebuild the downstream
+# rotation baseline rather than treating an old roster as current.
+if not depth.empty and "scraped_at" in depth.columns:
+    newest_depth = pd.to_datetime(depth["scraped_at"], errors="coerce", utc=True).max()
+    if pd.isna(newest_depth) or newest_depth < pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=7):
+        print(f"  WARNING: depth chart is stale (latest={newest_depth}); using the salary/player-stats fallback")
+        depth = pd.DataFrame(columns=depth.columns)
 
 # === FALLBACK: depth_charts empty (e.g. ESPN throttling Replit IP with 202s) ===
 # Synthesize a minimal depth chart from player_salaries + player_stats so the
@@ -60,12 +69,22 @@ else:
 
 injury_exists = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='injury_alerts'", conn)
 if not injury_exists.empty:
-    injuries = pd.read_sql("SELECT player_name, status FROM injury_alerts WHERE status = 'OUT'", conn)
+    from utils.timezone import get_eastern_date_str
+    injury_today = get_eastern_date_str()
+    injuries = pd.read_sql(
+        """SELECT player_name, status FROM injury_alerts WHERE status = 'OUT'
+           AND ((alert_timestamp IS NOT NULL AND substr(alert_timestamp, 1, 10) = ?)
+                OR (alert_timestamp IS NULL AND substr(scraped_at, 1, 10) = ?))""",
+        conn, params=(injury_today, injury_today)
+    )
 else:
     injuries = pd.DataFrame()
 
 try:
-    dc_injuries = pd.read_sql("SELECT DISTINCT player_name, injury_indicator AS status FROM depth_charts WHERE injury_indicator = 'OUT'", conn)
+    dc_injuries = depth.loc[
+        depth.get("injury_indicator", pd.Series(dtype=object)).eq("OUT"),
+        ["player_name", "injury_indicator"]
+    ].drop_duplicates("player_name").rename(columns={"injury_indicator": "status"})
     if not dc_injuries.empty:
         existing_names = set(injuries['player_name'].str.lower()) if not injuries.empty else set()
         new_from_dc = dc_injuries[~dc_injuries['player_name'].str.lower().isin(existing_names)]

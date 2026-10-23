@@ -198,6 +198,15 @@ def sync_sqlite_table(sqlite_table, pg_table):
         sconn.close()
 
         if df.empty:
+            if sqlite_table == "injury_alerts":
+                with engine.begin() as conn:
+                    table_exists = conn.execute(text(
+                        f"SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = '{pg_table}')"
+                    )).scalar()
+                    if table_exists:
+                        conn.execute(text(f"DELETE FROM {pg_table}"))
+                        print(f"  OK: {sqlite_table} -> {pg_table} (cleared; no live alerts)")
+                return 0
             print(f"  SKIP: SQLite table '{sqlite_table}' is empty")
             return 0
 

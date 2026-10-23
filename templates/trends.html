@@ -227,7 +227,7 @@
             <div class="slump-card slump-{{ s.level|lower }}">
                 <div class="slump-card-head">
                     <div class="slump-player">
-                        <span class="slump-name">{{ s.player }}</span>
+                        <span class="slump-name">{{ s.player|player_name('wnba') }}</span>
                         <span class="slump-meta">{{ s.team }}{% if s.position %} &middot; {{ s.position }}{% endif %}{% if s.opponent %} &middot; vs {{ s.opponent }}{% endif %}{% if s.rest_days is not none %} &middot; {{ s.rest_days }}d rest{% endif %}</span>
                     </div>
                     <div class="slump-score-wrap">
@@ -302,13 +302,11 @@
                         data-pos="{{ p.get('true_position', '') }}"
                         data-team="{{ p.team }}"
                         data-opponent="{{ p.get('opponent', '') }}"
-                        data-injury="{{ p.get('injury_status', '') }}">
+                        data-injury="{{ p.get('injury_status', '') }}"
+                        data-headshot="{{ player_headshot_url(p.player_name, league|default('nba')) }}">
                         <td class="col-pos"><span class="pos-badge">{{ p.get('true_position', '') }}</span></td>
                         <td class="col-name">
-                            <div style="display:flex;align-items:center;gap:6px;">
-                                <img src="{{ headshots.get(p.player_name, '') }}" alt="" style="width:32px;height:32px;border-radius:0;object-fit:contain;flex-shrink:0;mix-blend-mode:multiply;" onerror="this.style.display='none'">
-                                <span class="player-name-link" onclick="openExplorerShotChart('{{ p.player_name }}', event)" title="View shot chart">{{ p.player_name }}</span>
-                            </div>
+                            <span class="player-name-link" onclick="openExplorerShotChart('{{ p.player_name }}', event)" title="View shot chart">{{ p.player_name|player_name(league|default('nba'), 'md') }}</span>
                         </td>
                         <td>
                             {% if p.get('injury_status') == 'OUT' %}
@@ -358,7 +356,7 @@
                 <tbody>
                     {% for player in top_value %}
                     <tr>
-                        <td>{{ player.player_name }}</td>
+                        <td>{{ player.player_name|player_name(league|default('nba')) }}</td>
                         <td>{{ player.team }}</td>
                         <td>${{ "{:,}".format(player.salary|int) }}</td>
                         <td>{{ "%.1f"|format(player.proj_fp) }}</td>
@@ -396,11 +394,11 @@
                 <tbody>
                     {% for play in targeted %}
                     <tr>
-                        <td>{{ play.player_name }}</td>
+                        <td>{{ play.player_name|player_name(league|default('nba')) }}</td>
                         <td>{{ play.position }}</td>
                         <td>{{ play.opponent }}</td>
                         <td>{{ play.stat }}</td>
-                        <td>{{ play.player_avg }}</td>
+                        <td>{{ '%.1f'|format(play.player_avg) if play.player_avg is not none else '—' }}</td>
                         <td class="edge-cell">+{{ play.extra_fp }}</td>
                         <td class="matchup-note">{{ play.recommendation }}</td>
                     </tr>
@@ -439,10 +437,10 @@
                     {% for prop in props %}
                     <tr{% if prop.confidence is defined and prop.confidence == 'LOW' %} class="prop-low-confidence" title="{{ prop.confidence_reasons if prop.confidence_reasons is defined and prop.confidence_reasons else 'Low confidence' }}"{% endif %}>
                         <td><span class="composite-score-badge {% if prop.composite_score is defined and prop.composite_score is not none and prop.composite_score == prop.composite_score %}{% if prop.composite_score >= 50 %}score-high{% elif prop.composite_score >= 30 %}score-mid{% else %}score-low{% endif %}{% endif %}">{{ '%.0f'|format(prop.composite_score) if prop.composite_score is defined and prop.composite_score is not none and prop.composite_score == prop.composite_score else '—' }}</span></td>
-                        <td>{{ prop.player }}{% if prop.projection_factors is defined and prop.projection_factors %}<br><span class="prop-factors">{{ prop.projection_factors }}</span>{% endif %}</td>
+                        <td>{{ prop.player|player_name(league|default('nba')) }}{% if prop.projection_factors is defined and prop.projection_factors %}<br><span class="prop-factors">{{ prop.projection_factors }}</span>{% endif %}</td>
                         <td>{{ prop.opponent }}</td>
                         <td>{{ prop.stat }}</td>
-                        <td>{{ prop.player_avg }}</td>
+                        <td>{{ '%.1f'|format(prop.player_avg) if prop.player_avg is not none and prop.player_avg == prop.player_avg else '—' }}</td>
                         <td><strong>{{ prop.projected_value if prop.projected_value is defined and prop.projected_value is not none and prop.projected_value == prop.projected_value else prop.adjusted_avg }}</strong></td>
                         <td>{{ prop.book_line if prop.book_line is not none and prop.book_line == prop.book_line else '—' }}</td>
                         <td class="{% if prop.vs_book_edge is not none and prop.vs_book_edge == prop.vs_book_edge %}{% if prop.vs_book_edge > 15 %}fp-positive{% elif prop.vs_book_edge < -15 %}fp-negative{% else %}fp-neutral{% endif %}{% endif %}">{{ '%+.1f'|format(prop.vs_book_edge) if prop.vs_book_edge is not none and prop.vs_book_edge == prop.vs_book_edge else '—' }}</td>
@@ -1541,7 +1539,14 @@ function openExplorerShotChart(playerName, evt) {
     modal.style.display = 'flex';
     body.style.display = 'none';
     loading.style.display = 'block';
-    document.getElementById('esc-player-name').textContent = playerName;
+    var playerRow = Array.from(document.querySelectorAll('#explorer-table tbody tr[data-name]'))
+        .find(function(row) { return row.dataset.name === playerName; });
+    window.renderPlayerIdentity(
+        document.getElementById('esc-player-name'),
+        playerName,
+        playerRow ? playerRow.dataset.headshot : '',
+        'md'
+    );
     document.getElementById('esc-archetype-badge').textContent = '';
     document.getElementById('esc-total-fga').textContent = '';
     document.getElementById('esc-zone-stats').innerHTML = '';

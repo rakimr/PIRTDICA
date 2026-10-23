@@ -138,7 +138,7 @@
                             data-injury="{{ p.injury_status|default('') }}"
                             data-locked="{{ p.is_locked|default(false)|lower }}"
                             data-game-time="{{ p.game_time|default('') }}"
-                            data-headshot="{{ headshots.get(p.player_name, '') }}"
+                            data-headshot="{{ player_headshot_url(p.player_name, 'nba') }}"
                             class="{% if p.is_locked %}locked{% endif %} {% if p.injury_status == 'OUT' %}player-out{% endif %}">
                             <td class="col-action">
                                 {% if p.is_locked %}
@@ -149,10 +149,7 @@
                             </td>
                             <td class="col-pos"><span class="pos-badge">{{ p.fd_position }}</span></td>
                             <td class="col-name">
-                                <div style="display: flex; align-items: center; gap: 6px;">
-                                    <img src="{{ headshots.get(p.player_name, '') }}" alt="" style="width: 32px; height: 32px; border-radius: 0; object-fit: contain; flex-shrink: 0; mix-blend-mode: multiply;" onerror="this.style.display='none'">
-                                    <span class="player-name-link" onclick="openShotChart('{{ p.player_name | replace("'", "\\'") }}', event)" title="View shot chart">{{ p.player_name }}</span>
-                                </div>
+                                <span class="player-name-link" onclick="openShotChart('{{ p.player_name | replace("'", "\\'") }}', event)" title="View shot chart">{{ p.player_name|player_name('nba', 'md') }}</span>
                             </td>
                             <td class="col-status">
                                 {% if p.injury_status == 'OUT' %}
@@ -506,7 +503,7 @@ function updateDisplay() {
             el.innerHTML = `
                 <span class="slot-label">${slot.pos}</span>
                 <div class="slot-filled" style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0;">
-                    ${player.headshot ? `<img src="${player.headshot}" alt="" style="width: 28px; height: 28px; border-radius: 0; object-fit: contain; flex-shrink: 0; mix-blend-mode: multiply;" onerror="this.style.display='none'">` : ''}
+                    ${player.headshot ? `<img class="player-headshot" src="${player.headshot}" alt="" aria-hidden="true" loading="lazy" onerror="this.style.display='none'">` : ''}
                     <span class="slot-player-name">${player.name}</span>
                     <span class="slot-player-info">
                         ${player.injury ? '<span class="injury-tag tag-' + player.injury.toLowerCase() + '">' + player.injury + '</span>' : ''}
@@ -634,7 +631,14 @@ function openShotChart(playerName, evt) {
     modal.style.display = 'flex';
     body.style.display = 'none';
     loading.style.display = 'block';
-    document.getElementById('sc-player-name').textContent = playerName;
+    var playerRow = Array.from(document.querySelectorAll('tr[data-name]'))
+        .find(function(row) { return row.dataset.name === playerName; });
+    window.renderPlayerIdentity(
+        document.getElementById('sc-player-name'),
+        playerName,
+        playerRow ? playerRow.dataset.headshot : '',
+        'md'
+    );
     document.getElementById('sc-archetype-badge').textContent = '';
     document.getElementById('sc-total-fga').textContent = '';
     document.getElementById('sc-zone-stats').innerHTML = '';

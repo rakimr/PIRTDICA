@@ -14,6 +14,7 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from utils.nba_api_helpers import nba_api_call_with_retry
+from utils.nba_season import nba_api_season
 
 
 def calc_fanduel_fp(row):
@@ -29,11 +30,13 @@ def calc_fanduel_fp(row):
 
 def scrape_gamelogs():
     print("Fetching all player game logs from NBA.com (Regular Season + Playoffs)...")
+    season = nba_api_season()
+    print(f"  Season: {season}")
 
     df_reg = nba_api_call_with_retry(
         leaguegamelog.LeagueGameLog,
         "regular season game logs",
-        season='2025-26',
+        season=season,
         player_or_team_abbreviation='P',
         season_type_all_star='Regular Season'
     )
@@ -47,7 +50,7 @@ def scrape_gamelogs():
     df_po = nba_api_call_with_retry(
         leaguegamelog.LeagueGameLog,
         "playoffs game logs",
-        season='2025-26',
+        season=season,
         player_or_team_abbreviation='P',
         season_type_all_star='Playoffs'
     )
@@ -61,7 +64,7 @@ def scrape_gamelogs():
     df_pi = nba_api_call_with_retry(
         leaguegamelog.LeagueGameLog,
         "play-in game logs",
-        season='2025-26',
+        season=season,
         player_or_team_abbreviation='P',
         season_type_all_star='PlayIn'
     )
