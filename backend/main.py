@@ -816,9 +816,14 @@ def _render_wnba_articles(request: Request, user, db: Session):
         else:
             parlay_status = "The displayed article is from a prior slate. New scenarios appear with the next article."
 
-    official_locked = bool(article and article.official_locked_at)
+    official_locked = bool(
+        article and (
+            article.official_locked_at
+            or article.slate_date < get_eastern_today()
+        )
+    )
     official_locked_at_str = None
-    if official_locked:
+    if official_locked and article.official_locked_at:
         try:
             from utils.timezone import EASTERN as _EASTERN
             official_locked_at_str = article.official_locked_at.astimezone(_EASTERN).strftime('%-I:%M %p ET')
@@ -1094,9 +1099,21 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
     # Task #45: surface the official-call lock state for the badge + hint above
     # the picks card. `official_locked_at` is stored as TIMESTAMPTZ so it comes
     # back as an aware UTC datetime // convert to ET for display.
-    official_locked = bool(article and article.official_locked_at)
+    slate_started = False
+    if article and article.slate_date == today and not article.official_locked_at:
+        try:
+            _, slate_started, _ = get_game_lock_status()
+        except Exception as e:
+            print(f"[ARTICLES] Slate lock status unavailable: {e}")
+    official_locked = bool(
+        article and (
+            article.official_locked_at
+            or article.slate_date < today
+            or (article.slate_date == today and slate_started)
+        )
+    )
     official_locked_at_str = None
-    if official_locked:
+    if official_locked and article.official_locked_at:
         try:
             from utils.timezone import EASTERN as _EASTERN
             official_locked_at_str = article.official_locked_at.astimezone(_EASTERN).strftime('%-I:%M %p ET')
