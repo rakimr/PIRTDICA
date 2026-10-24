@@ -50,6 +50,27 @@ def get_prop_recommendations():
     return pd.DataFrame()
 
 
+def get_article_prop_recommendations(slate_date, csv_path="prop_recommendations.csv"):
+    """Prefer same-slate durable rows, with a provenance-checked local fallback."""
+    from datetime import datetime
+    from utils.timezone import EASTERN, get_eastern_today
+    frame = get_prop_recommendations()
+    if 'game_date' in frame.columns:
+        matched = frame[frame['game_date'].astype(str) == slate_date.isoformat()]
+        if not matched.empty:
+            return matched
+    if not os.path.exists(csv_path):
+        return pd.DataFrame()
+    frame = pd.read_csv(csv_path)
+    if 'game_date' in frame.columns:
+        return frame[frame['game_date'].astype(str) == slate_date.isoformat()]
+    # Legacy undated exports are only usable on the day they were generated.
+    today = get_eastern_today()
+    if slate_date == today and datetime.fromtimestamp(os.path.getmtime(csv_path), EASTERN).date() == today:
+        return frame
+    return frame.iloc[0:0]
+
+
 def get_wnba_prop_recommendations():
     """WNBA prop recommendations (CSV-only // not synced to postgres). Mirrors
     get_prop_recommendations so the home page can show WNBA edges when there are

@@ -1050,15 +1050,8 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
             try:
                 import pandas as pd
                 prop_csv = os.path.join(os.path.dirname(__file__), '..', 'prop_recommendations.csv')
-                if os.path.exists(prop_csv):
-                    df = pd.read_csv(prop_csv)
-                    # This NBA CSV has no slate date. Its write date is the only
-                    # available provenance; never attach it to an older article.
-                    if 'game_date' in df.columns:
-                        df = df[df['game_date'].astype(str) == article.slate_date.isoformat()]
-                    elif (article.slate_date != today or
-                          datetime.fromtimestamp(os.path.getmtime(prop_csv), EASTERN).date() != today):
-                        df = df.iloc[0:0]
+                df = data_access.get_article_prop_recommendations(article.slate_date, prop_csv)
+                if df is not None and not df.empty:
                     if 'composite_score' in df.columns:
                         df = df.sort_values('composite_score', ascending=False)
                     for _, row in df.iterrows():

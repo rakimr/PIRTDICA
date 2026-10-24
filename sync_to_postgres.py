@@ -143,6 +143,12 @@ def sync_csv(csv_path, pg_table):
     try:
         df = pd.read_csv(csv_path)
         if df.empty:
+            if pg_table == "prop_recommendations_live" and {"game_date", "player", "stat"}.issubset(df.columns):
+                # A complete dated schema-only export intentionally clears stale props.
+                with engine.begin() as conn:
+                    conn.execute(text("DELETE FROM prop_recommendations_live"))
+                print("  Cleared prop recommendations (empty current export)")
+                return 0
             print(f"  SKIP: {csv_path} is empty")
             return 0
 
