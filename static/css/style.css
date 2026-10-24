@@ -800,6 +800,19 @@ tr.st-idle .st-logo {
     line-height: 1;
 }
 
+/* Article portraits share one clipped frame, regardless of source aspect ratio. */
+.articles-page .player-identity .player-avatar {
+    width: 40px;
+    height: 40px;
+    overflow: hidden;
+    border-radius: 50%;
+}
+
+.articles-page .player-headshot {
+    object-fit: cover;
+    object-position: center 20%;
+}
+
 .player-avatar.is-fallback .player-headshot {
     display: none;
 }

@@ -16,6 +16,20 @@ from utils.timezone import get_eastern_date_str
 
 STAT_CATEGORIES = ['pts', 'reb', 'ast', 'stl', 'blk', '3pm']
 
+
+def _save_prop_recommendations(frame):
+    """Readers must see a complete export, never a partially rewritten CSV."""
+    import tempfile
+    destination = os.path.abspath("prop_recommendations.csv")
+    fd, temporary = tempfile.mkstemp(dir=os.path.dirname(destination), suffix=".csv")
+    try:
+        with os.fdopen(fd, "w") as output:
+            frame.to_csv(output, index=False)
+        os.replace(temporary, destination)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
 _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 DEFAULT_DB_PATH = os.path.join(_PROJECT_ROOT, 'dfs_nba.db')
 
@@ -550,7 +564,8 @@ def _load_book_props():
                 'line': row['line'],
                 'over_odds': row['over_odds'],
                 'under_odds': row['under_odds'],
-                'bookmaker': row['bookmaker']
+                'bookmaker': row['bookmaker'],
+                'game_date': today,
             }
         return lookup
     except Exception as e:
@@ -2594,6 +2609,7 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
                     'edge_pct': round((blended_diff / league_avg * 100) if league_avg > 0 else 0, 1),
                     'recommendation': recommendation,
                     'book_line': book_line,
+                    'game_date': book.get('game_date') if book else None,
                     'book_over': book_over,
                     'book_under': book_under,
                     'vs_book_edge': edge,
@@ -2903,7 +2919,7 @@ def run_analysis():
             print(f"  Filtered {filtered_out} props without book lines (Odds API coverage)")
         print("\n=== PROP RECOMMENDATIONS (DVP + DVA BLENDED) ===")
         print(props_df.head(15).to_string(index=False))
-        props_df.to_csv("prop_recommendations.csv", index=False)
+        _save_prop_recommendations(props_df)
         print("\nSaved prop recommendations to prop_recommendations.csv")
     else:
         # Always overwrite the CSV so a failed run doesn't leave stale picks
@@ -2912,7 +2928,7 @@ def run_analysis():
         # backend/main.py reads many fields) don't break on missing columns.
         import pandas as _pd
         _empty_cols = [
-            'player', 'team', 'opponent', 'salary', 'value', 'stat',
+            'game_date', 'player', 'team', 'opponent', 'salary', 'value', 'stat',
             'player_avg', 'projected_value', 'adjusted_avg', 'extra_fp',
             'edge_pct', 'recommendation', 'book_line', 'book_over', 'book_under',
             'vs_book_edge', 'archetype', 'dva_edge', 'dvp_edge', 'blend',
@@ -2927,7 +2943,7 @@ def run_analysis():
             'line_snapshots', 'last_hour_drift', 'last_hour_from',
             'last_hour_minutes', 'move_pattern', 'largest_swing', 'largest_swing_share',
         ]
-        _pd.DataFrame(columns=_empty_cols).to_csv("prop_recommendations.csv", index=False)
+        _save_prop_recommendations(_pd.DataFrame(columns=_empty_cols))
         print("No prop recommendations available // wrote empty schema-only prop_recommendations.csv to clear stale data")
     
     print("\nGenerating targeted stat plays...")

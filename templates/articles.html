@@ -38,7 +38,7 @@
         <div class="official-call-pill official-call-locked" title="These picks are PIRTDICA's official call for this slate. They were frozen pre-tipoff.">
             <span class="official-call-icon">&#x1F512;</span>
             <span class="official-call-label">OFFICIAL CALL</span>
-            <span class="official-call-meta">Locked at {{ official_locked_at_str }}</span>
+            <span class="official-call-meta">{% if official_locked_at_str %}Locked at {{ official_locked_at_str }}{% else %}Locked for this slate{% endif %}</span>
         </div>
         {% else %}
         <div class="official-call-pill official-call-working" title="Picks may still update from late prop-line moves. The official call is frozen ~60 minutes before the slate's first tipoff.">
@@ -203,7 +203,7 @@
             </table>
         </div>
     </div>
-    {% elif not picks %}
+    {% else %}
     <div class="article-section"><h2>Full Prop Recommendations</h2><p>No recommendations are available for the displayed slate.</p></div>
     {% endif %}
     {% endif %}
