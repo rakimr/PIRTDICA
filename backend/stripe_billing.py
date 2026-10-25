@@ -25,6 +25,11 @@ def _so_get(obj, key, default=None):
     return val if val is not None else default
 
 
+def checkout_session_is_paid(session):
+    """Only Stripe's explicit paid state may activate checkout access."""
+    return _so_get(session, "payment_status") == "paid"
+
+
 def _load_stripe_keys():
     global _stripe_keys
     if _stripe_keys:
@@ -95,9 +100,13 @@ PLAN_DISPLAY_NAMES = {
     "bundle": "PIRTDICA Bundle",
 }
 
-# Subscription statuses that grant paid access. "trialing" is Stripe's status
-# for a subscription inside its free-trial window — treat it as entitled.
-ENTITLED_STATUSES = ("active", "trialing")
+# Only a paid, active Stripe subscription grants access. A trial has not been
+# paid for, so "trialing" must not unlock subscriber-only content.
+ENTITLED_STATUSES = ("active",)
+
+# Trialing subscriptions still need to be found by billing-management paths
+# (for example, when canceling duplicate or superseded subscriptions).
+SUBSCRIPTION_MANAGEMENT_STATUSES = ("active", "trialing")
 
 
 def ensure_product_and_price(plan_key="picks"):
@@ -273,7 +282,7 @@ def cancel_individual_subs_for_bundle(db, user_id, bundle_subscription_id):
     individual_subs = db.query(UserSubscription).filter(
         UserSubscription.user_id == user_id,
         UserSubscription.plan.in_(["picks", "statpack"]),
-        UserSubscription.status.in_(ENTITLED_STATUSES),
+        UserSubscription.status.in_(SUBSCRIPTION_MANAGEMENT_STATUSES),
         UserSubscription.stripe_subscription_id != bundle_subscription_id,
     ).all()
 
@@ -302,7 +311,7 @@ def cancel_duplicate_plan_subs(db, user_id, plan_key, keep_subscription_id):
     dupes = db.query(UserSubscription).filter(
         UserSubscription.user_id == user_id,
         UserSubscription.plan == plan_key,
-        UserSubscription.status.in_(ENTITLED_STATUSES),
+        UserSubscription.status.in_(SUBSCRIPTION_MANAGEMENT_STATUSES),
         UserSubscription.stripe_subscription_id != keep_subscription_id,
         UserSubscription.stripe_subscription_id.like("sub_%"),
     ).all()

@@ -1186,7 +1186,7 @@ async def subscribe_success(request: Request, db: Session = Depends(get_db)):
     from backend.stripe_billing import (get_stripe_client, resolve_plan_from_subscription,
                                          upsert_user_subscription, cancel_individual_subs_for_bundle,
                                          sync_user_subscription_fields, get_subscription_period_end,
-                                         _so_get)
+                                         checkout_session_is_paid, _so_get)
     user = get_current_user(request, db)
     if not user:
         print(f"[Stripe] SUCCESS redirect: user not logged in (session lost during Stripe redirect)")
@@ -1205,6 +1205,9 @@ async def subscribe_success(request: Request, db: Session = Depends(get_db)):
         if str(user.id) != str(session_user_id):
             print(f"[Stripe] Session user_id mismatch: session={session_user_id}, logged_in={user.id}")
             return html_redirect("/articles")
+        if not checkout_session_is_paid(session):
+            print(f"[Stripe] SUCCESS redirect: checkout not paid (payment_status={_so_get(session, 'payment_status')}); no access granted")
+            return html_redirect("/billing")
         if not session.subscription:
             print(f"[Stripe] SUCCESS redirect: no subscription on session (payment_status={session.payment_status})")
             return html_redirect(redirect_map.get(plan_param, "/"))
@@ -1257,7 +1260,7 @@ async def stripe_webhook(request: Request):
         from backend.stripe_billing import (get_stripe_client, resolve_plan_from_subscription,
                                              upsert_user_subscription, cancel_individual_subs_for_bundle,
                                              sync_user_subscription_fields, get_subscription_period_end,
-                                             _so_get)
+                                             checkout_session_is_paid, _so_get)
 
         if event.type == "checkout.session.completed":
             session = event.data.object
@@ -1266,8 +1269,11 @@ async def stripe_webhook(request: Request):
             metadata = _so_get(session, "metadata")
             metadata_user_id = _so_get(metadata, "user_id")
             metadata_plan = _so_get(metadata, "plan")
-            print(f"[Stripe Webhook] checkout.session.completed: customer={customer_id}, sub={subscription_id}, metadata_user_id={metadata_user_id}, metadata_plan={metadata_plan}")
-            if customer_id and subscription_id:
+            payment_status = _so_get(session, "payment_status")
+            print(f"[Stripe Webhook] checkout.session.completed: customer={customer_id}, sub={subscription_id}, payment_status={payment_status}, metadata_user_id={metadata_user_id}, metadata_plan={metadata_plan}")
+            if not checkout_session_is_paid(session):
+                print(f"[Stripe Webhook] Checkout is not paid (payment_status={payment_status}); no access granted")
+            elif customer_id and subscription_id:
                 user = db.query(models.User).filter(models.User.stripe_customer_id == customer_id).first()
                 if not user and metadata_user_id:
                     try:
