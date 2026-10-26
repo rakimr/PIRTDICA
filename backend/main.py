@@ -621,26 +621,16 @@ def build_wnba_standings():
 
 
 def _resolve_header_image(path, league="nba"):
-    """Return a header-image web path whose file actually exists on disk.
-
-    The daily article headers are generated at runtime on the prod VM, so a
-    redeploy hands out a fresh filesystem while the DB row still points at a
-    PNG the new container doesn't have yet (broken <img> on /articles).
-    Fall back to the newest header PNG we DO have for the league."""
-    import glob
+    """Return only this article's own header, never another slate's image."""
     import os as _os
     import re as _re
     prefix = "wnba_article_header_" if league == "wnba" else "article_header_"
-    # Only trust canonical generated filenames (static/images/<prefix>YYYY-MM-DD.png);
-    # anything else (traversal-shaped or foreign paths) falls through to the fallback.
     canonical = _re.compile(
         r"^/?static/images/" + _re.escape(prefix) + r"\d{4}-\d{2}-\d{2}\.png$")
     if path and canonical.match(path) and _os.path.exists(path.lstrip("/")):
         return "/" + path.lstrip("/")
-    pattern = f"static/images/{prefix}[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].png"
-    candidates = sorted(glob.glob(pattern), reverse=True)
-    if candidates:
-        return "/" + candidates[0]
+    if path and canonical.match(path):
+        print(f"[ARTICLES] Exact-slate header is missing; hiding it instead of showing another slate's image: {path}")
     return None
 
 
@@ -1644,7 +1634,10 @@ def _wnba_active_slate_recs(recs_df):
 
 
 @app.api_route("/", methods=["GET", "POST"])
-async def home(request: Request, db: Session = Depends(get_db)):
+def home(request: Request, db: Session = Depends(get_db)):
+    # SQLAlchemy and data_access are synchronous. FastAPI runs a regular def
+    # in its worker pool, so a slow database cannot freeze the ASGI event loop
+    # and prevent unrelated requests (including static assets) from responding.
     user = get_current_user(request, db)
     league = get_league(request)
     today = get_eastern_today()
