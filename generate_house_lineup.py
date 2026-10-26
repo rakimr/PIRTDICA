@@ -135,14 +135,15 @@ def generate_house_lineup(force=False, exclude_teams=None):
         from utils.name_normalize import normalize_player_name as norm_name
         
         inj_conn = sqlite3.connect("dfs_nba.db")
-        from utils.timezone import get_eastern_date_str
+        from utils.timezone import get_eastern_date_str, get_eastern_day_utc_bounds
         injury_today = get_eastern_date_str()
+        injury_start_utc, injury_end_utc = get_eastern_day_utc_bounds()
         injury_df = pd.read_sql_query(
             """SELECT player_name, status FROM injury_alerts
                WHERE status IN ('OUT', 'QUESTIONABLE', 'DOUBTFUL')
                AND ((alert_timestamp IS NOT NULL AND substr(alert_timestamp, 1, 10) = ?)
-                    OR (alert_timestamp IS NULL AND substr(scraped_at, 1, 10) = ?))""",
-            inj_conn, params=(injury_today, injury_today)
+                    OR (alert_timestamp IS NULL AND scraped_at >= ? AND scraped_at < ?))""",
+            inj_conn, params=(injury_today, injury_start_utc, injury_end_utc)
         )
         
         manual_df = pd.DataFrame()

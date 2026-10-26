@@ -224,15 +224,22 @@ def get_player_salaries():
 
 
 def get_injury_alerts():
-    from utils.timezone import get_eastern_date_str
+    from utils.timezone import get_eastern_date_str, get_eastern_day_utc_bounds
     today_prefix = get_eastern_date_str() + "%"
+    day_start_utc, day_end_utc = get_eastern_day_utc_bounds()
     if use_postgres():
         return _pg_query(
             """SELECT player_name, status FROM injury_alerts_live
                WHERE status IN ('OUT', 'QUESTIONABLE', 'PROBABLE', 'DOUBTFUL', 'GTD')
                AND ((alert_timestamp IS NOT NULL AND alert_timestamp LIKE :today)
-                    OR (alert_timestamp IS NULL AND scraped_at LIKE :today))""",
-            {"today": today_prefix}
+                    OR (alert_timestamp IS NULL
+                        AND scraped_at >= :day_start_utc
+                        AND scraped_at < :day_end_utc))""",
+            {
+                "today": today_prefix,
+                "day_start_utc": day_start_utc,
+                "day_end_utc": day_end_utc,
+            }
         )
     try:
         import sqlite3
@@ -241,8 +248,9 @@ def get_injury_alerts():
             """SELECT player_name, status FROM injury_alerts
                WHERE status IN ('OUT', 'QUESTIONABLE', 'PROBABLE', 'DOUBTFUL', 'GTD')
                AND ((alert_timestamp IS NOT NULL AND alert_timestamp LIKE ?)
-                    OR (alert_timestamp IS NULL AND scraped_at LIKE ?))""",
-            conn, params=(today_prefix, today_prefix)
+                    OR (alert_timestamp IS NULL
+                        AND scraped_at >= ? AND scraped_at < ?))""",
+            conn, params=(today_prefix, day_start_utc, day_end_utc)
         )
         conn.close()
         return df
