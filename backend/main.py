@@ -495,6 +495,10 @@ def render_player_name(name, league="nba", size="sm", extra_class=""):
 
 templates.env.filters["player_name"] = render_player_name
 templates.env.globals["player_headshot_url"] = get_player_headshot_url
+from utils.paywall_media import paywall_media_version
+from utils.archetype_fallback import fallback_info
+templates.env.globals["paywall_media_version"] = paywall_media_version
+templates.env.globals["archetype_fallback_info"] = fallback_info()
 
 @app.get("/chart-screenshot/{chart_type}/{target}")
 async def chart_screenshot_route(request: Request, chart_type: str, target: str):

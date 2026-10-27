@@ -474,6 +474,10 @@ def get_game_lock_rows():
 
 
 def get_player_archetypes():
+    from utils.archetype_fallback import load_fallback
+    approved = load_fallback()
+    if approved is not None:
+        return apply_current_player_teams(approved, clear_unmatched=True)
     composite_cols = ("creation_idx, playmaking_idx, interior_idx, perimeter_idx, "
                       "offball_idx, rebound_idx, defense_idx, size_idx")
     full_cols = f"player_name, team, archetype, cluster, {composite_cols}"
@@ -638,7 +642,10 @@ def get_player_hustle_stats():
 
 
 def get_dva_data():
-    if use_postgres():
+    from utils.archetype_fallback import fallback_info
+    # The bundled/local DVA is rebuilt against the approved role snapshot.
+    # Do not combine it with a pre-fallback PostgreSQL role grouping.
+    if use_postgres() and not fallback_info():
         try:
             with engine.connect() as conn:
                 result = conn.execute(text("SELECT COUNT(*) FROM dva_stats_live"))
