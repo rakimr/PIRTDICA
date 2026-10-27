@@ -438,6 +438,12 @@ def get_player_headshots(league="nba"):
             print(f"[headshots] Could not load {league} headshots: {exc}")
 
         if league == "nba":
+            try:
+                for original_name, url in data_access.get_current_nba_roster_headshots():
+                    for key in _headshot_name_keys(original_name):
+                        headshots[key] = url
+            except Exception as exc:
+                print(f"[headshots] Could not load current roster cutouts: {exc}")
             headshots.update(_get_current_espn_headshots())
 
         with _player_headshot_cache_lock:
@@ -677,6 +683,18 @@ def _article_visible_content(article, picks, analysis, league):
         (str(a.get("player", "")).strip().casefold(),
          str(a.get("stat", "")).upper(), str(a.get("call", "")).upper()) in selected
     ]
+    if (
+        league == "nba"
+        and article
+        and getattr(article, "slate_date", None)
+        and article.slate_date >= get_eastern_today()
+        and picks
+    ):
+        import pandas as pd
+        pick_frame = data_access.apply_current_player_teams(
+            pd.DataFrame(picks), clear_unmatched=True
+        )
+        picks = pick_frame.to_dict("records")
     return picks, analysis
 
 
@@ -2370,6 +2388,9 @@ async def trends(request: Request, db: Session = Depends(get_db)):
             traceback.print_exc()
 
         if not explorer_df.empty:
+            explorer_df = data_access.apply_current_player_teams(
+                explorer_df, clear_unmatched=True
+            )
             keep_cols = ['player_name', 'true_position', 'team', 'opponent', 'injury_status']
             keep_cols = [c for c in keep_cols if c in explorer_df.columns]
             explorer_players = explorer_df[keep_cols].to_dict('records')
@@ -4145,7 +4166,10 @@ async def api_player_shot_chart(player_name: str, league: str = "nba"):
             except Exception:
                 pass
 
-        team = player_row.get('team', None)
+        from utils.player_name_key import nba_player_name_key
+        team = data_access.get_current_player_team_map().get(
+            nba_player_name_key(matched_name), ""
+        )
 
         return {
             "player": matched_name,

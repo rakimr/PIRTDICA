@@ -1,7 +1,18 @@
 import os
+import sqlite3
+import time
 import pandas as pd
 from sqlalchemy import text
 from backend.database import engine
+from utils.current_nba_teams import (
+    apply_current_player_teams as _apply_current_player_teams,
+    build_current_player_team_map,
+)
+
+
+_CURRENT_TEAM_CACHE_SECONDS = 60
+_current_team_cache = {}
+_current_team_cache_loaded_at = 0.0
 
 
 def _pg_query(query, params=None):
@@ -33,20 +44,90 @@ def use_postgres():
     return _pg_table_has_data("dfs_players_live")
 
 
+def _read_local_frame(query):
+    try:
+        conn = sqlite3.connect("dfs_nba.db")
+        try:
+            return pd.read_sql_query(query, conn)
+        finally:
+            conn.close()
+    except Exception:
+        return pd.DataFrame()
+
+
+def _get_player_salaries_raw():
+    if use_postgres():
+        result = _pg_query(
+            "SELECT player_name, team, salary, position, scraped_at "
+            "FROM player_salaries_live"
+        )
+        if not result.empty:
+            return result
+    return _read_local_frame(
+        "SELECT player_name, team, salary, position, scraped_at FROM player_salaries"
+    )
+
+
+def get_current_player_team_map(force_refresh=False):
+    """Return fresh official roster teams, with current-slate salary fallback."""
+    global _current_team_cache, _current_team_cache_loaded_at
+    now = time.monotonic()
+    if (
+        not force_refresh
+        and _current_team_cache
+        and now - _current_team_cache_loaded_at < _CURRENT_TEAM_CACHE_SECONDS
+    ):
+        return dict(_current_team_cache)
+
+    roster_rows = pd.DataFrame()
+    salary_rows = pd.DataFrame()
+    if use_postgres():
+        roster_rows = _pg_query(
+            "SELECT player_name, team, scraped_at FROM nba_player_teams_live"
+        )
+        salary_rows = _get_player_salaries_raw()
+    if roster_rows.empty:
+        roster_rows = _read_local_frame(
+            "SELECT player_name, team, scraped_at FROM nba_player_teams"
+        )
+    if salary_rows.empty:
+        salary_rows = _read_local_frame(
+            "SELECT player_name, team, scraped_at FROM player_salaries"
+        )
+
+    _current_team_cache = build_current_player_team_map(roster_rows, salary_rows)
+    _current_team_cache_loaded_at = now
+    return dict(_current_team_cache)
+
+
+def apply_current_player_teams(frame, clear_unmatched=False):
+    return _apply_current_player_teams(
+        frame,
+        get_current_player_team_map(),
+        clear_unmatched=clear_unmatched,
+    )
+
+
 def get_dfs_players():
     if use_postgres():
-        return _pg_query("SELECT * FROM dfs_players_live")
+        frame = _pg_query("SELECT * FROM dfs_players_live")
+        if not frame.empty:
+            return apply_current_player_teams(frame, clear_unmatched=True)
     for path in ["dfs_players_valued.csv", "dfs_players.csv"]:
         if os.path.exists(path):
-            return pd.read_csv(path)
+            return apply_current_player_teams(pd.read_csv(path), clear_unmatched=True)
     return pd.DataFrame()
 
 
 def get_prop_recommendations():
     if use_postgres():
-        return _pg_query("SELECT * FROM prop_recommendations_live")
+        frame = _pg_query("SELECT * FROM prop_recommendations_live")
+        if not frame.empty:
+            return apply_current_player_teams(frame, clear_unmatched=True)
     if os.path.exists("prop_recommendations.csv"):
-        return pd.read_csv("prop_recommendations.csv")
+        return apply_current_player_teams(
+            pd.read_csv("prop_recommendations.csv"), clear_unmatched=True
+        )
     return pd.DataFrame()
 
 
@@ -58,16 +139,19 @@ def get_article_prop_recommendations(slate_date, csv_path="prop_recommendations.
     if 'game_date' in frame.columns:
         matched = frame[frame['game_date'].astype(str) == slate_date.isoformat()]
         if not matched.empty:
-            return matched
+            return apply_current_player_teams(matched, clear_unmatched=True)
     if not os.path.exists(csv_path):
         return pd.DataFrame()
     frame = pd.read_csv(csv_path)
     if 'game_date' in frame.columns:
-        return frame[frame['game_date'].astype(str) == slate_date.isoformat()]
+        return apply_current_player_teams(
+            frame[frame['game_date'].astype(str) == slate_date.isoformat()],
+            clear_unmatched=True,
+        )
     # Legacy undated exports are only usable on the day they were generated.
     today = get_eastern_today()
     if slate_date == today and datetime.fromtimestamp(os.path.getmtime(csv_path), EASTERN).date() == today:
-        return frame
+        return apply_current_player_teams(frame, clear_unmatched=True)
     return frame.iloc[0:0]
 
 
@@ -87,9 +171,13 @@ def get_wnba_prop_recommendations():
 
 def get_targeted_plays():
     if use_postgres():
-        return _pg_query("SELECT * FROM targeted_plays_live")
+        frame = _pg_query("SELECT * FROM targeted_plays_live")
+        if not frame.empty:
+            return apply_current_player_teams(frame, clear_unmatched=True)
     if os.path.exists("targeted_plays.csv"):
-        return pd.read_csv("targeted_plays.csv")
+        return apply_current_player_teams(
+            pd.read_csv("targeted_plays.csv"), clear_unmatched=True
+        )
     return pd.DataFrame()
 
 
@@ -206,21 +294,11 @@ def get_player_salaries_game_times():
 
 
 def get_player_salaries():
-    if use_postgres():
-        result = _pg_query("SELECT player_name, team, salary, position FROM player_salaries_live")
-        if not result.empty:
-            return result
-    try:
-        import sqlite3
-        conn = sqlite3.connect("dfs_nba.db")
-        df = pd.read_sql_query(
-            "SELECT player_name, team, salary, position FROM player_salaries",
-            conn
-        )
-        conn.close()
-        return df
-    except Exception:
+    df = _get_player_salaries_raw()
+    if df.empty:
         return pd.DataFrame(columns=["player_name", "team", "salary", "position"])
+    df = apply_current_player_teams(df, clear_unmatched=True)
+    return df.drop(columns=["scraped_at"], errors="ignore")
 
 
 def get_injury_alerts():
@@ -420,15 +498,19 @@ def get_player_archetypes():
     if use_postgres():
         df = _pg_query(f"SELECT {full_cols} FROM player_archetypes_live")
         if not df.empty and 'creation_idx' in df.columns:
-            return df
+            return apply_current_player_teams(df, clear_unmatched=True)
         sqlite_df = _try_sqlite(with_composites=True)
         if not sqlite_df.empty and 'creation_idx' in sqlite_df.columns:
-            return sqlite_df
+            return apply_current_player_teams(sqlite_df, clear_unmatched=True)
         df = _pg_query(f"SELECT {basic_cols} FROM player_archetypes_live")
         if not df.empty:
-            return df
-        return _try_sqlite(with_composites=False)
-    return _try_sqlite(with_composites=True)
+            return apply_current_player_teams(df, clear_unmatched=True)
+        return apply_current_player_teams(
+            _try_sqlite(with_composites=False), clear_unmatched=True
+        )
+    return apply_current_player_teams(
+        _try_sqlite(with_composites=True), clear_unmatched=True
+    )
 
 
 def get_player_per100():
@@ -837,6 +919,36 @@ def get_player_headshots(league="nba"):
         return rows
     except Exception:
         return []
+
+
+def get_current_nba_roster_headshots():
+    """Return fresh ESPN cutouts for the official current NBA roster."""
+    rows = pd.DataFrame()
+    if use_postgres():
+        rows = _pg_query(
+            "SELECT player_name, espn_id, scraped_at FROM nba_player_teams_live"
+        )
+    if rows.empty:
+        rows = _read_local_frame(
+            "SELECT player_name, espn_id, scraped_at FROM nba_player_teams"
+        )
+    if rows.empty or not {"player_name", "espn_id", "scraped_at"}.issubset(rows.columns):
+        return []
+
+    scraped = pd.to_datetime(rows["scraped_at"], utc=True, errors="coerce")
+    cutoff = pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=7)
+    rows = rows.loc[scraped >= cutoff].dropna(subset=["player_name", "espn_id"])
+
+    headshots = []
+    for _, row in rows.drop_duplicates(subset=["player_name"]).iterrows():
+        player_name = str(row["player_name"]).strip()
+        espn_id = str(row["espn_id"]).strip()
+        if player_name and espn_id.isdigit():
+            headshots.append((
+                player_name,
+                f"https://a.espncdn.com/i/headshots/nba/players/full/{espn_id}.png",
+            ))
+    return headshots
 
 
 def write_manual_injury(player_name, normalized_name, status="OUT", reason="Manual override"):
