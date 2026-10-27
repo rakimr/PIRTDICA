@@ -896,9 +896,7 @@ def get_player_headshots(league="nba"):
             if player_name and espn_id.isdigit():
                 headshots.append((
                     player_name,
-                    "https://a.espncdn.com/combiner/i"
-                    f"?img=/i/headshots/wnba/players/full/{espn_id}.png"
-                    "&h=200&w=200&scale=crop",
+                    f"https://a.espncdn.com/i/headshots/wnba/players/full/{espn_id}.png",
                 ))
         return headshots
 

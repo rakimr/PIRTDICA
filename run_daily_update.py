@@ -13,6 +13,7 @@ NBA_COM_SCRIPTS = {
 }
 
 SCRIPTS = [
+    ("scrape_nba_rosters.py", "Current NBA Player Teams (ESPN)"),
     ("scrape_player_salaries.py", "Player Salaries"),
     ("scrape_depth_charts.py", "Depth Charts"),
     ("scrape_game_odds.py", "Game Odds"),

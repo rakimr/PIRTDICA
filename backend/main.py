@@ -1629,6 +1629,21 @@ def _nba_slate_is_today():
         return False
 
 
+def _nba_season_is_active(today=None):
+    """Keep the home-page edge league on NBA throughout its season window.
+
+    NBA odds can be absent on off-nights, but that should not promote WNBA
+    players into the NBA-season teaser. The calendar window uses the usual
+    late-October through June NBA season.
+    """
+    today = today or get_eastern_today()
+    return (
+        today.month in (11, 12)
+        or 1 <= today.month <= 6
+        or (today.month == 10 and today.day >= 20)
+    )
+
+
 def _wnba_active_slate_recs(recs_df):
     """Filter a WNBA recs frame to the active slate (earliest game_date that is
     today-or-later in ET, else the most recent). The recs CSV can span multiple
@@ -1850,12 +1865,14 @@ def home(request: Request, db: Session = Depends(get_db)):
             edge_insights = _build_edge_insights(data_access.get_prop_recommendations())
         except Exception:
             edge_insights = []
-        # When there is no fresh NBA slate today (e.g. the NBA offseason), or NBA
-        # produced no edges, fall back to the active WNBA slate so 'Tonight's
-        # Edge' still shows real props. We check odds freshness (scraped today)
-        # rather than a row count, so leftover stale NBA props/odds do not keep
-        # WNBA off the ticker on a no-NBA-games night.
-        if not _nba_slate_is_today() or not edge_insights:
+        # WNBA may fill the ticker only in the NBA offseason. During NBA season,
+        # missing or stale NBA data leaves this edge strip empty rather than
+        # substituting the wrong league. Off-season fallback still checks odds
+        # freshness so stale NBA rows do not suppress current WNBA props.
+        if (
+            not _nba_season_is_active()
+            and (not _nba_slate_is_today() or not edge_insights)
+        ):
             try:
                 wnba_recs = _wnba_active_slate_recs(data_access.get_wnba_prop_recommendations())
                 wnba_edges = _build_edge_insights(wnba_recs)
@@ -2146,8 +2163,6 @@ async def logout(request: Request, db: Session = Depends(get_db)):
 @app.get("/trends")
 async def trends(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
-    if not user:
-        return html_redirect("/login")
     league = get_league(request)
     if league == "wnba":
         resp = _render_wnba_trends(request, user, db)
