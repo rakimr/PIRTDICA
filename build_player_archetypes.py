@@ -6,48 +6,10 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from utils.timezone import get_eastern_now
 from utils.nba_season import nba_api_season
-import unicodedata
-import re
 import warnings
+from utils.player_name_key import nba_player_name_key as _ascii_key
 warnings.filterwarnings('ignore')
 
-
-_NICKNAME_MAP = {
-    'ronald': 'ron', 'william': 'will', 'robert': 'rob',
-    'kenneth': 'ken', 'nicholas': 'nick', 'christopher': 'chris',
-    'timothy': 'tim', 'matthew': 'matt', 'daniel': 'dan',
-    'michael': 'mike', 'joseph': 'joe', 'edward': 'ed',
-    'anthony': 'tony', 'richard': 'rich', 'thomas': 'tom',
-    'benjamin': 'ben', 'gregory': 'greg', 'gerald': 'gerry',
-    'patrick': 'pat', 'jeffrey': 'jeff', 'cameron': 'cam',
-}
-
-def _ascii_key(name):
-    if not name or not isinstance(name, str):
-        return ""
-    fixed = name
-    for _ in range(2):
-        try:
-            fixed = fixed.encode('latin-1').decode('utf-8')
-        except (UnicodeDecodeError, UnicodeEncodeError):
-            break
-    _cyr = {'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh',
-            'з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o',
-            'п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'kh','ц':'ts',
-            'ч':'ch','ш':'sh','щ':'shch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'}
-    fixed = ''.join(_cyr.get(c, _cyr.get(c.lower(), c)) for c in fixed)
-    nfkd = unicodedata.normalize('NFKD', fixed)
-    ascii_name = ''.join(c for c in nfkd if not unicodedata.combining(c))
-    ascii_name = re.sub(r'[^a-zA-Z\s]', '', ascii_name).lower().strip()
-    ascii_name = re.sub(r'\s+', ' ', ascii_name)
-    for suffix in [' iv', ' iii', ' ii', ' jr', ' sr', ' v']:
-        if ascii_name.endswith(suffix):
-            ascii_name = ascii_name[:-len(suffix)].strip()
-            break
-    parts = ascii_name.split(' ', 1)
-    if len(parts) == 2 and parts[0] in _NICKNAME_MAP:
-        ascii_name = _NICKNAME_MAP[parts[0]] + ' ' + parts[1]
-    return ascii_name
 
 DB_PATH = 'dfs_nba.db'
 
@@ -60,6 +22,130 @@ COMPOSITE_FEATURES = [
     'creation_idx', 'playmaking_idx', 'interior_idx', 'perimeter_idx',
     'offball_idx', 'rebound_idx', 'defense_idx', 'size_idx',
 ]
+
+FINAL_ARCHETYPES = frozenset({
+    '3-and-D Wing', 'Shooting Wing', 'Scoring Wing', 'Combo Guard',
+    'Playmaker', 'Traditional Big', 'Versatile Big', 'Stretch 4',
+    'Stretch 5', 'Point Forward', 'Point Center',
+})
+
+
+def validate_archetype_labels(df):
+    """Reject synthetic cluster names before they become model categories."""
+    if df.empty:
+        raise ValueError("Refusing to save an empty archetype build")
+    for column in ('archetype', 'base_archetype'):
+        if column not in df.columns:
+            raise ValueError(f"Missing required archetype column: {column}")
+        invalid = ~df[column].isin(FINAL_ARCHETYPES)
+        if invalid.any():
+            labels = df.loc[invalid, column].astype(str).unique().tolist()
+            raise ValueError(
+                f"Refusing to save unsupported {column} labels: {labels}"
+            )
+
+
+def _collapse_feature_rows(frame, source_name):
+    """Collapse alias rows, preserving complementary fields without averaging duplicates."""
+    if frame.empty:
+        return frame
+
+    frame = frame.copy().reset_index(drop=True)
+    blank_key = frame['_merge_key'].isna() | frame['_merge_key'].astype(str).str.strip().eq('')
+    frame.loc[blank_key, '_merge_key'] = [
+        f'__missing_player_{index}' for index in frame.index[blank_key]
+    ]
+    if not frame['_merge_key'].duplicated().any():
+        return frame
+
+    duplicate_keys = int(frame.loc[frame['_merge_key'].duplicated(False), '_merge_key'].nunique())
+    duplicate_rows = int(frame['_merge_key'].duplicated().sum())
+
+    if source_name == 'player_shot_creation':
+        activity_cols = [
+            'cs_fga', 'cs_fgm', 'cs_3fga', 'cs_3fgm',
+            'pu_fga', 'pu_fgm', 'pu_3fga', 'pu_3fgm',
+            'paint_fga', 'paint_fgm',
+        ]
+        activity_cols = [col for col in activity_cols if col in frame.columns]
+        frame['_activity_score'] = (
+            frame[activity_cols].apply(pd.to_numeric, errors='coerce').fillna(0).sum(axis=1)
+            if activity_cols else 0
+        )
+        sort_cols = ['_activity_score']
+        ascending = [True]
+        if 'scraped_at' in frame.columns:
+            sort_cols.append('scraped_at')
+            ascending.append(True)
+    elif source_name == 'player_per100' and 'total_minutes' in frame.columns:
+        sort_cols = ['total_minutes']
+        ascending = [True]
+        if 'scraped_at' in frame.columns:
+            sort_cols.append('scraped_at')
+            ascending.append(True)
+    else:
+        if 'scraped_at' in frame.columns:
+            sort_cols = ['scraped_at']
+            ascending = [True]
+        else:
+            frame['_completeness'] = frame.notna().sum(axis=1)
+            sort_cols = ['_completeness']
+            ascending = [True]
+
+    frame = frame.sort_values(
+        sort_cols,
+        ascending=ascending,
+        na_position='first',
+        kind='stable',
+    )
+    frame = frame.groupby('_merge_key', sort=False, dropna=False).last().reset_index()
+    frame = frame.drop(columns=['_activity_score', '_completeness'], errors='ignore')
+
+    print(
+        f"  {source_name}: collapsed {duplicate_rows} extra row(s) "
+        f"across {duplicate_keys} normalized player key(s)"
+    )
+    return frame.reset_index(drop=True)
+
+
+def _aggregate_game_log_features(game_logs):
+    """Collapse spelling variants and duplicate same-game logs before modeling."""
+    if game_logs.empty:
+        return pd.DataFrame(columns=[
+            'player_name', '_merge_key', 'fg3m_pg', 'pts_pg', 'reb_pg',
+            'ast_pg', 'min_pg', 'log_games',
+        ])
+
+    logs = game_logs.copy()
+    if 'season_type' not in logs.columns:
+        logs['season_type'] = 'REGULAR'
+    logs['season_type'] = logs['season_type'].fillna('REGULAR').astype(str)
+    logs['_merge_key'] = logs['player_name'].map(_ascii_key)
+    event_key = ['_merge_key', 'game_date', 'season_type']
+
+    blank_key = logs['_merge_key'].isna() | logs['_merge_key'].astype(str).str.strip().eq('')
+    logs.loc[blank_key, '_merge_key'] = [
+        f'__missing_player_{index}' for index in logs.index[blank_key]
+    ]
+
+    if 'scraped_at' in logs.columns:
+        logs = logs.sort_values('scraped_at', na_position='first', kind='stable')
+    before = len(logs)
+    logs = logs.groupby(event_key, sort=False, dropna=False).last().reset_index()
+    removed = before - len(logs)
+    if removed:
+        print(f"  Game logs: removed {removed} duplicate normalized player-game row(s)")
+
+    result = logs.groupby('_merge_key', as_index=False, sort=False).agg(
+        player_name=('player_name', 'first'),
+        fg3m_pg=('fg3m', 'mean'),
+        pts_pg=('pts', 'mean'),
+        reb_pg=('reb', 'mean'),
+        ast_pg=('ast', 'mean'),
+        min_pg=('min', 'mean'),
+        log_games=('game_date', 'size'),
+    )
+    return result[result['log_games'] >= 5].reset_index(drop=True)
 
 TARGET_K = 6
 
@@ -92,64 +178,96 @@ def fetch_player_heights():
         return {}
 
 
-def load_feature_data():
+def load_feature_data(feature_season=None):
     conn = sqlite3.connect(DB_PATH)
+    from utils.archetype_inputs import season_year, validate_input_season
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(player_per100)")}
+    if feature_season is not None or "source_season" in columns:
+        try:
+            if feature_season is None:
+                seasons = [row[0] for row in conn.execute(
+                    "SELECT DISTINCT source_season FROM player_per100 WHERE source_season IS NOT NULL")]
+                if len(seasons) != 1:
+                    raise ValueError("Select one explicit archetype feature season")
+                feature_season = seasons[0]
+            validate_input_season(conn, feature_season)
+        except Exception:
+            conn.close()
+            raise
 
-    per100 = pd.read_sql_query("""
+    def read_performance(query):
+        if feature_season is None:
+            return pd.read_sql_query(query, conn)
+        conjunction = " AND " if "WHERE" in query.upper() else " WHERE "
+        return pd.read_sql_query(
+            query.rstrip() + conjunction + "source_season=? AND season_type=?",
+            conn, params=(feature_season, "Regular Season"))
+
+    per100 = read_performance("""
         SELECT player_name, team, games_played, total_minutes, mpg,
                pts_per100, reb_per100, ast_per100, stl_per100, blk_per100, tov_per100
         FROM player_per100
         WHERE games_played >= 10 AND mpg >= 12
-    """, conn)
+    """)
 
-    positions = pd.read_sql_query("""
+    positions = read_performance("""
         SELECT player_name, true_position, pg_pct, sg_pct, sf_pct, pf_pct, c_pct
         FROM player_positions
-    """, conn)
+    """)
 
-    game_logs = pd.read_sql_query("""
-        SELECT player_name,
-               AVG(fg3m) as fg3m_pg,
-               AVG(pts) as pts_pg,
-               AVG(reb) as reb_pg,
-               AVG(ast) as ast_pg,
-               AVG(min) as min_pg,
-               COUNT(*) as log_games
-        FROM player_game_logs
-        WHERE min >= 10
-        GROUP BY player_name
-        HAVING COUNT(*) >= 5
-    """, conn)
+    game_log_columns = {
+        row[1] for row in conn.execute("PRAGMA table_info(player_game_logs)").fetchall()
+    }
+    game_log_select = [
+        'player_name', 'game_date', 'min', 'pts', 'reb', 'ast', 'fg3m',
+    ]
+    for optional_column in ('season_type', 'scraped_at'):
+        if optional_column in game_log_columns:
+            game_log_select.append(optional_column)
+    game_query = f"SELECT {', '.join(game_log_select)} FROM player_game_logs WHERE min >= 10"
+    game_params = ()
+    if feature_season is not None:
+        if "season_type" not in game_log_columns:
+            conn.close()
+            raise ValueError("Season-specific archetypes require verified game-log season types")
+        start = season_year(feature_season)
+        game_query += (
+            " AND game_date >= ? AND game_date < ?"
+            " AND UPPER(REPLACE(REPLACE(season_type, ' ', ''), '_', ''))"
+            " IN ('REGULAR', 'REGULARSEASON')")
+        game_params = (f"{start}-10-01", f"{start + 1}-10-01")
+    game_log_rows = pd.read_sql_query(game_query, conn, params=game_params)
+    game_logs = _aggregate_game_log_features(game_log_rows)
 
-    usage = pd.read_sql_query("""
+    usage = read_performance("""
         SELECT player_name, usg_pct
         FROM player_stats
-    """, conn)
+    """)
 
-    shot_zones = pd.read_sql_query("""
+    shot_zones = read_performance("""
         SELECT player_name, rim_paint_pct, three_pct, ra_pct, paint_pct, mid_pct,
                corner3_fga, atb3_fga, three_fga
         FROM player_shot_zones
-    """, conn)
+    """)
 
-    shot_creation = pd.read_sql_query("""
+    shot_creation = read_performance("""
         SELECT player_name, cs_pct, pu_pct, paint_pct as sc_paint_pct, cs_3_share,
                pu_3_share
         FROM player_shot_creation
-    """, conn)
+    """)
 
-    hustle = pd.read_sql_query("""
+    hustle = read_performance("""
         SELECT player_name, deflections_per48, contested_per48, loose_per48,
                charges_per48, screen_ast_per48, box_outs_per48
         FROM player_hustle_stats
-    """, conn)
+    """)
 
-    tracking = pd.read_sql_query("""
+    tracking = read_performance("""
         SELECT player_name, touches_pg, front_ct_touches_pg, time_of_poss_pg,
                avg_sec_per_touch, avg_drib_per_touch, touches_per_min, front_ct_per_min,
                post_touches_pg, paint_touches_pg
         FROM player_tracking_stats
-    """, conn)
+    """)
 
     measurements = pd.read_sql_query("""
         SELECT player_name, height_inches, weight_lbs, wingspan_inches
@@ -158,17 +276,67 @@ def load_feature_data():
 
     conn.close()
 
-    for tbl in [per100, positions, game_logs, usage, shot_zones, shot_creation, hustle, tracking, measurements]:
-        tbl['_merge_key'] = tbl['player_name'].apply(_ascii_key)
+    feature_frames = {
+        'player_per100': per100,
+        'player_positions': positions,
+        'player_stats': usage,
+        'player_shot_zones': shot_zones,
+        'player_shot_creation': shot_creation,
+        'player_hustle_stats': hustle,
+        'player_tracking_stats': tracking,
+        'player_measurements': measurements,
+    }
+    for source_name, frame in feature_frames.items():
+        frame['_merge_key'] = frame['player_name'].map(_ascii_key)
+        feature_frames[source_name] = _collapse_feature_rows(frame, source_name)
 
-    df = per100.merge(positions.drop(columns=['player_name']), on='_merge_key', how='inner')
-    df = df.merge(game_logs.drop(columns=['player_name']), on='_merge_key', how='inner')
-    df = df.merge(usage.drop(columns=['player_name']), on='_merge_key', how='left')
-    df = df.merge(shot_zones.drop(columns=['player_name']), on='_merge_key', how='left')
-    df = df.merge(shot_creation.drop(columns=['player_name']), on='_merge_key', how='left')
-    df = df.merge(hustle.drop(columns=['player_name']), on='_merge_key', how='left')
-    df = df.merge(tracking.drop(columns=['player_name']), on='_merge_key', how='left')
-    df = df.merge(measurements.drop(columns=['player_name']), on='_merge_key', how='left')
+    per100 = feature_frames['player_per100']
+    positions = feature_frames['player_positions']
+    usage = feature_frames['player_stats']
+    shot_zones = feature_frames['player_shot_zones']
+    shot_creation = feature_frames['player_shot_creation']
+    hustle = feature_frames['player_hustle_stats']
+    tracking = feature_frames['player_tracking_stats']
+    measurements = feature_frames['player_measurements']
+
+    df = per100.merge(
+        positions.drop(columns=['player_name']), on='_merge_key',
+        how='inner', validate='one_to_one',
+    )
+    df = df.merge(
+        game_logs.drop(columns=['player_name']), on='_merge_key',
+        how='inner', validate='one_to_one',
+    )
+    df = df.merge(
+        usage.drop(columns=['player_name']), on='_merge_key',
+        how='left', validate='one_to_one',
+    )
+    df = df.merge(
+        shot_zones.drop(columns=['player_name']), on='_merge_key',
+        how='left', validate='one_to_one',
+    )
+    df = df.merge(
+        shot_creation.drop(columns=['player_name']), on='_merge_key',
+        how='left', validate='one_to_one',
+    )
+    df = df.merge(
+        hustle.drop(columns=['player_name']), on='_merge_key',
+        how='left', validate='one_to_one',
+    )
+    df = df.merge(
+        tracking.drop(columns=['player_name']), on='_merge_key',
+        how='left', validate='one_to_one',
+    )
+    df = df.merge(
+        measurements.drop(columns=['player_name']), on='_merge_key',
+        how='left', validate='one_to_one',
+    )
+    if df['_merge_key'].duplicated().any():
+        duplicate_keys = df.loc[df['_merge_key'].duplicated(False), '_merge_key'].unique()
+        raise ValueError(
+            f"Archetype feature joins produced duplicate normalized players: "
+            f"{list(duplicate_keys[:10])}"
+        )
     df = df.drop(columns=['_merge_key'])
 
     df['usg_pct'] = df['usg_pct'].fillna(df['usg_pct'].median())
@@ -367,7 +535,9 @@ def label_cluster_scored(centroid, feature_names):
         return 'Combo Guard'
 
     if perimeter > 0.5 and offball > 0.0:
-        return '3-and-D Wing'
+        # A shooting/off-ball cluster without the defensive signal is not 3-and-D.
+        # This distinction must not depend on which cluster K-Means numbers first.
+        return 'Shooting Wing' if defense < 0 else '3-and-D Wing'
 
     if perimeter > 0 and defense < -1.0:
         return 'Scoring Wing'
@@ -375,7 +545,24 @@ def label_cluster_scored(centroid, feature_names):
     return 'Combo Guard'
 
 
-def run_clustering(df, k=TARGET_K):
+def refine_facilitating_wings(df):
+    """Apply the existing Point Forward criteria independently of scoring usage."""
+    wing_roles = {'Scoring Wing', 'Shooting Wing', '3-and-D Wing',
+                  'Playmaker', 'Combo Guard'}
+    forward_share = df['sf_pct'] + df['pf_pct']
+    guard_share = df['pg_pct'] + df['sg_pct']
+    eligible = (
+        df['archetype'].isin(wing_roles)
+        & (forward_share > guard_share)
+        & (df['c_pct'] < 50)
+        & (df['ast_per100'] >= 7.5)
+        & (df['touches_per_min'] >= BALL_INITIATION_TOUCHES_PER_MIN)
+    )
+    df.loc[eligible, 'archetype'] = 'Point Forward'
+    return df
+
+
+def run_clustering(df, k=TARGET_K, *, height_map=None):
     feature_df = df[COMPOSITE_FEATURES].copy()
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(feature_df)
@@ -411,22 +598,13 @@ def run_clustering(df, k=TARGET_K):
 
     centroids_orig = scaler.inverse_transform(km.cluster_centers_)
 
-    cluster_labels = {}
-    label_counts = {}
-    for i in range(k):
-        label = label_cluster_scored(centroids_orig[i], COMPOSITE_FEATURES)
-        label_counts[label] = label_counts.get(label, 0) + 1
-        if label_counts[label] > 1:
-            c = dict(zip(COMPOSITE_FEATURES, centroids_orig[i]))
-            if label == '3-and-D Wing' and c.get('defense_idx', 0) < 0:
-                label = 'Shooting Wing'
-            elif c.get('defense_idx', 0) > 0.5:
-                label = f"{label} (Defensive)"
-            elif c.get('creation_idx', 0) > 0.5:
-                label = f"{label} (Offensive)"
-            else:
-                label = f"{label} (Role)"
-        cluster_labels[i] = label
+    # Cluster IDs identify statistical groups, not additional basketball roles.
+    # Multiple clusters may share a canonical role. Invented suffixes bypassed
+    # the exact-label refinement rules below and fragmented the downstream DVA.
+    cluster_labels = {
+        i: label_cluster_scored(centroids_orig[i], COMPOSITE_FEATURES)
+        for i in range(k)
+    }
 
     print(f"\n  Cluster centroids (composite indices):")
     for i in range(k):
@@ -525,7 +703,8 @@ def run_clustering(df, k=TARGET_K):
         ((df['c_pct'] >= 15) | (df['reb_per100'] >= 9.0))
     )
 
-    height_map = fetch_player_heights()
+    if height_map is None:
+        height_map = fetch_player_heights()
     if height_map:
         df['_mk'] = df['player_name'].apply(_ascii_key)
         df['_height_check'] = df['_mk'].map(height_map)
@@ -719,6 +898,11 @@ def run_clustering(df, k=TARGET_K):
 
     print(f"  Hybrid branch routing: {hybrid_routed} players rerouted")
 
+    previous_forwards = int(df['archetype'].eq('Point Forward').sum())
+    df = refine_facilitating_wings(df)
+    new_forwards = int(df['archetype'].eq('Point Forward').sum()) - previous_forwards
+    print(f"  Facilitating wings outside scoring/usage gates: {new_forwards} -> Point Forward")
+
     print("\n  Guard playmaker reclassification (facilitator-first guards in Combo Guard)...")
     playmaker_reclass = 0
     combo_guard_variants = [a for a in df['archetype'].unique() if 'Combo Guard' in a]
@@ -802,30 +986,53 @@ def validate_archetypes(df):
     ok_count = 0
     review_count = 0
     found_count = 0
+    review_cases = []
     for player_fragment, expected in known_players.items():
         match = df[df['player_name'].str.contains(player_fragment, case=False, na=False)]
         if not match.empty:
             actual = match.iloc[0]['archetype']
-            is_match = expected.lower() in actual.lower()
+            is_match = expected == actual
             status = "OK" if is_match else "REVIEW"
             if is_match:
                 ok_count += 1
             else:
                 review_count += 1
+                review_cases.append({
+                    "player_name": str(match.iloc[0]["player_name"]),
+                    "expected": expected,
+                    "candidate": str(actual),
+                })
             found_count += 1
             prob_cols = [c for c in match.columns if c.startswith('cluster_') and c.endswith('_prob')]
             top_probs = match.iloc[0][prob_cols].sort_values(ascending=False).head(3)
             prob_str = ', '.join(f"C{c.split('_')[1]}={v:.0%}" for c, v in top_probs.items())
             print(f"  {match.iloc[0]['player_name']}: expected={expected}, got={actual} [{status}]  ({prob_str})")
         else:
-            print(f"  {player_fragment}: NOT IN TODAY'S SLATE")
+            print(f"  {player_fragment}: NOT IN ELIGIBLE FEATURE DATA")
 
     if found_count > 0:
         error_rate = review_count / found_count * 100
-        print(f"\n  Results: {ok_count}/{found_count} correct, {review_count}/{found_count} mismatched ({error_rate:.0f}% error rate)")
+        print(f"\n  Reference checks: {ok_count}/{found_count} matched, {review_count}/{found_count} need review ({error_rate:.0f}% mismatch rate)")
+    return {
+        'reference_players_found': found_count,
+        'reference_matches': ok_count,
+        'reference_mismatches': review_count,
+        'review_cases': review_cases,
+    }
 
 
 def save_archetypes(df):
+    validate_archetype_labels(df)
+    normalized_keys = df['player_name'].map(_ascii_key)
+    if normalized_keys.duplicated().any():
+        duplicate_names = df.loc[
+            normalized_keys.duplicated(False), 'player_name'
+        ].astype(str).unique().tolist()
+        raise ValueError(
+            f"Refusing to save duplicate normalized archetype players: "
+            f"{duplicate_names[:10]}"
+        )
+
     conn = sqlite3.connect(DB_PATH)
     now = get_eastern_now().isoformat()
 
@@ -891,6 +1098,20 @@ def save_archetypes(df):
     remaining_multi = save_df['team'].isin(['2TM', '3TM', 'TOT']).sum()
     print(f"  Team resolution: {updated_count} updated from depth charts, {remaining_multi} unresolved")
 
+    from utils.current_nba_teams import (
+        apply_current_player_teams,
+        current_player_team_map_from_sqlite,
+    )
+    current_team_map = current_player_team_map_from_sqlite(conn)
+    save_df = apply_current_player_teams(
+        save_df, current_team_map, clear_unmatched=True
+    )
+    unresolved_current_teams = save_df["team"].astype(str).str.strip().eq("").sum()
+    print(
+        f"  Current roster mapping: {len(save_df) - unresolved_current_teams} "
+        f"players assigned; {unresolved_current_teams} without a current roster match"
+    )
+
     save_df.to_sql('player_archetypes', conn, if_exists='replace', index=False)
 
     print(f"\nSaved {len(save_df)} archetypes to player_archetypes table (with soft cluster probabilities)")
@@ -902,27 +1123,61 @@ def save_archetypes(df):
     conn.close()
 
 
-def main():
+def main(*, dry_run=False, offline=False, feature_season=None):
     print("=" * 60)
     print("PHILLIPS-STYLE PLAYER ARCHETYPE CLASSIFICATION v2")
     print("8 Composite Indices + Minutes-Weighted Centroids + Soft Clustering")
     print("=" * 60)
 
     print("\n1. Loading feature data (per-100 + positions + shots + hustle + tracking + measurements)...")
-    df = load_feature_data()
+    df = load_feature_data(feature_season) if feature_season else load_feature_data()
     print(f"   Loaded {len(df)} players with complete data")
+    if df.empty:
+        raise ValueError("No eligible archetype players; the 10-game / 12-MPG minimum is unchanged")
 
     print("\n2. Building 8 composite indices...")
     df, raw_scaler = build_composite_indices(df)
 
     print("\n3. Running minutes-weighted K-Means clustering...")
-    df, km, cluster_scaler, labels = run_clustering(df)
+    cached_heights = (
+        dict(zip(df['player_name'].map(_ascii_key), df['height_inches']))
+        if offline else None
+    )
+    df, km, cluster_scaler, labels = run_clustering(df, height_map=cached_heights)
 
     print("\n4. Validating archetypes...")
-    validate_archetypes(df)
+    validate_archetype_labels(df)
+    validation = validate_archetypes(df)
 
-    print("\n5. Saving results (with soft cluster probabilities)...")
-    save_archetypes(df)
+    if dry_run:
+        print("\n5. DRY RUN: no archetypes or downstream outputs will be saved.")
+    else:
+        if not validation['reference_players_found'] or validation['reference_mismatches']:
+            raise ValueError(
+                "Archetype reference checks need review; refusing to replace "
+                "stored classifications. Inspect with --dry-run --offline first."
+            )
+        print("\n5. Saving results (with soft cluster probabilities)...")
+        from utils.archetype_inputs import validate_input_season
+        with sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True) as source:
+            validate_input_season(source, feature_season or nba_api_season())
+            stored_tables = {
+                row[0] for row in source.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'")
+            }
+            if "player_archetypes" in stored_tables:
+                old_players = {
+                    _ascii_key(row[0]): row[0]
+                    for row in source.execute("SELECT player_name FROM player_archetypes")
+                }
+                proposed_keys = {_ascii_key(name) for name in df["player_name"]}
+                missing = sorted(name for key, name in old_players.items()
+                                 if key not in proposed_keys)
+                if missing:
+                    raise ValueError(
+                        f"Archetype rebuild would lose {len(missing)} previously"
+                        f" classified players: {missing[:15]}")
+        save_archetypes(df)
 
     print("\n6. Sample players by archetype:")
     for arch in sorted(df['archetype'].unique()):
@@ -977,4 +1232,11 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Build and validate NBA archetypes")
+    parser.add_argument('--dry-run', action='store_true', help='Audit without saving results')
+    parser.add_argument('--offline', action='store_true', help='Use cached height measurements')
+    parser.add_argument('--feature-season', help='Explicit, uniformly sourced YYYY-YY feature season')
+    args = parser.parse_args()
+    main(dry_run=args.dry_run, offline=args.offline, feature_season=args.feature_season)

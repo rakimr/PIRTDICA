@@ -13,6 +13,35 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 from utils.timezone import get_eastern_date_str
+from utils.player_name_key import nba_player_name_key
+from utils.player_rows import collapse_player_alias_rows
+
+
+class _PlayerIdentityLookup(dict):
+    """Dictionary that accepts any spelling of a player's canonical identity."""
+
+    @staticmethod
+    def _identity_key(key):
+        if isinstance(key, tuple) and key:
+            return (nba_player_name_key(key[0]), *key[1:])
+        return nba_player_name_key(key)
+
+    def get(self, key, default=None):
+        return super().get(self._identity_key(key), default)
+
+
+def _canonical_player_lookup(frame, preferred_names=None):
+    if frame is None or frame.empty:
+        return _PlayerIdentityLookup()
+    rows = collapse_player_alias_rows(
+        frame,
+        key_column="_player_key",
+        preferred_names=preferred_names,
+        normalizer=nba_player_name_key,
+    )
+    return _PlayerIdentityLookup(
+        (row["_player_key"], row.to_dict()) for _, row in rows.iterrows()
+    )
 
 STAT_CATEGORIES = ['pts', 'reb', 'ast', 'stl', 'blk', '3pm']
 
@@ -98,15 +127,22 @@ def get_dvp_advantages(players_df, dvp_df, stats_df):
     
     players_df_norm = players_df[players_df['salary'] > 0].copy()
     stats_df_norm = stats_df.copy()
+    players_df_norm['norm_name'] = players_df_norm['player_name'].map(nba_player_name_key)
     players_df_norm['team_norm'] = players_df_norm['team'].apply(normalize_team)
     stats_df_norm['team_norm'] = stats_df_norm['team'].apply(normalize_team)
+    stats_df_norm = collapse_player_alias_rows(
+        stats_df_norm,
+        key_column="norm_name",
+        group_columns=("team_norm",),
+        normalizer=nba_player_name_key,
+    )
     
     players_with_stats = players_df_norm.merge(
         stats_df_norm, 
-        left_on=['player_name', 'team_norm'],
-        right_on=['player_name', 'team_norm'],
+        on=['norm_name', 'team_norm'],
         how='left',
-        suffixes=('', '_stats')
+        suffixes=('', '_stats'),
+        validate='one_to_one',
     )
     
     results = []
@@ -532,8 +568,9 @@ def generate_dvp_heatmap(dvp_df, output_path='static/images/dvp_heatmap.png'):
     return output_path
 
 def _normalize_prop_name(name):
-    """Normalize player name for matching prop lines."""
-    import unicodedata, re
+    """Normalize prop-feed names while preserving its legacy display keys."""
+    import unicodedata
+    import re
     if pd.isna(name):
         return ""
     name = str(name).strip().lower()
@@ -785,6 +822,16 @@ def _load_game_logs_for_confidence():
         conn.close()
         if 'season_type' not in logs.columns:
             logs['season_type'] = 'REGULAR'
+        identity_columns = ['game_date'] + (
+            ['season_type'] if 'season_type' in logs.columns else []
+        )
+        logs = collapse_player_alias_rows(
+            logs,
+            key_column='norm_name',
+            group_columns=identity_columns,
+            normalizer=nba_player_name_key,
+        )
+        logs = logs.sort_values("game_date", ascending=False, kind="stable")
         return logs
     except Exception:
         return pd.DataFrame()
@@ -805,7 +852,11 @@ def _evaluate_prop_confidence(player_name, stat_key, book_line, player_avg, game
         return {'hit_rate': None, 'cv': None, 'last5_avg': None, 'confidence': 'LOW',
                 'confidence_reasons': ['No game log data'], 'gate_failures': {'no_data': True}}
 
-    player_logs = game_logs_df[game_logs_df['player_name'] == player_name]
+    if 'norm_name' not in game_logs_df.columns:
+        game_logs_df = game_logs_df.copy()
+        game_logs_df['norm_name'] = game_logs_df['player_name'].map(nba_player_name_key)
+    player_key = nba_player_name_key(player_name)
+    player_logs = game_logs_df[game_logs_df['norm_name'] == player_key]
     if len(player_logs) == 0 or col not in player_logs.columns:
         return {'hit_rate': None, 'cv': None, 'last5_avg': None, 'confidence': 'LOW',
                 'confidence_reasons': ['No game log data'], 'gate_failures': {'no_data': True}}
@@ -976,34 +1027,44 @@ def _build_projection_cache():
     """Load ALL data tables once for stat-specific projection models."""
     conn = sqlite3.connect(get_db_path())
     cache = {}
+    try:
+        salary_names = pd.read_sql("SELECT player_name, scraped_at FROM player_salaries", conn)
+        salary_names = collapse_player_alias_rows(
+            salary_names,
+            key_column="_player_key",
+            normalizer=nba_player_name_key,
+        )
+        preferred_names = dict(zip(salary_names["_player_key"], salary_names["player_name"]))
+    except Exception:
+        preferred_names = {}
 
     try:
         df = pd.read_sql("SELECT player_name, height_inches, weight_lbs, wingspan_inches FROM player_measurements", conn)
-        cache['measurements'] = {r['player_name']: r.to_dict() for _, r in df.iterrows()}
+        cache['measurements'] = _canonical_player_lookup(df, preferred_names)
     except Exception:
         cache['measurements'] = {}
 
     try:
         df = pd.read_sql("SELECT player_name, ra_pct, paint_pct, mid_pct, three_pct, rim_paint_pct, total_fga, ra_fga, ra_fgm, paint_fga, paint_fgm, mid_fga, mid_fgm, three_fga, three_fgm FROM player_shot_zones", conn)
-        cache['shot_zones'] = {r['player_name']: r.to_dict() for _, r in df.iterrows()}
+        cache['shot_zones'] = _canonical_player_lookup(df, preferred_names)
     except Exception:
         cache['shot_zones'] = {}
 
     try:
         df = pd.read_sql("SELECT player_name, cs_pct, pu_pct, paint_pct, cs_3_share, pu_3_share FROM player_shot_creation", conn)
-        cache['shot_creation'] = {r['player_name']: r.to_dict() for _, r in df.iterrows()}
+        cache['shot_creation'] = _canonical_player_lookup(df, preferred_names)
     except Exception:
         cache['shot_creation'] = {}
 
     try:
         df = pd.read_sql("SELECT player_name, deflections_per48, contested_per48, contested_2pt, loose_per48, box_outs_per48, screen_ast_per48 FROM player_hustle_stats", conn)
-        cache['hustle'] = {r['player_name']: r.to_dict() for _, r in df.iterrows()}
+        cache['hustle'] = _canonical_player_lookup(df, preferred_names)
     except Exception:
         cache['hustle'] = {}
 
     try:
         df = pd.read_sql("SELECT player_name, archetype, creation_idx, playmaking_idx, interior_idx, perimeter_idx, offball_idx, rebound_idx, defense_idx, size_idx FROM player_archetypes", conn)
-        cache['archetypes'] = {r['player_name']: r.to_dict() for _, r in df.iterrows()}
+        cache['archetypes'] = _canonical_player_lookup(df, preferred_names)
     except Exception:
         cache['archetypes'] = {}
 
@@ -1043,12 +1104,19 @@ def _build_projection_cache():
 
     try:
         df = pd.read_sql("SELECT player_name, status FROM injury_alerts WHERE status='OUT'", conn)
-        cache['injuries_out'] = set(df['player_name'].tolist())
+        cache['injuries_out'] = set(df['player_name'].map(nba_player_name_key))
     except Exception:
         cache['injuries_out'] = set()
 
     try:
         df = pd.read_sql("SELECT player_name, team, position_slot, baseline_min FROM depth_charts", conn)
+        df = collapse_player_alias_rows(
+            df,
+            key_column="norm_name",
+            group_columns=("team",),
+            preferred_names=preferred_names,
+            normalizer=nba_player_name_key,
+        )
         cache['depth_charts'] = {}
         for _, r in df.iterrows():
             team = r['team']
@@ -1064,28 +1132,60 @@ def _build_projection_cache():
             "FROM matchup_history WHERE season_type='REGULAR'",
             conn,
         )
-        cache['matchup_hist'] = {(r['player_name'], r['opponent']): r.to_dict() for _, r in df.iterrows()}
+        df = collapse_player_alias_rows(
+            df,
+            key_column="_player_key",
+            group_columns=("opponent",),
+            preferred_names=preferred_names,
+            normalizer=nba_player_name_key,
+        )
+        cache['matchup_hist'] = _PlayerIdentityLookup(
+            ((r["_player_key"], r["opponent"]), r.to_dict())
+            for _, r in df.iterrows()
+        )
     except Exception:
         cache['matchup_hist'] = {}
 
     try:
         df = pd.read_sql("SELECT player_name, team, pts_pg, reb_pg, ast_pg, stl_pg, blk_pg, mpg, usg_pct, games_played FROM player_stats", conn)
-        cache['player_stats'] = {r['player_name']: r.to_dict() for _, r in df.iterrows()}
+        cache['player_stats'] = _canonical_player_lookup(df, preferred_names)
     except Exception:
         cache['player_stats'] = {}
 
     try:
         df = pd.read_sql("SELECT player_name, avg_min, min_sd, games_played FROM player_volatility", conn)
-        cache['player_volatility'] = {r['player_name']: r.to_dict() for _, r in df.iterrows()}
+        cache['player_volatility'] = _canonical_player_lookup(df, preferred_names)
     except Exception:
         cache['player_volatility'] = {}
 
     try:
-        df = pd.read_sql("SELECT player_name, game_date, pts, reb, ast, stl, blk, min FROM player_game_logs ORDER BY game_date DESC", conn)
+        available_log_columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(player_game_logs)").fetchall()
+        }
+        log_columns = ["player_name", "game_date", "pts", "reb", "ast", "stl", "blk", "min"]
+        if "season_type" in available_log_columns:
+            log_columns.append("season_type")
+        df = pd.read_sql(
+            f"SELECT {', '.join(log_columns)} FROM player_game_logs ORDER BY game_date DESC",
+            conn,
+        )
+        log_identity_columns = ["game_date"] + (
+            ["season_type"] if "season_type" in df.columns else []
+        )
+        df = collapse_player_alias_rows(
+            df,
+            key_column="norm_name",
+            group_columns=log_identity_columns,
+            preferred_names=preferred_names,
+            normalizer=nba_player_name_key,
+        )
+        df = df.sort_values("game_date", ascending=False, kind="stable")
         cache['game_logs'] = df
-        cache['game_logs_by_player'] = {name: grp for name, grp in df.groupby('player_name')}
-        cache['minutes_percentiles'] = {}
-        for name, grp in df.groupby('player_name'):
+        cache['game_logs_by_player'] = _PlayerIdentityLookup(
+            (name, grp) for name, grp in df.groupby("norm_name")
+        )
+        cache['minutes_percentiles'] = _PlayerIdentityLookup()
+        for name, grp in df.groupby("norm_name"):
             mins = grp['min'].dropna()
             mins = mins[mins > 0]
             if len(mins) >= 10:
@@ -1117,7 +1217,7 @@ def _build_projection_cache():
 
     try:
         df = pd.read_sql("SELECT player_name, team, reb_per100 FROM player_per100", conn)
-        cache['per100'] = {r['player_name']: r.to_dict() for _, r in df.iterrows()}
+        cache['per100'] = _canonical_player_lookup(df, preferred_names)
     except Exception:
         cache['per100'] = {}
 
@@ -1179,6 +1279,7 @@ def _build_game_environment(player, data_cache):
         env['total_factor'] = env['game_total'] / data_cache['league_avg_total'] if data_cache['league_avg_total'] > 0 else 1.0
 
     player_name = player.get('player_name', '')
+    player_key = nba_player_name_key(player_name)
     proj_min = env['projected_min']
     if pd.isna(proj_min) or proj_min <= 0:
         proj_min = 30
@@ -1215,8 +1316,9 @@ def _build_game_environment(player, data_cache):
 
     for dc_entry in depth:
         pname = dc_entry['player_name']
-        if pname in out_players and pname != player_name and pname not in seen_out:
-            seen_out.add(pname)
+        pname_key = nba_player_name_key(pname)
+        if pname_key in out_players and pname_key != player_key and pname_key not in seen_out:
+            seen_out.add(pname_key)
             pstats_out = data_cache['player_stats'].get(pname)
             if pstats_out is not None:
                 usg = pstats_out.get('usg_pct', 0)
@@ -1276,21 +1378,22 @@ def _build_game_environment(player, data_cache):
         remaining_players = {}
         for dc_e in team_remaining_depth:
             rp_name = dc_e['player_name']
-            if rp_name not in seen_out and rp_name not in remaining_players:
+            rp_key = nba_player_name_key(rp_name)
+            if rp_key not in seen_out and rp_key not in remaining_players:
                 rp_stats = data_cache['player_stats'].get(rp_name)
                 if rp_stats and pd.notna(rp_stats.get('usg_pct')) and pd.notna(rp_stats.get('mpg')) and float(rp_stats.get('mpg', 0)) > 10:
-                    remaining_players[rp_name] = float(rp_stats['usg_pct'])
+                    remaining_players[rp_key] = float(rp_stats['usg_pct'])
 
         total_remaining_usg = sum(remaining_players.values())
 
-        if total_remaining_usg > 0 and player_name in remaining_players:
-            base_share = remaining_players[player_name] / total_remaining_usg
+        if total_remaining_usg > 0 and player_key in remaining_players:
+            base_share = remaining_players[player_key] / total_remaining_usg
 
             arch_sim = _archetype_similarity(player_arch, out_details)
             weighted_share = base_share * (1.0 + arch_sim * 0.5)
 
             top_remaining_player = max(remaining_players, key=remaining_players.get)
-            is_top_usage_player = (player_name == top_remaining_player)
+            is_top_usage_player = (player_key == top_remaining_player)
 
             if cascade_tier == 2:
                 cascade_mult = 1.0 + ((total_vacated_usage / 100.0) ** 1.15)
@@ -1672,6 +1775,7 @@ def _player_rebound_share(player_name, position, team, opponent, game_env, data_
     Returns (share, factors_list).
     """
     factors = []
+    player_key = nba_player_name_key(player_name)
 
     pstats = data_cache['player_stats'].get(player_name)
     per100 = data_cache.get('per100', {}).get(player_name)
@@ -1698,7 +1802,7 @@ def _player_rebound_share(player_name, position, team, opponent, game_env, data_
     reb_share_lost = 0.0
     for dc_entry in depth:
         pname = dc_entry['player_name']
-        if pname in out_players and pname != player_name:
+        if nba_player_name_key(pname) in out_players and nba_player_name_key(pname) != player_key:
             out_stats = data_cache['player_stats'].get(pname)
             if out_stats and pd.notna(out_stats.get('reb_pg')) and pd.notna(out_stats.get('mpg')) and float(out_stats.get('mpg', 0)) > 15:
                 out_reb = float(out_stats['reb_pg'])
@@ -2373,6 +2477,12 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
 
     stats_norm = per100_df.copy()
     stats_norm['team_norm'] = stats_norm['team'].apply(normalize_team)
+    stats_norm = collapse_player_alias_rows(
+        stats_norm,
+        key_column='norm_name',
+        group_columns=('team_norm',),
+        normalizer=nba_player_name_key,
+    )
 
     per100_cols = ['pts_per100', 'reb_per100', 'ast_per100', 'stl_per100', 'blk_per100']
     for col in per100_cols:
@@ -2432,7 +2542,11 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
             continue
 
         team_norm = normalize_team(team)
-        player_stats_row = stats_norm[(stats_norm['player_name'] == player_name) & (stats_norm['team_norm'] == team_norm)]
+        player_key = nba_player_name_key(player_name)
+        player_stats_row = stats_norm[
+            (stats_norm['norm_name'] == player_key)
+            & (stats_norm['team_norm'] == team_norm)
+        ]
         if len(player_stats_row) == 0:
             continue
         player_stats_row = player_stats_row.iloc[0]
@@ -2798,15 +2912,22 @@ def get_targeted_plays(players_df, stats_df, dvp_df):
     
     players_norm = players_df.copy()
     stats_norm = stats_df.copy()
+    players_norm['norm_name'] = players_norm['player_name'].map(nba_player_name_key)
     players_norm['team_norm'] = players_norm['team'].apply(normalize_team)
     stats_norm['team_norm'] = stats_norm['team'].apply(normalize_team)
+    stats_norm = collapse_player_alias_rows(
+        stats_norm,
+        key_column="norm_name",
+        group_columns=("team_norm",),
+        normalizer=nba_player_name_key,
+    )
     
     merged = players_norm.merge(
         stats_norm,
-        left_on=['player_name', 'team_norm'],
-        right_on=['player_name', 'team_norm'],
+        on=['norm_name', 'team_norm'],
         how='left',
-        suffixes=('', '_stats')
+        suffixes=('', '_stats'),
+        validate='one_to_one',
     )
     
     stat_mapping = {

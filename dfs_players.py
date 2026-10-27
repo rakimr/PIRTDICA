@@ -2,7 +2,46 @@ import sqlite3
 import pandas as pd
 import numpy as np
 import re
-import unicodedata
+from utils.archetype_matching import assign_player_archetypes
+from utils.player_name_key import nba_player_name_key
+from utils.player_rows import collapse_player_alias_rows
+from utils.current_nba_teams import (
+    apply_current_player_teams,
+    current_player_team_map_from_sqlite,
+)
+
+
+def normalize_name(name):
+    return nba_player_name_key(name)
+
+
+def _collapse_weighted_name_factors(frame, sample_column, factor_columns):
+    """Combine legacy alias-keyed adjustment rows by canonical player identity."""
+    if frame.empty:
+        return frame
+    frame = frame.copy()
+    frame["player_name_normalized"] = frame["player_name_normalized"].map(nba_player_name_key)
+    collapsed_rows = []
+    for player_key, group in frame.groupby("player_name_normalized", sort=False):
+        weights = pd.to_numeric(group[sample_column], errors="coerce").fillna(0).clip(lower=0)
+        result = {
+            "player_name_normalized": player_key,
+            sample_column: float(weights.sum()),
+        }
+        for column in factor_columns:
+            values = pd.to_numeric(group[column], errors="coerce")
+            valid = values.notna()
+            if not valid.any():
+                result[column] = np.nan
+                continue
+            valid_weights = weights[valid]
+            if valid_weights.sum() > 0:
+                result[column] = float(np.average(values[valid], weights=valid_weights))
+            else:
+                result[column] = float(values[valid].mean())
+        collapsed_rows.append(result)
+    return pd.DataFrame(collapsed_rows)
+
 
 conn = sqlite3.connect("dfs_nba.db")
 
@@ -13,12 +52,22 @@ if salaries.empty:
     conn.close()
     exit(0)
 
+current_team_map = current_player_team_map_from_sqlite(conn, salary_rows=salaries)
+salaries = apply_current_player_teams(
+    salaries, current_team_map, clear_unmatched=True
+)
+
 _ODDS_TO_PIPELINE_TEAM = {
     "PHX": "PHO", "GSW": "GS", "NYK": "NY", "NOP": "NO", "SAS": "SA",
     "CHO": "CHA", "BRK": "BKN", "UTH": "UTA",
 }
 
 rotation = pd.read_sql("SELECT * FROM rotation_minutes", conn)
+rotation = apply_current_player_teams(
+    rotation, current_team_map, clear_unmatched=True
+)
+if not rotation.empty and "team" in rotation.columns:
+    rotation = rotation[rotation["team"].astype(str).str.strip().ne("")]
 game_odds = pd.read_sql("SELECT * FROM game_odds", conn)
 
 if not game_odds.empty:
@@ -54,10 +103,7 @@ try:
     depth_team_map = dict(zip(depth_teams["player_name"].str.strip(), depth_teams["team"].str.strip()))
     depth_norm_map = {}
     for dname, dteam in depth_team_map.items():
-        nk = unicodedata.normalize('NFKD', dname.lower()).encode('ascii', 'ignore').decode('ascii')
-        nk = re.sub(r'[.\-]', ' ', nk)
-        nk = re.sub(r'\s+(jr|sr|ii|iii|iv|v)\.?$', '', nk)
-        nk = re.sub(r'\s+', ' ', nk).strip()
+        nk = normalize_name(dname)
         depth_norm_map[nk] = dteam
 except Exception:
     depth_team_map = {}
@@ -79,10 +125,7 @@ if "team" in player_stats.columns:
             player_stats.at[idx, "team"] = depth_team_map[pname]
             resolved += 1
         else:
-            nk = unicodedata.normalize('NFKD', pname.lower()).encode('ascii', 'ignore').decode('ascii')
-            nk = re.sub(r'[.\-]', ' ', nk)
-            nk = re.sub(r'\s+(jr|sr|ii|iii|iv|v)\.?$', '', nk)
-            nk = re.sub(r'\s+', ' ', nk).strip()
+            nk = normalize_name(pname)
             if nk in depth_norm_map:
                 player_stats.at[idx, "team"] = depth_norm_map[nk]
                 resolved += 1
@@ -93,42 +136,16 @@ if "team" in player_stats.columns:
     if unresolved_names:
         print(f"  TEAM RESOLUTION: {len(unresolved_names)} players still unresolved: {', '.join(unresolved_names[:5])}")
 
-NAME_ALIASES = {
-    "ryan nembhard": "rj nembhard",
-    "nicolas claxton": "nic claxton",
-    "cameron thomas": "cam thomas",
-    "kenneth lofton": "kenneth lofton",
-    "nicolas batum": "nic batum",
-    "patty mills": "patrick mills",
-    "egor dmin": "egor demin",
-    "ronald holland": "ron holland",
-    "moe wagner": "moritz wagner",
-    "lu dort": "luguentz dort",
-    "carlton carrington": "bub carrington",
-}
-
-def normalize_name(name):
-    if pd.isna(name):
-        return ""
-    name = str(name).strip()
-    try:
-        name = name.encode('latin-1').decode('utf-8')
-    except (UnicodeDecodeError, UnicodeEncodeError):
-        pass
-    name = name.lower()
-    name = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode('ascii')
-    name = re.sub(r'\.', '', name)
-    name = re.sub(r'-', ' ', name)
-    name = re.sub(r'\s+(jr|sr|ii|iii|iv|v)\.?$', '', name)
-    name = re.sub(r'\s+', ' ', name)
-    name = name.strip()
-    return NAME_ALIASES.get(name, name)
-
 salaries["player_name"] = salaries["player_name"].str.strip()
 if "team" in salaries.columns:
     salaries["team"] = salaries["team"].replace(BBREF_TO_PIPELINE_TEAM)
-salaries = salaries.drop_duplicates(subset=["player_name", "team"], keep="first")
 salaries["salary"] = pd.to_numeric(salaries["salary"], errors="coerce").fillna(0).astype(int)
+salaries = collapse_player_alias_rows(
+    salaries,
+    key_column="norm_name",
+    normalizer=normalize_name,
+)
+preferred_player_names = dict(zip(salaries["norm_name"], salaries["player_name"]))
 
 FANDUEL_MAX_SALARY = 16000
 bad_salary_mask = salaries["salary"] > FANDUEL_MAX_SALARY
@@ -140,7 +157,7 @@ if bad_salary_mask.any():
 
     try:
         import os as _os
-        from sqlalchemy import create_engine as _sal_engine
+        from utils.db_connection import create_runtime_engine as _sal_engine
         _sal_db_url = _os.environ.get('DATABASE_URL')
         if _sal_db_url:
             _sal_pg = _sal_engine(_sal_db_url)
@@ -179,35 +196,56 @@ player_stats["player_name"] = player_stats["player_name"].str.strip()
 player_positions["player_name"] = player_positions["player_name"].str.strip()
 
 salaries["norm_name"] = salaries["player_name"].apply(normalize_name)
-rotation["norm_name"] = rotation["player_name"].apply(normalize_name)
-player_stats["norm_name"] = player_stats["player_name"].apply(normalize_name)
-player_positions["norm_name"] = player_positions["player_name"].apply(normalize_name)
+rotation = collapse_player_alias_rows(
+    rotation,
+    key_column="norm_name",
+    group_columns=("team",),
+    preferred_names=preferred_player_names,
+    normalizer=normalize_name,
+)
+player_stats = collapse_player_alias_rows(
+    player_stats,
+    key_column="norm_name",
+    preferred_names=preferred_player_names,
+    normalizer=normalize_name,
+)
+player_positions = collapse_player_alias_rows(
+    player_positions,
+    key_column="norm_name",
+    preferred_names=preferred_player_names,
+    normalizer=normalize_name,
+)
 
 df = salaries.merge(
     rotation[["team", "norm_name", "espn_slot", "projected_min"]],
     on=["team", "norm_name"],
-    how="left"
+    how="left",
+    validate="one_to_one",
 )
 
 df = df.merge(
     player_stats[["norm_name", "fp_pg", "fp_per_min", "games_played", "mpg", "usg_pct"]],
     on="norm_name",
-    how="left"
+    how="left",
+    validate="one_to_one",
 )
 
-from utils.timezone import get_eastern_date_str
+from utils.timezone import get_eastern_date_str, get_eastern_day_utc_bounds
 injury_today = get_eastern_date_str()
+injury_start_utc, injury_end_utc = get_eastern_day_utc_bounds()
 injury_alerts = pd.read_sql(
     """SELECT * FROM injury_alerts
        WHERE status IN ('OUT', 'DOUBTFUL')
        AND ((alert_timestamp IS NOT NULL AND substr(alert_timestamp, 1, 10) = ?)
-            OR (alert_timestamp IS NULL AND substr(scraped_at, 1, 10) = ?))""",
-    conn, params=(injury_today, injury_today)
+            OR (alert_timestamp IS NULL AND scraped_at >= ? AND scraped_at < ?))""",
+    conn, params=(injury_today, injury_start_utc, injury_end_utc)
 )
 injury_alerts["norm_name"] = injury_alerts["player_name"].apply(normalize_name)
 
+injury_alerts = injury_alerts.drop(columns=["team"], errors="ignore")
+injury_alerts["team"] = injury_alerts["norm_name"].map(current_team_map)
 injury_alerts = injury_alerts.merge(
-    player_stats[["norm_name", "team", "usg_pct"]].drop_duplicates(subset=["norm_name"]),
+    player_stats[["norm_name", "usg_pct"]].drop_duplicates(subset=["norm_name"]),
     on="norm_name",
     how="left"
 )
@@ -326,7 +364,8 @@ df["line_weight"] = df["line_weight"].fillna(1.0)
 df = df.merge(
     player_positions[["norm_name", "true_position"]],
     on="norm_name",
-    how="left"
+    how="left",
+    validate="one_to_one",
 )
 
 def get_dvp_weight(row):
@@ -388,8 +427,7 @@ df["fppm_adj"] = df["fppm_adj"].fillna(df["fp_per_min"])
 df["fp_pg"] = df["fp_pg"].fillna(0)
 
 try:
-    from sqlalchemy import create_engine as _create_engine
-    from utils.name_normalize import normalize_player_name as _normalize
+    from utils.db_connection import create_runtime_engine as _create_engine
     _database_url = os.environ.get('DATABASE_URL')
     if _database_url:
         _pg_engine = _create_engine(_database_url)
@@ -398,8 +436,13 @@ try:
             _pg_engine
         )
         if len(_min_factors) > 0:
+            _min_factors = _collapse_weighted_name_factors(
+                _min_factors,
+                "minutes_sample_size",
+                ["minutes_adjustment_factor", "avg_minutes_error"],
+            )
             if 'player_name_normalized' not in df.columns:
-                df['player_name_normalized'] = df['player_name'].apply(_normalize)
+                df['player_name_normalized'] = df['player_name'].map(nba_player_name_key)
             min_adj_dict = dict(zip(_min_factors['player_name_normalized'], _min_factors['minutes_adjustment_factor']))
             df['ml_min_adj'] = df['player_name_normalized'].map(min_adj_dict).fillna(1.0)
             df['projected_min'] = df['projected_min'] * df['ml_min_adj']
@@ -482,7 +525,18 @@ except Exception as _b2b_e:
 df["base_fp"] = df["fppm_adj"] * df["projected_min"].fillna(0)
 
 vol_df = pd.read_sql("SELECT player_name, min_sd, fp_sd, avg_fp, max_fp, min_fp, avg_fppm, fppm_sd FROM player_volatility", conn)
-df = df.merge(vol_df, on='player_name', how='left')
+vol_df = collapse_player_alias_rows(
+    vol_df,
+    key_column="norm_name",
+    preferred_names=preferred_player_names,
+    normalizer=normalize_name,
+)
+df = df.merge(
+    vol_df[["norm_name", "min_sd", "fp_sd", "avg_fp", "max_fp", "min_fp", "avg_fppm", "fppm_sd"]],
+    on="norm_name",
+    how="left",
+    validate="one_to_one",
+)
 df['fp_sd'] = df['fp_sd'].fillna(15.0)
 df['hist_avg_fp'] = df['avg_fp']
 df['hist_max_fp'] = df['max_fp']
@@ -513,8 +567,7 @@ except Exception as e:
 df["proj_fp"] = df["base_fp"] * df["line_weight"] * df["dvp_weight"] * df["ref_weight"] * df["gp_weight"] * df["omega_weight"]
 
 try:
-    from sqlalchemy import create_engine
-    from utils.name_normalize import normalize_player_name
+    from utils.db_connection import create_runtime_engine as create_engine
     import os
     database_url = os.environ.get('DATABASE_URL')
     if database_url:
@@ -524,7 +577,12 @@ try:
             pg_engine
         )
         if len(adj_factors) > 0:
-            df['player_name_normalized'] = df['player_name'].apply(normalize_player_name)
+            adj_factors = _collapse_weighted_name_factors(
+                adj_factors,
+                "sample_size",
+                ["adjustment_factor", "variance_dampening", "prediction_variance", "avg_actual_fp"],
+            )
+            df['player_name_normalized'] = df['player_name'].map(nba_player_name_key)
             
             bias_dict = dict(zip(adj_factors['player_name_normalized'], adj_factors['adjustment_factor']))
             df['ml_bias'] = df['player_name_normalized'].map(bias_dict).fillna(1.0)
@@ -641,16 +699,15 @@ df["player_name"] = df["player_name"].apply(clean_display_name)
 
 try:
     archetypes_df = pd.read_sql_query("SELECT player_name, archetype FROM player_archetypes", conn)
-    df = df.merge(archetypes_df, on='player_name', how='left')
-    matched = df['archetype'].notna().sum()
-    position_fallback = {
-        'PG': 'Playmaker', 'SG': 'Combo Guard', 'SF': '3-and-D Wing',
-        'PF': '3-and-D Wing', 'C': 'Traditional Big',
-        'G': 'Combo Guard', 'F': '3-and-D Wing',
-    }
-    mask = df['archetype'].isna()
-    df.loc[mask, 'archetype'] = df.loc[mask, 'true_position'].map(position_fallback).fillna('3-and-D Wing')
-    print(f"Merged archetypes for {matched} players ({mask.sum()} fallback from position)")
+    df, archetype_stats = assign_player_archetypes(
+        df, archetypes_df, normalize_name
+    )
+    print(
+        "Matched data-backed archetypes for "
+        f"{archetype_stats['matched_players']} players; "
+        f"{archetype_stats['unknown_players']} left Unknown "
+        f"({archetype_stats['ambiguous_players']} ambiguous name match(es))."
+    )
 except Exception:
     df['archetype'] = 'Unknown'
     print("No archetype data found - run build_player_archetypes.py first")
@@ -763,6 +820,15 @@ except Exception as e:
     print(f"  Warning: Staleness filter skipped: {e}")
 
 df_output = df_output.sort_values("proj_fp", ascending=False)
+
+output_name_keys = df_output["player_name"].apply(normalize_name)
+duplicate_player_mask = output_name_keys.duplicated(keep=False)
+if duplicate_player_mask.any():
+    duplicate_names = sorted(set(df_output.loc[duplicate_player_mask, "player_name"]))
+    raise ValueError(
+        "DFS output contains multiple rows for the same canonical player identity: "
+        + ", ".join(duplicate_names)
+    )
 
 df_output.to_sql("dfs_players", conn, if_exists="replace", index=False)
 

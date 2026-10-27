@@ -23,6 +23,8 @@ PIPELINE_LOCK_FILE = os.path.join(WORKSPACE, ".pipeline.lock")
 CHART_LOCK_FILE = os.path.join(WORKSPACE, ".chart_refresh.lock")
 
 DATA_SCRIPTS = [
+    ("scrape_standings.py", "NBA Standings"),
+    ("scrape_wnba_standings.py", "WNBA Standings"),
     ("scrape_injury_alerts.py", "Injury Alerts (RotoGrinders)"),
     ("scrape_espn_injuries.py", "Injury Alerts (ESPN Backup)"),
     ("scrape_referee_assignments.py", "Referee Assignments"),
@@ -203,6 +205,9 @@ def main():
                 failed += 1
 
         regenerate_charts()
+        # The homepage reads PostgreSQL, not the freshly updated local files.
+        if not run_script("sync_to_postgres.py", "Sync refreshed data to PostgreSQL"):
+            failed += 1
 
         after = chart_hashes()
         changed = [f for f in CHART_FILES if before.get(f) != after.get(f)]

@@ -1,15 +1,49 @@
 import sqlite3
 import pandas as pd
 import re
-import unicodedata
 from datetime import datetime, timedelta
 from baseline_minutes import get_baseline_minutes, project_minutes, get_game_context_label, clip_minutes, get_minutes_bounds
 from physical_matchups import get_opposing_physical_modifier
+from utils.player_name_key import nba_player_name_key
+from utils.player_rows import collapse_player_alias_rows
+from utils.current_nba_teams import (
+    apply_current_player_teams,
+    current_player_team_map_from_sqlite,
+)
 
 conn = sqlite3.connect("dfs_nba.db")
 
+def normalize_name(name):
+    return nba_player_name_key(name)
+
+
 depth = pd.read_sql("SELECT * FROM depth_charts", conn)
 salaries = pd.read_sql("SELECT * FROM player_salaries", conn)
+current_team_map = current_player_team_map_from_sqlite(conn, salary_rows=salaries)
+depth = apply_current_player_teams(
+    depth, current_team_map, clear_unmatched=True
+)
+if not depth.empty and "team" in depth.columns:
+    depth = depth[depth["team"].astype(str).str.strip().ne("")]
+salaries = apply_current_player_teams(
+    salaries, current_team_map, clear_unmatched=True
+)
+salaries["player_name"] = salaries["player_name"].astype("string").str.strip()
+salaries = collapse_player_alias_rows(
+    salaries,
+    key_column="norm_name",
+    normalizer=normalize_name,
+)
+preferred_player_names = dict(zip(salaries["norm_name"], salaries["player_name"]))
+if not depth.empty:
+    depth["player_name"] = depth["player_name"].astype("string").str.strip()
+    depth = collapse_player_alias_rows(
+        depth,
+        key_column="norm_name",
+        group_columns=("team",),
+        preferred_names=preferred_player_names,
+        normalizer=normalize_name,
+    )
 
 # ESPN depth charts are useful only while fresh. Rebuild the downstream
 # rotation baseline rather than treating an old roster as current.
@@ -33,11 +67,20 @@ if depth.empty and not salaries.empty:
     _stats_check = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='player_stats'", conn)
     if not _stats_check.empty:
         _ps = pd.read_sql("SELECT player_name, mpg FROM player_stats WHERE mpg IS NOT NULL", conn)
-        _ps['norm_name'] = _ps['player_name'].apply(lambda x: x.strip().lower() if pd.notna(x) else "")
-        _ps = _ps.sort_values('mpg', ascending=False).drop_duplicates('norm_name')
+        _ps = collapse_player_alias_rows(
+            _ps,
+            key_column="norm_name",
+            preferred_names=preferred_player_names,
+            normalizer=normalize_name,
+        )
+        _ps = _ps.sort_values("mpg", ascending=False).drop_duplicates("norm_name", keep="first")
         _sal = salaries.copy()
-        _sal['norm_name'] = _sal['player_name'].apply(lambda x: x.strip().lower() if pd.notna(x) else "")
-        _fallback = _sal.merge(_ps[['norm_name', 'mpg']], on='norm_name', how='left')
+        _fallback = _sal.merge(
+            _ps[["norm_name", "mpg"]],
+            on="norm_name",
+            how="left",
+            validate="one_to_one",
+        )
         _fallback['baseline_min'] = _fallback['mpg'].fillna(8.0).clip(lower=4.0, upper=40.0)
 
         # Map FantasyPros position string (e.g. "SG/SF" or "PG") to the primary
@@ -69,13 +112,14 @@ else:
 
 injury_exists = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='injury_alerts'", conn)
 if not injury_exists.empty:
-    from utils.timezone import get_eastern_date_str
+    from utils.timezone import get_eastern_date_str, get_eastern_day_utc_bounds
     injury_today = get_eastern_date_str()
+    injury_start_utc, injury_end_utc = get_eastern_day_utc_bounds()
     injuries = pd.read_sql(
         """SELECT player_name, status FROM injury_alerts WHERE status = 'OUT'
            AND ((alert_timestamp IS NOT NULL AND substr(alert_timestamp, 1, 10) = ?)
-                OR (alert_timestamp IS NULL AND substr(scraped_at, 1, 10) = ?))""",
-        conn, params=(injury_today, injury_today)
+                OR (alert_timestamp IS NULL AND scraped_at >= ? AND scraped_at < ?))""",
+        conn, params=(injury_today, injury_start_utc, injury_end_utc)
     )
 else:
     injuries = pd.DataFrame()
@@ -97,21 +141,32 @@ except Exception:
 stats_exists = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='player_stats'", conn)
 if not stats_exists.empty:
     player_stats = pd.read_sql("SELECT player_name, mpg, games_played FROM player_stats", conn)
-    player_stats["norm_name"] = player_stats["player_name"].apply(lambda x: x.strip().lower() if pd.notna(x) else "")
+    player_stats = collapse_player_alias_rows(
+        player_stats,
+        key_column="norm_name",
+        preferred_names=preferred_player_names,
+        normalizer=normalize_name,
+    )
 else:
     player_stats = pd.DataFrame()
 
 vol_exists = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='player_volatility'", conn)
 if not vol_exists.empty:
     player_vol = pd.read_sql("SELECT player_name, max_fp, avg_min FROM player_volatility", conn)
-    player_vol["norm_name"] = player_vol["player_name"].apply(lambda x: x.strip().lower() if pd.notna(x) else "")
+    player_vol = collapse_player_alias_rows(
+        player_vol,
+        key_column="norm_name",
+        preferred_names=preferred_player_names,
+        normalizer=normalize_name,
+    )
 else:
     player_vol = pd.DataFrame()
 
 gl_exists = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table' AND name='player_game_logs'", conn)
 if not gl_exists.empty:
     player_max_min = pd.read_sql("SELECT player_name, MAX(min) as max_min FROM player_game_logs GROUP BY player_name", conn)
-    player_max_min["norm_name"] = player_max_min["player_name"].apply(lambda x: x.strip().lower() if pd.notna(x) else "")
+    player_max_min["norm_name"] = player_max_min["player_name"].apply(normalize_name)
+    player_max_min = player_max_min.groupby("norm_name", as_index=False)["max_min"].max()
 else:
     player_max_min = pd.DataFrame()
 
@@ -119,7 +174,7 @@ def get_player_mpg(norm_name):
     """Get player's trailing average MPG."""
     if player_stats.empty:
         return None
-    match = player_stats[player_stats["norm_name"].str.contains(norm_name.split()[0] if norm_name else "", case=False, na=False)]
+    match = player_stats[player_stats["norm_name"] == norm_name]
     if not match.empty:
         return match.iloc[0]["mpg"]
     return None
@@ -128,7 +183,7 @@ def get_player_max_min(norm_name):
     """Get player's season-high minutes from game logs."""
     if player_max_min.empty:
         return None
-    match = player_max_min[player_max_min["norm_name"].str.contains(norm_name.split()[0] if norm_name else "", case=False, na=False)]
+    match = player_max_min[player_max_min["norm_name"] == norm_name]
     if not match.empty:
         val = match.iloc[0]["max_min"]
         return float(val) if val is not None else None
@@ -155,30 +210,6 @@ def get_omega(depth_rank, mpg, games_played=None):
     else:
         return 0.2
 
-NAME_ALIASES = {
-    "alex sarr": "alexandre sarr",
-    "nicolas claxton": "nic claxton",
-    "cameron thomas": "cam thomas",
-    "nicolas batum": "nic batum",
-}
-
-def normalize_name(name):
-    if pd.isna(name):
-        return ""
-    name = str(name).strip()
-    try:
-        name = name.encode('latin-1').decode('utf-8')
-    except (UnicodeDecodeError, UnicodeEncodeError):
-        pass
-    name = name.lower()
-    name = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode('ascii')
-    name = re.sub(r'\.', '', name)
-    name = re.sub(r'-', ' ', name)
-    name = re.sub(r'\s+(jr|sr|ii|iii|iv|v)\.?$', '', name)
-    name = re.sub(r'\s+', ' ', name)
-    name = name.strip()
-    return NAME_ALIASES.get(name, name)
-
 out_players = set()
 if not injuries.empty:
     out_players = set(injuries["player_name"].apply(normalize_name).tolist())
@@ -188,6 +219,7 @@ depth["player_name"] = depth["player_name"].str.strip()
 salaries["player_name"] = salaries["player_name"].str.strip()
 depth["norm_name"] = depth["player_name"].apply(normalize_name)
 salaries["norm_name"] = salaries["player_name"].apply(normalize_name)
+preferred_player_names = dict(zip(salaries["norm_name"], salaries["player_name"]))
 
 depth = depth[depth["position_slot"].str.match(r'^[A-Z]{1,2}\d+$', na=False)]
 
@@ -389,9 +421,15 @@ else:
         return int(match.group()) if match else 99
 
     rotation_df["depth_num"] = rotation_df["espn_slot"].apply(extract_depth_num)
-    rotation_df = rotation_df.sort_values(["team", "player_name", "depth_num"])
-    rotation_df = rotation_df.drop_duplicates(subset=["team", "player_name"], keep="first")
-    rotation_df = rotation_df.drop(columns=["depth_num"])
+    rotation_df["norm_name"] = rotation_df["player_name"].apply(normalize_name)
+    rotation_df = collapse_player_alias_rows(
+        rotation_df,
+        key_column="norm_name",
+        group_columns=("team",),
+        preferred_names=preferred_player_names,
+        normalizer=normalize_name,
+    )
+    rotation_df = rotation_df.drop(columns=["depth_num", "norm_name"], errors="ignore")
 
 rotation_df.to_sql("rotation_minutes", conn, if_exists="replace", index=False)
 

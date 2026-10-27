@@ -323,18 +323,22 @@ _ESPN_NBA_TEAM_IDS = {
 
 def _headshot_name_keys(name):
     import re
+    from utils.player_name_key import nba_player_name_key
     value = str(name or '').strip()
     if not value:
         return ()
     normalized = normalize_name(value)
     suffixless = re.sub(r'\s+(Jr\.?|Sr\.?|II|III|IV)$', '', value, flags=re.IGNORECASE).strip()
     return tuple(dict.fromkeys(
-        key.casefold() for key in (value, normalized, suffixless, normalize_name(suffixless)) if key
+        key.casefold() for key in (
+            nba_player_name_key(value), value, normalized, suffixless, normalize_name(suffixless)
+        ) if key
     ))
 
 def _headshot_match_key(name):
     import re
-    return re.sub(r"[^a-z0-9]", "", normalize_name(name).casefold())
+    from utils.player_name_key import nba_player_name_key
+    return re.sub(r"[^a-z0-9]", "", nba_player_name_key(str(name or "")))
 
 def _get_current_espn_headshots():
     """Use ESPN's transparent PNG cutouts for players on the current NBA slate."""

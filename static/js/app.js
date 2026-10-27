@@ -373,3 +373,124 @@ function trackPageView() {
     load();
     setInterval(load, 30000);
 })();
+
+// Horizontal, accessible previews on the public subscription pages.
+(function() {
+    var carousels = document.querySelectorAll('[data-paywall-carousel]');
+    if (!carousels.length) return;
+
+    carousels.forEach(function(root) {
+        var track = root.querySelector('[data-carousel-track]');
+        var slides = Array.prototype.slice.call(root.querySelectorAll('.paywall-preview-slide'));
+        var previous = root.querySelector('[data-carousel-prev]');
+        var next = root.querySelector('[data-carousel-next]');
+        var meter = root.querySelector('[data-carousel-meter]');
+        var progress = root.querySelector('[data-carousel-progress]');
+        var status = root.querySelector('[data-carousel-status]');
+        if (!track || !slides.length) return;
+
+        function activeIndex() {
+            var trackLeft = track.getBoundingClientRect().left + track.clientLeft;
+            var nearest = 0;
+            var distance = Infinity;
+            slides.forEach(function(slide, index) {
+                var nextDistance = Math.abs(slide.getBoundingClientRect().left - trackLeft);
+                if (nextDistance < distance) {
+                    distance = nextDistance;
+                    nearest = index;
+                }
+            });
+            return nearest;
+        }
+
+        function scrollToIndex(index) {
+            var bounded = Math.max(0, Math.min(slides.length - 1, index));
+            var trackLeft = track.getBoundingClientRect().left + track.clientLeft;
+            var offset = slides[bounded].getBoundingClientRect().left - trackLeft;
+            track.scrollTo({
+                left: track.scrollLeft + offset,
+                behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+            });
+        }
+
+        function updateCarousel() {
+            var index = activeIndex();
+            var total = slides.length;
+            if (progress) progress.style.width = ((index + 1) / total * 100) + '%';
+            if (meter) meter.setAttribute('aria-valuenow', String(index + 1));
+            if (status) status.textContent = String(index + 1).padStart(2, '0') + ' / ' + String(total).padStart(2, '0');
+            if (previous) previous.disabled = index <= 0;
+            if (next) next.disabled = index >= total - 1;
+        }
+
+        if (previous) previous.addEventListener('click', function() {
+            scrollToIndex(activeIndex() - 1);
+        });
+        if (next) next.addEventListener('click', function() {
+            scrollToIndex(activeIndex() + 1);
+        });
+
+        track.addEventListener('scroll', function() {
+            window.requestAnimationFrame(updateCarousel);
+        }, { passive: true });
+        track.addEventListener('keydown', function(event) {
+            if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                scrollToIndex(activeIndex() + 1);
+            } else if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                scrollToIndex(activeIndex() - 1);
+            }
+        });
+        track.addEventListener('wheel', function(event) {
+            if (event.shiftKey && Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+                track.scrollLeft += event.deltaY;
+                event.preventDefault();
+            }
+        }, { passive: false });
+        window.addEventListener('resize', updateCarousel);
+
+        root.querySelectorAll('[data-dva-mode]').forEach(function(button) {
+            button.addEventListener('click', function() {
+                var mode = button.getAttribute('data-dva-mode');
+                root.querySelectorAll('[data-dva-mode]').forEach(function(sibling) {
+                    var active = sibling === button;
+                    sibling.classList.toggle('is-active', active);
+                    sibling.setAttribute('aria-pressed', String(active));
+                });
+                root.querySelectorAll('[data-dva-dvs]').forEach(function(cell) {
+                    cell.textContent = cell.getAttribute(mode === 'fp' ? 'data-dva-fp' : 'data-dva-dvs');
+                });
+            });
+        });
+
+        var schemeSelect = root.querySelector('[data-scheme-demo]');
+        if (schemeSelect) {
+            schemeSelect.addEventListener('change', function() {
+                var team = schemeSelect.value;
+                root.querySelectorAll('.preview-scheme-row > i > b[data-scheme-a]').forEach(function(bar) {
+                    var value = bar.getAttribute(team === 'b' ? 'data-scheme-b' : 'data-scheme-a');
+                    bar.style.width = value + '%';
+                });
+            });
+        }
+
+        var playerSearch = root.querySelector('[data-preview-player-search]');
+        if (playerSearch) {
+            playerSearch.addEventListener('input', function() {
+                var query = playerSearch.value.trim().toLowerCase();
+                var visible = 0;
+                root.querySelectorAll('[data-preview-player]').forEach(function(row) {
+                    var matches = row.getAttribute('data-preview-player').indexOf(query) !== -1;
+                    row.hidden = !matches;
+                    if (matches) visible += 1;
+                });
+                var empty = root.querySelector('[data-preview-player-empty]');
+                if (empty) empty.hidden = visible > 0;
+            });
+        }
+
+        root.classList.add('paywall-preview-ready');
+        updateCarousel();
+    });
+})();

@@ -9,7 +9,7 @@
     <div class="article-header-wrap">
         {# Older WNBA headers can contain "HIGH CONFIDENCE" even when the saved
            article does not establish that status for every pick. #}
-        {% if header_image and picks and (league != 'wnba' or verified_high_picks) %}
+        {% if has_access and header_image and picks and (league != 'wnba' or verified_high_picks) %}
         <img src="{{ header_image }}" alt="PIRTDICA Picks" class="article-header-img">
         {% endif %}
         <div class="article-meta">
@@ -67,7 +67,7 @@
                     {% for p in picks %}
                     <tr>
                         <td>{{ p.rank }}</td>
-                        <td class="player-name-cell">{{ p.player|player_name(league|default('nba')) }}</td>
+                        <td class="player-name-cell">{{ p.player|player_name(league|default('nba'), 'md') }}</td>
                         <td>{{ p.game }}</td>
                         <td>{{ p.stat }}</td>
                         <td>{{ '%.1f'|format(p.avg|float) if p.avg is not none and p.avg != '' else '—' }}</td>
@@ -209,20 +209,12 @@
     {% endif %}
 
     {% else %}
-    <div class="paywall-container">
-        <div class="paywall-lock" style="text-align: center; margin-bottom: 1.5rem;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48" style="color: var(--text-muted);">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-            </svg>
-        </div>
-        {% include "pricing_cards.html" %}
-        {% if not user %}
-        <p class="paywall-login-hint" style="text-align: center; margin-top: 1rem;">Already have an account? <a href="/login">Login</a></p>
-        {% endif %}
-    </div>
+    {% include "article_paywall.html" %}
     {% endif %}
 
+    {% else %}
+    {% if not has_access %}
+    {% include "article_paywall.html" %}
     {% else %}
     <div class="pre-lock-banner">
         <div class="pre-lock-icon">
@@ -234,6 +226,7 @@
         <h2>Picks are brewing.</h2>
         <p>Closer to lock, richer the data. Final picks drop after the pre-game refresh &mdash; check back 10 minutes before tip-off for the sharpest edges.</p>
     </div>
+    {% endif %}
     {% endif %}
 </section>
 {% endblock %}

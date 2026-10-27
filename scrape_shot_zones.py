@@ -36,6 +36,17 @@ NBA_TIMEOUT = NBA_TIMEOUT_FIRST
 NBA_HEADERS = get_nba_headers()
 
 
+def stamp_source_frame(frame):
+    """Stamp only fetched statistics; never stamp cached fallback observations."""
+    from datetime import timezone
+    frame = frame.copy()
+    frame["source_season"] = SEASON
+    frame["season_type"] = "Regular Season"
+    frame["source_fetched_at"] = datetime.now(timezone.utc).isoformat()
+    frame["source_url"] = "https://stats.nba.com/stats/"
+    return frame
+
+
 def scrape_shot_locations():
     from nba_api.stats.endpoints import leaguedashplayershotlocations
 
@@ -112,7 +123,7 @@ def scrape_shot_locations():
 
     df = pd.DataFrame(rows)
     print(f"  Processed {len(df)} players with 20+ FGA")
-    return df
+    return stamp_source_frame(df)
 
 
 def scrape_shot_creation():
@@ -153,6 +164,9 @@ def scrape_shot_creation():
         season=SEASON, season_type_all_star='Regular Season',
         per_mode_simple='Totals', general_range_nullable='Less Than 10 ft'
     )
+    if any(frame is None for frame in (overall, catch_shoot, pullups, paint)):
+        print("  Incomplete shot-creation sources; keeping older measurements as unverified")
+        return None
 
     rows = []
     for _, ov in overall.iterrows():
@@ -207,7 +221,7 @@ def scrape_shot_creation():
 
     df = pd.DataFrame(rows)
     print(f"  Processed {len(df)} players with 20+ FGA")
-    return df
+    return stamp_source_frame(df)
 
 
 def scrape_hustle_stats():
@@ -281,7 +295,7 @@ def scrape_hustle_stats():
 
     df = pd.DataFrame(rows)
     print(f"  Processed {len(df)} players with 5+ GP and 50+ MIN")
-    return df
+    return stamp_source_frame(df)
 
 
 def scrape_tracking_stats():
@@ -346,7 +360,7 @@ def scrape_tracking_stats():
 
     df = pd.DataFrame(rows)
     print(f"  Processed {len(df)} players with 5+ GP and 5+ MIN/g")
-    return df
+    return stamp_source_frame(df)
 
 
 def upsert_table(conn, table_name, new_df, key_col='player_name'):
@@ -359,11 +373,18 @@ def upsert_table(conn, table_name, new_df, key_col='player_name'):
     except Exception:
         existing_df = pd.DataFrame()
 
+    if key_col not in new_df.columns or (
+        not existing_df.empty and key_col not in existing_df.columns
+    ):
+        key_col = 'player_name'
+
     if existing_df.empty:
         new_df.to_sql(table_name, conn, if_exists='replace', index=False)
         print(f"  {table_name}: Inserted {len(new_df)} players (fresh table)")
         return
 
+    new_df = new_df.drop_duplicates(subset=[key_col], keep='last')
+    existing_df = existing_df.drop_duplicates(subset=[key_col], keep='last')
     new_keys = set(new_df[key_col].values)
     existing_keys = set(existing_df[key_col].values)
 
@@ -385,7 +406,7 @@ def save_to_db(zones_df, creation_df, hustle_df=None, tracking_df=None):
         upsert_table(conn, 'player_shot_zones', zones_df)
 
     if len(creation_df) > 0:
-        upsert_table(conn, 'player_shot_creation', creation_df)
+        upsert_table(conn, 'player_shot_creation', creation_df, key_col='player_id')
 
     if hustle_df is not None:
         upsert_table(conn, 'player_hustle_stats', hustle_df)

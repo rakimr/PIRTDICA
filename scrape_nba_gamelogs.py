@@ -15,6 +15,18 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from utils.nba_api_helpers import nba_api_call_with_retry
 from utils.nba_season import nba_api_season
+from utils.player_name_key import nba_player_name_key
+from utils.player_rows import collapse_player_alias_rows
+
+
+def _collapse_player_game_rows(frame):
+    """Keep one row per canonical player-game while coalescing missing fields."""
+    return collapse_player_alias_rows(
+        frame,
+        key_column='_player_key',
+        group_columns=('game_date', 'season_type'),
+        normalizer=nba_player_name_key,
+    )
 
 
 def calc_fanduel_fp(row):
@@ -203,22 +215,78 @@ def scrape_gamelogs():
         existing_logs = pd.DataFrame()
 
     if len(existing_logs) > 0:
-        new_log_keys = set(zip(game_logs['player_name'], game_logs['game_date']))
-        existing_log_keys = set(zip(existing_logs['player_name'], existing_logs['game_date']))
+        from utils.season_phase import classify_game_date
+
+        for logs in (game_logs, existing_logs):
+            logs['game_date'] = pd.to_datetime(
+                logs['game_date'], errors='coerce'
+            ).dt.strftime('%Y-%m-%d')
+            if 'season_type' not in logs.columns:
+                logs['season_type'] = logs['game_date'].apply(classify_game_date)
+            else:
+                missing_phase = logs['season_type'].isna() | (logs['season_type'] == '')
+                logs.loc[missing_phase, 'season_type'] = logs.loc[
+                    missing_phase, 'game_date'
+                ].apply(classify_game_date)
+            logs['season_type'] = logs['season_type'].fillna('REGULAR').astype(str)
+            logs['_player_key'] = logs['player_name'].map(nba_player_name_key)
+
+        event_key = ['_player_key', 'game_date', 'season_type']
+
+        existing_before = len(existing_logs)
+        existing_logs = _collapse_player_game_rows(existing_logs)
+        duplicate_existing = existing_before - len(existing_logs)
+        game_logs = _collapse_player_game_rows(game_logs)
+
+        new_log_keys = set(map(tuple, game_logs[event_key].itertuples(index=False, name=None)))
+        existing_log_keys = set(map(tuple, existing_logs[event_key].itertuples(index=False, name=None)))
         preserved_log_keys = existing_log_keys - new_log_keys
-        preserved_logs = existing_logs[
-            existing_logs.apply(lambda r: (r['player_name'], r['game_date']) in preserved_log_keys, axis=1)
-        ].copy()
+        existing_event_keys = pd.Series(
+            list(map(tuple, existing_logs[event_key].itertuples(index=False, name=None))),
+            index=existing_logs.index,
+        )
+        preserved_logs = existing_logs.loc[existing_event_keys.isin(preserved_log_keys)].copy()
         new_count = len(new_log_keys - existing_log_keys)
         updated_count = len(new_log_keys & existing_log_keys)
         preserved_count = len(preserved_log_keys)
         merged_logs = pd.concat([game_logs, preserved_logs], ignore_index=True)
-        merged_logs = merged_logs.sort_values(['player_name', 'game_date'], ascending=[True, False])
-        print(f"[player_game_logs] Upsert: {updated_count} updated, {new_count} new, {preserved_count} preserved")
+        merged_logs = merged_logs.drop_duplicates(event_key, keep='first')
+        print(
+            f"[player_game_logs] Upsert: {updated_count} updated, {new_count} new, "
+            f"{preserved_count} preserved; removed {duplicate_existing} duplicate legacy row(s)"
+        )
     else:
         merged_logs = game_logs
         print(f"[player_game_logs] Fresh insert: {len(game_logs)} entries")
 
+    if not merged_logs.empty:
+        from utils.season_phase import classify_game_date
+
+        merged_logs['game_date'] = pd.to_datetime(
+            merged_logs['game_date'], errors='coerce'
+        ).dt.strftime('%Y-%m-%d')
+        if 'season_type' not in merged_logs.columns:
+            merged_logs['season_type'] = merged_logs['game_date'].apply(classify_game_date)
+        else:
+            missing_phase = merged_logs['season_type'].isna() | (merged_logs['season_type'] == '')
+            merged_logs.loc[missing_phase, 'season_type'] = merged_logs.loc[
+                missing_phase, 'game_date'
+            ].apply(classify_game_date)
+        merged_logs['season_type'] = merged_logs['season_type'].fillna('REGULAR').astype(str)
+        if '_player_key' not in merged_logs.columns:
+            merged_logs['_player_key'] = merged_logs['player_name'].map(nba_player_name_key)
+        event_key = ['_player_key', 'game_date', 'season_type']
+        before_final_dedup = len(merged_logs)
+        merged_logs = _collapse_player_game_rows(merged_logs)
+        final_duplicates_removed = before_final_dedup - len(merged_logs)
+        if final_duplicates_removed:
+            print(
+                f"[player_game_logs] Removed {final_duplicates_removed} duplicate "
+                "normalized player-game row(s)"
+            )
+
+    if '_player_key' in merged_logs.columns:
+        merged_logs = merged_logs.drop(columns=['_player_key'])
     if 'season_type' not in merged_logs.columns:
         from utils.season_phase import classify_game_date
         merged_logs['season_type'] = merged_logs['game_date'].apply(classify_game_date)

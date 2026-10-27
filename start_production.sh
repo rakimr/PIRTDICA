@@ -78,7 +78,11 @@ start_bg() {
             # debug remotely via fetch_deployment_logs OR the admin
             # scheduler-status panel. Each line is prefixed with [<name>] so
             # the different schedulers can be told apart in the combined log.
-            python -u "$script" 2>&1 | awk -v tag="[$name]" '{ print tag, $0; fflush(); }' | tee -a "$LOG_DIR/${name}.log"
+            python -u "$script" 2>&1 | {
+                while IFS= read -r line || [[ -n "$line" ]]; do
+                    printf '[%s] %s\n' "$name" "$line"
+                done
+            } | tee -a "$LOG_DIR/${name}.log"
             rc=$?
             echo "[$name] process exited (rc=$rc) — restarting in ${RESTART_DELAY}s" | tee -a "$LOG_DIR/${name}.log"
             sleep "$RESTART_DELAY"

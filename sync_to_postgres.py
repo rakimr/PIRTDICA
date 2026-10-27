@@ -2,7 +2,8 @@ import os
 import sys
 import sqlite3
 import pandas as pd
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
+from utils.db_connection import create_runtime_engine
 from sqlalchemy.orm import sessionmaker
 
 SUPABASE_URL = os.environ.get("SUPABASE_DATABASE_URL")
@@ -13,15 +14,12 @@ if not SYNC_URL:
     print("ERROR: Neither SUPABASE_DATABASE_URL nor DATABASE_URL is set")
     sys.exit(1)
 
-if "supabase" in SYNC_URL and ":5432" in SYNC_URL:
-    SYNC_URL = SYNC_URL.replace(":5432", ":6543")
-
 if SUPABASE_URL:
     print("Syncing to Supabase PostgreSQL")
 else:
     print("Syncing to local PostgreSQL (DATABASE_URL)")
 
-engine = create_engine(SYNC_URL)
+engine = create_runtime_engine(SYNC_URL)
 Session = sessionmaker(bind=engine)
 
 SQLITE_DB = "dfs_nba.db"
@@ -35,6 +33,7 @@ CSV_TABLE_MAP = {
 }
 
 SQLITE_TABLE_MAP = {
+    "nba_player_teams": "nba_player_teams_live",
     "player_salaries": "player_salaries_live",
     "injury_alerts": "injury_alerts_live",
     "player_archetypes": "player_archetypes_live",
@@ -286,7 +285,7 @@ def sync_platform_table(table_name):
         return 0
 
     try:
-        local_engine = create_engine(local_url)
+        local_engine = create_runtime_engine(local_url)
         with local_engine.connect() as lconn:
             result = lconn.execute(text(f"SELECT * FROM {table_name}"))
             rows = result.fetchall()
@@ -331,6 +330,31 @@ def sync_platform_table(table_name):
 
 
 def main():
+    if len(sys.argv) > 1:
+        if len(sys.argv) != 3 or sys.argv[1] != "--only":
+            print("Usage: python sync_to_postgres.py [--only SQLITE_TABLE|dfs_players]")
+            return 2
+        sqlite_table = sys.argv[2]
+        if sqlite_table == "dfs_players":
+            create_tables()
+            valued_path = "dfs_players_valued.csv"
+            base_path = "dfs_players.csv"
+            if os.path.exists(valued_path):
+                rows = sync_csv(valued_path, "dfs_players_live")
+            elif os.path.exists(base_path):
+                rows = sync_csv(base_path, "dfs_players_live")
+            else:
+                print("No DFS players CSV found for targeted sync")
+                return 1
+            return 0 if rows > 0 else 1
+        pg_table = SQLITE_TABLE_MAP.get(sqlite_table)
+        if not pg_table:
+            print(f"Unknown SQLite table for targeted sync: {sqlite_table}")
+            return 2
+        create_tables()
+        rows = sync_sqlite_table(sqlite_table, pg_table)
+        return 0 if rows > 0 else 1
+
     print("=" * 50)
     print("Syncing Pipeline Data to PostgreSQL")
     print("=" * 50)
@@ -368,4 +392,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

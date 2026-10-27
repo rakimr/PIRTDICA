@@ -8,6 +8,7 @@
 articles/
 conversation_logs/
 attached_assets/
+generated-artifacts/
 .local/
 .cache/
 .pytest_cache/
