@@ -4750,7 +4750,61 @@ async def h2h_submit_lineup(request: Request, db: Session = Depends(get_db)):
 
     db.commit()
 
-    return html_redirect(f"/h2h/match/{challenge.id}")
+    other_lineup_submitted = (
+        challenge.opponent_lineup_submitted
+        if is_challenger
+        else challenge.challenger_lineup_submitted
+    )
+    if other_lineup_submitted:
+        return html_redirect(f"/h2h/match/{challenge.id}")
+    return html_redirect(f"/h2h/waiting/{challenge.id}")
+
+
+@app.get("/h2h/waiting/{challenge_id}")
+async def h2h_waiting(request: Request, challenge_id: int, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        return html_redirect("/login")
+
+    challenge = db.query(models.H2HChallenge).filter(
+        models.H2HChallenge.id == challenge_id
+    ).first()
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+
+    is_challenger = challenge.challenger_id == user.id
+    is_opponent = challenge.opponent_id == user.id
+    if not is_challenger and not is_opponent:
+        raise HTTPException(status_code=403, detail="You are not part of this challenge")
+
+    user_lineup_submitted = (
+        challenge.challenger_lineup_submitted
+        if is_challenger
+        else challenge.opponent_lineup_submitted
+    )
+    other_lineup_submitted = (
+        challenge.opponent_lineup_submitted
+        if is_challenger
+        else challenge.challenger_lineup_submitted
+    )
+    if other_lineup_submitted or challenge.status in ("locked", "completed"):
+        return html_redirect(f"/h2h/match/{challenge.id}")
+    if not user_lineup_submitted:
+        return html_redirect(f"/h2h/match/{challenge.id}")
+
+    opponent = challenge.opponent if is_challenger else challenge.challenger
+    pending_opponent_name = (
+        (opponent.display_name or opponent.username)
+        if opponent
+        else "Opponent Coach"
+    )
+    return templates.TemplateResponse("h2h_waiting.html", {
+        "request": request,
+        "user": user,
+        "challenge": challenge,
+        "pending_opponent_name": pending_opponent_name,
+        "match_type": challenge.match_type or "casual",
+    })
 
 @app.get("/h2h/match/{challenge_id}")
 async def h2h_match(request: Request, challenge_id: int, db: Session = Depends(get_db)):
@@ -4764,6 +4818,21 @@ async def h2h_match(request: Request, challenge_id: int, db: Session = Depends(g
 
     is_challenger = challenge.challenger_id == user.id
     is_opponent = challenge.opponent_id == user.id
+    if not is_challenger and not is_opponent:
+        raise HTTPException(status_code=403, detail="You are not part of this challenge")
+
+    user_lineup_submitted = (
+        challenge.challenger_lineup_submitted
+        if is_challenger
+        else challenge.opponent_lineup_submitted
+    )
+    other_lineup_submitted = (
+        challenge.opponent_lineup_submitted
+        if is_challenger
+        else challenge.challenger_lineup_submitted
+    )
+    if user_lineup_submitted and not other_lineup_submitted and challenge.status != "completed":
+        return html_redirect(f"/h2h/waiting/{challenge.id}")
 
     challenger_players = db.query(models.H2HLineupPlayer).filter(
         models.H2HLineupPlayer.challenge_id == challenge.id,
