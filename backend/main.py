@@ -2440,8 +2440,21 @@ async def trends(request: Request, db: Session = Depends(get_db)):
 @app.get("/leaderboard")
 async def leaderboard(request: Request, period: str = "daily", db: Session = Depends(get_db)):
     user = get_current_user(request, db)
-    
-    leaderboard_data = db.query(
+
+    now_et = get_eastern_now()
+    period_start = None
+    if period == "daily":
+        period_start = now_et.date()
+    elif period == "weekly":
+        period_start = now_et.date() - timedelta(days=now_et.weekday())
+    elif period == "monthly":
+        period_start = now_et.date().replace(day=1)
+    elif period == "yearly":
+        period_start = now_et.date().replace(month=1, day=1)
+    else:
+        period = "alltime"
+
+    leaderboard_query = db.query(
         models.User.id,
         models.User.username,
         models.User.display_name,
@@ -2452,13 +2465,27 @@ async def leaderboard(request: Request, period: str = "daily", db: Session = Dep
         func.count(models.ContestEntry.id).label("entries"),
         func.sum(models.ContestEntry.beat_house.cast(Integer)).label("wins"),
         func.avg(models.ContestEntry.actual_score).label("avg_score")
-    ).join(models.ContestEntry).group_by(models.User.id).order_by(
-        desc("wins")
-    ).limit(50).all()
-    
+    ).join(models.ContestEntry).join(models.Contest).filter(
+        models.Contest.slate_date <= now_et.date()
+    )
+
+    if period_start:
+        leaderboard_query = leaderboard_query.filter(
+            models.Contest.slate_date >= period_start
+        )
+
+    leaderboard_data = leaderboard_query.group_by(models.User.id).all()
+    all_time_win_rows = db.query(
+        models.ContestEntry.user_id,
+        func.sum(models.ContestEntry.beat_house.cast(Integer)).label("wins"),
+    ).group_by(models.ContestEntry.user_id).all()
+    all_time_wins_by_user = {
+        user_id: int(wins or 0)
+        for user_id, wins in all_time_win_rows
+    }
+
     leaderboard_with_ranks = []
     for entry in leaderboard_data:
-        rank = get_coach_rank(entry.wins or 0)
         leaderboard_with_ranks.append({
             "id": entry.id,
             "username": entry.username,
@@ -2468,10 +2495,52 @@ async def leaderboard(request: Request, period: str = "daily", db: Session = Dep
             "division_tier": entry.division_tier or 3,
             "mmr": entry.mmr or 1000,
             "entries": entry.entries,
-            "wins": entry.wins,
-            "avg_score": entry.avg_score,
-            "rank": rank,
+            "wins": int(entry.wins or 0),
+            "avg_score": float(entry.avg_score or 0),
+            "rank": get_coach_rank(all_time_wins_by_user.get(entry.id, 0)),
         })
+
+    def percentile_by_id(metric_name):
+        values = {
+            row["id"]: float(row[metric_name] or 0)
+            for row in leaderboard_with_ranks
+        }
+        if len(values) == 1:
+            return {user_id: 100.0 for user_id in values}
+
+        counts = {}
+        for value in values.values():
+            counts[value] = counts.get(value, 0) + 1
+
+        percentile_by_value = {}
+        lower_count = 0
+        total = len(values)
+        for value in sorted(counts):
+            tied_count = counts[value]
+            average_rank = lower_count + (tied_count - 1) / 2
+            percentile_by_value[value] = average_rank / (total - 1) * 100
+            lower_count += tied_count
+        return {
+            user_id: percentile_by_value[value]
+            for user_id, value in values.items()
+        }
+
+    avg_score_percentiles = percentile_by_id("avg_score")
+    wins_percentiles = percentile_by_id("wins")
+    for entry in leaderboard_with_ranks:
+        entry["coach_score"] = (
+            avg_score_percentiles[entry["id"]] + wins_percentiles[entry["id"]]
+        ) / 2
+
+    leaderboard_with_ranks.sort(
+        key=lambda entry: (
+            -entry["coach_score"],
+            -entry["avg_score"],
+            -entry["wins"],
+            entry["id"],
+        )
+    )
+    leaderboard_with_ranks = leaderboard_with_ranks[:50]
 
     return templates.TemplateResponse("leaderboard.html", {
         "request": request,
