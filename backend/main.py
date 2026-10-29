@@ -2466,7 +2466,8 @@ async def leaderboard(request: Request, period: str = "daily", db: Session = Dep
         func.sum(models.ContestEntry.beat_house.cast(Integer)).label("wins"),
         func.avg(models.ContestEntry.actual_score).label("avg_score")
     ).join(models.ContestEntry).join(models.Contest).filter(
-        models.Contest.slate_date <= now_et.date()
+        models.Contest.status == "completed",
+        models.Contest.slate_date <= now_et.date(),
     )
 
     if period_start:
@@ -2478,6 +2479,8 @@ async def leaderboard(request: Request, period: str = "daily", db: Session = Dep
     all_time_win_rows = db.query(
         models.ContestEntry.user_id,
         func.sum(models.ContestEntry.beat_house.cast(Integer)).label("wins"),
+    ).join(models.Contest).filter(
+        models.Contest.status == "completed"
     ).group_by(models.ContestEntry.user_id).all()
     all_time_wins_by_user = {
         user_id: int(wins or 0)
@@ -2565,7 +2568,10 @@ async def profile(request: Request, username: str, db: Session = Depends(get_db)
         func.count(models.ContestEntry.id).label("total_entries"),
         func.sum(models.ContestEntry.beat_house.cast(Integer)).label("wins"),
         func.avg(models.ContestEntry.actual_score).label("avg_score")
-    ).filter(models.ContestEntry.user_id == profile_user.id).first()
+    ).join(models.Contest).filter(
+        models.ContestEntry.user_id == profile_user.id,
+        models.Contest.status == "completed",
+    ).first()
     
     user_achievements = db.query(models.UserAchievement).filter(
         models.UserAchievement.user_id == profile_user.id
@@ -2775,11 +2781,11 @@ async def history(request: Request, db: Session = Depends(get_db)):
             "house_total_proj": house_total_proj,
         })
     
-    total_entries = len(entries)
     completed_entries = [e for e in entries if e.contest and e.contest.status == 'completed']
+    total_entries = len(completed_entries)
     wins = sum(1 for e in completed_entries if e.beat_house)
     losses = len(completed_entries) - wins
-    total_coins = sum(e.coins_earned or 0 for e in entries)
+    total_coins = sum(e.coins_earned or 0 for e in completed_entries)
     best_score = max((e.actual_score or 0 for e in completed_entries), default=0)
     win_rate = (wins / len(completed_entries) * 100) if completed_entries else 0
     
