@@ -147,37 +147,40 @@ SOURCE_CODE_FILES = [
 NEVER_PUSH = {"articles/", "conversation_logs/", ".local/", "__pycache__/", ".pythonlibs/"}
 
 
-def get_github_token():
+def get_github_token_candidates():
+    candidates = []
     hostname = os.environ.get("REPLIT_CONNECTORS_HOSTNAME", "")
     identity = os.environ.get("REPL_IDENTITY", "")
-    if not hostname or not identity:
-        token = os.environ.get("GITHUB_TOKEN")
-        return token
-
-    # NOTE: do NOT use the connector_names=github filter // the connectors API
-    # silently returns 0 items for it. Fetch all connections and match locally.
-    url = f"https://{hostname}/api/v2/connection?include_secrets=true"
-    req = urllib.request.Request(url, headers={
-        "Accept": "application/json",
-        "X-Replit-Token": f"repl {identity}"
-    })
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read())
+    if hostname and identity:
+        # Do not add connector_names=github here. The connector API can return
+        # an empty list for that filter; fetch all and match locally instead.
+        url = f"https://{hostname}/api/v2/connection?include_secrets=true"
+        req = urllib.request.Request(url, headers={
+            "Accept": "application/json",
+            "X-Replit-Token": f"repl {identity}"
+        })
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read())
             for item in data.get("items", []):
                 if item.get("connector_name") != "github":
                     continue
                 settings = item.get("settings") or {}
-                tok = settings.get("access_token") or (
+                token = settings.get("access_token") or (
                     ((settings.get("oauth") or {}).get("credentials") or {})
                     .get("access_token"))
-                if tok:
-                    return tok
-    except Exception as e:
-        print(f"  Connector token failed: {e}")
+                if token and all(token != existing for _, existing in candidates):
+                    candidates.append(("Replit GitHub integration", token))
+        except Exception as exc:
+            # Do not log request details or credential-bearing response bodies.
+            print(f"  Connector token lookup failed ({type(exc).__name__})")
+    else:
+        print("  Replit connector identity unavailable; checking configured GitHub token")
 
-    token = os.environ.get("GITHUB_TOKEN")
-    return token
+    env_token = os.environ.get("GITHUB_TOKEN")
+    if env_token and all(env_token != existing for _, existing in candidates):
+        candidates.append(("GITHUB_TOKEN secret", env_token))
+    return candidates
 
 
 def gh_api(path, method="GET", data=None, token=None):
@@ -203,6 +206,32 @@ def get_existing_tree(token):
     commit = gh_api(f"/repos/{REPO}/git/commits/{commit_sha}", token=token)
     tree_sha = commit["tree"]["sha"]
     return commit_sha, tree_sha
+
+
+def get_authenticated_github_token():
+    candidates = get_github_token_candidates()
+    if not candidates:
+        raise RuntimeError("No GitHub integration credential or GITHUB_TOKEN secret is available.")
+
+    for source, token in candidates:
+        try:
+            repo = gh_api(f"/repos/{REPO}", token=token)
+        except Exception as exc:
+            error = str(exc)
+            status = "401" if "401" in error else "403" if "403" in error else "request failed"
+            print(f"  GitHub credential from {source} was rejected ({status}); trying next source")
+            continue
+
+        permissions = repo.get("permissions") or {}
+        if permissions.get("push") is False:
+            print(f"  GitHub credential from {source} can read the repo but cannot push; trying next source")
+            continue
+        print(f"  Authenticated to {REPO} using {source}")
+        return token
+
+    raise RuntimeError(
+        f"No configured GitHub credential can access {REPO} with push permission."
+    )
 
 
 def create_blob(token, content_bytes, is_binary=False):
@@ -256,9 +285,10 @@ def main():
     print("Push to GitHub (API)")
     print("=" * 50)
 
-    token = get_github_token()
-    if not token:
-        print("SKIPPED: GitHub token not available")
+    try:
+        token = get_authenticated_github_token()
+    except RuntimeError as exc:
+        print(f"FAILED: {exc}")
         sys.exit(1)
 
     today = datetime.now().strftime("%Y-%m-%d %H:%M")

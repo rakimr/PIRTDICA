@@ -1123,7 +1123,12 @@ def save_archetypes(df):
     conn.close()
 
 
-def main(*, dry_run=False, offline=False, feature_season=None):
+def main(*, dry_run=False, offline=False, feature_season=None, use_approved_fallback=False):
+    if not dry_run and use_approved_fallback:
+        from utils.archetype_fallback import install_fallback
+        historical = install_fallback(DB_PATH)
+        if historical is not None:
+            return historical
     print("=" * 60)
     print("PHILLIPS-STYLE PLAYER ARCHETYPE CLASSIFICATION v2")
     print("8 Composite Indices + Minutes-Weighted Centroids + Soft Clustering")
@@ -1239,4 +1244,5 @@ if __name__ == '__main__':
     parser.add_argument('--offline', action='store_true', help='Use cached height measurements')
     parser.add_argument('--feature-season', help='Explicit, uniformly sourced YYYY-YY feature season')
     args = parser.parse_args()
-    main(dry_run=args.dry_run, offline=args.offline, feature_season=args.feature_season)
+    main(dry_run=args.dry_run, offline=args.offline, feature_season=args.feature_season,
+         use_approved_fallback=True)

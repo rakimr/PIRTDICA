@@ -177,6 +177,10 @@
 
     <div class="trends-section">
         <h2>Player Archetype Clusters</h2>
+        {% if archetype_fallback_info %}
+        <p class="chart-description">Prior-season roles: {{ archetype_fallback_info.season }},
+            snapshot {{ archetype_fallback_info.snapshot_date }}. Current team assignments are updated separately.</p>
+        {% endif %}
         <p class="chart-description">K-Means clustering groups players by how they actually play. Each dot is a player, positioned by PCA of 8 composite indices (Creation, Playmaking, Interior, Perimeter, Off-Ball, Rebounding, Defense, Size). Hover for details.</p>
         <div class="cluster-controls">
             <select id="cluster-team-filter" class="scheme-select">

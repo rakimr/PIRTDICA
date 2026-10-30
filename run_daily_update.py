@@ -120,6 +120,13 @@ def main():
                 success_count += 1
             else:
                 fail_count += 1
+                if script.split()[0] in {
+                    "build_player_archetypes.py", "build_dva.py",
+                    "matchup_engine.py", "dfs_players.py",
+                }:
+                    print(f"CRITICAL: {script} failed. Stopping before dependent "
+                          "recommendations, articles, synchronization or publishing.")
+                    raise SystemExit(1)
 
         circuit_info = get_circuit_info()
         if circuit_info and circuit_info.get('tripped'):

@@ -16,14 +16,19 @@
     
     <div class="leaderboard-card">
         {% if leaderboard %}
+        <p class="coach-score-note">
+            Coach Score equally weights average-score and win-count percentiles for the selected period.
+            Ties are broken by average score, then wins.
+        </p>
         <table class="leaderboard-table">
             <thead>
                 <tr>
                     <th>Rank</th>
                     <th>Coach</th>
+                    <th>Coach Score</th>
                     <th>Division</th>
                     <th>Wins</th>
-                    <th>Entries</th>
+                    <th>Scored Entries</th>
                     <th>Win Rate</th>
                     <th>Avg Score</th>
                 </tr>
@@ -53,6 +58,7 @@
                             <span>{{ entry.display_name or entry.username }}</span>
                         </a>
                     </td>
+                    <td class="coach-score">{{ "%.1f"|format(entry.coach_score) }}</td>
                     <td class="division" style="white-space: nowrap;">
                         {% set e_div = entry.division or 'Bronze' %}
                         {% set e_tier = entry.division_tier or 3 %}

@@ -6,6 +6,7 @@ from baseline_minutes import get_baseline_minutes, project_minutes, get_game_con
 from physical_matchups import get_opposing_physical_modifier
 from utils.player_name_key import nba_player_name_key
 from utils.player_rows import collapse_player_alias_rows
+from utils.rotation_fallback import merge_salary_with_player_mpg
 from utils.current_nba_teams import (
     apply_current_player_teams,
     current_player_team_map_from_sqlite,
@@ -74,13 +75,17 @@ if depth.empty and not salaries.empty:
             normalizer=normalize_name,
         )
         _ps = _ps.sort_values("mpg", ascending=False).drop_duplicates("norm_name", keep="first")
-        _sal = salaries.copy()
-        _fallback = _sal.merge(
-            _ps[["norm_name", "mpg"]],
-            on="norm_name",
-            how="left",
-            validate="one_to_one",
+        _fallback, _unnamed_salary_rows = merge_salary_with_player_mpg(
+            salaries,
+            _ps,
+            preferred_names=preferred_player_names,
+            normalizer=normalize_name,
         )
+        if _unnamed_salary_rows:
+            print(
+                f"  WARNING: excluding {_unnamed_salary_rows} salary row(s) "
+                "without a usable player name from rotation fallback"
+            )
         _fallback['baseline_min'] = _fallback['mpg'].fillna(8.0).clip(lower=4.0, upper=40.0)
 
         # Map FantasyPros position string (e.g. "SG/SF" or "PG") to the primary
