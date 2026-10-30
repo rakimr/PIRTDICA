@@ -13,6 +13,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from backend.database import Base, engine
 from backend import models
+from backend.contest_rewards import award_house_win_coins
 from utils.timezone import get_eastern_today
 from utils.nba_season import nba_api_season
 
@@ -327,6 +328,14 @@ def score_contest(contest_date: date = None, force: bool = False):
             entry.beat_house = entry_total > house_total
     
     contest.status = 'completed'
+    db.flush()
+
+    total_slate_payout = 0
+    for entry in entries:
+        if entry.beat_house:
+            entry.coins_earned = award_house_win_coins(db, entry)
+            total_slate_payout += entry.coins_earned or 0
+
     db.commit()
     
     print(f"\n=== Contest Results for {contest_date} ===")
@@ -334,6 +343,7 @@ def score_contest(contest_date: date = None, force: bool = False):
     print(f"Total entries: {len(entries)}")
     winners = sum(1 for e in entries if e.beat_house)
     print(f"Winners: {winners} ({winners/len(entries)*100:.1f}%)" if entries else "Winners: 0")
+    print(f"House-win payout total: {total_slate_payout} Coach Coins")
     
     try:
         from backend.achievements import check_scoring_achievements

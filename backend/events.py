@@ -11,7 +11,7 @@ def emit_contest_result(db: Session, user_id: int, score: float,
         title = "You beat the house"
         body = f"Your lineup scored {score:.1f} FP vs the house's {house_score:.1f} FP — you won by {diff:.1f}."
         if payout > 0:
-            body += f" +{payout} Coach Coin earned."
+            body += f" +{payout} Coach Coins earned."
         priority = 2
     else:
         title = "Close loss" if diff < 10 else "Contest result"
