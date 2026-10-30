@@ -4,11 +4,14 @@ import json
 import base64
 import threading
 import concurrent.futures
-import urllib.request
+import subprocess
 from datetime import datetime
 
 REPO = "rakimr/PIRTDICA"
 BRANCH = "main"
+GITHUB_PROXY_SCRIPT = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "github_api_proxy.mjs"
+)
 
 PIPELINE_OUTPUT_FILES = [
     "dfs_players.csv",
@@ -86,6 +89,9 @@ SOURCE_CODE_FILES = [
     "analysis/player_value.py",
     "scheduler_props.py",
     "scripts/post-merge.sh",
+    "github_api_proxy.mjs",
+    "package.json",
+    "package-lock.json",
     "pyproject.toml",
     "uv.lock",
     "estimate_ownership.py",
@@ -147,115 +153,74 @@ SOURCE_CODE_FILES = [
 NEVER_PUSH = {"articles/", "conversation_logs/", ".local/", "__pycache__/", ".pythonlibs/"}
 
 
-def get_github_token_candidates():
-    candidates = []
-    hostname = os.environ.get("REPLIT_CONNECTORS_HOSTNAME", "")
-    identity = os.environ.get("REPL_IDENTITY", "")
-    if hostname and identity:
-        # Do not add connector_names=github here. The connector API can return
-        # an empty list for that filter; fetch all and match locally instead.
-        url = f"https://{hostname}/api/v2/connection?include_secrets=true"
-        req = urllib.request.Request(url, headers={
-            "Accept": "application/json",
-            "X-Replit-Token": f"repl {identity}"
-        })
-        try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                data = json.loads(resp.read())
-            for item in data.get("items", []):
-                if item.get("connector_name") != "github":
-                    continue
-                settings = item.get("settings") or {}
-                token = settings.get("access_token") or (
-                    ((settings.get("oauth") or {}).get("credentials") or {})
-                    .get("access_token"))
-                if token and all(token != existing for _, existing in candidates):
-                    candidates.append(("Replit GitHub integration", token))
-        except Exception as exc:
-            # Do not log request details or credential-bearing response bodies.
-            print(f"  Connector token lookup failed ({type(exc).__name__})")
-    else:
-        print("  Replit connector identity unavailable; checking configured GitHub token")
-
-    env_token = os.environ.get("GITHUB_TOKEN")
-    if env_token and all(env_token != existing for _, existing in candidates):
-        candidates.append(("GITHUB_TOKEN secret", env_token))
-    return candidates
-
-
-def gh_api(path, method="GET", data=None, token=None):
-    url = f"https://api.github.com{path}"
-    headers = {
-        "Accept": "application/vnd.github+json",
-        "Authorization": f"Bearer {token}",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-    body = json.dumps(data).encode() if data else None
-    req = urllib.request.Request(url, data=body, headers=headers, method=method)
+def gh_api(path, method="GET", data=None):
+    request = json.dumps({"path": path, "method": method, "data": data})
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        err_body = e.read().decode() if e.fp else ""
-        raise Exception(f"GitHub API {e.code}: {err_body[:300]}")
+        result = subprocess.run(
+            ["node", GITHUB_PROXY_SCRIPT],
+            input=request,
+            text=True,
+            capture_output=True,
+            timeout=45,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError("GitHub connector request timed out") from exc
+
+    if result.returncode != 0:
+        diagnostic = result.stderr.strip().splitlines()
+        detail = diagnostic[-1][:200] if diagnostic else "connector request failed"
+        raise RuntimeError(f"GitHub connector request failed: {detail}")
+
+    try:
+        response = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("GitHub connector returned an invalid response") from exc
+
+    status = response.get("status")
+    body = response.get("body")
+    if not isinstance(status, int) or status < 200 or status >= 300:
+        message = body.get("message", "request rejected") if isinstance(body, dict) else "request rejected"
+        raise RuntimeError(f"GitHub API {status}: {message}")
+    return body
 
 
-def get_existing_tree(token):
-    ref = gh_api(f"/repos/{REPO}/git/ref/heads/{BRANCH}", token=token)
+def get_existing_tree():
+    ref = gh_api(f"/repos/{REPO}/git/ref/heads/{BRANCH}")
     commit_sha = ref["object"]["sha"]
-    commit = gh_api(f"/repos/{REPO}/git/commits/{commit_sha}", token=token)
+    commit = gh_api(f"/repos/{REPO}/git/commits/{commit_sha}")
     tree_sha = commit["tree"]["sha"]
     return commit_sha, tree_sha
 
 
-def get_authenticated_github_token():
-    candidates = get_github_token_candidates()
-    if not candidates:
-        raise RuntimeError("No GitHub integration credential or GITHUB_TOKEN secret is available.")
-
-    for source, token in candidates:
-        try:
-            repo = gh_api(f"/repos/{REPO}", token=token)
-        except Exception as exc:
-            error = str(exc)
-            status = "401" if "401" in error else "403" if "403" in error else "request failed"
-            print(f"  GitHub credential from {source} was rejected ({status}); trying next source")
-            continue
-
-        permissions = repo.get("permissions") or {}
-        if permissions.get("push") is False:
-            print(f"  GitHub credential from {source} can read the repo but cannot push; trying next source")
-            continue
-        print(f"  Authenticated to {REPO} using {source}")
-        return token
-
-    raise RuntimeError(
-        f"No configured GitHub credential can access {REPO} with push permission."
-    )
+def verify_github_push_access():
+    repo = gh_api(f"/repos/{REPO}")
+    permissions = repo.get("permissions") or {}
+    if permissions.get("push") is not True:
+        raise RuntimeError(f"Could not verify push permission for {REPO}.")
+    print(f"  Authenticated to {REPO} through Replit's managed GitHub connection")
 
 
-def create_blob(token, content_bytes, is_binary=False):
+def create_blob(content_bytes, is_binary=False):
     if is_binary:
         encoded = base64.b64encode(content_bytes).decode()
         data = {"content": encoded, "encoding": "base64"}
     else:
         data = {"content": content_bytes.decode("utf-8", errors="replace"), "encoding": "utf-8"}
-    result = gh_api(f"/repos/{REPO}/git/blobs", method="POST", data=data, token=token)
+    result = gh_api(f"/repos/{REPO}/git/blobs", method="POST", data=data)
     return result["sha"]
 
 
-def create_blob_with_timeout(token, content_bytes, is_binary=False, seconds=25, retries=5):
-    # Network calls in this environment occasionally hang past urllib's own
-    # timeout (e.g. stuck in connect/DNS). Run each upload in a worker thread and
-    # use join(timeout) so the main thread always regains control and retries on a
-    # fresh connection. A hung worker is left as a daemon and dies with the process.
+def create_blob_with_timeout(content_bytes, is_binary=False, seconds=60, retries=5):
+    # Keep a hung connector request from blocking the whole batch. The per-call
+    # subprocess timeout plus this worker timeout allow retries on a fresh request.
     last_err = None
     for attempt in range(1, retries + 1):
         result = {}
 
         def _run():
             try:
-                result["sha"] = create_blob(token, content_bytes, is_binary=is_binary)
+                result["sha"] = create_blob(content_bytes, is_binary=is_binary)
             except Exception as e:
                 result["err"] = e
 
@@ -282,12 +247,12 @@ def should_skip(filepath):
 
 def main():
     print("=" * 50)
-    print("Push to GitHub (API)")
+    print("Push to GitHub (Replit managed connection)")
     print("=" * 50)
 
     try:
-        token = get_authenticated_github_token()
-    except RuntimeError as exc:
+        verify_github_push_access()
+    except Exception as exc:
         print(f"FAILED: {exc}")
         sys.exit(1)
 
@@ -308,14 +273,14 @@ def main():
 
     print(f"  Preparing {len(existing)} files...")
 
-    commit_sha, base_tree_sha = get_existing_tree(token)
+    commit_sha, base_tree_sha = get_existing_tree()
 
     def _make_blob(filepath):
         full = os.path.join(cwd, filepath)
         is_binary = filepath.endswith(('.png', '.jpg', '.jpeg', '.gif', '.ico', '.woff', '.woff2', '.ttf'))
         with open(full, 'rb') as f:
             content = f.read()
-        blob_sha = create_blob_with_timeout(token, content, is_binary=is_binary)
+        blob_sha = create_blob_with_timeout(content, is_binary=is_binary)
         return {
             "path": filepath,
             "mode": "100644",
@@ -348,7 +313,7 @@ def main():
     tree = gh_api(f"/repos/{REPO}/git/trees", method="POST", data={
         "base_tree": base_tree_sha,
         "tree": tree_items,
-    }, token=token)
+    })
     new_tree_sha = tree["sha"]
 
     if commit_msg:
@@ -360,13 +325,13 @@ def main():
         "message": full_msg,
         "tree": new_tree_sha,
         "parents": [commit_sha],
-    }, token=token)
+    })
     new_commit_sha = new_commit["sha"]
 
     gh_api(f"/repos/{REPO}/git/refs/heads/{BRANCH}", method="PATCH", data={
         "sha": new_commit_sha,
         "force": True,
-    }, token=token)
+    })
 
     print(f"  Pushed {len(tree_items)} files to GitHub ({new_commit_sha[:8]})")
     print(f"  Commit: {full_msg}")
