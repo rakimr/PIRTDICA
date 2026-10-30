@@ -5048,21 +5048,45 @@ async def api_notifications_read_all(request: Request, db: Session = Depends(get
 
 def settle_h2h_challenges(db: Session):
     locked_challenges = db.query(models.H2HChallenge).filter(
-        models.H2HChallenge.status == "locked"
+        models.H2HChallenge.status == "locked",
     ).all()
 
     if not locked_challenges:
         return
 
-    try:
-        from scrape_live_scores import get_live_scores_summary
-        scores = get_live_scores_summary()
-    except:
-        scores = {}
+    from backend.h2h_scoring import calculate_h2h_lineup_scores
+    from live_nba_scores import get_nba_live_scoreboard
 
-    from utils.name_normalize import normalize_player_name
+    scoreboards_by_date = {}
 
     for challenge in locked_challenges:
+        contest = challenge.contest
+        if not contest or contest.status != "completed" or not contest.slate_date:
+            continue
+
+        slate_date = contest.slate_date
+        date_key = slate_date.isoformat()
+        if date_key not in scoreboards_by_date:
+            try:
+                scoreboards_by_date[date_key] = get_nba_live_scoreboard(
+                    slate_date, include_dnp=True
+                )
+            except Exception as e:
+                print(f"H2H score feed unavailable for {date_key}: {e}")
+                scoreboards_by_date[date_key] = None
+
+        scoreboard = scoreboards_by_date[date_key]
+        if not scoreboard or not scoreboard.get("all_final"):
+            print(f"H2H match {challenge.id} left locked: slate games are not final or unavailable")
+            continue
+
+        scores = {}
+        for game in scoreboard.get("games", []):
+            for player in game.get("players", []):
+                normalized = player.get("normalized")
+                if normalized:
+                    scores[normalized] = player.get("fp")
+
         challenger_ps = db.query(models.H2HLineupPlayer).filter(
             models.H2HLineupPlayer.challenge_id == challenge.id,
             models.H2HLineupPlayer.user_id == challenge.challenger_id
@@ -5072,19 +5096,21 @@ def settle_h2h_challenges(db: Session):
             models.H2HLineupPlayer.user_id == challenge.opponent_id
         ).all()
 
-        c_total = 0
-        for p in challenger_ps:
-            norm = normalize_player_name(p.player_name)
-            fp = scores.get(norm, {}).get('fp', 0)
-            p.actual_fp = fp
-            c_total += fp
+        score_result = calculate_h2h_lineup_scores(challenger_ps, opponent_ps, scores)
+        if not score_result["ready"]:
+            print(
+                f"H2H match {challenge.id} left locked: "
+                f"{score_result['reason']} {score_result.get('missing', [])}"
+            )
+            continue
 
-        o_total = 0
-        for p in opponent_ps:
-            norm = normalize_player_name(p.player_name)
-            fp = scores.get(norm, {}).get('fp', 0)
-            p.actual_fp = fp
-            o_total += fp
+        for player, fp in score_result["challenger_actuals"]:
+            player.actual_fp = round(fp, 1)
+        for player, fp in score_result["opponent_actuals"]:
+            player.actual_fp = round(fp, 1)
+
+        c_total = score_result["challenger_score"]
+        o_total = score_result["opponent_score"]
 
         challenge.challenger_score = round(c_total, 1)
         challenge.opponent_score = round(o_total, 1)
