@@ -210,9 +210,21 @@
                         <th>Proj</th>
                         <th>Edge</th>
                         <th>Pick</th>
-                        <th>HR</th>
-                        <th>CV</th>
-                        <th>Score</th>
+                        <th aria-sort="none">
+                            <button type="button" class="prop-recs-sort" data-prop-sort="hr" aria-label="Sort by HR descending">
+                                <span>HR</span><span class="prop-recs-sort-indicator" aria-hidden="true">↕</span>
+                            </button>
+                        </th>
+                        <th aria-sort="none">
+                            <button type="button" class="prop-recs-sort" data-prop-sort="cv" aria-label="Sort by CV descending">
+                                <span>CV</span><span class="prop-recs-sort-indicator" aria-hidden="true">↕</span>
+                            </button>
+                        </th>
+                        <th aria-sort="none">
+                            <button type="button" class="prop-recs-sort" data-prop-sort="score" aria-label="Sort by Score descending">
+                                <span>Score</span><span class="prop-recs-sort-indicator" aria-hidden="true">↕</span>
+                            </button>
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
@@ -243,7 +255,7 @@
                 </tbody>
             </table>
         </div>
-        <script src="/static/js/article-prop-filters.js?v=1" defer></script>
+        <script src="/static/js/article-prop-filters.js?v=4" defer></script>
     </div>
     {% else %}
     <div class="article-section"><h2>Full Prop Recommendations</h2><p>No recommendations are available for the displayed slate.</p></div>

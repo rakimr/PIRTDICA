@@ -4928,6 +4928,34 @@ th[data-sortable].sort-desc::after {
     font-size: 0.8rem;
 }
 
+.prop-recs-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+}
+
+.prop-recs-sort:hover {
+    color: #d1fae5;
+}
+
+.prop-recs-sort:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 3px;
+    border-radius: 3px;
+}
+
+.prop-recs-sort-indicator {
+    min-width: 0.8em;
+    text-align: center;
+}
+
 .article-table tbody td {
     padding: 0.55rem 0.75rem;
     border-bottom: 1px solid #e5e7eb;
