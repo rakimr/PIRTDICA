@@ -156,9 +156,11 @@ def get_article_prop_recommendations(slate_date, csv_path="prop_recommendations.
 
 
 def get_wnba_prop_recommendations():
-    """WNBA prop recommendations (CSV-only // not synced to postgres). Mirrors
-    get_prop_recommendations so the home page can show WNBA edges when there are
-    no NBA games."""
+    """WNBA recommendations from durable PostgreSQL, with local CSV fallback."""
+    if _pg_table_has_data("wnba_prop_recommendations_live"):
+        frame = _pg_query("SELECT * FROM wnba_prop_recommendations_live")
+        if not frame.empty:
+            return frame
     for path in ("wnba_prop_recommendations.csv",
                  os.path.join(os.path.dirname(__file__), "..", "wnba_prop_recommendations.csv")):
         if os.path.exists(path):
@@ -167,6 +169,43 @@ def get_wnba_prop_recommendations():
             except Exception:
                 return pd.DataFrame()
     return pd.DataFrame()
+
+
+def get_wnba_article_prop_recommendations(slate_date, csv_path="wnba_prop_recommendations.csv"):
+    """Return only WNBA recommendations verified to match the article slate."""
+    frame = get_wnba_prop_recommendations()
+    slate = slate_date.isoformat() if hasattr(slate_date, "isoformat") else str(slate_date)
+    if "game_date" in frame.columns:
+        matched = frame[frame["game_date"].astype(str) == slate]
+        if not matched.empty:
+            return matched.copy()
+    paths = (csv_path, os.path.join(os.path.dirname(__file__), "..", csv_path))
+    for path in paths:
+        if not os.path.exists(path):
+            continue
+        try:
+            fallback = pd.read_csv(path)
+        except Exception:
+            continue
+        if "game_date" in fallback.columns:
+            matched = fallback[fallback["game_date"].astype(str) == slate]
+            if not matched.empty:
+                return matched.copy()
+    return frame.iloc[0:0].copy()
+
+
+def latest_recommendation_slate(frame):
+    """Keep a chart table to one dated slate and return the displayed date."""
+    if frame is None or frame.empty:
+        return pd.DataFrame(), None
+    if "game_date" not in frame.columns:
+        return frame.copy(), None
+    dates = frame["game_date"].dropna().astype(str).str.strip()
+    dates = dates[dates != ""]
+    if dates.empty:
+        return frame.iloc[0:0].copy(), None
+    latest = dates.max()
+    return frame[frame["game_date"].astype(str) == latest].copy(), latest
 
 
 def get_targeted_plays():

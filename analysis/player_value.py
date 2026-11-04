@@ -3043,10 +3043,10 @@ def run_analysis():
         _save_prop_recommendations(props_df)
         print("\nSaved prop recommendations to prop_recommendations.csv")
     else:
-        # Always overwrite the CSV so a failed run doesn't leave stale picks
-        # on the live /articles page table. Write WITH expected schema columns
-        # so downstream consumers (generate_article.py checks for 'confidence',
-        # backend/main.py reads many fields) don't break on missing columns.
+        # Always overwrite the local export so a failed run does not leave stale
+        # rows looking current. The database sync preserves previously stored,
+        # dated recommendation snapshots; page readers select the exact slate.
+        # Keep the expected schema so downstream consumers can safely read it.
         import pandas as _pd
         _empty_cols = [
             'game_date', 'player', 'team', 'opponent', 'salary', 'value', 'stat',
@@ -3065,7 +3065,7 @@ def run_analysis():
             'last_hour_minutes', 'move_pattern', 'largest_swing', 'largest_swing_share',
         ]
         _save_prop_recommendations(_pd.DataFrame(columns=_empty_cols))
-        print("No prop recommendations available // wrote empty schema-only prop_recommendations.csv to clear stale data")
+        print("No prop recommendations available // wrote an empty schema-only export")
     
     print("\nGenerating targeted stat plays...")
     targeted_df = get_targeted_plays(valued_df, per100_df, dvp_df)

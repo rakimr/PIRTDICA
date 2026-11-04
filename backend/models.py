@@ -361,6 +361,28 @@ class PropRecommendationLive(Base):
     updated_at = Column(DateTime, server_default=func.now())
 
 
+class WNBAPropRecommendationLive(Base):
+    __tablename__ = "wnba_prop_recommendations_live"
+
+    id = Column(Integer, primary_key=True, index=True)
+    player = Column(String(100), nullable=False, index=True)
+    team = Column(String(10))
+    opponent = Column(String(10))
+    stat = Column(String(20))
+    book_line = Column(Float)
+    player_avg = Column(Float)
+    last5_avg = Column(Float)
+    projected_value = Column(Float)
+    vs_book_edge = Column(Float)
+    recommendation = Column(String(20))
+    hit_rate = Column(Float)
+    cv = Column(Float)
+    composite_score = Column(Float)
+    confidence = Column(String(20))
+    game_date = Column(String(20), index=True)
+    updated_at = Column(DateTime, server_default=func.now())
+
+
 class TargetedPlayLive(Base):
     __tablename__ = "targeted_plays_live"
 

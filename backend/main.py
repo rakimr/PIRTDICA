@@ -779,19 +779,10 @@ def _render_wnba_articles(request: Request, user, db: Session):
         picks, analysis = _article_visible_content(article, picks, analysis, "wnba")
         try:
             import pandas as pd
-            prop_csv = os.path.join(os.path.dirname(__file__), '..', 'wnba_prop_recommendations.csv')
-            if os.path.exists(prop_csv):
-                df = pd.read_csv(prop_csv)
-                # Keep only props for the displayed article's slate // the recs
-                # CSV spans multiple game_dates, so without this the props table
-                # would mix in a different slate than the article header shows.
-                if 'game_date' not in df.columns:
-                    df = df.iloc[0:0]
-                elif article and getattr(article, 'slate_date', None) is not None:
-                    slate_str = article.slate_date.isoformat()
-                    # Strict: only the displayed slate's props // if there are none
-                    # for that slate, show an empty table rather than another slate.
-                    df = df[df['game_date'].astype(str) == slate_str]
+            df = data_access.get_wnba_article_prop_recommendations(
+                article.slate_date
+            )
+            if not df.empty:
                 if 'composite_score' in df.columns:
                     df = df.sort_values('composite_score', ascending=False)
                 for _, row in df.iterrows():
@@ -900,14 +891,13 @@ def _render_wnba_trends(request: Request, user, db: Session):
     # projected_value/book_line/vs_book_edge/confidence/hit_rate/recommendation/
     # composite_score).
     props = []
+    props_date = None
     try:
-        import pandas as _pd
-        prop_csv = _os.path.join(_os.path.dirname(__file__), '..', 'wnba_prop_recommendations.csv')
-        if _os.path.exists(prop_csv):
-            pdf = _pd.read_csv(prop_csv)
-            if 'composite_score' in pdf.columns:
-                pdf = pdf.sort_values('composite_score', ascending=False)
-            props = pdf.head(15).to_dict('records')
+        pdf = data_access.get_wnba_prop_recommendations()
+        pdf, props_date = data_access.latest_recommendation_slate(pdf)
+        if 'composite_score' in pdf.columns:
+            pdf = pdf.sort_values('composite_score', ascending=False)
+        props = pdf.head(15).to_dict('records')
     except Exception as e:
         print(f"[WNBA TRENDS] prop table load failed: {e}")
 
@@ -976,6 +966,7 @@ def _render_wnba_trends(request: Request, user, db: Session):
         "user": user,
         "top_value": [],
         "props": props,
+        "props_date": props_date,
         "targeted": [],
         "slump_risk": slump_risk,
         "ref_chart_exists": _os.path.exists("static/images/wnba_ref_foul_chart.png"),
@@ -2192,6 +2183,7 @@ async def trends(request: Request, db: Session = Depends(get_db)):
     
     top_value = []
     props = []
+    props_date = None
     
     try:
         dfs_df = data_access.get_dfs_players()
@@ -2218,6 +2210,7 @@ async def trends(request: Request, db: Session = Depends(get_db)):
     
     try:
         props_df = data_access.get_prop_recommendations()
+        props_df, props_date = data_access.latest_recommendation_slate(props_df)
         if not props_df.empty and 'salary' in props_df.columns:
             props_df = props_df[props_df['salary'] > 0]
             props = props_df.head(15).to_dict('records')
@@ -2426,6 +2419,7 @@ async def trends(request: Request, db: Session = Depends(get_db)):
         "user": user,
         "top_value": top_value,
         "props": props,
+        "props_date": props_date,
         "targeted": targeted,
         "ref_chart_exists": ref_chart_exists,
         "cache_bust": int(time.time()),

@@ -28,6 +28,7 @@ CSV_TABLE_MAP = {
     "dfs_players.csv": "dfs_players_live",
     "dfs_players_valued.csv": "dfs_players_live",
     "prop_recommendations.csv": "prop_recommendations_live",
+    "wnba_prop_recommendations.csv": "wnba_prop_recommendations_live",
     "targeted_plays.csv": "targeted_plays_live",
     "ownership_projections.csv": "ownership_projections_live",
 }
@@ -134,6 +135,27 @@ def _insert_rows(conn, pg_table, df, common_cols):
             print(f"    ... {inserted}/{total} rows inserted")
 
 
+def _delete_rows_being_replaced(conn, pg_table, df):
+    """Replace only slate dates included in a dated recommendation export."""
+    recommendation_tables = {
+        "prop_recommendations_live",
+        "wnba_prop_recommendations_live",
+    }
+    if pg_table in recommendation_tables and "game_date" in df.columns:
+        dates = sorted({
+            str(value).strip()
+            for value in df["game_date"].dropna().tolist()
+            if str(value).strip()
+        })
+        for game_date in dates:
+            conn.execute(
+                text(f"DELETE FROM {pg_table} WHERE game_date = :game_date"),
+                {"game_date": game_date},
+            )
+        return
+    conn.execute(text(f"DELETE FROM {pg_table}"))
+
+
 def sync_csv(csv_path, pg_table):
     if not os.path.exists(csv_path):
         print(f"  SKIP: {csv_path} not found")
@@ -142,13 +164,13 @@ def sync_csv(csv_path, pg_table):
     try:
         df = pd.read_csv(csv_path)
         if df.empty:
-            if pg_table == "prop_recommendations_live" and {"game_date", "player", "stat"}.issubset(df.columns):
-                # A complete dated schema-only export intentionally clears stale props.
-                with engine.begin() as conn:
-                    conn.execute(text("DELETE FROM prop_recommendations_live"))
-                print("  Cleared prop recommendations (empty current export)")
-                return 0
-            print(f"  SKIP: {csv_path} is empty")
+            if pg_table in {
+                "prop_recommendations_live",
+                "wnba_prop_recommendations_live",
+            }:
+                print(f"  Preserved {pg_table}: recommendation export is empty")
+            else:
+                print(f"  SKIP: {csv_path} is empty")
             return 0
 
         df.columns = [c.strip().lower() for c in df.columns]
@@ -158,8 +180,6 @@ def sync_csv(csv_path, pg_table):
             df[col] = df[col].replace([float('inf'), float('-inf')], None)
 
         with engine.begin() as conn:
-            conn.execute(text(f"DELETE FROM {pg_table}"))
-
             pg_cols_result = conn.execute(text(
                 f"SELECT column_name FROM information_schema.columns WHERE table_name = '{pg_table}' AND column_name NOT IN ('id', 'updated_at')"
             ))
@@ -176,6 +196,7 @@ def sync_csv(csv_path, pg_table):
             df_filtered = df[common_cols]
             df_filtered = df_filtered.where(pd.notnull(df_filtered), None)
 
+            _delete_rows_being_replaced(conn, pg_table, df_filtered)
             _insert_rows(conn, pg_table, df_filtered, common_cols)
 
         count = len(df_filtered)
@@ -374,6 +395,9 @@ def main():
         print("  SKIP: No DFS players CSV found")
 
     total_rows += sync_csv("prop_recommendations.csv", "prop_recommendations_live")
+    total_rows += sync_csv(
+        "wnba_prop_recommendations.csv", "wnba_prop_recommendations_live"
+    )
     total_rows += sync_csv("targeted_plays.csv", "targeted_plays_live")
     total_rows += sync_csv("ownership_projections.csv", "ownership_projections_live")
 

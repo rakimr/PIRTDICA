@@ -416,6 +416,9 @@
     {% if props %}
     <div class="trends-section">
         <h2>Prop Recommendations</h2>
+        {% if props_date %}
+        <p class="chart-description">Showing recommendations from {{ props_date }}.</p>
+        {% endif %}
         <p class="chart-description">Stat-specific projections vs FanDuel book lines. Sorted by composite score — a weighted blend of edge size, DVA strength, game environment, consistency, and trend. <span style="color:#0f9d58; font-weight:600;">GREEN</span> = high confidence. <span style="color:#d72638; font-weight:600;">RED</span> = proceed with caution. Projection factors show what drove each pick.</p>
         <div class="table-controls">
             <input type="text" class="table-search" data-table="props-table" placeholder="Search player...">
@@ -458,6 +461,11 @@
                 </tbody>
             </table>
         </div>
+    </div>
+    {% else %}
+    <div class="trends-section">
+        <h2>Prop Recommendations</h2>
+        <p class="chart-description">No recommendation rows are available for the latest recorded slate. Picks from older slates are not presented as current recommendations.</p>
     </div>
     {% endif %}
     {% endif %}
