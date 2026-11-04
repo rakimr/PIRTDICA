@@ -166,6 +166,38 @@
             <p>All available recommendations for this slate, ranked by composite score. Use them as supplementary research for your own builds.</p>
             {% endif %}
         </div>
+        <div class="prop-recs-tools">
+            <div class="prop-recs-filters" aria-label="Filter recommendations">
+                <label class="prop-recs-filter">
+                    <span>Player</span>
+                    <select data-prop-filter="player" aria-label="Filter by player">
+                        <option value="">All players</option>
+                    </select>
+                </label>
+                <label class="prop-recs-filter">
+                    <span>Matchup</span>
+                    <select data-prop-filter="matchup" aria-label="Filter by matchup">
+                        <option value="">All matchups</option>
+                    </select>
+                </label>
+                <label class="prop-recs-filter">
+                    <span>Stat</span>
+                    <select data-prop-filter="stat" aria-label="Filter by stat">
+                        <option value="">All stats</option>
+                    </select>
+                </label>
+                <label class="prop-recs-filter">
+                    <span>Pick</span>
+                    <select data-prop-filter="pick" aria-label="Filter by pick">
+                        <option value="">All picks</option>
+                    </select>
+                </label>
+            </div>
+            <div class="prop-recs-filter-status">
+                <p class="prop-recs-result-count" data-prop-result-count role="status" aria-live="polite"></p>
+                <button type="button" class="prop-recs-clear" data-prop-clear disabled>Clear filters</button>
+            </div>
+        </div>
         <div class="table-wrap">
             <table class="props-table article-table prop-recs-table">
                 <thead>
@@ -185,8 +217,14 @@
                 </thead>
                 <tbody>
                     {% for p in prop_recs %}
-                    <tr class="{% if p.confidence == 'HIGH' %}prop-rec-high{% endif %}">
-                        <td class="player-name-cell">{{ p.player|player_name(league|default('nba')) }}</td>
+                    <tr class="{% if p.confidence == 'HIGH' %}prop-rec-high{% endif %}"
+                        data-player="{{ p.player }}"
+                        data-matchup="{{ p.team }} vs {{ p.opponent }}"
+                        data-stat="{{ p.stat }}"
+                        data-pick="{{ p.pick }}">
+                        <td class="player-name-cell">{{ p.player|player_name(league|default('nba')) }}
+                            {% if p.baseline_note %}<br><small class="prop-factors">{{ p.baseline_note }}</small>{% endif %}
+                        </td>
                         <td>{{ p.team }} vs {{ p.opponent }}</td>
                         <td>{{ p.stat }}</td>
                         <td>{{ '%.1f'|format(p.avg|float) if p.avg is not none and p.avg != '' else '—' }}</td>
@@ -199,9 +237,13 @@
                         <td class="composite-cell">{{ p.composite }}</td>
                     </tr>
                     {% endfor %}
+                    <tr class="prop-recs-empty" data-prop-empty hidden>
+                        <td colspan="11">No recommendations match these filters.</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
+        <script src="/static/js/article-prop-filters.js?v=1" defer></script>
     </div>
     {% else %}
     <div class="article-section"><h2>Full Prop Recommendations</h2><p>No recommendations are available for the displayed slate.</p></div>

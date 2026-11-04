@@ -15,6 +15,7 @@ from pathlib import Path
 from utils.timezone import get_eastern_date_str
 from utils.player_name_key import nba_player_name_key
 from utils.player_rows import collapse_player_alias_rows
+from utils.current_nba_teams import normalize_nba_team
 
 
 class _PlayerIdentityLookup(dict):
@@ -79,9 +80,14 @@ def load_data():
     conn = sqlite3.connect(get_db_path())
     dvp_df = pd.read_sql_query("SELECT * FROM dvp_blended", conn)
     stats_df = pd.read_sql_query("""
-        SELECT player_name, team, pts_pg, reb_pg, ast_pg, stl_pg, blk_pg 
+        SELECT *
         FROM player_stats
     """, conn)
+    stat_columns = [
+        "player_name", "team", "pts_pg", "reb_pg", "ast_pg", "stl_pg", "blk_pg",
+        "stats_basis", "usage_basis", "stats_source_season", "usage_source_season",
+    ]
+    stats_df = stats_df[[col for col in stat_columns if col in stats_df.columns]]
     try:
         dva_df = pd.read_sql_query("SELECT * FROM dva_stats", conn)
     except Exception:
@@ -112,7 +118,8 @@ def calculate_value_metrics(players_df):
     return df
 
 def normalize_team(team):
-    """Normalize team abbreviations."""
+    """Normalize feed aliases while retaining the analysis abbreviation format."""
+    team = normalize_nba_team(team)
     mappings = {
         'SA': 'SAS', 'SAS': 'SAS',
         'NY': 'NYK', 'NYK': 'NYK', 
@@ -1147,7 +1154,7 @@ def _build_projection_cache():
         cache['matchup_hist'] = {}
 
     try:
-        df = pd.read_sql("SELECT player_name, team, pts_pg, reb_pg, ast_pg, stl_pg, blk_pg, mpg, usg_pct, games_played FROM player_stats", conn)
+        df = pd.read_sql("SELECT * FROM player_stats", conn)
         cache['player_stats'] = _canonical_player_lookup(df, preferred_names)
     except Exception:
         cache['player_stats'] = {}
@@ -1313,6 +1320,7 @@ def _build_game_environment(player, data_cache):
     out_players = data_cache['injuries_out']
     seen_out = set()
     out_details = []
+    detected_out = []
 
     for dc_entry in depth:
         pname = dc_entry['player_name']
@@ -1320,10 +1328,32 @@ def _build_game_environment(player, data_cache):
         if pname_key in out_players and pname_key != player_key and pname_key not in seen_out:
             seen_out.add(pname_key)
             pstats_out = data_cache['player_stats'].get(pname)
+            if (pstats_out and pstats_out.get('team')
+                    and normalize_nba_team(pstats_out['team']) != normalize_nba_team(team)):
+                continue  # A stale depth-chart entry is not a current teammate.
+            basis = (pstats_out or {}).get('stats_basis', 'current_season')
+            detected = {
+                'name': pname,
+                'usg': (pstats_out or {}).get('usg_pct'),
+                'mpg': (pstats_out or {}).get('mpg'),
+                'archetype': data_cache['archetypes'].get(pname, {}).get('archetype', 'Unknown'),
+                'stats_basis': basis if pstats_out else 'unavailable',
+                'stats_source_season': (pstats_out or {}).get('stats_source_season'),
+                'usage_source_season': (pstats_out or {}).get('usage_source_season'),
+                'impact_applied': False,
+            }
+            detected_out.append(detected)
+            # A season-long absence is already reflected in teammates' current
+            # production. Last year's role is NOT newly vacated usage tonight.
+            if basis == 'prior_season':
+                detected['impact_reason'] = 'No current-season appearances; historical baseline only'
+                continue
             if pstats_out is not None:
                 usg = pstats_out.get('usg_pct', 0)
                 mpg = pstats_out.get('mpg', 0)
                 if pd.notna(usg) and pd.notna(mpg) and float(mpg) > 10:
+                    detected['impact_applied'] = True
+                    detected['impact_reason'] = 'Current-season usage/minutes baseline'
                     arch_out = data_cache['archetypes'].get(pname, {})
                     out_details.append({
                         'name': pname,
@@ -1337,6 +1367,11 @@ def _build_game_environment(player, data_cache):
                         'perimeter_idx': float(arch_out.get('perimeter_idx', 0) if pd.notna(arch_out.get('perimeter_idx', 0)) else 0),
                         'interior_idx': float(arch_out.get('interior_idx', 0) if pd.notna(arch_out.get('interior_idx', 0)) else 0),
                     })
+            if not detected['impact_applied']:
+                detected['impact_reason'] = 'Usage/minutes unavailable or below rotation threshold'
+
+    env['detected_out_details'] = detected_out
+    env['out_player_details'] = detected_out
 
     total_vacated_usage = sum(d['usg'] for d in out_details)
     total_vacated_minutes = sum(d['mpg'] for d in out_details)
@@ -1381,6 +1416,9 @@ def _build_game_environment(player, data_cache):
             rp_key = nba_player_name_key(rp_name)
             if rp_key not in seen_out and rp_key not in remaining_players:
                 rp_stats = data_cache['player_stats'].get(rp_name)
+                if (rp_stats and rp_stats.get('team')
+                        and normalize_nba_team(rp_stats['team']) != normalize_nba_team(team)):
+                    continue
                 if rp_stats and pd.notna(rp_stats.get('usg_pct')) and pd.notna(rp_stats.get('mpg')) and float(rp_stats.get('mpg', 0)) > 10:
                     remaining_players[rp_key] = float(rp_stats['usg_pct'])
 
@@ -1444,7 +1482,7 @@ def _build_game_environment(player, data_cache):
             env['min_escalation'] = min_escalation
             env['arch_similarity'] = arch_sim
             env['usage_share'] = weighted_share
-            env['out_player_details'] = out_details
+            env['out_player_details'] = detected_out
             env['total_vacated_usage'] = total_vacated_usage
             env['total_vacated_minutes'] = total_vacated_minutes
 
@@ -1804,6 +1842,11 @@ def _player_rebound_share(player_name, position, team, opponent, game_env, data_
         pname = dc_entry['player_name']
         if nba_player_name_key(pname) in out_players and nba_player_name_key(pname) != player_key:
             out_stats = data_cache['player_stats'].get(pname)
+            if out_stats and out_stats.get('stats_basis') == 'prior_season':
+                continue
+            if (out_stats and out_stats.get('team')
+                    and normalize_nba_team(out_stats['team']) != normalize_nba_team(team)):
+                continue
             if out_stats and pd.notna(out_stats.get('reb_pg')) and pd.notna(out_stats.get('mpg')) and float(out_stats.get('mpg', 0)) > 15:
                 out_reb = float(out_stats['reb_pg'])
                 reb_share_lost += out_reb / max(team_reb_total, 30.0)
@@ -2452,7 +2495,7 @@ STAT_PROJECTION_FN = {
 }
 
 
-def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_value=4.0, top_n=50):
+def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None):
     """Generate prop bet recommendations using stat-specific projection models.
     
     Each stat (PTS, REB, AST, STL, BLK) uses its own projection model that incorporates:
@@ -2469,8 +2512,25 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
     """
     import unicodedata, re
 
+    # DFS salary value is display metadata, not a player-prop eligibility test.
+    # Evaluate the entire eligible slate with current, supported book lines.
+    book_props = _load_book_props()
+    quoted_players = {
+        name for (name, stat), quote in book_props.items()
+        if stat in {'PTS', 'REB', 'AST', 'STL', 'BLK'}
+        and pd.notna(quote.get('line')) and quote['line'] > 0
+    }
     valued_df = calculate_value_metrics(players_df)
-    high_value = valued_df[valued_df['value'] >= min_value].nlargest(top_n, 'value')
+    candidates = valued_df[
+        valued_df['player_name'].map(_normalize_prop_name).isin(quoted_players)
+    ]
+    if candidates.empty:
+        return pd.DataFrame()
+    print(f"  Prop evaluation: {len(candidates)} slate players with current book lines (no DFS-value cutoff)")
+
+    dvp_df = dvp_df.assign(_team_norm=dvp_df['team'].map(normalize_team))
+    if dva_df is not None and not dva_df.empty:
+        dva_df = dva_df.assign(_team_norm=dva_df['opp_team'].map(normalize_team))
 
     data_cache = _build_projection_cache()
     game_logs_df = data_cache['game_logs']
@@ -2512,8 +2572,6 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
     dva_blend = 1.0 - dvp_blend
     blend_label = f"{int(dvp_blend*100)}/{int(dva_blend*100)} DVP/DVA"
 
-    book_props = _load_book_props()
-    has_book = len(book_props) > 0
     line_movement = _load_line_movement()
     if line_movement:
         snapshots_seen = sum(1 for v in line_movement.values() if v['snapshot_count'] > 1)
@@ -2531,7 +2589,7 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
     dva_hits = 0
     role_change_players = []
 
-    for _, player in high_value.iterrows():
+    for _, player in candidates.iterrows():
         player_name = player['player_name']
         opponent = player.get('opponent')
         position = player.get('true_position')
@@ -2542,6 +2600,9 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
             continue
 
         team_norm = normalize_team(team)
+        opponent_norm = normalize_team(opponent)
+        if not team_norm or not opponent_norm:
+            continue
         player_key = nba_player_name_key(player_name)
         player_stats_row = stats_norm[
             (stats_norm['norm_name'] == player_key)
@@ -2551,14 +2612,14 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
             continue
         player_stats_row = player_stats_row.iloc[0]
 
-        opp_dvp = dvp_df[(dvp_df['team'] == opponent) & (dvp_df['position'] == position)]
+        opp_dvp = dvp_df[(dvp_df['_team_norm'] == opponent_norm) & (dvp_df['position'] == position)]
         if len(opp_dvp) == 0:
             continue
         opp_dvp = opp_dvp.iloc[0]
 
         opp_dva = None
         if has_dva and archetype and not pd.isna(archetype):
-            dva_match = dva_df[(dva_df['opp_team'] == opponent) & (dva_df['archetype'] == archetype)]
+            dva_match = dva_df[(dva_df['_team_norm'] == opponent_norm) & (dva_df['archetype'] == archetype)]
             if len(dva_match) > 0:
                 opp_dva = dva_match.iloc[0]
 
@@ -2594,6 +2655,11 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
             role_change_players.append((player_name, rc_dir, rc_season, rc_recent))
 
         for stat_key, (col, label, fp_mult, min_under, min_over) in stat_config.items():
+            book_key = (player_norm, label)
+            book = book_props.get(book_key)
+            if not book or pd.isna(book.get('line')) or book['line'] <= 0:
+                continue
+
             player_avg = player_stats_row.get(col, 0)
             if pd.isna(player_avg):
                 continue
@@ -2633,8 +2699,6 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
                 projected_value = round(player_avg + blended, 1)
                 proj_factors = []
 
-            book_key = (player_norm, label)
-            book = book_props.get(book_key)
             book_line = None
             book_over = None
             book_under = None
@@ -2669,12 +2733,44 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
                 should_include = True
 
             if should_include:
+                baseline_notes = []
+                if player_stats_row.get('stats_basis') == 'prior_season':
+                    baseline_notes.append(
+                        f"Prior-season stat baseline ({player_stats_row.get('stats_source_season')}); "
+                        "no current-season appearances"
+                    )
+                elif player_stats_row.get('usage_basis') == 'prior_season':
+                    baseline_notes.append(
+                        f"Usage uses prior-season baseline ({player_stats_row.get('usage_source_season')})"
+                    )
+                historical_out = [
+                    entry for entry in game_env.get('detected_out_details', [])
+                    if entry.get('stats_basis') == 'prior_season'
+                ]
+                if historical_out:
+                    baseline_notes.append(
+                        "OUT with historical baselines, not a new injury boost: "
+                        + ", ".join(entry['name'] for entry in historical_out)
+                    )
+                    proj_factors.append(
+                        "OUT; historical baseline, no new boost: "
+                        + ", ".join(
+                            f"{entry['name']} ({entry.get('stats_source_season')})"
+                            for entry in historical_out
+                        )
+                    )
                 usage_boost_val = game_env.get('teammate_out_usage', 0)
                 opp_spike = game_env.get('opportunity_spike', False)
                 itt = game_env.get('implied_team_total')
                 conf = _evaluate_prop_confidence(player_name, stat_key, book_line, player_avg, game_logs_df, recommendation,
                                                 dva_diff=dva_diff, dvp_diff=dvp_diff, usage_boost=usage_boost_val,
                                                 opportunity_spike=opp_spike, implied_team_total=itt)
+                if (player_stats_row.get('stats_basis') == 'prior_season'
+                        or player_stats_row.get('usage_basis') == 'prior_season'):
+                    conf['confidence'] = 'LOW'
+                    conf['confidence_reasons'].append(
+                        'Historical stat/usage baseline; not current-season evidence')
+                    conf['gate_failures']['historical_baseline'] = True
 
                 blended_diff = (dvp_diff * dvp_blend) + (dva_diff * dva_blend) if dva_source else dvp_diff
 
@@ -2757,6 +2853,7 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
                     'implied_team_total': round(game_env.get('implied_team_total', 0), 1) if game_env.get('implied_team_total') else None,
                     'blowout_cap': round(game_env['blowout_minutes_cap'], 3) if game_env['blowout_minutes_cap'] < 1.0 else None,
                     'projection_factors': '; '.join(proj_factors) if proj_factors else '',
+                    'baseline_note': '; '.join(baseline_notes),
                     'opening_line': opening_line_val,
                     'current_line': current_line_val,
                     'line_drift': line_drift_val,
@@ -2824,8 +2921,13 @@ def get_prop_recommendations(players_df, dvp_df, per100_df, dva_df=None, min_val
             if out_dets:
                 print(f"      OUT players:")
                 for od in out_dets:
+                    if od.get('impact_applied') is False:
+                        print(f"        - {od['name']}: detected, not added to newly vacated usage")
+                        continue
                     arch_name = od.get('archetype', 'Unknown')
-                    print(f"        - {od['name']}: {od['usg']:.1f}% usg, {od['mpg']:.1f} mpg, arch={arch_name}")
+                    usg_text = f"{od['usg']:.1f}" if od.get('usg') is not None else "unavailable"
+                    mpg_text = f"{od['mpg']:.1f}" if od.get('mpg') is not None else "unavailable"
+                    print(f"        - {od['name']}: {usg_text}% usg, {mpg_text} mpg, arch={arch_name}")
             print(f"      Top absorbed recipients:")
             seen_p = set()
             top_3 = sorted(info['players'], key=lambda x: -x['opp_index'])[:3]
@@ -3028,9 +3130,8 @@ def run_analysis():
     try:
         props_df = get_prop_recommendations(valued_df, dvp_df, per100_df, dva_df=dva_df)
     except Exception as _prop_e:
-        print(f"  ERROR in get_prop_recommendations: {_prop_e}")
-        import pandas as _pd
-        props_df = _pd.DataFrame()
+        print(f"  ERROR in get_prop_recommendations: {_prop_e}; preserving the previous dated export")
+        raise
     
     if len(props_df) > 0:
         pre_filter = len(props_df)
@@ -3059,7 +3160,7 @@ def run_analysis():
             'pace_factor', 'total_factor', 'physical_edge', 'usage_boost',
             'opportunity_index', 'cascade_tier', 'opportunity_spike',
             'out_player_details', 'total_vacated_usage', 'total_vacated_minutes',
-            'projected_min', 'implied_team_total', 'blowout_cap', 'projection_factors',
+            'projected_min', 'implied_team_total', 'blowout_cap', 'projection_factors', 'baseline_note',
             'opening_line', 'current_line', 'line_drift', 'line_drift_pct',
             'line_snapshots', 'last_hour_drift', 'last_hour_from',
             'last_hour_minutes', 'move_pattern', 'largest_swing', 'largest_swing_share',

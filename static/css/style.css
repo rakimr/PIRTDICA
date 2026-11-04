@@ -5025,6 +5025,85 @@ th[data-sortable].sort-desc::after {
     margin-bottom: 1.25rem;
 }
 
+.prop-recs-tools {
+    margin: 0 0 1rem;
+    padding: 1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.prop-recs-filters {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.prop-recs-filter {
+    display: grid;
+    gap: 0.3rem;
+    min-width: 0;
+    color: var(--text-muted);
+    font: 700 0.82rem 'Marvel', sans-serif;
+}
+
+.prop-recs-filter select {
+    width: 100%;
+    min-height: 2.6rem;
+    padding: 0.5rem 2rem 0.5rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font: 400 0.95rem 'Marvel', sans-serif;
+}
+
+.prop-recs-filter select:focus-visible,
+.prop-recs-clear:focus-visible {
+    outline: 2px solid var(--secondary);
+    outline-offset: 2px;
+}
+
+.prop-recs-filter-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+}
+
+.prop-recs-result-count {
+    margin: 0;
+    color: var(--text-muted);
+    font: 400 0.9rem 'Marvel', sans-serif;
+}
+
+.prop-recs-clear {
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font: 700 0.9rem 'Marvel', sans-serif;
+    cursor: pointer;
+}
+
+.prop-recs-clear:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.prop-recs-table tbody tr[hidden],
+.prop-recs-empty[hidden] {
+    display: none;
+}
+
+.prop-recs-empty td {
+    padding: 1.25rem !important;
+    color: var(--text-muted);
+    text-align: center;
+}
+
 .prop-recs-blurb p {
     font-size: 0.88rem;
     line-height: 1.6;
@@ -5034,6 +5113,22 @@ th[data-sortable].sort-desc::after {
 .prop-recs-table .composite-cell {
     font-weight: 600;
     color: #1a1a1a;
+}
+
+@media (max-width: 700px) {
+    .prop-recs-filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 420px) {
+    .prop-recs-filters {
+        grid-template-columns: 1fr;
+    }
+
+    .prop-recs-tools {
+        padding: 0.75rem;
+    }
 }
 
 .prop-rec-high {

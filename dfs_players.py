@@ -244,8 +244,12 @@ injury_alerts["norm_name"] = injury_alerts["player_name"].apply(normalize_name)
 
 injury_alerts = injury_alerts.drop(columns=["team"], errors="ignore")
 injury_alerts["team"] = injury_alerts["norm_name"].map(current_team_map)
+injury_usage_stats = player_stats
+if "stats_basis" in player_stats.columns:
+    # A player absent all season has not newly vacated last year's role.
+    injury_usage_stats = player_stats[player_stats["stats_basis"] != "prior_season"]
 injury_alerts = injury_alerts.merge(
-    player_stats[["norm_name", "usg_pct"]].drop_duplicates(subset=["norm_name"]),
+    injury_usage_stats[["norm_name", "usg_pct"]].drop_duplicates(subset=["norm_name"]),
     on="norm_name",
     how="left"
 )

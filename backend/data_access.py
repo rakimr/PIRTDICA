@@ -590,11 +590,11 @@ def get_player_positions():
 
 def get_player_usage():
     if use_postgres():
-        return _pg_query("SELECT player_name, usg_pct FROM player_stats_live")
+        return _pg_query("SELECT * FROM player_stats_live")
     try:
         import sqlite3
         conn = sqlite3.connect("dfs_nba.db")
-        df = pd.read_sql_query("SELECT player_name, usg_pct FROM player_stats", conn)
+        df = pd.read_sql_query("SELECT * FROM player_stats", conn)
         conn.close()
         return df
     except Exception:

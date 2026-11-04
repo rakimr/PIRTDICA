@@ -718,7 +718,7 @@ function renderClusterChart(filterTeam) {
     const isFiltered = filterTeam && filterTeam !== '';
 
     const datasets = Object.entries(grouped).map(([arch, players]) => {
-        const data = players.map(p => ({ x: p.x, y: p.y, name: p.name, team: p.team, pts: p.pts, reb: p.reb, ast: p.ast, usg: p.usg }));
+        const data = players.map(p => ({ x: p.x, y: p.y, name: p.name, team: p.team, pts: p.pts, reb: p.reb, ast: p.ast, usg: p.usg, usage_basis: p.usage_basis, usage_source_season: p.usage_source_season }));
         return {
             label: arch,
             data: data,
@@ -763,7 +763,9 @@ function renderClusterChart(filterTeam) {
                                 p.name + ' (' + p.team + ')',
                                 context.dataset.label,
                                 'PTS/100: ' + p.pts + '  REB/100: ' + p.reb,
-                                'AST/100: ' + p.ast + '  USG%: ' + p.usg
+                                'AST/100: ' + p.ast + '  USG%: ' + (p.usg == null ? 'Unavailable' : p.usg),
+                                ...(p.usage_basis === 'prior_season'
+                                    ? ['Usage: prior-season baseline (' + p.usage_source_season + ')'] : [])
                             ];
                         }
                     },

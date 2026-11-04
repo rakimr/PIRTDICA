@@ -1078,6 +1078,8 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
                             'edge': edge_str,
                             'pick': row.get('recommendation', ''),
                             'confidence': row.get('confidence', 'LOW'),
+                            'baseline_note': row.get('baseline_note', '')
+                                if pd.notna(row.get('baseline_note')) else '',
                             'hit_rate': f"{row['hit_rate']:.0f}%" if pd.notna(row.get('hit_rate')) else '',
                             'cv': f"{row['cv']:.2f}" if pd.notna(row.get('cv')) else '',
                             'composite': round(row.get('composite_score', 0), 1) if pd.notna(row.get('composite_score')) else '',
@@ -3998,9 +4000,9 @@ async def api_archetype_clusters():
 
         per100 = data_access.get_player_per100()
         usage = data_access.get_player_usage()
+        arch_df['_mk'] = arch_df['player_name'].apply(_ascii_key)
         if not per100.empty:
-            for tbl in [arch_df, per100, usage]:
-                tbl['_mk'] = tbl['player_name'].apply(_ascii_key)
+            per100['_mk'] = per100['player_name'].apply(_ascii_key)
             for col in per100.select_dtypes(include=['object']).columns:
                 try:
                     per100[col] = pd.to_numeric(per100[col], errors='ignore')
@@ -4012,17 +4014,24 @@ async def api_archetype_clusters():
                 except Exception:
                     pass
             df = arch_df.merge(per100[['_mk', 'pts_per100', 'reb_per100', 'ast_per100']].drop_duplicates(subset='_mk'), on='_mk', how='left')
-            df = df.merge(usage[['_mk', 'usg_pct']].drop_duplicates(subset='_mk'), on='_mk', how='left')
-            df = df.drop(columns=['_mk'])
         else:
             df = arch_df.copy()
             df['pts_per100'] = 0
             df['reb_per100'] = 0
             df['ast_per100'] = 0
-            df['usg_pct'] = 0
 
-        for col in ['pts_per100', 'reb_per100', 'ast_per100', 'usg_pct']:
+        if not usage.empty and {'player_name', 'usg_pct'}.issubset(usage.columns):
+            usage['_mk'] = usage['player_name'].apply(_ascii_key)
+            usage_cols = [c for c in ['_mk', 'usg_pct', 'usage_basis', 'usage_source_season']
+                          if c in usage.columns]
+            df = df.merge(usage[usage_cols].drop_duplicates(subset='_mk'), on='_mk', how='left')
+        else:
+            df['usg_pct'] = float('nan')
+        df = df.drop(columns=['_mk'])
+
+        for col in ['pts_per100', 'reb_per100', 'ast_per100']:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        df['usg_pct'] = pd.to_numeric(df['usg_pct'], errors='coerce')
 
         from sklearn.preprocessing import StandardScaler
         from sklearn.decomposition import PCA
@@ -4044,7 +4053,11 @@ async def api_archetype_clusters():
                 "pts": round(float(row['pts_per100']), 1),
                 "reb": round(float(row['reb_per100']), 1),
                 "ast": round(float(row['ast_per100']), 1),
-                "usg": round(float(row['usg_pct']), 1),
+                "usg": round(float(row['usg_pct']), 1) if pd.notna(row['usg_pct']) else None,
+                "usage_basis": row.get('usage_basis', 'current_season')
+                    if pd.notna(row.get('usage_basis')) else 'unavailable',
+                "usage_source_season": int(row['usage_source_season'])
+                    if pd.notna(row.get('usage_source_season')) else None,
             })
 
         var_explained = [round(float(v * 100), 1) for v in pca.explained_variance_ratio_]

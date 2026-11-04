@@ -41,6 +41,7 @@ SQLITE_TABLE_MAP = {
     "player_per100": "player_per100_live",
     "player_positions": "player_positions_live",
     "player_stats": "player_stats_live",
+    "player_stats_coverage": "player_stats_coverage_live",
     "player_game_logs": "player_game_logs_live",
     "player_shot_zones": "player_shot_zones_live",
     "player_shot_creation": "player_shot_creation_live",
