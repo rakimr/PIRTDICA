@@ -777,37 +777,8 @@ def _render_wnba_articles(request: Request, user, db: Session):
         except (json.JSONDecodeError, TypeError):
             analysis = []
         picks, analysis = _article_visible_content(article, picks, analysis, "wnba")
-        try:
-            import pandas as pd
-            df = data_access.get_wnba_article_prop_recommendations(
-                article.slate_date
-            )
-            if not df.empty:
-                if 'composite_score' in df.columns:
-                    df = df.sort_values('composite_score', ascending=False)
-                for _, row in df.iterrows():
-                    book_line = row.get('book_line')
-                    proj = row.get('projected_value', row.get('player_avg', 0))
-                    avg = row.get('player_avg', 0)
-                    edge = row.get('vs_book_edge')
-                    edge_str = f"{edge:+.1f}%" if edge else ""
-                    prop_recs.append({
-                        'player': row.get('player', ''),
-                        'team': row.get('team', ''),
-                        'opponent': row.get('opponent', ''),
-                        'stat': row.get('stat', ''),
-                        'avg': round(avg, 1) if pd.notna(avg) else '',
-                        'line': round(book_line, 1) if pd.notna(book_line) else '',
-                        'projected': round(proj, 1) if pd.notna(proj) else '',
-                        'edge': edge_str,
-                        'pick': row.get('recommendation', ''),
-                        'confidence': row.get('confidence', 'LOW'),
-                        'hit_rate': f"{row['hit_rate']:.0f}%" if pd.notna(row.get('hit_rate')) else '',
-                        'cv': f"{row['cv']:.2f}" if pd.notna(row.get('cv')) else '',
-                        'composite': round(row.get('composite_score', 0), 1) if pd.notna(row.get('composite_score')) else '',
-                    })
-        except Exception as e:
-            print(f"[WNBA ARTICLES] Prop recs load failed: {e}")
+    if has_access:
+        prop_recs = _load_article_recommendations(get_eastern_today(), "wnba")
 
 
     parlay_cards = []
@@ -844,8 +815,8 @@ def _render_wnba_articles(request: Request, user, db: Session):
         "picks": picks,
         "analysis": analysis,
         "has_access": has_access,
-        "pre_lock": False,
         "prop_recs": prop_recs,
+        "recommendations_date": get_eastern_today(),
         "parlay_cards": parlay_cards,
         "parlay_status": parlay_status,
         "official_locked": official_locked,
@@ -982,6 +953,52 @@ def _render_wnba_trends(request: Request, user, db: Session):
     })
 
 
+def _load_article_recommendations(slate_date, league="nba"):
+    """Live research table, independent of article generation and official picks."""
+    import pandas as pd
+    try:
+        if league == "wnba":
+            df = data_access.get_wnba_article_prop_recommendations(slate_date)
+        else:
+            df = data_access.get_article_prop_recommendations(
+                slate_date, os.path.join(PROJECT_ROOT, "prop_recommendations.csv")
+            )
+        if df is None or df.empty:
+            return []
+        if "composite_score" in df.columns:
+            df = df.sort_values("composite_score", ascending=False)
+        recommendations = []
+        for _, row in df.iterrows():
+            def number(key, digits=1, fallback=None):
+                value = row.get(key, fallback)
+                return round(float(value), digits) if pd.notna(value) and value != "" else ""
+
+            edge = number("vs_book_edge")
+            hit_rate = number("hit_rate", 0)
+            recommendations.append({
+                "player": row.get("player", ""),
+                "team": row.get("team", ""),
+                "opponent": row.get("opponent", ""),
+                "stat": row.get("stat", ""),
+                "avg": number("player_avg"),
+                "line": number("book_line"),
+                "projected": number("projected_value", fallback=row.get(
+                    "adjusted_avg", row.get("player_avg"))),
+                "edge": f"{edge:+.1f}%" if edge != "" else "",
+                "pick": row.get("recommendation", ""),
+                "confidence": row.get("confidence", "LOW"),
+                "baseline_note": row.get("baseline_note", "")
+                    if pd.notna(row.get("baseline_note")) else "",
+                "hit_rate": f"{hit_rate:.0f}%" if hit_rate != "" else "",
+                "cv": number("cv", 2),
+                "composite": number("composite_score"),
+            })
+        return recommendations
+    except Exception as e:
+        print(f"[{league.upper()} ARTICLES] Prop recs load failed: {e}")
+        return []
+
+
 @app.get("/articles")
 async def articles_page(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
@@ -1010,85 +1027,31 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"[ARTICLES] Stripe check failed: {e}")
         has_access = False
-    pre_lock = False
-    PREGAME_REFRESH_ET = 18, 15
-    PREGAME_FALLBACK_ET = 19, 30
     prop_recs = []
     if article and has_access:
-        from zoneinfo import ZoneInfo
-        now_et = get_eastern_now()
-        is_todays_article = article.slate_date == now_et.date()
-        if is_todays_article:
-            refresh_time = now_et.replace(hour=PREGAME_REFRESH_ET[0], minute=PREGAME_REFRESH_ET[1], second=0, microsecond=0)
-            fallback_time = now_et.replace(hour=PREGAME_FALLBACK_ET[0], minute=PREGAME_FALLBACK_ET[1], second=0, microsecond=0)
-            article_refreshed = False
-            if article.updated_at:
-                article_updated = article.updated_at
-                if article_updated.tzinfo is None:
-                    article_updated = article_updated.replace(tzinfo=ZoneInfo("UTC"))
-                article_updated_et = article_updated.astimezone(EASTERN)
-                if article_updated_et >= refresh_time:
-                    article_refreshed = True
-            in_pre_lock_window = now_et >= refresh_time and now_et < fallback_time
-            if not article_refreshed and in_pre_lock_window:
-                pre_lock = True
-
-        if not pre_lock:
+        try:
+            if article.picks_json:
+                picks = json.loads(article.picks_json)
+        except (json.JSONDecodeError, TypeError):
+            picks = []
+        # Always display the locked snapshot when an official call exists.
+        # Refresh timing must not hide either saved picks or live research.
+        if article.official_picks_json:
             try:
-                if article.picks_json:
-                    picks = json.loads(article.picks_json)
+                picks = json.loads(article.official_picks_json)
             except (json.JSONDecodeError, TypeError):
-                picks = []
-            # Task #45: Once the official call is locked, render the locked
-            # snapshot so subscribers see EXACTLY what was frozen pre-tipoff
-            # (which is also what gets graded). Before lock we keep showing
-            # the working picks_json so the page is never blank.
-            if article.official_picks_json:
-                try:
-                    picks = json.loads(article.official_picks_json)
-                except (json.JSONDecodeError, TypeError):
-                    pass
-            try:
-                if article.analysis_json:
-                    analysis = json.loads(article.analysis_json)
-            except (json.JSONDecodeError, TypeError):
-                analysis = []
-            picks, analysis = _article_visible_content(article, picks, analysis, "nba")
-            try:
-                import pandas as pd
-                prop_csv = os.path.join(os.path.dirname(__file__), '..', 'prop_recommendations.csv')
-                df = data_access.get_article_prop_recommendations(article.slate_date, prop_csv)
-                if df is not None and not df.empty:
-                    if 'composite_score' in df.columns:
-                        df = df.sort_values('composite_score', ascending=False)
-                    for _, row in df.iterrows():
-                        book_line = row.get('book_line')
-                        proj = row.get('projected_value', row.get('adjusted_avg', 0))
-                        avg = row.get('player_avg', 0)
-                        edge = row.get('vs_book_edge')
-                        edge_str = f"+{edge}%" if edge and edge > 0 else f"{edge}%" if edge else ""
-                        prop_recs.append({
-                            'player': row.get('player', ''),
-                            'team': row.get('team', ''),
-                            'opponent': row.get('opponent', ''),
-                            'stat': row.get('stat', ''),
-                            'avg': round(avg, 1) if pd.notna(avg) else '',
-                            'line': round(book_line, 1) if pd.notna(book_line) else '',
-                            'projected': round(proj, 1) if pd.notna(proj) else '',
-                            'edge': edge_str,
-                            'pick': row.get('recommendation', ''),
-                            'confidence': row.get('confidence', 'LOW'),
-                            'baseline_note': row.get('baseline_note', '')
-                                if pd.notna(row.get('baseline_note')) else '',
-                            'hit_rate': f"{row['hit_rate']:.0f}%" if pd.notna(row.get('hit_rate')) else '',
-                            'cv': f"{row['cv']:.2f}" if pd.notna(row.get('cv')) else '',
-                            'composite': round(row.get('composite_score', 0), 1) if pd.notna(row.get('composite_score')) else '',
-                        })
-            except Exception as e:
-                print(f"[ARTICLES] Prop recs load failed: {e}")
+                pass
+        try:
+            if article.analysis_json:
+                analysis = json.loads(article.analysis_json)
+        except (json.JSONDecodeError, TypeError):
+            analysis = []
+        picks, analysis = _article_visible_content(article, picks, analysis, "nba")
+    if has_access:
+        prop_recs = _load_article_recommendations(today, "nba")
     parlay_cards = []
     parlay_status = "No same-game pair of HIGH article picks cleared the historical sample and risk checks."
-    if article and has_access and not pre_lock and picks:
+    if article and has_access and picks:
         if article.slate_date >= today:
             try:
                 from backend.parlays import for_article
@@ -1128,8 +1091,8 @@ async def articles_page(request: Request, db: Session = Depends(get_db)):
         "picks": picks,
         "analysis": analysis,
         "has_access": has_access,
-        "pre_lock": pre_lock,
         "prop_recs": prop_recs,
+        "recommendations_date": today,
         "parlay_cards": parlay_cards,
         "parlay_status": parlay_status,
         "official_locked": official_locked,

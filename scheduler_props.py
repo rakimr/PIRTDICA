@@ -441,12 +441,15 @@ def run_wnba_scrape():
         )
         if result.returncode == 0:
             print(f"WNBA props refresh completed at {get_et_now().strftime('%H:%M ET')}")
+            from refresh_charts import run_script
+            return run_script("build_wnba_projections.py", "WNBA Live Prop Recommendations")
         else:
             print(f"WNBA props refresh exited with code {result.returncode}")
     except subprocess.TimeoutExpired:
         print("WNBA props refresh timed out")
     except Exception as e:
         print(f"WNBA props refresh error: {e}")
+    return False
 
 
 def run_scrape():
@@ -455,10 +458,19 @@ def run_scrape():
     print(f"INTRA-DAY PROPS SCRAPE at {now.strftime('%Y-%m-%d %H:%M:%S ET')}")
     print(f"{'='*50}", flush=True)
 
+    if any(os.path.exists(path) for path in (
+        "/home/runner/workspace/.pipeline.lock",
+        "/home/runner/workspace/.chart_refresh.lock",
+    )):
+        print("A full/chart refresh is already rebuilding research — skipping overlapping scrape.", flush=True)
+        return
+
     run_wnba_scrape()
 
     if not has_games_today():
         print("No NBA games on today's slate — skipping NBA scrape to preserve API quota")
+        from refresh_charts import run_script
+        run_script("sync_to_postgres.py", "Publish WNBA research refresh")
         return
 
     try:
@@ -472,6 +484,13 @@ def run_scrape():
         if result.returncode == 0:
             print(f"\nIntra-day props scrape completed at "
                   f"{get_et_now().strftime('%H:%M ET')}")
+            from refresh_charts import run_script
+            from utils.recommendation_refresh import refresh_recommendations
+            if not refresh_recommendations(
+                run_script, has_nba_games=True, refresh_injuries=True,
+            ):
+                print("[recommendations] Intraday research rebuild did not complete.", flush=True)
+                return
             try:
                 maybe_regen_article_for_movement()
             except Exception as e:

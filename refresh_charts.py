@@ -1,8 +1,8 @@
 """
 Lightweight Chart Gallery refresh — keeps the static chart images current
 between pipeline runs. Re-scrapes time-sensitive data (referees, injuries,
-game odds) and regenerates ONLY the gallery PNGs (no projection rebuild,
-no recommendation CSV rewrites). Pushes to GitHub only when chart bytes
+game odds), rebuilds NBA research recommendations on active slates, and
+regenerates the gallery PNGs. Pushes to GitHub only when chart bytes
 actually changed.
 
 Coordination: respects PIPELINE_LOCK_FILE so it won't clash with the full
@@ -204,10 +204,11 @@ def main():
             if not run_script(script, desc):
                 failed += 1
 
-        regenerate_charts()
-        # The homepage reads PostgreSQL, not the freshly updated local files.
-        if not run_script("sync_to_postgres.py", "Sync refreshed data to PostgreSQL"):
+        from scheduler_props import has_games_today
+        from utils.recommendation_refresh import refresh_recommendations
+        if not refresh_recommendations(run_script, has_nba_games=has_games_today()):
             failed += 1
+        regenerate_charts()
 
         after = chart_hashes()
         changed = [f for f in CHART_FILES if before.get(f) != after.get(f)]

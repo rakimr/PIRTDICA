@@ -5,7 +5,7 @@
 {% block content %}
 <section class="articles-page">
     {% set verified_high_picks = picks and (picks|selectattr('confidence', 'equalto', 'HIGH')|list|length == picks|length) %}
-    {% if article %}
+    {% if article or prop_recs %}
     <div class="article-header-wrap">
         {# Older WNBA headers can contain "HIGH CONFIDENCE" even when the saved
            article does not establish that status for every pick. #}
@@ -14,23 +14,13 @@
         {% endif %}
         <div class="article-meta">
             <h1>{% if picks and article.best_available %}TOP PICKS OF THE DAY{% elif verified_high_picks %}HIGH CONFIDENCE PROPS{% else %}ARTICLE PICKS{% endif %}</h1>
+            {% if article %}
             <p class="article-date">{{ article.slate_date.strftime('%B %-d, %Y') }} &mdash; {{ article.game_count }} Game{{ 's' if article.game_count != 1 else '' }} on the Slate</p>
+            {% endif %}
         </div>
     </div>
 
     {% if has_access %}
-    {% if pre_lock %}
-    <div class="pre-lock-banner">
-        <div class="pre-lock-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40">
-                <circle cx="12" cy="12" r="10"/>
-                <polyline points="12 6 12 12 16 14"/>
-            </svg>
-        </div>
-        <h2>Picks are brewing.</h2>
-        <p>Closer to lock, richer the data. Final picks drop after the pre-game refresh &mdash; check back 10 minutes before tip-off for the sharpest edges.</p>
-    </div>
-    {% else %}
     {% if picks %}
     <div class="article-section">
         <h2>{% if article.best_available %}Today's Top Picks{% elif verified_high_picks %}Today's HIGH Confidence Picks{% else %}Today's Article Picks{% endif %}</h2>
@@ -159,11 +149,15 @@
     {% if prop_recs %}
     <div class="article-section prop-recs-section">
         <h2>Full Prop Recommendations</h2>
+        <p class="prop-recs-result-count" data-prop-live-status role="status">Updates automatically every 2 minutes.</p>
+        {% if recommendations_date %}
+        <p class="article-date">{{ recommendations_date.strftime('%B %-d, %Y') }} &mdash; live research recommendations, separate from locked official picks.</p>
+        {% endif %}
         <div class="prop-recs-blurb">
             {% if not picks %}
-            <p>This slate did not produce verified HIGH confidence picks that passed all of our model's strict filters. Rather than force weak calls, we're showing the complete slate's analytics-driven prop recommendations ranked by composite score. These are research suggestions, not featured picks.</p>
+            <p>Today's full research recommendations are available independently of featured HIGH confidence picks, ranked by composite score. These are research suggestions, not official calls.</p>
             {% else %}
-            <p>All available recommendations for this slate, ranked by composite score. Use them as supplementary research for your own builds.</p>
+            <p>All available recommendations for today's slate, ranked by composite score. This dated live research table updates separately from the official article picks.</p>
             {% endif %}
         </div>
         <div class="prop-recs-tools">
@@ -255,11 +249,9 @@
                 </tbody>
             </table>
         </div>
-        <script src="/static/js/article-prop-filters.js?v=4" defer></script>
     </div>
     {% else %}
-    <div class="article-section"><h2>Full Prop Recommendations</h2><p>No recommendations are available for the displayed slate.</p></div>
-    {% endif %}
+    <div class="article-section prop-recs-section"><h2>Full Prop Recommendations</h2><p>No recommendations are available for today's slate. No prior-day recommendations are shown.</p><p data-prop-live-status role="status">Checking automatically every 2 minutes.</p></div>
     {% endif %}
 
     {% else %}
@@ -270,17 +262,15 @@
     {% if not has_access %}
     {% include "article_paywall.html" %}
     {% else %}
-    <div class="pre-lock-banner">
-        <div class="pre-lock-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40">
-                <circle cx="12" cy="12" r="10"/>
-                <polyline points="12 6 12 12 16 14"/>
-            </svg>
-        </div>
-        <h2>Picks are brewing.</h2>
-        <p>Closer to lock, richer the data. Final picks drop after the pre-game refresh &mdash; check back 10 minutes before tip-off for the sharpest edges.</p>
+    <div class="article-section">
+        <h2>No verified HIGH-confidence picks for this slate</h2>
+        <p>No featured HIGH-confidence picks are currently available.</p>
     </div>
+    <div class="article-section prop-recs-section"><h2>Full Prop Recommendations</h2><p>No recommendations are available for today's slate yet.</p><p data-prop-live-status role="status">Checking automatically every 2 minutes.</p></div>
     {% endif %}
+    {% endif %}
+    {% if has_access %}
+    <script src="/static/js/article-prop-filters.js?v=5" defer></script>
     {% endif %}
 </section>
 {% endblock %}

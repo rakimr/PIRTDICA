@@ -2648,6 +2648,7 @@ def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_c
                best_available=False, claude_selected=False, clear_unlocked=False):
     from backend.database import engine
     from backend.models import Base
+    from sqlalchemy import func
     Base.metadata.create_all(bind=engine)
 
     from sqlalchemy.orm import sessionmaker
@@ -2662,6 +2663,8 @@ def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_c
         existing.official_picks_json or existing.official_locked_at
     ):
         print(f"PRESERVE OFFICIAL CALL: zero-HIGH refresh left locked {target_date} unchanged.")
+        existing.updated_at = func.now()
+        session.commit()
         session.close()
         return
 
@@ -2737,6 +2740,10 @@ def save_to_db(target_date, header_image_path, picks_data, analysis_data, game_c
     except Exception as e:
         print(f"[OFFICIAL CALL][source=auto-lock] Lock skipped for {target_date}: {e}")
 
+    # The page uses updated_at to tell whether today's pre-game refresh ran.
+    # SQLAlchemy's onupdate hook does not fire when a successful refresh writes
+    # values identical to the existing row (e.g. a zero-pick article twice).
+    article_row.updated_at = func.now()
     session.commit()
     session.close()
     print(f"Article saved to database for {target_date}")
