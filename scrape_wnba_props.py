@@ -17,6 +17,7 @@ from zoneinfo import ZoneInfo
 
 from utils.timezone import get_eastern_date_str, get_eastern_now
 from utils.espn_fetch import espn_get_json
+from team_map import normalize_wnba_team
 
 API_KEY = os.environ.get('THE_ODDS_API_KEY', '')
 BASE_URL = 'https://api.the-odds-api.com/v4'
@@ -53,7 +54,7 @@ def _utc_to_et_date(commence_time):
 
 def _normalized_team_name(name):
     """Return a comparison form shared by Odds API and ESPN team names."""
-    return re.sub(r"[^a-z0-9]", "", (name or "").casefold())
+    return re.sub(r"[^a-z0-9]", "", normalize_wnba_team(name).casefold())
 
 
 def _espn_season_type(event):

@@ -838,13 +838,15 @@ async function openTrendModal(player, stat, line, call) {
     title.textContent = player + ' — ' + stat + ' (Last 10 Games)';
     avgEl.textContent = 'Loading...';
     callEl.textContent = '';
+    if (trendChart) { trendChart.destroy(); trendChart = null; }
     modal.style.display = 'flex';
 
     try {
         const res = await fetch('/api/player-trend/' + encodeURIComponent(player) + '/' + encodeURIComponent(stat) + '?n=10');
+        if (!res.ok) throw new Error('Game-log request failed');
         const data = await res.json();
         if (data.error && (!data.games || data.games.length === 0)) {
-            avgEl.textContent = 'No game log data available.';
+            avgEl.textContent = data.error;
             return;
         }
         const labels = data.games.map(g => {

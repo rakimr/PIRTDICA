@@ -2,7 +2,7 @@ import os
 import sqlite3
 import time
 import pandas as pd
-from sqlalchemy import text
+from sqlalchemy import text, bindparam, inspect
 from backend.database import engine
 from utils.current_nba_teams import (
     apply_current_player_teams as _apply_current_player_teams,
@@ -396,22 +396,8 @@ def get_player_salary_count():
 
 
 def _team_aliases(t):
-    if not t:
-        return set()
-    s = str(t).strip().upper()
-    groups = [
-        {'PHO', 'PHX'},
-        {'BRK', 'BKN'},
-        {'CHO', 'CHA'},
-        {'NOP', 'NO'},
-        {'NYK', 'NY'},
-        {'SAS', 'SA'},
-        {'GSW', 'GS'},
-    ]
-    for g in groups:
-        if s in g:
-            return g
-    return {s}
+    from team_map import nba_team_aliases
+    return nba_team_aliases(t)
 
 
 def _parse_matchup_teams(game_str):
@@ -741,39 +727,64 @@ def get_dva_data():
 
 
 def get_player_game_log(player_name, stat_col, n=20):
-    if use_postgres():
-        try:
-            with engine.connect() as conn:
-                cols_result = conn.execute(text(
-                    "SELECT column_name FROM information_schema.columns WHERE table_name = 'player_game_logs_live'"
-                ))
-                existing_cols = {row[0] for row in cols_result.fetchall()}
-                if stat_col not in existing_cols:
-                    return None, f"{stat_col.upper()} data not yet available."
+    """Resolve canonical aliases, keeping one sourced stat per player/game."""
+    from utils.player_name_key import nba_player_name_key
+    from utils.player_rows import collapse_player_alias_rows
 
-                result = conn.execute(text(
-                    f"SELECT game_date, matchup, {stat_col} FROM player_game_logs_live "
-                    f"WHERE player_name = :name ORDER BY game_date DESC LIMIT :n"
-                ), {"name": player_name, "n": n})
-                rows = result.fetchall()
-                return rows, None
-        except Exception as e:
-            return None, str(e)
+    if stat_col not in {"pts", "reb", "ast", "stl", "blk", "fp", "min", "tov", "fg3m"}:
+        return None, "Invalid game-log statistic."
+    key = nba_player_name_key(player_name)
+    if not key:
+        return [], None
     try:
-        import sqlite3
-        conn = sqlite3.connect("dfs_nba.db")
-        existing_cols = [r[1] for r in conn.execute("PRAGMA table_info(player_game_logs)").fetchall()]
+        limit = max(1, min(int(n), 200))
+        postgres = use_postgres()
+        table = "player_game_logs_live" if postgres else "player_game_logs"
+        if postgres:
+            existing_cols = {col["name"] for col in inspect(engine).get_columns(table)}
+        else:
+            with sqlite3.connect("dfs_nba.db") as conn:
+                existing_cols = {row[1] for row in conn.execute(
+                    "PRAGMA table_info(player_game_logs)").fetchall()}
         if stat_col not in existing_cols:
-            conn.close()
             return None, f"{stat_col.upper()} data not yet available."
-        rows = conn.execute(
-            f"SELECT game_date, matchup, {stat_col} FROM player_game_logs WHERE player_name = ? ORDER BY game_date DESC LIMIT ?",
-            (player_name, n)
-        ).fetchall()
-        conn.close()
-        return rows, None
+        extra = [col for col in ("season_type", "scraped_at", "updated_at", "player_id")
+                 if col in existing_cols]
+        columns = ", ".join(["player_name", "game_date", "matchup", stat_col, *extra])
+        if postgres:
+            with engine.connect() as conn:
+                names = conn.execute(text(f"SELECT DISTINCT player_name FROM {table}")).scalars().all()
+                aliases = [name for name in names if nba_player_name_key(name) == key]
+                if not aliases:
+                    return [], None
+                statement = text(
+                    f"SELECT {columns} FROM {table} WHERE player_name IN :names"
+                ).bindparams(bindparam("names", expanding=True))
+                frame = pd.read_sql(statement, conn, params={"names": aliases})
+        else:
+            with sqlite3.connect("dfs_nba.db") as conn:
+                names = [row[0] for row in conn.execute(
+                    "SELECT DISTINCT player_name FROM player_game_logs")]
+                aliases = [name for name in names if nba_player_name_key(name) == key]
+                if not aliases:
+                    return [], None
+                placeholders = ", ".join("?" for _ in aliases)
+                frame = pd.read_sql_query(
+                    f"SELECT {columns} FROM {table} WHERE player_name IN ({placeholders})",
+                    conn, params=aliases,
+                )
+        if "player_id" in frame and frame.player_id.dropna().nunique() > 1:
+            return None, "Multiple player identities match this name; game logs need review."
+        groups = ["game_date"] + (["season_type"] if "season_type" in frame else [])
+        frame = collapse_player_alias_rows(
+            frame, group_columns=groups,
+            recency_column="scraped_at" if "scraped_at" in frame else "updated_at",
+        )
+        frame = frame[frame[stat_col].notna()].sort_values("game_date", ascending=False).head(limit)
+        return list(frame[["game_date", "matchup", stat_col]].itertuples(index=False, name=None)), None
     except Exception as e:
-        return None, str(e)
+        print(f"[GAME LOGS] Lookup failed: {type(e).__name__}")
+        return None, "Game logs could not be loaded. Please try again."
 
 
 def get_player_shot_zone_detail(player_name_key, league="nba"):

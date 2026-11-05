@@ -119,15 +119,7 @@ def calculate_value_metrics(players_df):
 
 def normalize_team(team):
     """Normalize feed aliases while retaining the analysis abbreviation format."""
-    team = normalize_nba_team(team)
-    mappings = {
-        'SA': 'SAS', 'SAS': 'SAS',
-        'NY': 'NYK', 'NYK': 'NYK', 
-        'GS': 'GSW', 'GSW': 'GSW',
-        'NO': 'NOP', 'NOP': 'NOP',
-        'PHO': 'PHX', 'PHX': 'PHX'
-    }
-    return mappings.get(team, team)
+    return normalize_nba_team(team, style="stats")
 
 def get_dvp_advantages(players_df, dvp_df, stats_df):
     """Find DVP advantages for each player based on opponent and position."""

@@ -3915,23 +3915,8 @@ async def api_archetype_clusters():
         return fixed
 
     def _ascii_key(name):
-        if not name or not isinstance(name, str):
-            return ""
-        fixed = name
-        for _ in range(2):
-            try:
-                fixed = fixed.encode('latin-1').decode('utf-8')
-            except (UnicodeDecodeError, UnicodeEncodeError):
-                break
-        nfkd = unicodedata.normalize('NFKD', fixed)
-        ascii_name = ''.join(c for c in nfkd if not unicodedata.combining(c))
-        ascii_name = re_mod.sub(r'[^a-zA-Z\s]', '', ascii_name).lower().strip()
-        ascii_name = re_mod.sub(r'\s+', ' ', ascii_name)
-        for suffix in [' iv', ' iii', ' ii', ' jr', ' sr', ' v']:
-            if ascii_name.endswith(suffix):
-                ascii_name = ascii_name[:-len(suffix)].strip()
-                break
-        return ascii_name
+        from utils.player_name_key import nba_player_name_key
+        return nba_player_name_key(name)
 
     try:
         arch_df = data_access.get_player_archetypes()
@@ -4078,19 +4063,22 @@ async def api_player_trend(player_name: str, stat: str, n: int = 10):
     }
     col = stat_map.get(stat.upper())
     if not col:
-        return {"error": "Invalid stat", "games": []}
+        return {"error": "Invalid stat", "status": "invalid_stat", "games": []}
     try:
         rows, error = data_access.get_player_game_log(player_name, col, n)
         if error:
-            return {"error": error, "games": []}
+            return {"error": error, "status": "unavailable", "games": []}
         if not rows:
-            return {"error": "No data found", "games": []}
-        games = [{"date": r[0], "matchup": r[1], "value": r[2] or 0} for r in reversed(rows)]
+            return {"error": "No recorded game history was found for this player.",
+                    "status": "no_history", "games": []}
+        games = [{"date": r[0], "matchup": r[1], "value": r[2]} for r in reversed(rows)]
         values = [g["value"] for g in games]
         avg = round(sum(values) / len(values), 1) if values else 0
         return {"player": player_name, "stat": stat.upper(), "games": games, "avg": avg}
     except Exception as e:
-        return {"error": str(e), "games": []}
+        print(f"[PLAYER TREND] Lookup failed: {type(e).__name__}")
+        return {"error": "Game logs could not be loaded. Please try again.",
+                "status": "unavailable", "games": []}
 
 @app.get("/api/player-shot-chart/{player_name}")
 async def api_player_shot_chart(player_name: str, league: str = "nba"):
@@ -4098,23 +4086,10 @@ async def api_player_shot_chart(player_name: str, league: str = "nba"):
     import re as re_mod
 
     def _ascii_key(name):
-        if not name or not isinstance(name, str):
-            return ""
-        fixed = name
-        for _ in range(2):
-            try:
-                fixed = fixed.encode('latin-1').decode('utf-8')
-            except (UnicodeDecodeError, UnicodeEncodeError):
-                break
-        nfkd = unicodedata.normalize('NFKD', fixed)
-        ascii_name = ''.join(c for c in nfkd if not unicodedata.combining(c))
-        ascii_name = re_mod.sub(r'[^a-zA-Z\s]', '', ascii_name).lower().strip()
-        ascii_name = re_mod.sub(r'\s+', ' ', ascii_name)
-        for suffix in [' iv', ' iii', ' ii', ' jr', ' sr', ' v']:
-            if ascii_name.endswith(suffix):
-                ascii_name = ascii_name[:-len(suffix)].strip()
-                break
-        return ascii_name
+        from utils.name_normalize import normalize_player_name
+        from utils.player_name_key import nba_player_name_key
+        return (normalize_player_name(name) if league == "wnba"
+                else nba_player_name_key(name))
 
     try:
         df = data_access.get_player_shot_zone_detail(player_name, league=league)
@@ -4123,21 +4098,14 @@ async def api_player_shot_chart(player_name: str, league: str = "nba"):
 
         search_key = _ascii_key(player_name)
 
-        all_player_names = df['player_name'].unique().tolist()
-        matched_name = None
-        for n in all_player_names:
-            if _ascii_key(n) == search_key:
-                matched_name = n
-                break
-        if not matched_name:
-            for n in all_player_names:
-                if search_key in _ascii_key(n) or _ascii_key(n) in search_key:
-                    matched_name = n
-                    break
-        if not matched_name:
+        candidates = df[df["player_name"].map(_ascii_key).eq(search_key)].copy()
+        if not search_key or candidates.empty:
             return {"error": f"No shot data for {player_name}", "zones": {}}
-
-        player_row = df[df['player_name'] == matched_name].iloc[0]
+        if "player_id" in candidates and candidates.player_id.dropna().nunique() > 1:
+            return {"error": "Multiple player identities match this name; shot data needs review.", "zones": {}}
+        from utils.player_rows import collapse_player_alias_rows
+        player_row = collapse_player_alias_rows(candidates, normalizer=_ascii_key).iloc[0]
+        matched_name = player_row["player_name"]
 
         total_fga = int(player_row.get('total_fga', 0) or 0)
         zones = {}

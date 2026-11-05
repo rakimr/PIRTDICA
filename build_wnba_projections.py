@@ -24,6 +24,8 @@ import sqlite3
 import unicodedata
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from utils.name_normalize import normalize_player_name
+from team_map import normalize_wnba_team
 
 DB = "dfs_nba.db"
 
@@ -50,8 +52,7 @@ WNBA_FRANCHISES = (
 
 
 def norm(name):
-    s = unicodedata.normalize("NFKD", str(name)).encode("ascii", "ignore").decode()
-    return "".join(ch for ch in s.lower() if ch.isalnum())
+    return normalize_player_name(name).replace(" ", "")
 
 
 def _mean(xs):
@@ -729,7 +730,7 @@ def build_prop_recs(cur, factors):
     try:
         for home, away, gdate_g, spread, total in cur.execute(
                 "SELECT home_team, away_team, game_date, home_spread, game_total FROM wnba_games"):
-            game_env[(home, away, gdate_g)] = (spread, total)
+            game_env[(normalize_wnba_team(home), normalize_wnba_team(away), gdate_g)] = (spread, total)
     except sqlite3.OperationalError:
         pass  # pre-migration wnba_games without odds columns
 
@@ -758,8 +759,8 @@ def build_prop_recs(cur, factors):
         if not proj_row:
             continue
         _, roster_team, _, games, season_avg, last5_avg, sd, cv, projected, min_avg = proj_row
-        home_abbr = name_to_abbr.get(home, "")
-        away_abbr = name_to_abbr.get(away, "")
+        home_abbr = normalize_wnba_team(name_to_abbr.get(home, home))
+        away_abbr = normalize_wnba_team(name_to_abbr.get(away, away))
         if line is None or line <= 0:
             continue
         real_name = name_lookup.get(norm(pname), pname)
@@ -821,7 +822,8 @@ def build_prop_recs(cur, factors):
                                 for v in observed) / len(observed), 0)
         dva_supports = ((af > 1.0 and side == "OVER")
                         or (af < 1.0 and side == "UNDER"))
-        spread, total = game_env.get((home, away, gdate), (None, None))
+        spread, total = game_env.get(
+            (normalize_wnba_team(home), normalize_wnba_team(away), gdate), (None, None))
         env_pen = game_env_penalty(side, spread, min_avg)
         score_edge = max(0.0, probability_edge or 0.0)
         comp = composite(score_edge, hr, cv, dva_supports, env_pen)

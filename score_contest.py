@@ -276,7 +276,7 @@ def score_contest(contest_date: date = None, force: bool = False):
     snapshot_matched = 0
     minutes_matched = 0
     for snapshot in snapshots:
-        normalized = snapshot.player_name_normalized or normalize_name(snapshot.player_name)
+        normalized = normalize_name(snapshot.player_name or snapshot.player_name_normalized)
         if normalized in name_to_fp:
             snapshot.actual_fp = name_to_fp[normalized]
             if snapshot.proj_fp and snapshot.proj_fp > 0:
@@ -405,7 +405,7 @@ def update_adjustment_factors():
     player_display_names = {}
     player_minutes_errors = {}
     for snap in snapshots:
-        normalized = snap.player_name_normalized or normalize_name(snap.player_name)
+        normalized = normalize_name(snap.player_name or snap.player_name_normalized)
         if normalized not in player_errors:
             player_errors[normalized] = []
             player_actuals[normalized] = []

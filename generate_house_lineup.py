@@ -250,7 +250,8 @@ def generate_house_lineup(force=False, exclude_teams=None):
     for snap in db.query(models.ProjectionSnapshot).filter(
         models.ProjectionSnapshot.contest_id == contest.id
     ).all():
-        existing_snapshots[snap.player_name_normalized] = snap
+        existing_snapshots[normalize_player_name(
+            snap.player_name or snap.player_name_normalized)] = snap
     
     snapshot_added = 0
     snapshot_updated = 0

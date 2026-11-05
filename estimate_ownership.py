@@ -20,10 +20,8 @@ import re
 import os
 
 def _normalize_name(name):
-    """Normalize player name for matching (local copy to avoid backend import)."""
-    name = unicodedata.normalize('NFKD', name).encode('ASCII', 'ignore').decode('ASCII')
-    name = re.sub(r'\s+(Jr\.?|Sr\.?|II|III|IV)$', '', name, flags=re.IGNORECASE)
-    return name.strip()
+    from utils.player_name_key import nba_player_name_key
+    return nba_player_name_key(name)
 
 def can_play(fd_pos, slot):
     """Check if player can fill a position slot."""
