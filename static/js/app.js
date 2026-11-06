@@ -1,3 +1,6 @@
+// Install navigation feedback independently of page/table initialization.
+initPageNavigationTransition();
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('PIRTDICA loaded');
     
@@ -5,7 +8,6 @@ document.addEventListener('DOMContentLoaded', function() {
     initTableSearch();
     initNotifications();
     initCookieConsent();
-    initPageNavigationTransition();
 });
 
 function initPageNavigationTransition() {
@@ -15,12 +17,16 @@ function initPageNavigationTransition() {
     var pendingKey = 'pirtdicaPageNavigationPending';
     var fallbackTimer = null;
     var revealTimer = null;
+    var navigationScheduled = false;
 
     function clearPending() {
         try { window.sessionStorage.removeItem(pendingKey); } catch (e) {}
     }
 
     function showOverlay() {
+        if (revealTimer) window.clearTimeout(revealTimer);
+        revealTimer = null;
+        overlay.classList.remove('is-revealing');
         overlay.classList.add('page-loading', 'is-visible');
         overlay.setAttribute('aria-hidden', 'false');
     }
@@ -37,7 +43,7 @@ function initPageNavigationTransition() {
             revealTimer = window.setTimeout(function() {
                 overlay.classList.remove('page-loading', 'is-revealing');
                 revealTimer = null;
-            }, 480);
+            }, 320);
             return;
         }
         if (revealTimer) window.clearTimeout(revealTimer);
@@ -45,27 +51,42 @@ function initPageNavigationTransition() {
         overlay.classList.remove('page-loading', 'is-visible', 'is-revealing');
     }
 
-    var pending = false;
+    var pendingStarted = 0;
     try {
-        pending = window.sessionStorage.getItem(pendingKey) === '1';
-        if (pending) window.sessionStorage.removeItem(pendingKey);
+        pendingStarted = Number(window.sessionStorage.getItem(pendingKey)) || 0;
+        if (Date.now() - pendingStarted < 0 ||
+            Date.now() - pendingStarted > 30000) pendingStarted = 0;
+        window.sessionStorage.removeItem(pendingKey);
     } catch (e) {}
-    if (pending) {
+    if (pendingStarted) {
         showOverlay();
-        // The arriving page is already parsed. Reveal it smoothly instead of
-        // flashing the loader for a few milliseconds and then cutting away.
-        window.requestAnimationFrame(function() {
-            window.requestAnimationFrame(function() {
-                hideOverlay(false);
-            });
-        });
+        function revealWhenReady() {
+            // Count time already spent waiting for the server. Fast pages get
+            // a short, continuous handoff rather than a one-frame flash.
+            revealTimer = window.setTimeout(function() {
+                window.requestAnimationFrame(function() {
+                    window.requestAnimationFrame(function() {
+                        hideOverlay(false);
+                    });
+                });
+            }, Math.max(0, 300 - (Date.now() - pendingStarted)));
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', revealWhenReady, {once: true});
+        } else {
+            revealWhenReady();
+        }
     }
 
     window.addEventListener('pageshow', function(event) {
-        if (event.persisted) hideOverlay(true);
+        if (event.persisted) {
+            navigationScheduled = false;
+            hideOverlay(true);
+        }
     });
 
-    document.addEventListener('click', function(event) {
+    // Run after target/document handlers so cancelled/custom links stay intact.
+    window.addEventListener('click', function(event) {
         if (event.defaultPrevented || event.button !== 0 ||
             event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
 
@@ -81,20 +102,38 @@ function initPageNavigationTransition() {
 
         var destination;
         try { destination = new URL(rawHref, window.location.href); } catch (e) { return; }
-        if (destination.origin !== window.location.origin ||
+        if (!/^https?:$/.test(destination.protocol) ||
+            destination.origin !== window.location.origin ||
             (destination.pathname === window.location.pathname &&
              destination.search === window.location.search)) return;
 
-        Promise.resolve().then(function() {
-            if (event.defaultPrevented) return;
-            showOverlay();
-            try { window.sessionStorage.setItem(pendingKey, '1'); } catch (e) {}
-            // A script-cancelled navigation must not leave the overlay stuck.
-            fallbackTimer = window.setTimeout(function() {
-                hideOverlay(false);
-            }, 10000);
+        event.preventDefault();
+        if (navigationScheduled) return;
+        navigationScheduled = true;
+        showOverlay();
+        try { window.sessionStorage.setItem(pendingKey, String(Date.now())); } catch (e) {}
+
+        var committed = false;
+        var commitTimer = null;
+        function commitNavigation() {
+            if (committed) return;
+            committed = true;
+            if (commitTimer) window.clearTimeout(commitTimer);
+            window.location.assign(destination.href);
+        }
+        // Allow an actual paint BEFORE starting a full-document navigation.
+        // A microtask runs before paint and cannot provide that guarantee.
+        window.requestAnimationFrame(function() {
+            window.requestAnimationFrame(commitNavigation);
         });
+        // Background tabs can throttle animation frames; navigation must work.
+        commitTimer = window.setTimeout(commitNavigation, 120);
+        fallbackTimer = window.setTimeout(function() {
+            navigationScheduled = false;
+            hideOverlay(false);
+        }, 15000);
     });
+
 }
 
 function playerHeadshotInitials(name) {

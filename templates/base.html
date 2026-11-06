@@ -24,16 +24,26 @@
         <div class="league-transition-inner">
             <span class="navigation-loader-mark" aria-hidden="true">
                 <img src="/static/images/pirtdica_logo.png?v={{ brand_asset_version }}" alt="" width="84" height="84">
-                <span class="navigation-loader-eye-mask">
-                    <span class="navigation-loader-pupil">
-                        <span class="navigation-loader-highlight"></span>
-                    </span>
-                </span>
             </span>
             <span class="league-transition-label" id="leagueTransitionLabel">WNBA</span>
             <span class="navigation-loader-status" id="pageTransitionStatus" role="status" aria-live="polite" aria-atomic="true">Loading page</span>
         </div>
     </div>
+    <script id="pageTransitionRestore">
+    // Restore feedback before parsing the destination page's content/scripts.
+    (function() {
+        try {
+            var started = Number(sessionStorage.getItem('pirtdicaPageNavigationPending'));
+            if (started > 0 && Date.now() - started >= 0 && Date.now() - started < 30000) {
+                var overlay = document.getElementById('leagueTransition');
+                overlay.classList.add('page-loading', 'is-visible');
+                overlay.setAttribute('aria-hidden', 'false');
+            } else {
+                sessionStorage.removeItem('pirtdicaPageNavigationPending');
+            }
+        } catch (e) {}
+    })();
+    </script>
     <nav class="navbar">
         <div class="nav-container">
             <a href="/" class="logo"><img src="/static/images/pirtdica_logo.png?v={{ brand_asset_version }}" alt="PIRTDICA" class="logo-icon" width="38" height="38">PIRTDICA</a>

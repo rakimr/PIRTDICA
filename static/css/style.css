@@ -6311,16 +6311,16 @@ body[data-league="wnba"] .btn-play {
     transition: opacity 0.4s ease 0.12s, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s;
 }
 
-/* Lightweight feedback for normal same-site page changes. The logo itself
-   stays intact; a small pupil movement and rotating orbit provide motion. */
+/* Lightweight feedback for normal same-site page changes. The original logo
+   stays intact; scaling and a rotating orbit provide motion. */
 .league-transition.page-loading {
     inset: 0;
     transform: none;
     opacity: 0;
     background: rgba(255, 255, 255, 0.96);
-    transition: opacity 0.18s ease;
+    transition: none;
     pointer-events: none;
-    z-index: 10000;
+    z-index: 10001;
 }
 .league-transition.page-loading.is-visible {
     opacity: 1;
@@ -6329,9 +6329,10 @@ body[data-league="wnba"] .btn-play {
 .league-transition.page-loading.is-revealing {
     opacity: 0;
     pointer-events: none;
+    transition: opacity 0.3s ease;
 }
 .league-transition.page-loading.is-revealing .navigation-loader-mark {
-    animation: navigation-loader-exit 0.46s cubic-bezier(0.2, 0.75, 0.25, 1) forwards;
+    animation: navigation-loader-exit 0.3s cubic-bezier(0.2, 0.75, 0.25, 1) forwards;
 }
 .league-transition.page-loading .league-transition-inner {
     display: flex;
@@ -6365,36 +6366,6 @@ body[data-league="wnba"] .btn-play {
 .league-transition.page-loading .navigation-loader-mark {
     display: block;
 }
-.navigation-loader-eye-mask {
-    position: absolute;
-    left: 39%;
-    top: 27%;
-    width: 22%;
-    height: 22%;
-    border-radius: 50%;
-    background: #fff;
-    pointer-events: none;
-}
-.navigation-loader-pupil {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 82%;
-    height: 82%;
-    border-radius: 50%;
-    background: var(--primary);
-    transform: translate(-50%, -50%);
-    animation: navigation-loader-gaze 1.7s ease-in-out infinite;
-}
-.navigation-loader-highlight {
-    position: absolute;
-    left: 59%;
-    top: 18%;
-    width: 23%;
-    height: 23%;
-    border-radius: 50%;
-    background: #fff;
-}
 .league-transition.page-loading .league-transition-label {
     display: none;
 }
@@ -6420,16 +6391,10 @@ body[data-league="wnba"] .btn-play {
     0% { transform: scale(1); }
     100% { transform: scale(0.64); }
 }
-@keyframes navigation-loader-gaze {
-    0%, 12%, 82%, 100% { transform: translate(-50%, -50%); }
-    34%, 58% { transform: translate(-40%, -72%); }
-}
 @media (prefers-reduced-motion: reduce) {
     .league-transition.page-loading,
     .league-transition.page-loading .navigation-loader-mark,
-    .league-transition.page-loading .navigation-loader-mark::after,
-    .league-transition.page-loading .navigation-loader-pupil,
-    .league-transition.page-loading .navigation-loader-highlight {
+    .league-transition.page-loading .navigation-loader-mark::after {
         animation: none;
         transition: none;
     }
