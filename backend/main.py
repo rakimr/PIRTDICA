@@ -13,6 +13,8 @@ import json
 import threading
 import subprocess
 import sqlite3
+import copy
+from concurrent.futures import ThreadPoolExecutor
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC_DIR = os.path.join(PROJECT_ROOT, "static")
@@ -93,8 +95,46 @@ templates.env.globals["brand_asset_version"] = max(
 templates.env.globals["app_js_version"] = int(os.path.getmtime(
     os.path.join(STATIC_DIR, "js", "app.js")
 )) if os.path.exists(os.path.join(STATIC_DIR, "js", "app.js")) else 1
+templates.env.globals["style_css_version"] = os.stat(
+    os.path.join(STATIC_DIR, "css", "style.css")
+).st_mtime_ns if os.path.exists(os.path.join(STATIC_DIR, "css", "style.css")) else 1
 
 _house_lineup_lock = threading.Lock()
+_home_data_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="home-data")
+_home_snapshot_lock = threading.Lock()
+_home_snapshot_cache = {}
+_HOME_SNAPSHOT_SECONDS = 10
+
+
+def _home_snapshot(key, loader):
+    """Short-lived cache for shared home-page data, never for user-specific rows."""
+    now = time.monotonic()
+    with _home_snapshot_lock:
+        cached = _home_snapshot_cache.get(key)
+        if cached and now < cached[0]:
+            return copy.deepcopy(cached[1])
+
+    value = loader()
+    with _home_snapshot_lock:
+        _home_snapshot_cache[key] = (
+            time.monotonic() + _HOME_SNAPSHOT_SECONDS,
+            copy.deepcopy(value),
+        )
+    return value
+
+
+def _load_home_guest_data():
+    import pandas as pd
+
+    try:
+        recommendations = data_access.get_prop_recommendations()
+    except Exception:
+        recommendations = pd.DataFrame()
+    try:
+        players = data_access.get_dfs_players()
+    except Exception:
+        players = pd.DataFrame()
+    return recommendations, players
 
 def auto_generate_house_lineup():
     if not _house_lineup_lock.acquire(blocking=False):
@@ -310,7 +350,9 @@ _player_headshot_cache = {}
 _player_headshot_cache_expiry = {}
 _player_headshot_cache_lock = threading.Lock()
 _player_headshot_refresh_lock = threading.Lock()
+_player_headshot_refreshing = set()
 _PLAYER_HEADSHOT_CACHE_SECONDS = 21600
+_PLAYER_HEADSHOT_RETRY_SECONDS = 300
 
 _ESPN_NBA_TEAM_IDS = {
     "ATL": 1, "BOS": 2, "BKN": 17, "BRK": 17, "CHA": 30, "CHO": 30,
@@ -403,16 +445,59 @@ def _get_current_espn_headshots():
         print(f"[headshots] Could not load current ESPN headshots: {exc}")
         return {}
 
+def _refresh_current_espn_headshots_background(league):
+    """Refresh external ESPN roster cutouts without holding up a page response."""
+    try:
+        overrides = _get_current_espn_headshots() if league == "nba" else {}
+        with _player_headshot_cache_lock:
+            refreshed = dict(_player_headshot_cache.get(league, {}))
+            refreshed.update(overrides)
+            _player_headshot_cache[league] = refreshed
+            _player_headshot_cache_expiry[league] = time.monotonic() + (
+                _PLAYER_HEADSHOT_CACHE_SECONDS if overrides else _PLAYER_HEADSHOT_RETRY_SECONDS
+            )
+    finally:
+        with _player_headshot_cache_lock:
+            _player_headshot_refreshing.discard(league)
+
+def _schedule_current_espn_headshot_refresh(league):
+    if league != "nba":
+        return
+    with _player_headshot_cache_lock:
+        if league in _player_headshot_refreshing:
+            return
+        _player_headshot_refreshing.add(league)
+    try:
+        threading.Thread(
+            target=_refresh_current_espn_headshots_background,
+            args=(league,),
+            daemon=True,
+            name=f"{league}-headshot-refresh",
+        ).start()
+    except Exception:
+        with _player_headshot_cache_lock:
+            _player_headshot_refreshing.discard(league)
+
 def get_player_headshots(league="nba"):
     league = "wnba" if str(league or "").strip().lower() == "wnba" else "nba"
+    now = time.monotonic()
     with _player_headshot_cache_lock:
-        if time.monotonic() < _player_headshot_cache_expiry.get(league, 0):
-            return _player_headshot_cache[league]
+        cached = _player_headshot_cache.get(league)
+        if cached is not None and now < _player_headshot_cache_expiry.get(league, 0):
+            return cached
+
+    # Keep a usable stale snapshot available while current roster cutouts are
+    # refreshed in the background. Never make page rendering wait on ESPN.
+    if cached is not None:
+        _schedule_current_espn_headshot_refresh(league)
+        return cached
 
     with _player_headshot_refresh_lock:
         with _player_headshot_cache_lock:
-            if time.monotonic() < _player_headshot_cache_expiry.get(league, 0):
-                return _player_headshot_cache[league]
+            cached = _player_headshot_cache.get(league)
+            if cached is not None:
+                if time.monotonic() < _player_headshot_cache_expiry.get(league, 0):
+                    return cached
 
         headshots = {}
         if league == "nba":
@@ -448,12 +533,17 @@ def get_player_headshots(league="nba"):
                         headshots[key] = url
             except Exception as exc:
                 print(f"[headshots] Could not load current roster cutouts: {exc}")
-            headshots.update(_get_current_espn_headshots())
 
         with _player_headshot_cache_lock:
-            _player_headshot_cache[league] = headshots
+            # Keep existing aliases if another request populated the cache
+            # between the initial lookup and this DB-backed cold load.
+            refreshed = dict(_player_headshot_cache.get(league, {}))
+            refreshed.update(headshots)
+            _player_headshot_cache[league] = refreshed
             _player_headshot_cache_expiry[league] = time.monotonic() + _PLAYER_HEADSHOT_CACHE_SECONDS
-        return headshots
+
+    _schedule_current_espn_headshot_refresh(league)
+    return _player_headshot_cache[league]
 
 def get_player_headshot_url(name, league="nba"):
     for key in _headshot_name_keys(name):
@@ -1638,6 +1728,15 @@ def home(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     league = get_league(request)
     today = get_eastern_today()
+    headshots_future = _home_data_executor.submit(get_player_headshots, league)
+    game_times_future = _home_data_executor.submit(
+        _home_snapshot, "game_times", data_access.get_all_game_times
+    )
+    guest_data_future = None
+    if not user:
+        guest_data_future = _home_data_executor.submit(
+            _home_snapshot, "guest_edge_data", _load_home_guest_data
+        )
     
     contest = db.query(models.Contest).filter(models.Contest.slate_date == today).first()
     is_todays_contest = contest is not None
@@ -1647,7 +1746,7 @@ def home(request: Request, db: Session = Depends(get_db)):
     
     house_players = []
     user_entry = None
-    headshots = get_player_headshots()
+    headshots = headshots_future.result()
     no_games_today = False
     
     if contest:
@@ -1672,7 +1771,7 @@ def home(request: Request, db: Session = Depends(get_db)):
         from zoneinfo import ZoneInfo
         eastern = ZoneInfo("America/New_York")
         now_et = datetime.now(eastern)
-        game_times_raw = data_access.get_all_game_times()
+        game_times_raw = game_times_future.result()
         
         if not game_times_raw:
             no_games_today = True
@@ -1826,8 +1925,10 @@ def home(request: Request, db: Session = Depends(get_db)):
     game_count = len(slate_games)
     if not user:
         try:
-            edge_insights = _build_edge_insights(data_access.get_prop_recommendations())
+            home_props, home_players = guest_data_future.result()
+            edge_insights = _build_edge_insights(home_props)
         except Exception:
+            home_players = None
             edge_insights = []
         # WNBA may fill the ticker only in the NBA offseason. During NBA season,
         # missing or stale NBA data leaves this edge strip empty rather than
@@ -1846,7 +1947,7 @@ def home(request: Request, db: Session = Depends(get_db)):
             except Exception:
                 pass
         try:
-            dfs_df = data_access.get_dfs_players()
+            dfs_df = home_players
             if not dfs_df.empty:
                 player_count = len(dfs_df[dfs_df.get('salary', dfs_df.get('salary', 0)) > 0]) if 'salary' in dfs_df.columns else len(dfs_df)
         except:

@@ -5,7 +5,97 @@ document.addEventListener('DOMContentLoaded', function() {
     initTableSearch();
     initNotifications();
     initCookieConsent();
+    initPageNavigationTransition();
 });
+
+function initPageNavigationTransition() {
+    var overlay = document.getElementById('leagueTransition');
+    if (!overlay) return;
+
+    var pendingKey = 'pirtdicaPageNavigationPending';
+    var fallbackTimer = null;
+    var revealTimer = null;
+
+    function clearPending() {
+        try { window.sessionStorage.removeItem(pendingKey); } catch (e) {}
+    }
+
+    function showOverlay() {
+        overlay.classList.add('page-loading', 'is-visible');
+        overlay.setAttribute('aria-hidden', 'false');
+    }
+
+    function hideOverlay(immediate) {
+        if (fallbackTimer) window.clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+        overlay.setAttribute('aria-hidden', 'true');
+        clearPending();
+        if (!immediate && overlay.classList.contains('is-visible')) {
+            overlay.classList.add('is-revealing');
+            overlay.classList.remove('is-visible');
+            if (revealTimer) window.clearTimeout(revealTimer);
+            revealTimer = window.setTimeout(function() {
+                overlay.classList.remove('page-loading', 'is-revealing');
+                revealTimer = null;
+            }, 480);
+            return;
+        }
+        if (revealTimer) window.clearTimeout(revealTimer);
+        revealTimer = null;
+        overlay.classList.remove('page-loading', 'is-visible', 'is-revealing');
+    }
+
+    var pending = false;
+    try {
+        pending = window.sessionStorage.getItem(pendingKey) === '1';
+        if (pending) window.sessionStorage.removeItem(pendingKey);
+    } catch (e) {}
+    if (pending) {
+        showOverlay();
+        // The arriving page is already parsed. Reveal it smoothly instead of
+        // flashing the loader for a few milliseconds and then cutting away.
+        window.requestAnimationFrame(function() {
+            window.requestAnimationFrame(function() {
+                hideOverlay(false);
+            });
+        });
+    }
+
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted) hideOverlay(true);
+    });
+
+    document.addEventListener('click', function(event) {
+        if (event.defaultPrevented || event.button !== 0 ||
+            event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+        var origin = event.target instanceof Element ? event.target : null;
+        var link = origin && origin.closest('a[href]');
+        if (!link || link.hasAttribute('download') ||
+            link.hasAttribute('data-no-page-transition') ||
+            (link.target && link.target.toLowerCase() !== '_self')) return;
+
+        var rawHref = (link.getAttribute('href') || '').trim();
+        if (!rawHref || rawHref.charAt(0) === '#' ||
+            /^(mailto:|tel:|javascript:|data:)/i.test(rawHref)) return;
+
+        var destination;
+        try { destination = new URL(rawHref, window.location.href); } catch (e) { return; }
+        if (destination.origin !== window.location.origin ||
+            (destination.pathname === window.location.pathname &&
+             destination.search === window.location.search)) return;
+
+        Promise.resolve().then(function() {
+            if (event.defaultPrevented) return;
+            showOverlay();
+            try { window.sessionStorage.setItem(pendingKey, '1'); } catch (e) {}
+            // A script-cancelled navigation must not leave the overlay stuck.
+            fallbackTimer = window.setTimeout(function() {
+                hideOverlay(false);
+            }, 10000);
+        });
+    });
+}
 
 function playerHeadshotInitials(name) {
     return String(name || '').trim().split(/\s+/).filter(Boolean)

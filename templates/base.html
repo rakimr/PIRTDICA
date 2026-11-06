@@ -14,7 +14,7 @@
     <meta name="twitter:description" content="Advanced basketball analytics and competitive fantasy sports.">
     <meta name="twitter:image" content="{{ request.url_for('static', path='images/pirtdica_logo.png') }}?v={{ brand_asset_version }}">
     <link rel="icon" type="image/png" href="/static/favicon.png?v={{ brand_asset_version }}">
-    <link rel="stylesheet" href="/static/css/style.css?v={{ range(1, 99999) | random }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ style_css_version }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Marvel:ital,wght@0,400;0,700;1,400;1,700&family=Righteous&display=swap" rel="stylesheet">
@@ -22,7 +22,16 @@
 <body data-league="{{ league|default('nba') }}">
     <div class="league-transition" id="leagueTransition" aria-hidden="true">
         <div class="league-transition-inner">
+            <span class="navigation-loader-mark" aria-hidden="true">
+                <img src="/static/images/pirtdica_logo.png?v={{ brand_asset_version }}" alt="" width="84" height="84">
+                <span class="navigation-loader-eye-mask">
+                    <span class="navigation-loader-pupil">
+                        <span class="navigation-loader-highlight"></span>
+                    </span>
+                </span>
+            </span>
             <span class="league-transition-label" id="leagueTransitionLabel">WNBA</span>
+            <span class="navigation-loader-status" id="pageTransitionStatus" role="status" aria-live="polite" aria-atomic="true">Loading page</span>
         </div>
     </div>
     <nav class="navbar">
