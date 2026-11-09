@@ -1,6 +1,7 @@
 import os
 import stripe
 import logging
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -337,13 +338,39 @@ def get_user_active_plans(db, user_id):
         UserSubscription.user_id == user_id,
         UserSubscription.status.in_(ENTITLED_STATUSES),
     ).all()
-    return [s.plan for s in subs]
+    now = datetime.now(timezone.utc)
+    return [
+        s.plan for s in subs
+        if _period_end_is_active(s.current_period_end, now=now)
+    ]
+
+
+def _period_end_is_active(period_end, now=None):
+    """Treat a subscription with an end date as entitled only until that instant.
+
+    Database DateTime columns are stored as naive UTC in this app; normalize
+    both naive and timezone-aware values before comparing.
+    """
+    if period_end is None:
+        return True
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    if period_end.tzinfo is None:
+        period_end = period_end.replace(tzinfo=timezone.utc)
+    else:
+        period_end = period_end.astimezone(timezone.utc)
+    return period_end > now
 
 
 def _legacy_check(user, allowed_plans):
     status = getattr(user, 'subscription_status', None)
     plan = getattr(user, 'subscription_plan', None)
     if status not in ENTITLED_STATUSES:
+        return False
+    if not _period_end_is_active(
+        getattr(user, 'subscription_current_period_end', None)
+    ):
         return False
     return plan in allowed_plans
 
@@ -375,7 +402,12 @@ def has_any_subscription(user, db=None):
         plans = get_user_active_plans(db, user.id)
         if plans:
             return True
-    return getattr(user, 'subscription_status', None) in ENTITLED_STATUSES
+    return (
+        getattr(user, "subscription_status", None) in ENTITLED_STATUSES
+        and _period_end_is_active(
+            getattr(user, "subscription_current_period_end", None)
+        )
+    )
 
 
 def is_subscriber(user, db=None):
