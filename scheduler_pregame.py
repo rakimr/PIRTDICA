@@ -191,6 +191,26 @@ def _load_fired_state(state_path=None):
         return {}
 
 
+def compute_refresh_waves(db_path=None):
+    """Initial T-90, existing T-60 lock wave, and T-30 late-news refresh.
+
+    Fold identical triggers, not distinct tips: late games still get their own
+    last check. Past games are never refreshed as if they were pregame.
+    """
+    tips = get_all_game_times_today_et(db_path)
+    if not tips:
+        return compute_waves_today(db_path)
+    waves = {}
+    now = get_et_now()
+    for tip in tips:
+        if tip <= now + timedelta(minutes=15):
+            continue
+        for lead in (90, 60, 30):
+            wave = tip - timedelta(minutes=lead)
+            waves.setdefault(wave, (wave, tip, f"{lead}m before {tip.strftime('%I:%M %p ET')}"))
+    return sorted(waves.values())
+
+
 def _save_fired_state(state, state_path=None):
     path = state_path or STATE_PATH
     try:
@@ -315,7 +335,7 @@ def sleep_until_next_morning(now):
 
 def print_status():
     now = get_et_now()
-    waves = compute_waves_today()
+    waves = compute_refresh_waves()
     fired = _load_fired_state().get(_today_key(), [])
     print("PRE-GAME REFRESH SCHEDULER — STATUS")
     print(f"  Now (ET):           {now.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -359,7 +379,7 @@ def main():
     print("=" * 50)
     print("PRE-GAME REFRESH SCHEDULER (multi-wave)")
     print(
-        f"Lead: {LEAD_MINUTES}m before each tip | "
+        f"Refreshes: 90m / 60m / 30m before each tip | "
         f"Wave dedupe: {WAVE_DEDUPE_MINUTES}m | "
         f"Grace: {GRACE_WINDOW_MINUTES}m | "
         f"Sleep cap: {SLEEP_CAP_SECONDS}s"
@@ -368,7 +388,7 @@ def main():
 
     while True:
         now = get_et_now()
-        waves = compute_waves_today()
+        waves = compute_refresh_waves()
         action = find_next_action(now, waves)
 
         if action[0] == "done":
@@ -379,8 +399,15 @@ def main():
 
         if action[0] == "fire":
             _, wave_dt, _, label = action
-            run_refresh(label)
-            mark_fired(wave_dt)
+            succeeded = run_refresh(label)
+            if succeeded:
+                mark_fired(wave_dt)
+            else:
+                print("Refresh failed; leaving wave pending for bounded retry.", flush=True)
+                if args.once:
+                    return
+                time.sleep(SLEEP_CAP_SECONDS)
+                continue
             if args.once:
                 continue
             time.sleep(5)

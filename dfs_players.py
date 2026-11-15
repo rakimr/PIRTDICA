@@ -287,11 +287,11 @@ def calculate_usage_adjustment(row):
     """
     team = row["team"]
     player_norm = row["norm_name"]
-    base_usage = row.get("usg_pct", 20.0)
+    base_usage = row.get("usg_pct")
     base_fppm = row.get("fp_per_min", 1.0)
     
-    if pd.isna(base_usage) or base_usage <= 0:
-        base_usage = 20.0
+    if base_usage is None or pd.isna(base_usage) or base_usage <= 0:
+        return base_fppm, base_usage, 0.0
     if pd.isna(base_fppm) or base_fppm <= 0:
         base_fppm = 1.0
     
@@ -312,7 +312,7 @@ def calculate_usage_adjustment(row):
         return base_fppm, base_usage, 0.0
     
     team_active = df[(df["team"] == team) & (~df["norm_name"].isin(team_injuries["norm_name"]))]
-    team_total_usage = team_active["usg_pct"].fillna(20.0).sum()
+    team_total_usage = team_active["usg_pct"].fillna(0).sum()
     
     if team_total_usage <= 0:
         team_total_usage = 100.0
@@ -332,7 +332,7 @@ df["fppm_adj"] = usage_results[0]
 df["usg_adj"] = usage_results[1]
 df["usg_boost"] = usage_results[2]
 
-df["usg_pct"] = df["usg_pct"].fillna(20.0)
+# Missing usage is unknown, not a fabricated 20% role.
 
 def get_opponent_and_location(row):
     team = row["team"]
@@ -526,6 +526,8 @@ except Exception as _b2b_e:
     df['opp_is_b2b'] = False
     df['rest_advantage_days'] = None
 
+from utils.rotation_budget import cap_team_minutes
+df["projected_min"] = cap_team_minutes(df)
 df["base_fp"] = df["fppm_adj"] * df["projected_min"].fillna(0)
 
 vol_df = pd.read_sql("SELECT player_name, min_sd, fp_sd, avg_fp, max_fp, min_fp, avg_fppm, fppm_sd FROM player_volatility", conn)

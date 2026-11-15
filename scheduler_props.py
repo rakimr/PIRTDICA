@@ -170,11 +170,10 @@ def has_games_today():
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
         cur.execute(
-            "SELECT COUNT(DISTINCT game_time) FROM player_salaries "
-            "WHERE game_time IS NOT NULL AND substr(scraped_at, 1, 10) = ?",
-            (today_et,),
+            "SELECT DISTINCT scraped_at FROM player_salaries WHERE game_time IS NOT NULL",
         )
-        count = cur.fetchone()[0]
+        from utils.pregame_quality import eastern_date
+        count = sum(eastern_date(row[0]) == today_et for row in cur.fetchall())
         conn.close()
         return count > 0
     except Exception:

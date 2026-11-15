@@ -1102,7 +1102,13 @@ def _build_projection_cache():
         cache['odds'] = {}
 
     try:
-        df = pd.read_sql("SELECT player_name, status FROM injury_alerts WHERE status='OUT'", conn)
+        from utils.timezone import get_eastern_day_utc_bounds, get_eastern_date_str
+        start_utc, end_utc = get_eastern_day_utc_bounds()
+        df = pd.read_sql(
+            """SELECT player_name, status FROM injury_alerts WHERE status='OUT'
+               AND ((alert_timestamp IS NOT NULL AND substr(alert_timestamp,1,10)=?)
+                    OR (alert_timestamp IS NULL AND scraped_at>=? AND scraped_at<?))""",
+            conn, params=(get_eastern_date_str(), start_utc, end_utc))
         cache['injuries_out'] = set(df['player_name'].map(nba_player_name_key))
     except Exception:
         cache['injuries_out'] = set()
@@ -1309,6 +1315,13 @@ def _build_game_environment(player, data_cache):
     env['projected_min'] = proj_min
 
     depth = data_cache['depth_charts'].get(team, [])
+    # Depth charts are not a roster authority and may omit newly acquired players.
+    # Include current-team statistical rows when identifying injured teammates.
+    depth = list(depth) + [
+        {'player_name': stats.get('player_name', name)}
+        for name, stats in data_cache['player_stats'].items()
+        if stats.get('team') and normalize_nba_team(stats['team']) == normalize_nba_team(team)
+    ]
     out_players = data_cache['injuries_out']
     seen_out = set()
     out_details = []
@@ -1320,6 +1333,9 @@ def _build_game_environment(player, data_cache):
         if pname_key in out_players and pname_key != player_key and pname_key not in seen_out:
             seen_out.add(pname_key)
             pstats_out = data_cache['player_stats'].get(pname)
+            if pstats_out is None:
+                pstats_out = next((s for n, s in data_cache['player_stats'].items()
+                                   if nba_player_name_key(n) == pname_key), None)
             if (pstats_out and pstats_out.get('team')
                     and normalize_nba_team(pstats_out['team']) != normalize_nba_team(team)):
                 continue  # A stale depth-chart entry is not a current teammate.
@@ -1401,7 +1417,7 @@ def _build_game_environment(player, data_cache):
         env['opportunity_spike_eligible'] = False
 
     elif total_vacated_usage > 0 and out_details:
-        team_remaining_depth = data_cache['depth_charts'].get(team, [])
+        team_remaining_depth = depth
         remaining_players = {}
         for dc_e in team_remaining_depth:
             rp_name = dc_e['player_name']
@@ -1411,7 +1427,7 @@ def _build_game_environment(player, data_cache):
                 if (rp_stats and rp_stats.get('team')
                         and normalize_nba_team(rp_stats['team']) != normalize_nba_team(team)):
                     continue
-                if rp_stats and pd.notna(rp_stats.get('usg_pct')) and pd.notna(rp_stats.get('mpg')) and float(rp_stats.get('mpg', 0)) > 10:
+                if rp_stats and rp_stats.get('stats_basis') != 'prior_season' and pd.notna(rp_stats.get('usg_pct')) and pd.notna(rp_stats.get('mpg')) and float(rp_stats.get('mpg', 0)) > 10:
                     remaining_players[rp_key] = float(rp_stats['usg_pct'])
 
         total_remaining_usg = sum(remaining_players.values())
@@ -1494,7 +1510,18 @@ def _build_game_environment(player, data_cache):
                 blowout_severity = min((abs(spread) - 10) / 12.0, 1.0)
                 env['blowout_minutes_cap'] = 1.0 - (blowout_severity * 0.08)
                 escalated_min *= env['blowout_minutes_cap']
+            allocated = player.get('projected_min', player.get('proj_min'))
             env['projected_min'] = min(escalated_min, 38)
+            if allocated is not None and pd.notna(allocated) and allocated > 0:
+                # Upstream rotation already redistributed absences and enforced
+                # the team budget. Do not add those minutes a second time here.
+                env['projected_min'] = min(env['projected_min'], float(allocated))
+                env['min_escalation'] = max(0.0, env['projected_min'] - player_mpg_val)
+                env['opportunity_index'] = (
+                    env['projected_min'] * new_usg * game_pace_factor / baseline_opp
+                    if baseline_opp > 0 else 1.0
+                )
+                env['opportunity_spike_eligible'] = env['opportunity_index'] >= 1.3
         else:
             env['teammate_out_usage'] = total_vacated_usage * 0.15
             env['teammate_out_reb'] = sum(d['rpg'] for d in out_details) * 0.10

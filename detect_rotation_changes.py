@@ -436,6 +436,11 @@ else:
     )
     rotation_df = rotation_df.drop(columns=["depth_num", "norm_name"], errors="ignore")
 
+# Position-by-position promotions can over-allocate a team's regulation minutes.
+# Cap the team total after alias collapse, without inventing minutes for thin rosters.
+if not rotation_df.empty:
+    from utils.rotation_budget import cap_team_minutes
+    rotation_df["projected_min"] = cap_team_minutes(rotation_df)
 rotation_df.to_sql("rotation_minutes", conn, if_exists="replace", index=False)
 
 conn.close()

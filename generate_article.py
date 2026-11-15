@@ -1770,6 +1770,18 @@ def _build_full_slate_briefing(props_df, dfs_df, game_date=None):
         'key_absences': key_absences[:20],
         'prop_lines': prop_lines,
     }
+    try:
+        from utils.pregame_quality import audit, team_role_context
+        briefing['source_quality'] = audit()
+        briefing['team_injury_context'] = team_role_context()
+        briefing['key_absences'] = [
+            f"{p['player']} ({team}) // {p['status']} // {p['stats_basis']}"
+            for team, players in briefing['team_injury_context'].items()
+            for p in players if p['status'] in ('OUT', 'DOUBTFUL')
+        ]
+    except Exception as exc:
+        briefing['source_quality'] = {'status': 'unavailable', 'note': str(type(exc).__name__)}
+        print(f"[briefing] source/role audit unavailable: {type(exc).__name__}")
     return briefing
 
 
@@ -1868,7 +1880,7 @@ Reasoning rules in playoff mode:
 
 You are competing directly against the sharpest analysts at FanDuel who set these player prop lines. These are highly prepared, well-resourced professionals backed by Vegas-caliber modeling. Your edge comes from identifying situations their models undervalue: usage redistribution cascades from injuries, emerging role changes, archetype-matchup exploits, and game environment convergences that mass-market lines are slow to price in. Respect the lines. Only attack when you have genuine conviction backed by multiple converging signals.
 
-YOUR JOB: Independently analyze the entire slate and select 4-8 HIGH confidence prop picks. You are NOT limited to what the statistical model labeled as HIGH. Evaluate ALL prop lines and find the sharpest edges yourself.
+YOUR JOB: Compare the entire supplied candidate slate, including LOW confidence rows as context, and select zero to eight picks. Only the model's HIGH recommended sides are eligible for official picks. Never force a minimum count or promote a LOW row because injuries create an attractive story. Distinguish current observations from stale or historical scheme/role data.
 
 PICK SELECTION CRITERIA:
 - Look for convergence of multiple positive signals (usage redistribution + matchup alignment + recent form + game environment)
@@ -1978,8 +1990,9 @@ HERE IS THE COMPLETE SLATE DATA (every player prop line with full model context)
 {briefing_json}
 
 Remember:
-- Select 4-8 picks where you see the strongest convergence of signals
-- You can pick ANY prop line from the full slate, not just ones the model labeled HIGH
+- Select zero to eight picks; never force a minimum count
+- Compare all candidates, but select only the model's HIGH recommended side
+- Source-quality warnings and historical-only baselines are limitations, not new opportunity
 - Each analysis must be data-driven, cite specific numbers, and end with **The Call:** line
 - NEVER use em-dashes or double hyphens. Use periods, commas, colons, or "//" instead.
 {playoff_user_reminder}- Return ONLY a JSON object with "picks" and "analyses" keys"""
@@ -2023,7 +2036,7 @@ Remember:
             print("Claude Analyst picks/analyses are not arrays — falling back")
             return None
 
-        if len(picks) < 2:
+        if not picks:
             print(f"Claude Analyst returned only {len(picks)} picks — falling back")
             return None
 
@@ -2105,7 +2118,7 @@ Remember:
 
         print(f"Claude Analyst: {len(picks)} raw picks, {len(valid_picks)} validated against slate")
 
-        if len(valid_picks) < 3:
+        if not valid_picks:
             print("Claude Analyst too few validated picks — falling back")
             return None
 
@@ -2429,7 +2442,9 @@ def generate_article(target_date=None):
         print(f"No model-HIGH recommendations for {target_date}; saving a zero-pick article.")
         save_to_db(target_date, None, [], [], game_count, clear_unlocked=True)
         return True
-    claude_result = build_claude_analyst(high, dfs_df, game_date=target_date)
+    # Screening for an official HIGH call happens on the returned selections,
+    # not on the evidence universe. LOW rows provide comparison and role context.
+    claude_result = build_claude_analyst(props, dfs_df, game_date=target_date)
 
     if claude_result:
         print("Claude Analyst mode: picks selected by Claude from full slate analysis")

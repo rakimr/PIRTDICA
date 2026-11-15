@@ -3563,6 +3563,11 @@ async def admin_scheduler_status(request: Request, db: Session = Depends(get_db)
     schedulers = ["chart_refresh", "pregame_refresh", "postgame_pipeline", "props_refresh"]
 
     out = {"success": True, "schedulers_enabled": os.environ.get("SCHEDULERS_ENABLED") == "1", "items": []}
+    try:
+        with open("/tmp/pirtdica_pregame_quality.json") as quality_file:
+            out["pregame_quality"] = json.load(quality_file)
+    except (OSError, ValueError):
+        out["pregame_quality"] = None
 
     for name in schedulers:
         log_path = os.path.join(log_dir, f"{name}.log")
