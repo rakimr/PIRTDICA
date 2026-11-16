@@ -2037,8 +2037,8 @@ Remember:
             return None
 
         if not picks:
-            print(f"Claude Analyst returned only {len(picks)} picks — falling back")
-            return None
+            print("Claude Analyst abstained; no minimum pick count is required.")
+            return {'picks_data': [], 'analysis_data': []}
 
         analysis_map = {}
         analysis_by_player_only = {}
@@ -2450,6 +2450,9 @@ def generate_article(target_date=None):
         print("Claude Analyst mode: picks selected by Claude from full slate analysis")
         picks_data = claude_result['picks_data']
         analysis_data = claude_result['analysis_data']
+        if not picks_data:
+            save_to_db(target_date, None, [], [], game_count, clear_unlocked=True)
+            return True
         using_best_available = False
         claude_selected = True
     else:
