@@ -162,6 +162,7 @@ baseline_minutes_by_depth.csv
 # Attached assets (planning reference files)
 attached_assets/
 generated-artifacts/
+local-data-exports/
 
 # UV lock file
 uv.lock

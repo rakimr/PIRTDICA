@@ -25,6 +25,12 @@ from utils.timezone import get_eastern_today, get_eastern_now, EASTERN
 
 from backend.database import engine, get_db, Base
 from backend import models, auth, data_access
+from utils.shot_zone_import import (
+    MAX_CSV_BYTES as SHOT_ZONE_IMPORT_MAX_CSV_BYTES,
+    apply_shot_zone_merge,
+    parse_shot_zone_csv,
+    preview_shot_zone_merge,
+)
 from backend.ranking import (
     calculate_mmr_change, update_user_ranking, get_matchmaking_range,
     format_division, DIVISION_COLORS, DIVISIONS
@@ -3314,6 +3320,103 @@ def require_admin(user):
         return False
     return True
 
+
+def _require_live_shot_zone_import_access(request: Request, db: Session):
+    user = get_current_user(request, db)
+    if not require_admin(user):
+        raise HTTPException(status_code=403, detail="Admin access required.")
+    if os.environ.get("SCHEDULERS_ENABLED") != "1":
+        raise HTTPException(
+            status_code=403,
+            detail="Shot-zone imports are disabled outside the live Reserved VM.",
+        )
+    if not data_access.use_postgres():
+        raise HTTPException(
+            status_code=503,
+            detail="The live PostgreSQL data store is not ready.",
+        )
+
+
+async def _read_shot_zone_import_payload(request: Request):
+    body_bytes = await request.body()
+    if len(body_bytes) > SHOT_ZONE_IMPORT_MAX_CSV_BYTES + 10_000:
+        raise HTTPException(status_code=413, detail="The shot-zone CSV is too large.")
+    try:
+        payload = json.loads(body_bytes)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid import request.") from exc
+    csv_text = payload.get("csv") if isinstance(payload, dict) else None
+    if not isinstance(csv_text, str):
+        raise HTTPException(status_code=400, detail="Choose a shot-zone CSV file.")
+    return payload, csv_text
+
+
+@app.post("/admin/shot-zones/preview")
+async def preview_live_shot_zone_import(request: Request, db: Session = Depends(get_db)):
+    try:
+        _require_live_shot_zone_import_access(request, db)
+        _, csv_text = await _read_shot_zone_import_payload(request)
+        parsed = parse_shot_zone_csv(csv_text)
+        with engine.connect() as conn:
+            summary = preview_shot_zone_merge(conn, parsed["rows"])
+        return {
+            "success": True,
+            "season": parsed["season"],
+            "source_fetch": parsed["latest_source_fetch"],
+            "fresh_rows": parsed["fresh_rows"],
+            "skipped_rows": parsed["skipped_rows"],
+            **summary,
+        }
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        return JSONResponse({"success": False, "message": str(exc)}, status_code=400)
+    except Exception as exc:
+        print(f"[SHOT ZONE IMPORT] Preview failed: {type(exc).__name__}")
+        return JSONResponse(
+            {"success": False, "message": "Could not preview the live shot-zone table."},
+            status_code=503,
+        )
+
+
+@app.post("/admin/shot-zones/apply")
+async def apply_live_shot_zone_import(request: Request, db: Session = Depends(get_db)):
+    try:
+        _require_live_shot_zone_import_access(request, db)
+        payload, csv_text = await _read_shot_zone_import_payload(request)
+        if payload.get("confirmation") != "IMPORT SHOT ZONES":
+            raise HTTPException(
+                status_code=400,
+                detail="Type IMPORT SHOT ZONES to confirm the import.",
+            )
+        parsed = parse_shot_zone_csv(csv_text)
+        with engine.begin() as conn:
+            result = apply_shot_zone_merge(conn, parsed["rows"])
+        print(
+            "[SHOT ZONE IMPORT] Applied current-season player shot zones: "
+            f"{result['updates']} updated, {result['inserts']} inserted."
+        )
+        return {
+            "success": True,
+            "season": parsed["season"],
+            "updates": result["updates"],
+            "inserts": result["inserts"],
+            "message": (
+                f"Updated {result['updates']} existing players and added "
+                f"{result['inserts']} new players. Other rows and tables were preserved."
+            ),
+        }
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        return JSONResponse({"success": False, "message": str(exc)}, status_code=400)
+    except Exception as exc:
+        print(f"[SHOT ZONE IMPORT] Apply failed: {type(exc).__name__}")
+        return JSONResponse(
+            {"success": False, "message": "The shot-zone import failed; no changes were applied."},
+            status_code=503,
+        )
+
 @app.get("/admin")
 async def admin_page(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
@@ -3366,6 +3469,7 @@ async def admin_page(request: Request, db: Session = Depends(get_db)):
         "contest": contest,
         "house_players": house_players,
         "official_lock_state": official_lock_state,
+        "shot_zone_import_live": os.environ.get("SCHEDULERS_ENABLED") == "1",
     })
 
 @app.post("/admin/relock-official-call")

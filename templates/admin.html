@@ -39,6 +39,32 @@
             </div>
         </div>
     </div>
+
+    <div class="admin-card">
+        <h2>Import Refreshed NBA Shot Zones</h2>
+        <p>Move only recently fetched current-season player shot-zone rows from your local SQLite database into the live site. The import updates or adds players by NBA player ID and preserves every other row and table.</p>
+        {% if shot_zone_import_live %}
+        <ol style="margin: 0 0 1rem 1.25rem; color: var(--text-muted);">
+            <li>On your computer, run <code>.\.venv\Scripts\python.exe .\export_shot_zone_refresh.py</code> from the PIRTDICA project folder.</li>
+            <li>Choose <code>local-data-exports\player_shot_zones.csv</code> below and preview it.</li>
+            <li>Review the counts, then type <strong>IMPORT SHOT ZONES</strong> to apply.</li>
+        </ol>
+        <input id="shotZoneCsvFile" type="file" accept=".csv,text/csv" style="margin: 0.5rem 0 1rem;">
+        <div>
+            <button id="shotZonePreviewBtn" class="btn-refresh" onclick="previewShotZoneImport()">Preview Import</button>
+        </div>
+        <div id="shotZoneImportResult" role="status" aria-live="polite" style="margin-top: 1rem;"></div>
+        <div id="shotZoneApplyBox" style="display:none; margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border);">
+            <label for="shotZoneConfirm">To apply the previewed import, type IMPORT SHOT ZONES:</label>
+            <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.5rem;">
+                <input id="shotZoneConfirm" type="text" autocomplete="off" style="padding:.55rem; border:1px solid var(--border); border-radius:6px; min-width:220px;">
+                <button id="shotZoneApplyBtn" class="btn-add" onclick="applyShotZoneImport()" disabled>Apply Shot-Zone Rows</button>
+            </div>
+        </div>
+        {% else %}
+        <p class="no-data">For safety, imports are available only from the signed-in admin page on the live site—not from the development preview.</p>
+        {% endif %}
+    </div>
     
     <div class="admin-card">
         <h2>Manual Injury Overrides</h2>
@@ -474,6 +500,99 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+let _shotZoneCsvText = null;
+let _shotZonePreviewReady = false;
+
+document.getElementById('shotZoneConfirm')?.addEventListener('input', (event) => {
+    const applyBtn = document.getElementById('shotZoneApplyBtn');
+    if (applyBtn) applyBtn.disabled = event.target.value !== 'IMPORT SHOT ZONES' || !_shotZonePreviewReady;
+});
+
+async function previewShotZoneImport() {
+    const file = document.getElementById('shotZoneCsvFile')?.files?.[0];
+    const result = document.getElementById('shotZoneImportResult');
+    const applyBox = document.getElementById('shotZoneApplyBox');
+    const previewBtn = document.getElementById('shotZonePreviewBtn');
+    _shotZonePreviewReady = false;
+    _shotZoneCsvText = null;
+    applyBox.style.display = 'none';
+    result.textContent = '';
+    if (!file) {
+        result.textContent = 'Choose the exported player_shot_zones.csv file first.';
+        return;
+    }
+    if (file.size > 2000000) {
+        result.textContent = 'The CSV exceeds the 2 MB safety limit.';
+        return;
+    }
+    previewBtn.disabled = true;
+    previewBtn.textContent = 'Checking...';
+    try {
+        _shotZoneCsvText = await file.text();
+        const response = await fetch('/admin/shot-zones/preview', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({csv: _shotZoneCsvText})
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.detail || data.message || 'The file did not pass validation.');
+        }
+        result.textContent =
+            `Season ${data.season}: ${data.fresh_rows} fresh rows; ` +
+            `${data.updates} existing players will update; ${data.inserts} new players will be added; ` +
+            `${data.skipped_rows} stale/other-season rows skipped. ` +
+            `Live rows before import: ${data.live_rows_before}. No records have been changed.`;
+        _shotZonePreviewReady = true;
+        applyBox.style.display = 'block';
+    } catch (error) {
+        result.textContent = 'Preview failed: ' + String(error.message || error);
+    } finally {
+        previewBtn.disabled = false;
+        previewBtn.textContent = 'Preview Import';
+    }
+}
+
+async function applyShotZoneImport() {
+    const result = document.getElementById('shotZoneImportResult');
+    const confirmation = document.getElementById('shotZoneConfirm').value;
+    const applyBtn = document.getElementById('shotZoneApplyBtn');
+    if (!_shotZonePreviewReady || !_shotZoneCsvText || confirmation !== 'IMPORT SHOT ZONES') {
+        result.textContent = 'Preview the file and type IMPORT SHOT ZONES before applying.';
+        return;
+    }
+    if (!confirm('Apply only these fresh player_shot_zones rows to the live database? No other tables or missing players will be deleted.')) {
+        return;
+    }
+    applyBtn.disabled = true;
+    applyBtn.textContent = 'Applying...';
+    try {
+        const response = await fetch('/admin/shot-zones/apply', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                csv: _shotZoneCsvText,
+                confirmation: confirmation
+            })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.detail || data.message || 'The import did not complete.');
+        }
+        result.textContent = data.message + ' You can remove the local export CSV after confirming the updated charts.';
+        _shotZonePreviewReady = false;
+        _shotZoneCsvText = null;
+        document.getElementById('shotZoneCsvFile').value = '';
+        document.getElementById('shotZoneConfirm').value = '';
+        document.getElementById('shotZoneApplyBox').style.display = 'none';
+    } catch (error) {
+        result.textContent = 'Import failed: ' + String(error.message || error);
+        applyBtn.disabled = false;
+    } finally {
+        applyBtn.textContent = 'Apply Shot-Zone Rows';
+    }
 }
 
 function addInjury(event) {
