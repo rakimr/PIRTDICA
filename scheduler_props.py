@@ -155,27 +155,52 @@ def _effective_last_regen():
 def has_games_today():
     """Return True if there are NBA games on today's slate.
 
-    Day-aware: requires `player_salaries` rows whose `scraped_at` falls on
-    today's ET date AND have a non-null `game_time`. The post-game pipeline
-    refreshes salaries every morning, so a same-day scrape is the strongest
-    signal we have a live slate.
+    Check today's Odds API snapshot first, then same-day salary rows. Both are
+    local snapshots and can lag a live slate during a restart or before the
+    pregame salary refresh, so use ESPN's date-filtered scoreboard as the
+    authoritative fallback.
 
     Conservative: if we can't tell (no salary data yet, table missing, etc.)
-    we still allow the scrape — the scraper itself fetches the events list and
-    will short-circuit cleanly if no games are found, without spending much
-    quota beyond the events lookup.
+    we still allow the scrape — the scraper itself can confirm an empty slate.
     """
     today_et = get_et_now().strftime("%Y-%m-%d")
     try:
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
-        cur.execute(
-            "SELECT DISTINCT scraped_at FROM player_salaries WHERE game_time IS NOT NULL",
-        )
         from utils.pregame_quality import eastern_date
-        count = sum(eastern_date(row[0]) == today_et for row in cur.fetchall())
+
+        for query in (
+            "SELECT scraped_at FROM game_odds",
+            "SELECT scraped_at FROM player_salaries WHERE game_time IS NOT NULL",
+        ):
+            try:
+                cur.execute(query)
+                if any(eastern_date(row[0]) == today_et for row in cur.fetchall()):
+                    conn.close()
+                    return True
+            except sqlite3.Error:
+                # Older or partially initialized local DBs may lack a source
+                # table; keep checking the other available slate sources.
+                continue
         conn.close()
-        return count > 0
+    except Exception:
+        pass
+
+    # Live scoreboard avoids a false "no games" result when the daily salary
+    # scrape has not run yet. Use the shared ESPN helper (no spoofed UA) and a
+    # date-filtered endpoint; this is much lighter than fetching full boxscores.
+    try:
+        from utils.espn_fetch import espn_get_json
+
+        date_param = today_et.replace("-", "")
+        url = (
+            "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/"
+            f"scoreboard?dates={date_param}"
+        )
+        scoreboard = espn_get_json(url, timeout=12)
+        if scoreboard is None:
+            return True
+        return bool(scoreboard.get("events"))
     except Exception:
         return True
 

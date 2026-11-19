@@ -37,6 +37,14 @@ def _localize_et(naive_dt):
 START_HOUR = 8   # First refresh of the day at 8:00 AM ET
 END_HOUR = 17    # Last refresh at 5:00 PM ET (pre-game refresh handles 6 PM+)
 INTERVAL_MIN = 60
+OVERNIGHT_PIPELINE_END_HOUR = 5
+
+NBA_GALLERY_CHART_FILES = (
+    "static/images/value_chart.png",
+    "static/images/upside_chart.png",
+    "static/images/dvp_heatmap.png",
+    "static/images/ref_foul_chart.png",
+)
 
 
 def get_et_now():
@@ -62,6 +70,31 @@ def next_active_tick(now):
 
 def in_active_window(now):
     return START_HOUR <= now.hour <= END_HOUR
+
+
+def charts_stale_for_today(now=None):
+    """Match the NBA Chart Gallery's stale badge, based on chart file mtimes."""
+    now = now or get_et_now()
+    workspace = os.path.dirname(os.path.abspath(__file__))
+    mtimes = [
+        os.path.getmtime(os.path.join(workspace, path))
+        for path in NBA_GALLERY_CHART_FILES
+        if os.path.exists(os.path.join(workspace, path))
+    ]
+    if not mtimes:
+        return True
+    latest = datetime.fromtimestamp(max(mtimes), tz=ET)
+    return latest.date() < now.date()
+
+
+def should_run_startup_catchup(now=None):
+    """Catch up stale charts after-hours, but leave overnight post-game work alone."""
+    now = now or get_et_now()
+    return (
+        not in_active_window(now)
+        and now.hour >= OVERNIGHT_PIPELINE_END_HOUR
+        and charts_stale_for_today(now)
+    )
 
 
 def run_refresh():
@@ -111,6 +144,17 @@ def main():
     if in_active_window(now):
         print(f"\n[{now.strftime('%Y-%m-%d %H:%M ET')}] In active window — running now")
         run_refresh()
+    elif should_run_startup_catchup(now):
+        print(
+            f"\n[{now.strftime('%Y-%m-%d %H:%M ET')}] Charts are stale for today — "
+            "running one startup catch-up refresh"
+        )
+        run_refresh()
+    elif now.hour < OVERNIGHT_PIPELINE_END_HOUR:
+        print(
+            f"\n[{now.strftime('%Y-%m-%d %H:%M ET')}] Overnight pipeline window — "
+            "deferring chart catch-up until the normal refresh window"
+        )
 
     while True:
         now = get_et_now()

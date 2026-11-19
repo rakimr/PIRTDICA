@@ -563,9 +563,7 @@ async function applyShotZoneImport() {
         result.textContent = 'Preview the file and type IMPORT SHOT ZONES before applying.';
         return;
     }
-    if (!confirm('Apply only these fresh player_shot_zones rows to the live database? No other tables or missing players will be deleted.')) {
-        return;
-    }
+    result.textContent = 'Applying the previewed shot-zone rows...';
     applyBtn.disabled = true;
     applyBtn.textContent = 'Applying...';
     try {
